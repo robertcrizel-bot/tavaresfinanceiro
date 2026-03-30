@@ -86,11 +86,11 @@ export default function Dashboard() {
   }, [filtered, topCategory, totalExpense, totalIncome, avgDaily]);
 
   return (
-    <div className="space-y-6 max-w-7xl">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
+    <div className="space-y-4 sm:space-y-6 max-w-7xl">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Dashboard</h1>
         <Select value={period} onValueChange={(v: Period) => setPeriod(v)}>
-          <SelectTrigger className="w-[180px]">
+          <SelectTrigger className="w-full sm:w-[180px]">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -102,7 +102,7 @@ export default function Dashboard() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
         <KpiCard title="Total de Entradas" value={fmt(totalIncome)} icon={TrendingUp} color="green" />
         <KpiCard title="Total de Saídas" value={fmt(totalExpense)} icon={TrendingDown} color="red" />
         <KpiCard title="Gasto Médio Diário" value={fmt(avgDaily)} icon={CalendarDays} color="amber" />
@@ -110,13 +110,13 @@ export default function Dashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
         <ChartCard title="Gastos por Dia">
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={220}>
             <LineChart data={lineData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "hsl(215 15% 52%)" }} />
-              <YAxis tick={{ fontSize: 11, fill: "hsl(215 15% 52%)" }} />
+              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} />
+              <YAxis tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} width={45} />
               <Tooltip
                 contentStyle={{ backgroundColor: "hsl(224 18% 13%)", border: "1px solid hsl(224 14% 18%)", borderRadius: 8, color: "hsl(210 20% 92%)" }}
                 formatter={(value: number) => [fmt(value), "Total"]}
@@ -127,11 +127,11 @@ export default function Dashboard() {
         </ChartCard>
 
         <ChartCard title="Despesas por Categoria">
-          <ResponsiveContainer width="100%" height={260}>
+          <ResponsiveContainer width="100%" height={220}>
             <BarChart data={barData}>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" />
-              <XAxis dataKey="category" tick={{ fontSize: 11, fill: "hsl(215 15% 52%)" }} />
-              <YAxis tick={{ fontSize: 11, fill: "hsl(215 15% 52%)" }} />
+              <XAxis dataKey="category" tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} />
+              <YAxis tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} width={45} />
               <Tooltip
                 contentStyle={{ backgroundColor: "hsl(224 18% 13%)", border: "1px solid hsl(224 14% 18%)", borderRadius: 8, color: "hsl(210 20% 92%)" }}
                 formatter={(value: number) => [fmt(value), "Total"]}
@@ -145,7 +145,7 @@ export default function Dashboard() {
       {/* Insights */}
       <div>
         <h2 className="text-sm font-medium text-muted-foreground mb-3">Insights</h2>
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {insights.map((text, i) => (
             <InsightCard key={i} text={text} />
           ))}

@@ -25,7 +25,7 @@ export function KpiCard({ title, value, icon: Icon, trend, trendUp, color }: Kpi
   return (
     <div
       className={cn(
-        "glass-card rounded-xl p-5 animate-fade-in border-l-4",
+        "glass-card rounded-xl p-3 sm:p-5 animate-fade-in border-l-4",
         c ? [c.border, c.bg] : "border-l-border"
       )}
     >
