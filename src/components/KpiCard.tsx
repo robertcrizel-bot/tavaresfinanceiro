@@ -33,7 +33,7 @@ export function KpiCard({ title, value, icon: Icon, trend, trendUp, color }: Kpi
         <span className="text-sm text-muted-foreground">{title}</span>
         <Icon className={cn("h-5 w-5", c ? c.icon : "text-muted-foreground")} />
       </div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
+      <p className="text-lg sm:text-2xl font-bold text-foreground truncate">{value}</p>
       {trend && (
         <p className={`text-xs mt-1 ${trendUp ? "text-income" : "text-expense"}`}>
           {trend}
