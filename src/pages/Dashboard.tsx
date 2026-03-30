@@ -103,10 +103,10 @@ export default function Dashboard() {
 
       {/* KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard title="Total de Entradas" value={fmt(totalIncome)} icon={TrendingUp} />
-        <KpiCard title="Total de Saídas" value={fmt(totalExpense)} icon={TrendingDown} />
-        <KpiCard title="Gasto Médio Diário" value={fmt(avgDaily)} icon={CalendarDays} />
-        <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} />
+        <KpiCard title="Total de Entradas" value={fmt(totalIncome)} icon={TrendingUp} color="green" />
+        <KpiCard title="Total de Saídas" value={fmt(totalExpense)} icon={TrendingDown} color="red" />
+        <KpiCard title="Gasto Médio Diário" value={fmt(avgDaily)} icon={CalendarDays} color="amber" />
+        <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} color="blue" />
       </div>
 
       {/* Charts */}

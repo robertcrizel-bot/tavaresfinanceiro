@@ -60,6 +60,7 @@ export default {
         },
         income: "hsl(var(--income))",
         expense: "hsl(var(--expense))",
+        info: "hsl(var(--info))",
         sidebar: {
           DEFAULT: "hsl(var(--sidebar-background))",
           foreground: "hsl(var(--sidebar-foreground))",
