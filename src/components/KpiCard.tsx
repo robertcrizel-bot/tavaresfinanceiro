@@ -25,7 +25,7 @@ export function KpiCard({ title, value, icon: Icon, trend, trendUp, color }: Kpi
   return (
     <div
       className={cn(
-        "glass-card rounded-xl p-5 animate-fade-in border-l-4",
+        "glass-card rounded-xl p-3 sm:p-5 animate-fade-in border-l-4",
         c ? [c.border, c.bg] : "border-l-border"
       )}
     >
@@ -33,7 +33,7 @@ export function KpiCard({ title, value, icon: Icon, trend, trendUp, color }: Kpi
         <span className="text-sm text-muted-foreground">{title}</span>
         <Icon className={cn("h-5 w-5", c ? c.icon : "text-muted-foreground")} />
       </div>
-      <p className="text-2xl font-bold text-foreground">{value}</p>
+      <p className="text-lg sm:text-2xl font-bold text-foreground truncate">{value}</p>
       {trend && (
         <p className={`text-xs mt-1 ${trendUp ? "text-income" : "text-expense"}`}>
           {trend}

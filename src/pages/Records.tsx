@@ -48,10 +48,10 @@ export default function Records() {
   }, [handleKeyDown]);
 
   return (
-    <div className="space-y-6 max-w-7xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-        <h1 className="text-2xl font-bold text-foreground">Meus Registros</h1>
-        <Button onClick={() => { setEditing(undefined); setFormOpen(true); }} className="gap-2">
+    <div className="space-y-4 sm:space-y-6 max-w-7xl">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
+        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Meus Registros</h1>
+        <Button onClick={() => { setEditing(undefined); setFormOpen(true); }} className="gap-2 w-full sm:w-auto">
           <Plus className="h-4 w-4" /> Novo Registro
         </Button>
       </div>
@@ -62,23 +62,25 @@ export default function Records() {
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input id="search-records" placeholder="Buscar por título..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
-        <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
-          <SelectTrigger className="w-[150px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todos</SelectItem>
-            <SelectItem value="income">Entrada</SelectItem>
-            <SelectItem value="expense">Saída</SelectItem>
-          </SelectContent>
-        </Select>
-        <Select value={catFilter} onValueChange={(v) => setCatFilter(v as any)}>
-          <SelectTrigger className="w-[180px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">Todas</SelectItem>
-            {ALL_CATEGORIES.map((c) => (
-              <SelectItem key={c} value={c}>{c}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+        <div className="flex gap-3">
+          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+            <SelectTrigger className="w-full sm:w-[150px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todos</SelectItem>
+              <SelectItem value="income">Entrada</SelectItem>
+              <SelectItem value="expense">Saída</SelectItem>
+            </SelectContent>
+          </Select>
+          <Select value={catFilter} onValueChange={(v) => setCatFilter(v as any)}>
+            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas</SelectItem>
+              {ALL_CATEGORIES.map((c) => (
+                <SelectItem key={c} value={c}>{c}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
       </div>
 
       {/* Table or Empty State */}
@@ -90,52 +92,93 @@ export default function Records() {
           actionLabel="Adicionar Registro"
         />
       ) : (
-        <div className="glass-card rounded-xl overflow-hidden animate-fade-in">
-          <Table>
-            <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                <TableHead>Data</TableHead>
-                <TableHead>Título</TableHead>
-                <TableHead>Categoria</TableHead>
-                <TableHead>Tipo</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead className="text-right">Ações</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filtered.map((t) => (
-                <TableRow key={t.id} className="border-border transition-colors">
-                  <TableCell className="text-muted-foreground text-sm">
-                    {new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR")}
-                  </TableCell>
-                  <TableCell className="font-medium text-foreground">{t.title}</TableCell>
-                  <TableCell><Badge variant="outline" className="text-xs">{t.category}</Badge></TableCell>
-                  <TableCell>
+        <>
+          {/* Mobile card layout */}
+          <div className="flex flex-col gap-3 md:hidden">
+            {filtered.map((t) => (
+              <div key={t.id} className="glass-card rounded-xl p-4 animate-fade-in space-y-3">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0 flex-1">
+                    <p className="font-medium text-foreground truncate">{t.title}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">
+                      {new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR")}
+                    </p>
+                  </div>
+                  <p className={`text-sm font-semibold whitespace-nowrap ${t.type === "income" ? "text-income" : "text-expense"}`}>
+                    {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between">
+                  <div className="flex gap-2">
+                    <Badge variant="outline" className="text-xs">{t.category}</Badge>
                     <Badge variant={t.type === "income" ? "default" : "destructive"} className="text-xs">
                       {t.type === "income" ? "Entrada" : "Saída"}
                     </Badge>
-                  </TableCell>
-                  <TableCell className={`text-right font-medium ${t.type === "income" ? "text-income" : "text-expense"}`}>
-                    {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
-                  </TableCell>
-                  <TableCell className="text-right">
-                    <div className="flex justify-end gap-1">
-                      <Button variant="ghost" size="icon" onClick={() => setViewing(t)}>
-                        <Eye className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => { setEditing(t); setFormOpen(true); }}>
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" onClick={() => setDeleting(t.id)}>
-                        <Trash2 className="h-4 w-4 text-destructive" />
-                      </Button>
-                    </div>
-                  </TableCell>
+                  </div>
+                  <div className="flex gap-1">
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewing(t)}>
+                      <Eye className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(t); setFormOpen(true); }}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleting(t.id)}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Desktop table */}
+          <div className="glass-card rounded-xl overflow-hidden animate-fade-in hidden md:block">
+            <Table>
+              <TableHeader>
+                <TableRow className="border-border hover:bg-transparent">
+                  <TableHead>Data</TableHead>
+                  <TableHead>Título</TableHead>
+                  <TableHead>Categoria</TableHead>
+                  <TableHead>Tipo</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
+              </TableHeader>
+              <TableBody>
+                {filtered.map((t) => (
+                  <TableRow key={t.id} className="border-border transition-colors">
+                    <TableCell className="text-muted-foreground text-sm">
+                      {new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR")}
+                    </TableCell>
+                    <TableCell className="font-medium text-foreground">{t.title}</TableCell>
+                    <TableCell><Badge variant="outline" className="text-xs">{t.category}</Badge></TableCell>
+                    <TableCell>
+                      <Badge variant={t.type === "income" ? "default" : "destructive"} className="text-xs">
+                        {t.type === "income" ? "Entrada" : "Saída"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className={`text-right font-medium ${t.type === "income" ? "text-income" : "text-expense"}`}>
+                      {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex justify-end gap-1">
+                        <Button variant="ghost" size="icon" onClick={() => setViewing(t)}>
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => { setEditing(t); setFormOpen(true); }}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeleting(t.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </div>
+        </>
       )}
 
       {/* Modals */}

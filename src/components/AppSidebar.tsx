@@ -11,6 +11,7 @@ import {
   SidebarFooter,
   useSidebar,
 } from "@/components/ui/sidebar";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
@@ -18,11 +19,16 @@ const mainItems = [
 ];
 
 export function AppSidebar() {
-  const { state } = useSidebar();
+  const { state, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
+  const isMobile = useIsMobile();
+
+  const handleNavClick = () => {
+    if (isMobile) setOpenMobile(false);
+  };
 
   return (
-    <Sidebar collapsible="icon" className="border-r border-sidebar-border">
+    <Sidebar collapsible={isMobile ? "offcanvas" : "icon"} className="border-r border-sidebar-border">
       <SidebarContent className="pt-6">
         <div className="px-4 mb-8">
           {!collapsed && (
@@ -30,7 +36,7 @@ export function AppSidebar() {
               Fin<span className="text-primary">Wise</span>
             </h1>
           )}
-          {collapsed && (
+          {collapsed && !isMobile && (
             <span className="text-lg font-bold text-primary">F</span>
           )}
         </div>
@@ -46,9 +52,10 @@ export function AppSidebar() {
                       end={item.url === "/"}
                       className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                       activeClassName="bg-sidebar-accent text-primary font-medium"
+                      onClick={handleNavClick}
                     >
                       <item.icon className="h-5 w-5 shrink-0" />
-                      {!collapsed && <span>{item.title}</span>}
+                      {(!collapsed || isMobile) && <span>{item.title}</span>}
                     </NavLink>
                   </SidebarMenuButton>
                 </SidebarMenuItem>
@@ -66,9 +73,10 @@ export function AppSidebar() {
                 to="/profile"
                 className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
                 activeClassName="bg-sidebar-accent text-primary font-medium"
+                onClick={handleNavClick}
               >
                 <User className="h-5 w-5 shrink-0" />
-                {!collapsed && <span>Meu Perfil</span>}
+                {(!collapsed || isMobile) && <span>Meu Perfil</span>}
               </NavLink>
             </SidebarMenuButton>
           </SidebarMenuItem>

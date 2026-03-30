@@ -66,7 +66,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
             <Label>Título</Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Ex: Supermercado" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Valor (R$)</Label>
               <Input type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="0,00" />
@@ -82,7 +82,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Categoria</Label>
               <Select value={category} onValueChange={(v: Category) => setCategory(v)}>
