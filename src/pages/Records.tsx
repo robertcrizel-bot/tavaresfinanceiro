@@ -109,11 +109,14 @@ export default function Records() {
                   </p>
                 </div>
                 <div className="flex items-center justify-between">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">{t.category}</Badge>
                     <Badge variant={t.type === "income" ? "default" : "destructive"} className="text-xs">
                       {t.type === "income" ? "Entrada" : "Saída"}
                     </Badge>
+                    {t.paymentMethod && (
+                      <Badge variant="secondary" className="text-xs">{t.paymentMethod}</Badge>
+                    )}
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewing(t)}>
