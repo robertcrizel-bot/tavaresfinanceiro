@@ -161,6 +161,9 @@ export default function Records() {
                         {t.type === "income" ? "Entrada" : "Saída"}
                       </Badge>
                     </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {t.paymentMethod || "—"}
+                    </TableCell>
                     <TableCell className={`text-right font-medium ${t.type === "income" ? "text-income" : "text-expense"}`}>
                       {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
                     </TableCell>
