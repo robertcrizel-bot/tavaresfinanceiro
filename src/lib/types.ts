@@ -30,6 +30,25 @@ export const PAYMENT_METHODS: PaymentMethod[] = [
   "Outro",
 ];
 
+export interface Account {
+  id: string;
+  name: string;
+  bank: string;
+  type: "checking" | "savings";
+  initialBalance: number;
+  color: string; // tailwind color key
+}
+
+export interface CreditCard {
+  id: string;
+  name: string;
+  bank: string;
+  limit: number;
+  closingDay: number;
+  dueDay: number;
+  color: string;
+}
+
 export interface Transaction {
   id: string;
   title: string;
@@ -39,6 +58,8 @@ export interface Transaction {
   date: string; // ISO string
   description?: string;
   paymentMethod?: PaymentMethod;
+  accountId?: string;
+  creditCardId?: string;
 }
 
 export const EXPENSE_CATEGORIES: Category[] = [
