@@ -19,7 +19,7 @@ const App = () => (
       <FinanceProvider>
         <AccountProvider>
           <Toaster />
-          <BrowserRouter basename={import.meta.env.BASE_URL}>
+          <BrowserRouter>
             <Routes>
               <Route element={<AppLayout />}>
                 <Route path="/" element={<Dashboard />} />
