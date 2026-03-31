@@ -41,6 +41,12 @@ export function TransactionDetail({ transaction, open, onClose }: TransactionDet
                 {new Date(transaction.date + "T12:00:00").toLocaleDateString("pt-BR")}
               </p>
             </div>
+            {transaction.paymentMethod && (
+              <div>
+                <span className="text-muted-foreground">Forma de Pagamento</span>
+                <p className="text-foreground">{transaction.paymentMethod}</p>
+              </div>
+            )}
           </div>
           {transaction.description && (
             <div className="text-sm">

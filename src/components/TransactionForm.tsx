@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Transaction, TransactionType, Category, EXPENSE_CATEGORIES, INCOME_CATEGORIES } from "@/lib/types";
+import { Transaction, TransactionType, Category, PaymentMethod, EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "@/lib/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +21,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
   const [category, setCategory] = useState<Category>("Outros");
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [description, setDescription] = useState("");
+  const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
 
   useEffect(() => {
     if (initial) {
@@ -30,6 +31,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
       setCategory(initial.category);
       setDate(initial.date);
       setDescription(initial.description || "");
+      setPaymentMethod(initial.paymentMethod || "");
     } else {
       setTitle("");
       setAmount("");
@@ -37,6 +39,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
       setCategory("Outros");
       setDate(new Date().toISOString().split("T")[0]);
       setDescription("");
+      setPaymentMethod("");
     }
   }, [initial, open]);
 
@@ -51,13 +54,14 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
       category,
       date,
       description: description || undefined,
+      paymentMethod: paymentMethod || undefined,
     });
     onClose();
   };
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{initial ? "Editar Registro" : "Novo Registro"}</DialogTitle>
         </DialogHeader>
@@ -100,7 +104,19 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Descrição (opcional)</Label>
+            <Label>Forma de Pagamento <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+            <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
+              <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Nenhuma</SelectItem>
+                {PAYMENT_METHODS.map((m) => (
+                  <SelectItem key={m} value={m}>{m}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label>Descrição <span className="text-muted-foreground text-xs">(opcional)</span></Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
           </div>
           <div className="flex justify-end gap-2 pt-2">

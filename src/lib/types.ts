@@ -11,6 +11,25 @@ export type Category =
   | "Freelance"
   | "Outros";
 
+export type PaymentMethod =
+  | "Dinheiro"
+  | "Cartão de Crédito"
+  | "Cartão de Débito"
+  | "Pix"
+  | "Transferência"
+  | "Boleto"
+  | "Outro";
+
+export const PAYMENT_METHODS: PaymentMethod[] = [
+  "Dinheiro",
+  "Cartão de Crédito",
+  "Cartão de Débito",
+  "Pix",
+  "Transferência",
+  "Boleto",
+  "Outro",
+];
+
 export interface Transaction {
   id: string;
   title: string;
@@ -19,6 +38,7 @@ export interface Transaction {
   category: Category;
   date: string; // ISO string
   description?: string;
+  paymentMethod?: PaymentMethod;
 }
 
 export const EXPENSE_CATEGORIES: Category[] = [

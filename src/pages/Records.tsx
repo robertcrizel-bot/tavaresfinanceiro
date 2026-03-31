@@ -109,11 +109,14 @@ export default function Records() {
                   </p>
                 </div>
                 <div className="flex items-center justify-between">
-                  <div className="flex gap-2">
+                  <div className="flex gap-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">{t.category}</Badge>
                     <Badge variant={t.type === "income" ? "default" : "destructive"} className="text-xs">
                       {t.type === "income" ? "Entrada" : "Saída"}
                     </Badge>
+                    {t.paymentMethod && (
+                      <Badge variant="secondary" className="text-xs">{t.paymentMethod}</Badge>
+                    )}
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewing(t)}>
@@ -135,11 +138,12 @@ export default function Records() {
           <div className="glass-card rounded-xl overflow-hidden animate-fade-in hidden md:block">
             <Table>
               <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
+              <TableRow className="border-border hover:bg-transparent">
                   <TableHead>Data</TableHead>
                   <TableHead>Título</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Pagamento</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
@@ -156,6 +160,9 @@ export default function Records() {
                       <Badge variant={t.type === "income" ? "default" : "destructive"} className="text-xs">
                         {t.type === "income" ? "Entrada" : "Saída"}
                       </Badge>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {t.paymentMethod || "—"}
                     </TableCell>
                     <TableCell className={`text-right font-medium ${t.type === "income" ? "text-income" : "text-expense"}`}>
                       {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
