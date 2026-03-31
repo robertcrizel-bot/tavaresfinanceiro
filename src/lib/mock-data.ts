@@ -27,20 +27,20 @@ const t = (
 });
 
 export const initialTransactions: Transaction[] = [
-  t("Salário Março", 8500, "income", "Salário", 1, "Pagamento mensal"),
-  t("Freelance Website", 2200, "income", "Freelance", 5, "Projeto para cliente X"),
-  t("Freelance Design", 1500, "income", "Freelance", 12),
-  t("Salário Fevereiro", 8500, "income", "Salário", 30),
+  t("Salário Março", 8500, "income", "Salário", 1, "Pagamento mensal", "Transferência"),
+  t("Freelance Website", 2200, "income", "Freelance", 5, "Projeto para cliente X", "Pix"),
+  t("Freelance Design", 1500, "income", "Freelance", 12, undefined, "Pix"),
+  t("Salário Fevereiro", 8500, "income", "Salário", 30, undefined, "Transferência"),
   t("Bônus trimestral", 3000, "income", "Salário", 15),
 
-  t("Supermercado Extra", 342.5, "expense", "Alimentação", 1),
-  t("iFood - Jantar", 67.9, "expense", "Alimentação", 2),
-  t("Padaria da esquina", 18.5, "expense", "Alimentação", 3),
-  t("Restaurante almoço", 89, "expense", "Alimentação", 4),
-  t("Supermercado semanal", 275, "expense", "Alimentação", 7),
-  t("iFood - Pizza", 52, "expense", "Alimentação", 9),
-  t("Café especial", 32, "expense", "Alimentação", 14),
-  t("Almoço trabalho", 45, "expense", "Alimentação", 18),
+  t("Supermercado Extra", 342.5, "expense", "Alimentação", 1, undefined, "Cartão de Débito"),
+  t("iFood - Jantar", 67.9, "expense", "Alimentação", 2, undefined, "Cartão de Crédito"),
+  t("Padaria da esquina", 18.5, "expense", "Alimentação", 3, undefined, "Dinheiro"),
+  t("Restaurante almoço", 89, "expense", "Alimentação", 4, undefined, "Pix"),
+  t("Supermercado semanal", 275, "expense", "Alimentação", 7, undefined, "Cartão de Débito"),
+  t("iFood - Pizza", 52, "expense", "Alimentação", 9, undefined, "Cartão de Crédito"),
+  t("Café especial", 32, "expense", "Alimentação", 14, undefined, "Dinheiro"),
+  t("Almoço trabalho", 45, "expense", "Alimentação", 18, undefined, "Pix"),
 
   t("Uber para escritório", 28.5, "expense", "Transporte", 1),
   t("Gasolina", 250, "expense", "Transporte", 6),
