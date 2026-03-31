@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useCallback } from "react";
+import React, { createContext, useContext, useCallback } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Transaction } from "@/lib/types";
-import { initialTransactions } from "@/lib/mock-data";
 import { toast } from "@/hooks/use-toast";
+import { financeService } from "@/services/financeService";
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -19,23 +20,42 @@ export const useFinance = () => {
 };
 
 export const FinanceProvider = ({ children }: { children: React.ReactNode }) => {
-  const [transactions, setTransactions] = useState<Transaction[]>(initialTransactions);
+  const queryClient = useQueryClient();
 
-  const addTransaction = useCallback((t: Omit<Transaction, "id">) => {
-    const newT: Transaction = { ...t, id: String(Date.now()) };
-    setTransactions((prev) => [newT, ...prev]);
-    toast({ title: "Registro criado", description: t.title });
-  }, []);
+  const { data: transactions = [] } = useQuery({
+    queryKey: ["transactions"],
+    queryFn: financeService.getTransactions,
+    staleTime: 1000 * 60 * 5, // 5 minutes
+    retry: 1, // Only retry once before giving up and showing toast interceptor
+  });
 
-  const updateTransaction = useCallback((t: Transaction) => {
-    setTransactions((prev) => prev.map((x) => (x.id === t.id ? t : x)));
-    toast({ title: "Registro atualizado", description: t.title });
-  }, []);
+  const createTransactionMutation = useMutation({
+    mutationFn: financeService.createTransaction,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({ title: "Registro criado", description: data.title });
+    },
+  });
 
-  const deleteTransaction = useCallback((id: string) => {
-    setTransactions((prev) => prev.filter((x) => x.id !== id));
-    toast({ title: "Registro excluído", variant: "destructive" });
-  }, []);
+  const updateTransactionMutation = useMutation({
+    mutationFn: financeService.updateTransaction,
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({ title: "Registro atualizado", description: data.title });
+    },
+  });
+
+  const deleteTransactionMutation = useMutation({
+    mutationFn: financeService.deleteTransaction,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["transactions"] });
+      toast({ title: "Registro excluído", variant: "destructive" });
+    },
+  });
+
+  const addTransaction = useCallback((t: Omit<Transaction, "id">) => createTransactionMutation.mutate(t), [createTransactionMutation]);
+  const updateTransaction = useCallback((t: Transaction) => updateTransactionMutation.mutate(t), [updateTransactionMutation]);
+  const deleteTransaction = useCallback((id: string) => deleteTransactionMutation.mutate(id), [deleteTransactionMutation]);
 
   return (
     <FinanceContext.Provider value={{ transactions, addTransaction, updateTransaction, deleteTransaction }}>
