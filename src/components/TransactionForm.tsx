@@ -56,7 +56,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
       category,
       date,
       description: description || undefined,
-      paymentMethod: (paymentMethod && paymentMethod !== "none") ? paymentMethod as PaymentMethod : undefined,
+      paymentMethod: paymentMethod ? paymentMethod as PaymentMethod : undefined,
       accountId: accountId && accountId !== "none" ? accountId : undefined,
       creditCardId: creditCardId && creditCardId !== "none" ? creditCardId : undefined,
     });
