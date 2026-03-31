@@ -1,9 +1,10 @@
 import { useMemo, useState } from "react";
 import { useFinance } from "@/contexts/FinanceContext";
+import { useAccounts } from "@/contexts/AccountContext";
 import { KpiCard } from "@/components/KpiCard";
 import { ChartCard } from "@/components/ChartCard";
 import { InsightCard } from "@/components/InsightCard";
-import { TrendingUp, TrendingDown, CalendarDays, Tag } from "lucide-react";
+import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard } from "lucide-react";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -11,8 +12,34 @@ import {
 
 type Period = "7" | "30" | "all";
 
+const colorBorder: Record<string, string> = {
+  purple: "border-l-purple-500",
+  orange: "border-l-orange-500",
+  blue: "border-l-blue-500",
+  green: "border-l-green-500",
+  red: "border-l-red-500",
+  pink: "border-l-pink-500",
+};
+const colorBg: Record<string, string> = {
+  purple: "bg-purple-500/5",
+  orange: "bg-orange-500/5",
+  blue: "bg-blue-500/5",
+  green: "bg-green-500/5",
+  red: "bg-red-500/5",
+  pink: "bg-pink-500/5",
+};
+const colorIcon: Record<string, string> = {
+  purple: "text-purple-400",
+  orange: "text-orange-400",
+  blue: "text-blue-400",
+  green: "text-green-400",
+  red: "text-red-400",
+  pink: "text-pink-400",
+};
+
 export default function Dashboard() {
   const { transactions } = useFinance();
+  const { accounts, creditCards } = useAccounts();
   const [period, setPeriod] = useState<Period>("30");
 
   const filtered = useMemo(() => {
@@ -43,7 +70,21 @@ export default function Dashboard() {
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  // Line chart data: daily expenses
+  const getAccountBalance = (accId: string, initialBalance: number) => {
+    return transactions.reduce((bal, t) => {
+      if (t.accountId !== accId) return bal;
+      return t.type === "income" ? bal + t.amount : bal - t.amount;
+    }, initialBalance);
+  };
+
+  const getCardUsed = (ccId: string) => {
+    return transactions.reduce((total, t) => {
+      if (t.creditCardId !== ccId) return total;
+      return total + t.amount;
+    }, 0);
+  };
+
+  // Line chart data
   const lineData = useMemo(() => {
     const map: Record<string, number> = {};
     filtered.filter((t) => t.type === "expense").forEach((t) => {
@@ -57,7 +98,7 @@ export default function Dashboard() {
       }));
   }, [filtered]);
 
-  // Bar chart data: by category
+  // Bar chart data
   const barData = useMemo(() => {
     const map: Record<string, number> = {};
     filtered.filter((t) => t.type === "expense").forEach((t) => {
@@ -108,6 +149,49 @@ export default function Dashboard() {
         <KpiCard title="Gasto Médio Diário" value={fmt(avgDaily)} icon={CalendarDays} color="amber" />
         <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} color="blue" />
       </div>
+
+      {/* Accounts & Cards */}
+      {(accounts.length > 0 || creditCards.length > 0) && (
+        <div>
+          <h2 className="text-sm font-medium text-muted-foreground mb-3">Contas & Cartões</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+            {accounts.map((acc) => {
+              const balance = getAccountBalance(acc.id, acc.initialBalance);
+              return (
+                <div key={acc.id} className={`glass-card rounded-xl p-4 border-l-4 animate-fade-in ${colorBorder[acc.color] || "border-l-primary"} ${colorBg[acc.color] || ""}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <Landmark className={`h-4 w-4 ${colorIcon[acc.color] || "text-muted-foreground"}`} />
+                    <span className="text-sm text-muted-foreground">{acc.name}</span>
+                  </div>
+                  <p className={`text-xl font-bold ${balance >= 0 ? "text-income" : "text-expense"}`}>{fmt(balance)}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{acc.bank} · {acc.type === "checking" ? "Corrente" : "Poupança"}</p>
+                </div>
+              );
+            })}
+            {creditCards.map((cc) => {
+              const used = getCardUsed(cc.id);
+              const available = cc.limit - used;
+              const pct = cc.limit > 0 ? Math.min((used / cc.limit) * 100, 100) : 0;
+              return (
+                <div key={cc.id} className={`glass-card rounded-xl p-4 border-l-4 animate-fade-in ${colorBorder[cc.color] || "border-l-primary"} ${colorBg[cc.color] || ""}`}>
+                  <div className="flex items-center gap-2 mb-2">
+                    <CreditCard className={`h-4 w-4 ${colorIcon[cc.color] || "text-muted-foreground"}`} />
+                    <span className="text-sm text-muted-foreground">{cc.name}</span>
+                  </div>
+                  <p className="text-xl font-bold text-expense">{fmt(used)}</p>
+                  <div className="mt-2 w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                    <div className="h-full rounded-full bg-expense transition-all" style={{ width: `${pct}%` }} />
+                  </div>
+                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
+                    <span>Disponível: {fmt(available)}</span>
+                    <span>Limite: {fmt(cc.limit)}</span>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
 
       {/* Charts */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">

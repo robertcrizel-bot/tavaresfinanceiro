@@ -1,4 +1,4 @@
-import { LayoutDashboard, List, User } from "lucide-react";
+import { LayoutDashboard, List, User, Wallet } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -16,6 +16,7 @@ import { useIsMobile } from "@/hooks/use-mobile";
 const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Meus Registros", url: "/records", icon: List },
+  { title: "Contas & Cartões", url: "/accounts", icon: Wallet },
 ];
 
 export function AppSidebar() {

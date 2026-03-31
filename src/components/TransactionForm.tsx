@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Transaction, TransactionType, Category, PaymentMethod, EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "@/lib/types";
+import { useAccounts } from "@/contexts/AccountContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +16,7 @@ interface TransactionFormProps {
 }
 
 export function TransactionForm({ open, onClose, onSubmit, initial }: TransactionFormProps) {
+  const { accounts, creditCards } = useAccounts();
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<TransactionType>("expense");
@@ -22,6 +24,8 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
   const [date, setDate] = useState(new Date().toISOString().split("T")[0]);
   const [description, setDescription] = useState("");
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
+  const [accountId, setAccountId] = useState("");
+  const [creditCardId, setCreditCardId] = useState("");
 
   useEffect(() => {
     if (initial) {
@@ -32,14 +36,12 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
       setDate(initial.date);
       setDescription(initial.description || "");
       setPaymentMethod(initial.paymentMethod || "");
+      setAccountId(initial.accountId || "");
+      setCreditCardId(initial.creditCardId || "");
     } else {
-      setTitle("");
-      setAmount("");
-      setType("expense");
-      setCategory("Outros");
-      setDate(new Date().toISOString().split("T")[0]);
-      setDescription("");
-      setPaymentMethod("");
+      setTitle(""); setAmount(""); setType("expense"); setCategory("Outros");
+      setDate(new Date().toISOString().split("T")[0]); setDescription("");
+      setPaymentMethod(""); setAccountId(""); setCreditCardId("");
     }
   }, [initial, open]);
 
@@ -54,7 +56,9 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
       category,
       date,
       description: description || undefined,
-      paymentMethod: paymentMethod || undefined,
+      paymentMethod: (paymentMethod && paymentMethod !== "none") ? paymentMethod as PaymentMethod : undefined,
+      accountId: accountId && accountId !== "none" ? accountId : undefined,
+      creditCardId: creditCardId && creditCardId !== "none" ? creditCardId : undefined,
     });
     onClose();
   };
@@ -103,9 +107,35 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
             </div>
           </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label>Conta <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+              <Select value={accountId || "none"} onValueChange={(v) => { setAccountId(v === "none" ? "" : v); if (v !== "none") setCreditCardId(""); }}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma</SelectItem>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name} ({a.bank})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Cartão de Crédito <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+              <Select value={creditCardId || "none"} onValueChange={(v) => { setCreditCardId(v === "none" ? "" : v); if (v !== "none") setAccountId(""); }}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {creditCards.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name} ({c.bank})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
           <div className="space-y-2">
             <Label>Forma de Pagamento <span className="text-muted-foreground text-xs">(opcional)</span></Label>
-            <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
+            <Select value={paymentMethod || "none"} onValueChange={(v) => setPaymentMethod(v === "none" ? "" : v as PaymentMethod)}>
               <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="none">Nenhuma</SelectItem>
