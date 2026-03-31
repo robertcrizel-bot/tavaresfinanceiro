@@ -13,7 +13,8 @@ const t = (
   type: "income" | "expense",
   category: Transaction["category"],
   daysAgo: number,
-  description?: string
+  description?: string,
+  paymentMethod?: Transaction["paymentMethod"]
 ): Transaction => ({
   id: String(++id),
   title,
@@ -22,6 +23,7 @@ const t = (
   category,
   date: d(daysAgo),
   description,
+  paymentMethod,
 });
 
 export const initialTransactions: Transaction[] = [
