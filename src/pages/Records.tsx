@@ -138,11 +138,12 @@ export default function Records() {
           <div className="glass-card rounded-xl overflow-hidden animate-fade-in hidden md:block">
             <Table>
               <TableHeader>
-                <TableRow className="border-border hover:bg-transparent">
+              <TableRow className="border-border hover:bg-transparent">
                   <TableHead>Data</TableHead>
                   <TableHead>Título</TableHead>
                   <TableHead>Categoria</TableHead>
                   <TableHead>Tipo</TableHead>
+                  <TableHead>Pagamento</TableHead>
                   <TableHead className="text-right">Valor</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
