@@ -14,7 +14,168 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      accounts: {
+        Row: {
+          bank: string
+          color: string
+          created_at: string
+          id: string
+          initial_balance: number
+          name: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bank: string
+          color?: string
+          created_at?: string
+          id?: string
+          initial_balance?: number
+          name: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bank?: string
+          color?: string
+          created_at?: string
+          id?: string
+          initial_balance?: number
+          name?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      credit_cards: {
+        Row: {
+          bank: string
+          closing_day: number
+          color: string
+          created_at: string
+          credit_limit: number
+          due_day: number
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bank: string
+          closing_day?: number
+          color?: string
+          created_at?: string
+          credit_limit?: number
+          due_day?: number
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bank?: string
+          closing_day?: number
+          color?: string
+          created_at?: string
+          credit_limit?: number
+          due_day?: number
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          display_name: string | null
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string | null
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      transactions: {
+        Row: {
+          account_id: string | null
+          amount: number
+          category: string
+          created_at: string
+          credit_card_id: string | null
+          date: string
+          description: string | null
+          id: string
+          payment_method: string | null
+          title: string
+          type: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          account_id?: string | null
+          amount: number
+          category: string
+          created_at?: string
+          credit_card_id?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          payment_method?: string | null
+          title: string
+          type: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          account_id?: string | null
+          amount?: number
+          category?: string
+          created_at?: string
+          credit_card_id?: string | null
+          date?: string
+          description?: string | null
+          id?: string
+          payment_method?: string | null
+          title?: string
+          type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "transactions_account_id_fkey"
+            columns: ["account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
