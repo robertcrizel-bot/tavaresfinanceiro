@@ -12,6 +12,7 @@ import Accounts from "@/pages/Accounts";
 import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
+import Install from "@/pages/Install";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -61,6 +62,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<AuthRoute />} />
+            <Route path="/install" element={<Install />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </BrowserRouter>
