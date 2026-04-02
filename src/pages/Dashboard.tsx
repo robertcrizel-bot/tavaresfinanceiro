@@ -7,7 +7,7 @@ import { InsightCard } from "@/components/InsightCard";
 import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
 import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard } from "lucide-react";
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import type { DateRange } from "react-day-picker";
 
