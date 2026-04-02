@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
+import { Transaction } from "@/lib/types";
 import { KpiCard } from "@/components/KpiCard";
 import { ChartCard } from "@/components/ChartCard";
 import { InsightCard } from "@/components/InsightCard";
+import { TransactionForm } from "@/components/TransactionForm";
 import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
-import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -37,8 +40,9 @@ const colorIcon: Record<string, string> = {
 };
 
 export default function Dashboard() {
-  const { transactions } = useFinance();
+  const { transactions, addTransaction } = useFinance();
   const { accounts, creditCards } = useAccounts();
+  const [formOpen, setFormOpen] = useState(false);
   const [period, setPeriod] = useState<Period>("30");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
@@ -142,12 +146,17 @@ export default function Dashboard() {
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-bold text-primary">Painel de Controle</h1>
-        <DashboardPeriodFilter
+        <div className="flex items-center gap-2">
+          <DashboardPeriodFilter
           period={period}
           dateRange={dateRange}
           onPeriodChange={setPeriod}
           onDateRangeChange={setDateRange}
-        />
+          />
+          <Button onClick={() => setFormOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> Novo Registro
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
@@ -247,6 +256,12 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+      {/* Transaction Form */}
+      <TransactionForm
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSubmit={(data) => addTransaction(data)}
+      />
     </div>
   );
 }

@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Eye, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Eye, Pencil, Trash2, Search, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 
 export default function Records() {
   const { transactions, addTransaction, updateTransaction, deleteTransaction } = useFinance();
@@ -35,6 +36,34 @@ export default function Records() {
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+  const exportToXlsx = useCallback(() => {
+    const data = filtered.map((t) => ({
+      "Data": new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR"),
+      "Título": t.title,
+      "Categoria": t.category,
+      "Tipo": t.type === "income" ? "Entrada" : "Saída",
+      "Pagamento": t.paymentMethod || "—",
+      "Valor (R$)": t.type === "income" ? t.amount : -t.amount,
+      "Descrição": t.description || "",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+
+    // Column widths
+    ws["!cols"] = [
+      { wch: 12 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 18 }, { wch: 15 }, { wch: 30 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Registros");
+
+    // Add table formatting
+    const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+    ws["!autofilter"] = { ref: XLSX.utils.encode_range(range) };
+
+    XLSX.writeFile(wb, `registros_${new Date().toISOString().split("T")[0]}.xlsx`);
+  }, [filtered]);
+
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -51,9 +80,14 @@ export default function Records() {
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Meus Registros</h1>
-        <Button onClick={() => { setEditing(undefined); setFormOpen(true); }} className="gap-2 w-full sm:w-auto">
-          <Plus className="h-4 w-4" /> Novo Registro
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={exportToXlsx} disabled={filtered.length === 0} className="gap-2 flex-1 sm:flex-none">
+            <Download className="h-4 w-4" /> Exportar
+          </Button>
+          <Button onClick={() => { setEditing(undefined); setFormOpen(true); }} className="gap-2 flex-1 sm:flex-none">
+            <Plus className="h-4 w-4" /> Novo Registro
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
