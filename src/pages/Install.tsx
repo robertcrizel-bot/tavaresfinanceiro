@@ -41,7 +41,7 @@ export default function Install() {
         <CheckCircle2 className="h-16 w-16 text-income" />
         <h1 className="text-2xl font-bold text-foreground">App instalado!</h1>
         <p className="text-muted-foreground max-w-sm">
-          O Finance Control já está na sua tela inicial. Abra-o por lá para a melhor experiência.
+          O FinanceControl já está na sua tela inicial. Abra-o por lá para a melhor experiência.
         </p>
       </div>
     );
@@ -50,11 +50,11 @@ export default function Install() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center gap-6">
       <div className="rounded-2xl overflow-hidden w-24 h-24 shadow-lg">
-        <img src="/icon-192.png" alt="Finance Control" width={96} height={96} />
+        <img src="/icon-192.png" alt="FinanceControl" width={96} height={96} />
       </div>
 
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold text-foreground">Instalar Finance Control</h1>
+        <h1 className="text-2xl font-bold text-foreground">Instalar FinanceControl</h1>
         <p className="text-muted-foreground max-w-sm">
           Adicione o app à tela inicial do seu celular para acesso rápido, como um app nativo.
         </p>
