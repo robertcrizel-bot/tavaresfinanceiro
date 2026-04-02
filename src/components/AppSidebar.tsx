@@ -34,7 +34,7 @@ export function AppSidebar() {
         <div className="px-4 mb-8">
           {!collapsed && (
             <h1 className="font-bold text-foreground tracking-tight text-3xl">
-              Finance <span className="text-primary">Control</span>
+              Finance<span className="text-primary">Control</span>
             </h1>
           )}
           {collapsed && !isMobile && (
