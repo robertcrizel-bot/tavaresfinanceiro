@@ -36,6 +36,34 @@ export default function Records() {
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
+  const exportToXlsx = useCallback(() => {
+    const data = filtered.map((t) => ({
+      "Data": new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR"),
+      "Título": t.title,
+      "Categoria": t.category,
+      "Tipo": t.type === "income" ? "Entrada" : "Saída",
+      "Pagamento": t.paymentMethod || "—",
+      "Valor (R$)": t.type === "income" ? t.amount : -t.amount,
+      "Descrição": t.description || "",
+    }));
+
+    const ws = XLSX.utils.json_to_sheet(data);
+
+    // Column widths
+    ws["!cols"] = [
+      { wch: 12 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 18 }, { wch: 15 }, { wch: 30 },
+    ];
+
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, "Registros");
+
+    // Add table formatting
+    const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
+    ws["!autofilter"] = { ref: XLSX.utils.encode_range(range) };
+
+    XLSX.writeFile(wb, `registros_${new Date().toISOString().split("T")[0]}.xlsx`);
+  }, [filtered]);
+
   // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
