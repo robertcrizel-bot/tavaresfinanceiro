@@ -230,7 +230,7 @@ export default function Dashboard() {
               />
               <Bar dataKey="total" radius={[6, 6, 0, 0]}>
                 {barData.map((entry, index) => (
-                  <RechartsPrimitive.Cell key={index} fill={entry.fill} />
+                  <Cell key={index} fill={entry.fill} />
                 ))}
               </Bar>
             </BarChart>
