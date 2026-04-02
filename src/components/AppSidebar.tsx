@@ -33,8 +33,8 @@ export function AppSidebar() {
       <SidebarContent className="pt-6">
         <div className="px-4 mb-8">
           {!collapsed && (
-            <h1 className="text-xl font-bold text-foreground tracking-tight">
-              Fin<span className="text-primary">Wise</span>
+            <h1 className="font-bold text-foreground tracking-tight text-3xl">
+              Finance <span className="text-primary">Control</span>
             </h1>
           )}
           {collapsed && !isMobile && (
