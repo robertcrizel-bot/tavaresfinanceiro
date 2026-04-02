@@ -1,11 +1,14 @@
 import { useMemo, useState } from "react";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
+import { Transaction } from "@/lib/types";
 import { KpiCard } from "@/components/KpiCard";
 import { ChartCard } from "@/components/ChartCard";
 import { InsightCard } from "@/components/InsightCard";
+import { TransactionForm } from "@/components/TransactionForm";
 import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
-import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
