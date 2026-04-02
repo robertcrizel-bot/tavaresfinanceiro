@@ -80,9 +80,14 @@ export default function Records() {
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <h1 className="text-xl sm:text-2xl font-bold text-foreground">Meus Registros</h1>
-        <Button onClick={() => { setEditing(undefined); setFormOpen(true); }} className="gap-2 w-full sm:w-auto">
-          <Plus className="h-4 w-4" /> Novo Registro
-        </Button>
+        <div className="flex gap-2 w-full sm:w-auto">
+          <Button variant="outline" onClick={exportToXlsx} disabled={filtered.length === 0} className="gap-2 flex-1 sm:flex-none">
+            <Download className="h-4 w-4" /> Exportar
+          </Button>
+          <Button onClick={() => { setEditing(undefined); setFormOpen(true); }} className="gap-2 flex-1 sm:flex-none">
+            <Plus className="h-4 w-4" /> Novo Registro
+          </Button>
+        </div>
       </div>
 
       {/* Filters */}
