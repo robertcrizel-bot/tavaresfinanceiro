@@ -1,6 +1,6 @@
 {
   "name": "Finance Control",
-  "short_name": "FinControl",
+  "short_name": "FinanceControl",
   "description": "Gerencie suas finanças pessoais com simplicidade e clareza.",
   "start_url": "/",
   "display": "standalone",
