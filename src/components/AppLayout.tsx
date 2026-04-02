@@ -11,7 +11,7 @@ export default function AppLayout() {
           <header className="h-14 flex items-center border-b border-border px-4 shrink-0">
             <SidebarTrigger />
             <span className="ml-3 text-sm font-semibold text-primary md:hidden">
-              Fin<span className="text-foreground">Wise</span>
+              Finance<span className="text-foreground">Control</span>
             </span>
           </header>
           <main className="flex-1 overflow-auto p-3 sm:p-4 md:p-6 lg:p-8">
