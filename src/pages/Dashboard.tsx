@@ -146,7 +146,8 @@ export default function Dashboard() {
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-bold text-primary">Painel de Controle</h1>
-        <DashboardPeriodFilter
+        <div className="flex items-center gap-2">
+          <DashboardPeriodFilter
           period={period}
           dateRange={dateRange}
           onPeriodChange={setPeriod}
