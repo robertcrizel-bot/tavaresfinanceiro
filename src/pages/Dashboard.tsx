@@ -152,7 +152,11 @@ export default function Dashboard() {
           dateRange={dateRange}
           onPeriodChange={setPeriod}
           onDateRangeChange={setDateRange}
-        />
+          />
+          <Button onClick={() => setFormOpen(true)} className="gap-2">
+            <Plus className="h-4 w-4" /> Novo Registro
+          </Button>
+        </div>
       </div>
 
       {/* KPIs */}
