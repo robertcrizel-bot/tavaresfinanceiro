@@ -40,8 +40,9 @@ const colorIcon: Record<string, string> = {
 };
 
 export default function Dashboard() {
-  const { transactions } = useFinance();
+  const { transactions, addTransaction } = useFinance();
   const { accounts, creditCards } = useAccounts();
+  const [formOpen, setFormOpen] = useState(false);
   const [period, setPeriod] = useState<Period>("30");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
