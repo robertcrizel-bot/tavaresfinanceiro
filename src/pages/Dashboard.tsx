@@ -7,7 +7,7 @@ import { InsightCard } from "@/components/InsightCard";
 import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
 import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard } from "lucide-react";
 import {
-  LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import type { DateRange } from "react-day-picker";
 
@@ -105,6 +105,12 @@ export default function Dashboard() {
   }, [filtered]);
 
   // Bar chart data
+  const categoryColors = [
+    "hsl(210 76% 52%)", "hsl(160 84% 39%)", "hsl(340 75% 55%)",
+    "hsl(45 93% 47%)", "hsl(270 60% 55%)", "hsl(25 95% 53%)",
+    "hsl(190 80% 42%)", "hsl(0 72% 51%)", "hsl(120 40% 45%)",
+  ];
+
   const barData = useMemo(() => {
     const map: Record<string, number> = {};
     filtered.filter((t) => t.type === "expense").forEach((t) => {
@@ -112,7 +118,7 @@ export default function Dashboard() {
     });
     return Object.entries(map)
       .sort(([, a], [, b]) => b - a)
-      .map(([category, total]) => ({ category, total }));
+      .map(([category, total], i) => ({ category, total, fill: categoryColors[i % categoryColors.length] }));
   }, [filtered]);
 
   // Insights
@@ -222,7 +228,11 @@ export default function Dashboard() {
                 contentStyle={{ backgroundColor: "hsl(224 18% 13%)", border: "1px solid hsl(224 14% 18%)", borderRadius: 8, color: "hsl(210 20% 92%)" }}
                 formatter={(value: number) => [fmt(value), "Total"]}
               />
-              <Bar dataKey="total" fill="hsl(210 76% 52%)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+                {barData.map((entry, index) => (
+                  <Cell key={index} fill={entry.fill} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
