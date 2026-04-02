@@ -4,13 +4,12 @@ import { useAccounts } from "@/contexts/AccountContext";
 import { KpiCard } from "@/components/KpiCard";
 import { ChartCard } from "@/components/ChartCard";
 import { InsightCard } from "@/components/InsightCard";
+import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
 import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
-
-type Period = "7" | "30" | "all";
+import type { DateRange } from "react-day-picker";
 
 const colorBorder: Record<string, string> = {
   purple: "border-l-purple-500",
@@ -41,14 +40,21 @@ export default function Dashboard() {
   const { transactions } = useFinance();
   const { accounts, creditCards } = useAccounts();
   const [period, setPeriod] = useState<Period>("30");
+  const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const filtered = useMemo(() => {
     if (period === "all") return transactions;
+    if (period === "custom") {
+      if (!dateRange?.from) return transactions;
+      const fromStr = dateRange.from.toISOString().split("T")[0];
+      const toStr = dateRange.to ? dateRange.to.toISOString().split("T")[0] : fromStr;
+      return transactions.filter((t) => t.date >= fromStr && t.date <= toStr);
+    }
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - Number(period));
     const cutoffStr = cutoff.toISOString().split("T")[0];
     return transactions.filter((t) => t.date >= cutoffStr);
-  }, [transactions, period]);
+  }, [transactions, period, dateRange]);
 
   const totalIncome = filtered.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const totalExpense = filtered.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
