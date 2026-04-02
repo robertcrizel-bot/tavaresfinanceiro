@@ -54,7 +54,7 @@ export default function Install() {
       </div>
 
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold text-foreground">Instalar Finance Control</h1>
+        <h1 className="text-2xl font-bold text-foreground">Instalar FinanceControl</h1>
         <p className="text-muted-foreground max-w-sm">
           Adicione o app à tela inicial do seu celular para acesso rápido, como um app nativo.
         </p>
