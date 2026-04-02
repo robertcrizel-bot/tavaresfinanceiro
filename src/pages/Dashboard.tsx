@@ -256,6 +256,12 @@ export default function Dashboard() {
           ))}
         </div>
       </div>
+      {/* Transaction Form */}
+      <TransactionForm
+        open={formOpen}
+        onClose={() => setFormOpen(false)}
+        onSubmit={(data) => addTransaction(data)}
+      />
     </div>
   );
 }

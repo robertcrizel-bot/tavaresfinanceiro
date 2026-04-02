@@ -10,7 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Eye, Pencil, Trash2, Search } from "lucide-react";
+import { Plus, Eye, Pencil, Trash2, Search, Download } from "lucide-react";
+import * as XLSX from "xlsx";
 
 export default function Records() {
   const { transactions, addTransaction, updateTransaction, deleteTransaction } = useFinance();
