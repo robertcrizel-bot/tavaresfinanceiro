@@ -228,7 +228,11 @@ export default function Dashboard() {
                 contentStyle={{ backgroundColor: "hsl(224 18% 13%)", border: "1px solid hsl(224 14% 18%)", borderRadius: 8, color: "hsl(210 20% 92%)" }}
                 formatter={(value: number) => [fmt(value), "Total"]}
               />
-              <Bar dataKey="total" fill="hsl(210 76% 52%)" radius={[6, 6, 0, 0]} />
+              <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+                {barData.map((entry, index) => (
+                  <RechartsPrimitive.Cell key={index} fill={entry.fill} />
+                ))}
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </ChartCard>
