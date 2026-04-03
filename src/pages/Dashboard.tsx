@@ -8,7 +8,7 @@ import { InsightCard } from "@/components/InsightCard";
 import { TransactionForm } from "@/components/TransactionForm";
 import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus } from "lucide-react";
+import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet } from "lucide-react";
 import {
   LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -62,6 +62,7 @@ export default function Dashboard() {
 
   const totalIncome = filtered.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const totalExpense = filtered.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  const balance = totalIncome - totalExpense;
 
   const days = period === "all" ? 30 : Number(period);
   const avgDaily = totalExpense / days;
@@ -160,9 +161,10 @@ export default function Dashboard() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 sm:gap-4">
         <KpiCard title="Total de Entradas" value={fmt(totalIncome)} icon={TrendingUp} color="green" />
         <KpiCard title="Total de Saídas" value={fmt(totalExpense)} icon={TrendingDown} color="red" />
+        <KpiCard title="Saldo do Período" value={fmt(balance)} icon={Wallet} color="purple" />
         <KpiCard title="Gasto Médio Diário" value={fmt(avgDaily)} icon={CalendarDays} color="amber" />
         <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} color="blue" />
       </div>
