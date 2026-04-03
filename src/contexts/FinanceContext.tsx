@@ -49,6 +49,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
           paymentMethod: (r.payment_method as Transaction["paymentMethod"]) || undefined,
           accountId: r.account_id || undefined,
           creditCardId: r.credit_card_id || undefined,
+          isPaid: (r as any).is_paid ?? false,
         }))
       );
     }
