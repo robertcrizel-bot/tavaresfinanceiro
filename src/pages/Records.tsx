@@ -35,13 +35,15 @@ export default function Records() {
   }, [transactions, search, typeFilter, catFilter]);
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const today = new Date().toISOString().split("T")[0];
+  const isForecast = (t: Transaction) => t.type === "expense" && t.date > today;
 
   const exportToXlsx = useCallback(() => {
     const data = filtered.map((t) => ({
       "Data": new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR"),
       "Título": t.title,
       "Categoria": t.category,
-      "Tipo": t.type === "income" ? "Entrada" : "Saída",
+      "Tipo": t.type === "income" ? "Entrada" : (t.date > today ? "Saída - Previsão" : "Saída"),
       "Pagamento": t.paymentMethod || "—",
       "Valor (R$)": t.type === "income" ? t.amount : -t.amount,
       "Descrição": t.description || "",
@@ -145,8 +147,8 @@ export default function Records() {
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">{t.category}</Badge>
-                    <Badge variant={t.type === "income" ? "default" : "destructive"} className="text-xs">
-                      {t.type === "income" ? "Entrada" : "Saída"}
+                    <Badge variant={t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
+                      {t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída"}
                     </Badge>
                     {t.paymentMethod && (
                       <Badge variant="secondary" className="text-xs">{t.paymentMethod}</Badge>
@@ -191,8 +193,8 @@ export default function Records() {
                     <TableCell className="font-medium text-foreground">{t.title}</TableCell>
                     <TableCell><Badge variant="outline" className="text-xs">{t.category}</Badge></TableCell>
                     <TableCell>
-                      <Badge variant={t.type === "income" ? "default" : "destructive"} className="text-xs">
-                        {t.type === "income" ? "Entrada" : "Saída"}
+                      <Badge variant={t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
+                        {t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
