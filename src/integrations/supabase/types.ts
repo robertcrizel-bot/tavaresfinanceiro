@@ -123,6 +123,7 @@ export type Database = {
           date: string
           description: string | null
           id: string
+          is_paid: boolean
           payment_method: string | null
           title: string
           type: string
@@ -138,6 +139,7 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          is_paid?: boolean
           payment_method?: string | null
           title: string
           type: string
@@ -153,6 +155,7 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          is_paid?: boolean
           payment_method?: string | null
           title?: string
           type?: string
