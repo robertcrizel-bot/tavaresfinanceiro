@@ -10,6 +10,7 @@ interface FinanceContextType {
   addTransaction: (t: Omit<Transaction, "id">) => Promise<void>;
   updateTransaction: (t: Transaction) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
+  payCardBill: (creditCardId: string, accountId: string, amount: number) => Promise<void>;
   refetch: () => void;
 }
 
