@@ -62,7 +62,7 @@ export default function Accounts() {
   // Compute credit card used
   const getCardUsed = (ccId: string) => {
     return transactions.reduce((total, t) => {
-      if (t.creditCardId !== ccId) return total;
+      if (t.creditCardId !== ccId || t.isPaid) return total;
       return total + t.amount;
     }, 0);
   };
