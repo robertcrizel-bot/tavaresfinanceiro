@@ -147,8 +147,8 @@ export default function Records() {
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">{t.category}</Badge>
-                    <Badge variant={t.type === "income" ? "default" : "destructive"} className="text-xs">
-                      {t.type === "income" ? "Entrada" : "Saída"}
+                    <Badge variant={t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
+                      {t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída"}
                     </Badge>
                     {t.paymentMethod && (
                       <Badge variant="secondary" className="text-xs">{t.paymentMethod}</Badge>
