@@ -1,13 +1,14 @@
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type KpiColor = "green" | "red" | "amber" | "blue";
+type KpiColor = "green" | "red" | "amber" | "blue" | "purple";
 
 const colorMap: Record<KpiColor, { border: string; icon: string; bg: string }> = {
   green: { border: "border-l-income", icon: "text-income", bg: "bg-income/5" },
   red: { border: "border-l-expense", icon: "text-expense", bg: "bg-expense/5" },
   amber: { border: "border-l-warning", icon: "text-warning", bg: "bg-warning/5" },
   blue: { border: "border-l-info", icon: "text-info", bg: "bg-info/5" },
+  purple: { border: "border-l-purple-500", icon: "text-purple-400", bg: "bg-purple-500/5" },
 };
 
 interface KpiCardProps {
