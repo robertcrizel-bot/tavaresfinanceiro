@@ -217,6 +217,46 @@ export default function Accounts() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Pay Card Bill Dialog */}
+      <AlertDialog open={!!payingCard} onOpenChange={(o) => { if (!o) setPayingCard(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Pagar Fatura — {payingCard?.card.name}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Valor da fatura: <strong className="text-foreground">{fmt(payingCard?.amount ?? 0)}</strong>.
+              Selecione a conta para debitar o pagamento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Label className="mb-2 block">Conta de Pagamento</Label>
+            <Select value={payAccountId} onValueChange={setPayAccountId}>
+              <SelectTrigger><SelectValue placeholder="Selecione uma conta" /></SelectTrigger>
+              <SelectContent>
+                {accounts.map((acc) => (
+                  <SelectItem key={acc.id} value={acc.id}>
+                    {acc.name} — {acc.bank}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!payAccountId}
+              onClick={async () => {
+                if (payingCard && payAccountId) {
+                  await payCardBill(payingCard.card.id, payAccountId, payingCard.amount);
+                  setPayingCard(null);
+                }
+              }}
+            >
+              Confirmar Pagamento
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
