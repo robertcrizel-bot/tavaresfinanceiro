@@ -43,13 +43,15 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 
 export default function Accounts() {
   const { accounts, creditCards, addAccount, updateAccount, deleteAccount, addCreditCard, updateCreditCard, deleteCreditCard } = useAccounts();
-  const { transactions } = useFinance();
+  const { transactions, payCardBill } = useFinance();
 
   const [accFormOpen, setAccFormOpen] = useState(false);
   const [editingAcc, setEditingAcc] = useState<Account | undefined>();
   const [ccFormOpen, setCcFormOpen] = useState(false);
   const [editingCc, setEditingCc] = useState<CreditCard | undefined>();
   const [deleting, setDeleting] = useState<{ type: "account" | "card"; id: string } | null>(null);
+  const [payingCard, setPayingCard] = useState<{ card: CreditCard; amount: number } | null>(null);
+  const [payAccountId, setPayAccountId] = useState("");
 
   // Compute account balances
   const getAccountBalance = (accId: string, initialBalance: number) => {
