@@ -109,8 +109,46 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, [fetchTransactions]);
 
+  const payCardBill = useCallback(async (creditCardId: string, accountId: string, amount: number) => {
+    if (!user) return;
+
+    // 1. Mark all unpaid transactions for this card as paid
+    const { error: updateError } = await supabase
+      .from("transactions")
+      .update({ is_paid: true })
+      .eq("credit_card_id", creditCardId)
+      .eq("is_paid", false);
+
+    if (updateError) {
+      toast({ title: "Erro ao pagar fatura", description: updateError.message, variant: "destructive" });
+      return;
+    }
+
+    // 2. Create an expense transaction from the account
+    const { error: insertError } = await supabase.from("transactions").insert({
+      user_id: user.id,
+      title: "Pagamento de Fatura",
+      amount,
+      type: "expense",
+      category: "Fatura Cartão",
+      date: new Date().toISOString().split("T")[0],
+      description: "Pagamento automático de fatura de cartão de crédito",
+      payment_method: "Transferência",
+      account_id: accountId,
+      credit_card_id: null,
+      is_paid: true,
+    });
+
+    if (insertError) {
+      toast({ title: "Erro ao registrar pagamento", description: insertError.message, variant: "destructive" });
+    } else {
+      toast({ title: "Fatura paga!", description: "O saldo do cartão foi zerado." });
+      fetchTransactions();
+    }
+  }, [user, fetchTransactions]);
+
   return (
-    <FinanceContext.Provider value={{ transactions, loading, addTransaction, updateTransaction, deleteTransaction, refetch: fetchTransactions }}>
+    <FinanceContext.Provider value={{ transactions, loading, addTransaction, updateTransaction, deleteTransaction, payCardBill, refetch: fetchTransactions }}>
       {children}
     </FinanceContext.Provider>
   );
