@@ -166,6 +166,16 @@ export default function Accounts() {
                       <span>Disponível: {fmt(available)}</span>
                       <span>Limite: {fmt(cc.limit)}</span>
                     </div>
+                    {used > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-3 gap-2"
+                        onClick={() => { setPayingCard({ card: cc, amount: used }); setPayAccountId(""); }}
+                      >
+                        <Receipt className="h-3.5 w-3.5" /> Pagar Fatura
+                      </Button>
+                    )}
                   </div>
                 );
               })}
