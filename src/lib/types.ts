@@ -9,6 +9,7 @@ export type Category =
   | "Educação"
   | "Salário"
   | "Freelance"
+  | "Fatura Cartão"
   | "Outros";
 
 export type PaymentMethod =
