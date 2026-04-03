@@ -193,8 +193,8 @@ export default function Records() {
                     <TableCell className="font-medium text-foreground">{t.title}</TableCell>
                     <TableCell><Badge variant="outline" className="text-xs">{t.category}</Badge></TableCell>
                     <TableCell>
-                      <Badge variant={t.type === "income" ? "default" : "destructive"} className="text-xs">
-                        {t.type === "income" ? "Entrada" : "Saída"}
+                      <Badge variant={t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
+                        {t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída"}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
