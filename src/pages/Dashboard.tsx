@@ -62,6 +62,7 @@ export default function Dashboard() {
 
   const totalIncome = filtered.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
   const totalExpense = filtered.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  const balance = totalIncome - totalExpense;
 
   const days = period === "all" ? 30 : Number(period);
   const avgDaily = totalExpense / days;
