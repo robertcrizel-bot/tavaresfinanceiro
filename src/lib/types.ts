@@ -70,6 +70,7 @@ export const EXPENSE_CATEGORIES: Category[] = [
   "Lazer",
   "Saúde",
   "Educação",
+  "Fatura Cartão",
   "Outros",
 ];
 
