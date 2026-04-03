@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon } from "lucide-react";
+import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const COLORS = [
@@ -43,13 +43,15 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 
 export default function Accounts() {
   const { accounts, creditCards, addAccount, updateAccount, deleteAccount, addCreditCard, updateCreditCard, deleteCreditCard } = useAccounts();
-  const { transactions } = useFinance();
+  const { transactions, payCardBill } = useFinance();
 
   const [accFormOpen, setAccFormOpen] = useState(false);
   const [editingAcc, setEditingAcc] = useState<Account | undefined>();
   const [ccFormOpen, setCcFormOpen] = useState(false);
   const [editingCc, setEditingCc] = useState<CreditCard | undefined>();
   const [deleting, setDeleting] = useState<{ type: "account" | "card"; id: string } | null>(null);
+  const [payingCard, setPayingCard] = useState<{ card: CreditCard; amount: number } | null>(null);
+  const [payAccountId, setPayAccountId] = useState("");
 
   // Compute account balances
   const getAccountBalance = (accId: string, initialBalance: number) => {
@@ -62,7 +64,7 @@ export default function Accounts() {
   // Compute credit card used
   const getCardUsed = (ccId: string) => {
     return transactions.reduce((total, t) => {
-      if (t.creditCardId !== ccId) return total;
+      if (t.creditCardId !== ccId || t.isPaid) return total;
       return total + t.amount;
     }, 0);
   };
@@ -164,6 +166,16 @@ export default function Accounts() {
                       <span>Disponível: {fmt(available)}</span>
                       <span>Limite: {fmt(cc.limit)}</span>
                     </div>
+                    {used > 0 && (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="w-full mt-3 gap-2"
+                        onClick={() => { setPayingCard({ card: cc, amount: used }); setPayAccountId(""); }}
+                      >
+                        <Receipt className="h-3.5 w-3.5" /> Pagar Fatura
+                      </Button>
+                    )}
                   </div>
                 );
               })}
@@ -202,6 +214,46 @@ export default function Accounts() {
               else if (deleting?.type === "card") deleteCreditCard(deleting.id);
               setDeleting(null);
             }}>Excluir</AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Pay Card Bill Dialog */}
+      <AlertDialog open={!!payingCard} onOpenChange={(o) => { if (!o) setPayingCard(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Pagar Fatura — {payingCard?.card.name}</AlertDialogTitle>
+            <AlertDialogDescription>
+              Valor da fatura: <strong className="text-foreground">{fmt(payingCard?.amount ?? 0)}</strong>.
+              Selecione a conta para debitar o pagamento.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <div className="py-2">
+            <Label className="mb-2 block">Conta de Pagamento</Label>
+            <Select value={payAccountId} onValueChange={setPayAccountId}>
+              <SelectTrigger><SelectValue placeholder="Selecione uma conta" /></SelectTrigger>
+              <SelectContent>
+                {accounts.map((acc) => (
+                  <SelectItem key={acc.id} value={acc.id}>
+                    {acc.name} — {acc.bank}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction
+              disabled={!payAccountId}
+              onClick={async () => {
+                if (payingCard && payAccountId) {
+                  await payCardBill(payingCard.card.id, payAccountId, payingCard.amount);
+                  setPayingCard(null);
+                }
+              }}
+            >
+              Confirmar Pagamento
+            </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

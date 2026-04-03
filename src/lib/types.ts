@@ -9,6 +9,7 @@ export type Category =
   | "Educação"
   | "Salário"
   | "Freelance"
+  | "Fatura Cartão"
   | "Outros";
 
 export type PaymentMethod =
@@ -60,6 +61,7 @@ export interface Transaction {
   paymentMethod?: PaymentMethod;
   accountId?: string;
   creditCardId?: string;
+  isPaid?: boolean;
 }
 
 export const EXPENSE_CATEGORIES: Category[] = [
@@ -69,6 +71,7 @@ export const EXPENSE_CATEGORIES: Category[] = [
   "Lazer",
   "Saúde",
   "Educação",
+  "Fatura Cartão",
   "Outros",
 ];
 
