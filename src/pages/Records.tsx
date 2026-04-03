@@ -43,7 +43,7 @@ export default function Records() {
       "Data": new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR"),
       "Título": t.title,
       "Categoria": t.category,
-      "Tipo": t.type === "income" ? "Entrada" : "Saída",
+      "Tipo": t.type === "income" ? "Entrada" : (t.date > today ? "Saída - Previsão" : "Saída"),
       "Pagamento": t.paymentMethod || "—",
       "Valor (R$)": t.type === "income" ? t.amount : -t.amount,
       "Descrição": t.description || "",
