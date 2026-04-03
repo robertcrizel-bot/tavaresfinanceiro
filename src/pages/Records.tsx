@@ -35,6 +35,8 @@ export default function Records() {
   }, [transactions, search, typeFilter, catFilter]);
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const today = new Date().toISOString().split("T")[0];
+  const isForecast = (t: Transaction) => t.type === "expense" && t.date > today;
 
   const exportToXlsx = useCallback(() => {
     const data = filtered.map((t) => ({
