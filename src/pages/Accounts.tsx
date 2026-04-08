@@ -85,7 +85,10 @@ export default function Accounts() {
         </TabsList>
 
         <TabsContent value="accounts" className="space-y-4 mt-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { setTransferOpen(true); setTransferFrom(""); setTransferTo(""); setTransferAmount(""); setTransferDesc(""); }} className="gap-2">
+              <ArrowLeftRight className="h-4 w-4" /> Transferir
+            </Button>
             <Button onClick={() => { setEditingAcc(undefined); setAccFormOpen(true); }} className="gap-2">
               <Plus className="h-4 w-4" /> Nova Conta
             </Button>
