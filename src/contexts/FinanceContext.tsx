@@ -11,6 +11,7 @@ interface FinanceContextType {
   updateTransaction: (t: Transaction) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   payCardBill: (creditCardId: string, accountId: string, amount: number) => Promise<void>;
+  transferBetweenAccounts: (fromAccountId: string, toAccountId: string, amount: number, description?: string) => Promise<void>;
   refetch: () => void;
 }
 
@@ -148,8 +149,49 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, [user, fetchTransactions]);
 
+  const transferBetweenAccounts = useCallback(async (fromAccountId: string, toAccountId: string, amount: number, description?: string) => {
+    if (!user) return;
+    const today = new Date().toISOString().split("T")[0];
+    const desc = description || "Transferência entre contas";
+
+    // Create expense from source account
+    const { error: e1 } = await supabase.from("transactions").insert({
+      user_id: user.id,
+      title: "Transferência Enviada",
+      amount,
+      type: "expense",
+      category: "Outros",
+      date: today,
+      description: desc,
+      payment_method: "Transferência",
+      account_id: fromAccountId,
+      is_paid: true,
+    });
+
+    // Create income to destination account
+    const { error: e2 } = await supabase.from("transactions").insert({
+      user_id: user.id,
+      title: "Transferência Recebida",
+      amount,
+      type: "income",
+      category: "Outros",
+      date: today,
+      description: desc,
+      payment_method: "Transferência",
+      account_id: toAccountId,
+      is_paid: true,
+    });
+
+    if (e1 || e2) {
+      toast({ title: "Erro na transferência", description: (e1 || e2)?.message, variant: "destructive" });
+    } else {
+      toast({ title: "Transferência realizada!", description: desc });
+      fetchTransactions();
+    }
+  }, [user, fetchTransactions]);
+
   return (
-    <FinanceContext.Provider value={{ transactions, loading, addTransaction, updateTransaction, deleteTransaction, payCardBill, refetch: fetchTransactions }}>
+    <FinanceContext.Provider value={{ transactions, loading, addTransaction, updateTransaction, deleteTransaction, payCardBill, transferBetweenAccounts, refetch: fetchTransactions }}>
       {children}
     </FinanceContext.Provider>
   );

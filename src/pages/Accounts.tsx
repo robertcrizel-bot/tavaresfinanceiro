@@ -9,7 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt } from "lucide-react";
+import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 const COLORS = [
@@ -43,7 +43,7 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 
 export default function Accounts() {
   const { accounts, creditCards, addAccount, updateAccount, deleteAccount, addCreditCard, updateCreditCard, deleteCreditCard } = useAccounts();
-  const { transactions, payCardBill } = useFinance();
+  const { transactions, payCardBill, transferBetweenAccounts } = useFinance();
 
   const [accFormOpen, setAccFormOpen] = useState(false);
   const [editingAcc, setEditingAcc] = useState<Account | undefined>();
@@ -52,6 +52,11 @@ export default function Accounts() {
   const [deleting, setDeleting] = useState<{ type: "account" | "card"; id: string } | null>(null);
   const [payingCard, setPayingCard] = useState<{ card: CreditCard; amount: number } | null>(null);
   const [payAccountId, setPayAccountId] = useState("");
+  const [transferOpen, setTransferOpen] = useState(false);
+  const [transferFrom, setTransferFrom] = useState("");
+  const [transferTo, setTransferTo] = useState("");
+  const [transferAmount, setTransferAmount] = useState("");
+  const [transferDesc, setTransferDesc] = useState("");
 
   // Compute account balances
   const getAccountBalance = (accId: string, initialBalance: number) => {
@@ -80,7 +85,10 @@ export default function Accounts() {
         </TabsList>
 
         <TabsContent value="accounts" className="space-y-4 mt-4">
-          <div className="flex justify-end">
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { setTransferOpen(true); setTransferFrom(""); setTransferTo(""); setTransferAmount(""); setTransferDesc(""); }} className="gap-2">
+              <ArrowLeftRight className="h-4 w-4" /> Transferir
+            </Button>
             <Button onClick={() => { setEditingAcc(undefined); setAccFormOpen(true); }} className="gap-2">
               <Plus className="h-4 w-4" /> Nova Conta
             </Button>
@@ -257,6 +265,61 @@ export default function Accounts() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Transfer Dialog */}
+      <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transferência entre Contas</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const amt = parseFloat(transferAmount);
+            if (!transferFrom || !transferTo || !amt || transferFrom === transferTo) return;
+            await transferBetweenAccounts(transferFrom, transferTo, amt, transferDesc || undefined);
+            setTransferOpen(false);
+          }} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Conta de Origem</Label>
+              <Select value={transferFrom} onValueChange={setTransferFrom}>
+                <SelectTrigger><SelectValue placeholder="Selecione a origem" /></SelectTrigger>
+                <SelectContent>
+                  {accounts.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.name} — {acc.bank}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Conta de Destino</Label>
+              <Select value={transferTo} onValueChange={setTransferTo}>
+                <SelectTrigger><SelectValue placeholder="Selecione o destino" /></SelectTrigger>
+                <SelectContent>
+                  {accounts.filter((a) => a.id !== transferFrom).map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.name} — {acc.bank}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Valor (R$)</Label>
+              <Input type="number" step="0.01" min="0.01" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} required placeholder="0,00" />
+            </div>
+            <div className="space-y-2">
+              <Label>Descrição (opcional)</Label>
+              <Input value={transferDesc} onChange={(e) => setTransferDesc(e.target.value)} placeholder="Ex: Depósito do salário" />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setTransferOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={!transferFrom || !transferTo || !transferAmount || transferFrom === transferTo}>Transferir</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
