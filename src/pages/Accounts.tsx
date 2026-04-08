@@ -265,6 +265,61 @@ export default function Accounts() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Transfer Dialog */}
+      <Dialog open={transferOpen} onOpenChange={setTransferOpen}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transferência entre Contas</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={async (e) => {
+            e.preventDefault();
+            const amt = parseFloat(transferAmount);
+            if (!transferFrom || !transferTo || !amt || transferFrom === transferTo) return;
+            await transferBetweenAccounts(transferFrom, transferTo, amt, transferDesc || undefined);
+            setTransferOpen(false);
+          }} className="space-y-4">
+            <div className="space-y-2">
+              <Label>Conta de Origem</Label>
+              <Select value={transferFrom} onValueChange={setTransferFrom}>
+                <SelectTrigger><SelectValue placeholder="Selecione a origem" /></SelectTrigger>
+                <SelectContent>
+                  {accounts.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.name} — {acc.bank}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Conta de Destino</Label>
+              <Select value={transferTo} onValueChange={setTransferTo}>
+                <SelectTrigger><SelectValue placeholder="Selecione o destino" /></SelectTrigger>
+                <SelectContent>
+                  {accounts.filter((a) => a.id !== transferFrom).map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.name} — {acc.bank}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Valor (R$)</Label>
+              <Input type="number" step="0.01" min="0.01" value={transferAmount} onChange={(e) => setTransferAmount(e.target.value)} required placeholder="0,00" />
+            </div>
+            <div className="space-y-2">
+              <Label>Descrição (opcional)</Label>
+              <Input value={transferDesc} onChange={(e) => setTransferDesc(e.target.value)} placeholder="Ex: Depósito do salário" />
+            </div>
+            <div className="flex justify-end gap-2 pt-2">
+              <Button type="button" variant="ghost" onClick={() => setTransferOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={!transferFrom || !transferTo || !transferAmount || transferFrom === transferTo}>Transferir</Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
