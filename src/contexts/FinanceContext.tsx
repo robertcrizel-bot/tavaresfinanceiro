@@ -11,6 +11,7 @@ interface FinanceContextType {
   updateTransaction: (t: Transaction) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   payCardBill: (creditCardId: string, accountId: string, amount: number) => Promise<void>;
+  transferBetweenAccounts: (fromAccountId: string, toAccountId: string, amount: number, description?: string) => Promise<void>;
   refetch: () => void;
 }
 
