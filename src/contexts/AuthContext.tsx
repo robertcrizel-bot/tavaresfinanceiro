@@ -30,9 +30,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
-      if (event === "SIGNED_IN" && session?.user) {
-        setTimeout(() => seedUserData(session.user.id), 0);
-      }
     });
 
     supabase.auth.getSession().then(({ data: { session } }) => {
