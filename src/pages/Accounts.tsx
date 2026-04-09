@@ -362,7 +362,7 @@ function AccountFormDialog({ open, onClose, onSubmit, initial }: {
   };
 
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); else resetForm(); }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{initial ? "Editar Conta" : "Nova Conta"}</DialogTitle>
