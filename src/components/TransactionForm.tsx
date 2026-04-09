@@ -1,6 +1,7 @@
 import { useState, useEffect } from "react";
-import { Transaction, TransactionType, Category, PaymentMethod, EXPENSE_CATEGORIES, INCOME_CATEGORIES, PAYMENT_METHODS } from "@/lib/types";
+import { Transaction, TransactionType, Category, PaymentMethod, PAYMENT_METHODS } from "@/lib/types";
 import { useAccounts } from "@/contexts/AccountContext";
+import { useCategories } from "@/contexts/CategoryContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ interface TransactionFormProps {
 
 export function TransactionForm({ open, onClose, onSubmit, initial }: TransactionFormProps) {
   const { accounts, creditCards } = useAccounts();
+  const { getCategoriesByType } = useCategories();
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<TransactionType>("expense");
@@ -45,7 +47,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
     }
   }, [initial, open]);
 
-  const categories = type === "income" ? INCOME_CATEGORIES : EXPENSE_CATEGORIES;
+  const categories = getCategoriesByType(type);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();

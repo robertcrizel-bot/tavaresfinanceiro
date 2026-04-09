@@ -1,4 +1,4 @@
-import { LayoutDashboard, List, User, Wallet } from "lucide-react";
+import { LayoutDashboard, List, User, Wallet, Tag } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -17,6 +17,7 @@ const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Meus Registros", url: "/records", icon: List },
   { title: "Contas & Cartões", url: "/accounts", icon: Wallet },
+  { title: "Categorias", url: "/categories", icon: Tag },
 ];
 
 export function AppSidebar() {

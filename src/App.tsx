@@ -4,11 +4,13 @@ import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { FinanceProvider } from "@/contexts/FinanceContext";
+import { CategoryProvider } from "@/contexts/CategoryContext";
 import { AccountProvider } from "@/contexts/AccountContext";
 import AppLayout from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import Records from "@/pages/Records";
 import Accounts from "@/pages/Accounts";
+import Categories from "@/pages/Categories";
 import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
@@ -33,15 +35,18 @@ function ProtectedRoutes() {
   return (
     <FinanceProvider>
       <AccountProvider>
-        <Routes>
-          <Route element={<AppLayout />}>
-            <Route path="/" element={<Dashboard />} />
-            <Route path="/records" element={<Records />} />
-            <Route path="/accounts" element={<Accounts />} />
-            <Route path="/profile" element={<Profile />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
+        <CategoryProvider>
+          <Routes>
+            <Route element={<AppLayout />}>
+              <Route path="/" element={<Dashboard />} />
+              <Route path="/records" element={<Records />} />
+              <Route path="/accounts" element={<Accounts />} />
+              <Route path="/categories" element={<Categories />} />
+              <Route path="/profile" element={<Profile />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </CategoryProvider>
       </AccountProvider>
     </FinanceProvider>
   );
