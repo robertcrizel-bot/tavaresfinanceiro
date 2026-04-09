@@ -60,8 +60,11 @@ export default function Dashboard() {
     return transactions.filter((t) => t.date >= cutoffStr);
   }, [transactions, period, dateRange]);
 
-  const totalIncome = filtered.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-  const totalExpense = filtered.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  const isTransfer = (t: Transaction) =>
+    t.title === "Transferência Enviada" || t.title === "Transferência Recebida";
+
+  const totalIncome = filtered.filter((t) => t.type === "income" && !isTransfer(t)).reduce((s, t) => s + t.amount, 0);
+  const totalExpense = filtered.filter((t) => t.type === "expense" && !isTransfer(t)).reduce((s, t) => s + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
   const days = period === "all" ? 30 : Number(period);
