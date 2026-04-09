@@ -34,7 +34,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     const { data, error } = await supabase
       .from("transactions")
       .select("*")
-      .order("date", { ascending: false });
+      .order("created_at", { ascending: false });
     if (error) {
       toast({ title: "Erro ao carregar registros", description: error.message, variant: "destructive" });
     } else {
