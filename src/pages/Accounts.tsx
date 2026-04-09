@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAccounts } from "@/contexts/AccountContext";
 import { Account, CreditCard } from "@/lib/types";
 import { useFinance } from "@/contexts/FinanceContext";
@@ -337,17 +337,19 @@ function AccountFormDialog({ open, onClose, onSubmit, initial }: {
   const [initialBalance, setInitialBalance] = useState("");
   const [color, setColor] = useState("blue");
 
-  useState(() => {
-    if (initial) {
-      setName(initial.name);
-      setBank(initial.bank);
-      setType(initial.type);
-      setInitialBalance(String(initial.initialBalance));
-      setColor(initial.color);
-    } else {
-      setName(""); setBank(""); setType("checking"); setInitialBalance(""); setColor("blue");
+  useEffect(() => {
+    if (open) {
+      if (initial) {
+        setName(initial.name);
+        setBank(initial.bank);
+        setType(initial.type);
+        setInitialBalance(String(initial.initialBalance));
+        setColor(initial.color);
+      } else {
+        setName(""); setBank(""); setType("checking"); setInitialBalance(""); setColor("blue");
+      }
     }
-  });
+  }, [open, initial]);
 
   // Reset on open
   const resetForm = () => {
@@ -446,8 +448,12 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial }: {
     }
   };
 
+  useEffect(() => {
+    if (open) resetForm();
+  }, [open, initial]);
+
   return (
-    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); else resetForm(); }}>
+    <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle>{initial ? "Editar Cartão" : "Novo Cartão"}</DialogTitle>
