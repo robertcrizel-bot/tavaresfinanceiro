@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useFinance } from "@/contexts/FinanceContext";
-import { Transaction, ALL_CATEGORIES, Category, TransactionType } from "@/lib/types";
+import { useCategories } from "@/contexts/CategoryContext";
+import { Transaction, TransactionType } from "@/lib/types";
 import { TransactionForm } from "@/components/TransactionForm";
 import { TransactionDetail } from "@/components/TransactionDetail";
 import { EmptyState } from "@/components/EmptyState";
@@ -10,29 +11,63 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Eye, Pencil, Trash2, Search, Download } from "lucide-react";
+import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import * as XLSX from "xlsx";
+
+type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "amount";
+type SortDir = "asc" | "desc";
 
 export default function Records() {
   const { transactions, addTransaction, updateTransaction, deleteTransaction } = useFinance();
+  const { allCategoryNames } = useCategories();
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | TransactionType>("all");
-  const [catFilter, setCatFilter] = useState<"all" | Category>("all");
+  const [catFilter, setCatFilter] = useState<string>("all");
+
+  const [sortKey, setSortKey] = useState<SortKey>("date");
+  const [sortDir, setSortDir] = useState<SortDir>("desc");
 
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<Transaction | undefined>();
   const [viewing, setViewing] = useState<Transaction | null>(null);
   const [deleting, setDeleting] = useState<string | null>(null);
 
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir(key === "amount" ? "desc" : "asc");
+    }
+  };
+
+  const SortIcon = ({ col }: { col: SortKey }) => {
+    if (sortKey !== col) return <ArrowUpDown className="h-3 w-3 ml-1 opacity-40" />;
+    return sortDir === "asc" ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />;
+  };
+
   const filtered = useMemo(() => {
-    return transactions.filter((t) => {
+    const list = transactions.filter((t) => {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
       if (typeFilter !== "all" && t.type !== typeFilter) return false;
       if (catFilter !== "all" && t.category !== catFilter) return false;
       return true;
-    }).sort((a, b) => b.date.localeCompare(a.date));
-  }, [transactions, search, typeFilter, catFilter]);
+    });
+
+    return list.sort((a, b) => {
+      let cmp = 0;
+      switch (sortKey) {
+        case "date": cmp = a.date.localeCompare(b.date); break;
+        case "title": cmp = a.title.localeCompare(b.title); break;
+        case "category": cmp = a.category.localeCompare(b.category); break;
+        case "type": cmp = a.type.localeCompare(b.type); break;
+        case "paymentMethod": cmp = (a.paymentMethod || "").localeCompare(b.paymentMethod || ""); break;
+        case "amount": cmp = a.amount - b.amount; break;
+      }
+      return sortDir === "asc" ? cmp : -cmp;
+    });
+  }, [transactions, search, typeFilter, catFilter, sortKey, sortDir]);
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const today = new Date().toISOString().split("T")[0];
@@ -48,25 +83,15 @@ export default function Records() {
       "Valor (R$)": t.type === "income" ? t.amount : -t.amount,
       "Descrição": t.description || "",
     }));
-
     const ws = XLSX.utils.json_to_sheet(data);
-
-    // Column widths
-    ws["!cols"] = [
-      { wch: 12 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 18 }, { wch: 15 }, { wch: 30 },
-    ];
-
+    ws["!cols"] = [{ wch: 12 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 18 }, { wch: 15 }, { wch: 30 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Registros");
-
-    // Add table formatting
     const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
     ws["!autofilter"] = { ref: XLSX.utils.encode_range(range) };
-
     XLSX.writeFile(wb, `registros_${new Date().toISOString().split("T")[0]}.xlsx`);
   }, [filtered]);
 
-  // Keyboard shortcuts
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (e.key === "n" || e.key === "N") { e.preventDefault(); setEditing(undefined); setFormOpen(true); }
@@ -77,6 +102,18 @@ export default function Records() {
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
+
+  const SortableHead = ({ col, children }: { col: SortKey; children: React.ReactNode }) => (
+    <TableHead
+      className="cursor-pointer select-none hover:text-foreground transition-colors"
+      onClick={() => toggleSort(col)}
+    >
+      <span className="flex items-center">
+        {children}
+        <SortIcon col={col} />
+      </span>
+    </TableHead>
+  );
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
@@ -107,11 +144,11 @@ export default function Records() {
               <SelectItem value="expense">Saída</SelectItem>
             </SelectContent>
           </Select>
-          <Select value={catFilter} onValueChange={(v) => setCatFilter(v as any)}>
+          <Select value={catFilter} onValueChange={(v) => setCatFilter(v)}>
             <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
-              {ALL_CATEGORIES.map((c) => (
+              {allCategoryNames.map((c) => (
                 <SelectItem key={c} value={c}>{c}</SelectItem>
               ))}
             </SelectContent>
@@ -174,13 +211,13 @@ export default function Records() {
           <div className="glass-card rounded-xl overflow-hidden animate-fade-in hidden md:block">
             <Table>
               <TableHeader>
-              <TableRow className="border-border hover:bg-transparent">
-                  <TableHead>Data</TableHead>
-                  <TableHead>Título</TableHead>
-                  <TableHead>Categoria</TableHead>
-                  <TableHead>Tipo</TableHead>
-                  <TableHead>Pagamento</TableHead>
-                  <TableHead className="text-right">Valor</TableHead>
+                <TableRow className="border-border hover:bg-transparent">
+                  <SortableHead col="date">Data</SortableHead>
+                  <SortableHead col="title">Título</SortableHead>
+                  <SortableHead col="category">Categoria</SortableHead>
+                  <SortableHead col="type">Tipo</SortableHead>
+                  <SortableHead col="paymentMethod">Pagamento</SortableHead>
+                  <SortableHead col="amount"><span className="justify-end w-full flex items-center">Valor<SortIcon col="amount" /></span></SortableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
