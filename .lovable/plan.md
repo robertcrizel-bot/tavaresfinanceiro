@@ -1,30 +1,51 @@
 
 
-## Plan: Improve KPI Cards with Contextual Colors
+## Plano: Aba "Previsões" — Contas Recorrentes
 
-The current KPI cards all look identical -- same neutral colors, no visual distinction. The goal is to give each card a color that matches its meaning:
+### O que será criado
 
-- **Total de Entradas** (Income): Green accent (success/income color)
-- **Total de Saídas** (Expenses): Red accent (destructive/expense color)
-- **Gasto Médio Diário** (Daily Average): Amber/warning accent
-- **Maior Categoria** (Top Category): Blue accent
+Uma nova seção no app chamada **Previsões** onde você cadastra despesas recorrentes (aluguel, energia, água, internet, etc.) informando:
+- Nome da despesa
+- Valor
+- Categoria
+- Dia do vencimento
+- Conta vinculada (opcional)
+- Quantidade de meses (ou "indefinido"/recorrente)
+- Data de início
 
-### Changes
+O sistema gera automaticamente uma **linha do tempo** mostrando os próximos vencimentos, com status visual (pendente, vencido, pago) e um resumo do total previsto para o mês.
 
-**1. Update `KpiCard` component** (`src/components/KpiCard.tsx`)
-- Add an optional `color` prop (`"green" | "red" | "amber" | "blue"`)
-- Apply the color as a tinted left border or icon color and a subtle background tint
-- Map each color to specific Tailwind classes (e.g., `border-l-4 border-l-income`, icon `text-income`, subtle `bg-income/5`)
+### Funcionalidades
 
-**2. Update `Dashboard.tsx`** (lines 105-110)
-- Pass the `color` prop to each `KpiCard`:
-  - Entradas → green
-  - Saídas → red
-  - Gasto Médio → amber/warning
-  - Maior Categoria → blue
+1. **CRUD de previsões** — Criar, editar e excluir despesas recorrentes
+2. **Visão mensal** — Calendário/lista mostrando as contas do mês com status (a vencer, vencida, paga)
+3. **Resumo** — Cards no topo com total previsto, total pago e total pendente do mês
+4. **Marcar como paga** — Ao marcar, cria automaticamente um registro real na aba de Registros
+5. **Indicadores visuais** — Cores para status: verde (pago), amarelo (a vencer), vermelho (vencido)
 
-**3. Add utility colors in `tailwind.config.ts`** if needed
-- Ensure `warning` and `info` (blue) colors are available — warning already exists, may add a `info` color for the blue card.
+### Etapas técnicas
 
-This is a small, focused change across 2-3 files that makes the dashboard immediately more readable and visually meaningful.
+1. **Nova tabela `recurring_bills`** no banco de dados:
+   - `id`, `user_id`, `name`, `amount`, `category`, `due_day` (dia do mês), `start_date`, `duration_months` (null = indefinido), `account_id` (opcional), `description`, `created_at`, `updated_at`
+   - RLS para privacidade por usuário
+
+2. **Nova tabela `bill_payments`** para rastrear quais meses já foram pagos:
+   - `id`, `user_id`, `recurring_bill_id`, `reference_month` (ex: "2026-04"), `paid_at`, `transaction_id` (link com o registro criado)
+   - RLS por usuário
+
+3. **Nova página `src/pages/Forecasts.tsx`**:
+   - Seletor de mês (navegar entre meses)
+   - Lista de contas do mês com status visual
+   - Botão para marcar como paga (cria transação automaticamente)
+   - Dialog para adicionar/editar previsão recorrente
+   - Cards KPI: Total Previsto, Pago, Pendente
+
+4. **Integração com navegação**:
+   - Adicionar rota `/forecasts` no `App.tsx`
+   - Adicionar item "Previsões" no `AppSidebar.tsx` e `BottomNav.tsx` (ícone CalendarClock)
+
+5. **Contexto `ForecastContext`**:
+   - CRUD de recurring_bills
+   - Lógica para calcular quais contas vencem em determinado mês
+   - Função para marcar como paga (insere em `bill_payments` + cria transação via `FinanceContext`)
 
