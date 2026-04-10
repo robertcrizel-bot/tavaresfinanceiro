@@ -8,7 +8,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import type { DateRange } from "react-day-picker";
 
-export type Period = "7" | "15" | "30" | "all" | "custom";
+export type Period = "7" | "15" | "30" | "month" | "all" | "custom";
 
 interface Props {
   period: Period;
