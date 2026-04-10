@@ -18,6 +18,7 @@ interface Props {
 }
 
 const options: { value: Period; label: string }[] = [
+  { value: "month", label: "Mês Atual" },
   { value: "30", label: "30 dias" },
   { value: "15", label: "15 dias" },
   { value: "7", label: "7 dias" },
