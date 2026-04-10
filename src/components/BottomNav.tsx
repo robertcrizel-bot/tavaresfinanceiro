@@ -1,11 +1,11 @@
-import { LayoutDashboard, List, Wallet, User, Tag } from "lucide-react";
+import { LayoutDashboard, List, Wallet, User, CalendarClock } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 
 const items = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Registros", url: "/records", icon: List },
   { title: "Contas", url: "/accounts", icon: Wallet },
-  { title: "Categorias", url: "/categories", icon: Tag },
+  { title: "Previsões", url: "/forecasts", icon: CalendarClock },
   { title: "Perfil", url: "/profile", icon: User },
 ];
 
