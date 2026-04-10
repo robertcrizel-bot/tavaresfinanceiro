@@ -48,6 +48,12 @@ export default function Dashboard() {
 
   const filtered = useMemo(() => {
     if (period === "all") return transactions;
+    if (period === "month") {
+      const now = new Date();
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+      return transactions.filter((t) => t.date >= firstDay && t.date <= lastDay);
+    }
     if (period === "custom") {
       if (!dateRange?.from) return transactions;
       const fromStr = dateRange.from.toISOString().split("T")[0];
