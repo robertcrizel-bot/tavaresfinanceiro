@@ -73,7 +73,18 @@ export default function Dashboard() {
   const totalExpense = filtered.filter((t) => t.type === "expense" && !isTransfer(t)).reduce((s, t) => s + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
-  const days = period === "all" ? 30 : Number(period);
+  const days = useMemo(() => {
+    if (period === "month") {
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+    }
+    if (period === "all") return 30;
+    if (period === "custom" && dateRange?.from) {
+      const to = dateRange.to || dateRange.from;
+      return Math.max(1, Math.round((to.getTime() - dateRange.from.getTime()) / 86400000) + 1);
+    }
+    return Number(period);
+  }, [period, dateRange]);
   const avgDaily = totalExpense / days;
 
   const topCategory = useMemo(() => {
