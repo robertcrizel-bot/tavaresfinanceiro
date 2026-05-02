@@ -43,7 +43,7 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 
 export default function Accounts() {
   const { accounts, creditCards, addAccount, updateAccount, deleteAccount, addCreditCard, updateCreditCard, deleteCreditCard } = useAccounts();
-  const { transactions, payCardBill, transferBetweenAccounts } = useFinance();
+  const { transactions, addTransaction, payCardBill, transferBetweenAccounts } = useFinance();
 
   const [accFormOpen, setAccFormOpen] = useState(false);
   const [editingAcc, setEditingAcc] = useState<Account | undefined>();
@@ -198,6 +198,20 @@ export default function Accounts() {
         onClose={() => { setAccFormOpen(false); setEditingAcc(undefined); }}
         onSubmit={(data) => editingAcc ? updateAccount({ ...data, id: editingAcc.id }) : addAccount(data)}
         initial={editingAcc}
+        currentBalance={editingAcc ? getAccountBalance(editingAcc.id, editingAcc.initialBalance) : 0}
+        onAdjustBalance={async (accId, diff) => {
+          await addTransaction({
+            title: "Ajuste de Saldo",
+            amount: Math.abs(diff),
+            type: diff > 0 ? "income" : "expense",
+            category: "Outros",
+            date: new Date().toISOString().split("T")[0],
+            description: "Ajuste manual de saldo da conta",
+            paymentMethod: "Outro",
+            accountId: accId,
+            isPaid: true,
+          });
+        }}
       />
 
       {/* Credit Card Form */}
@@ -206,6 +220,22 @@ export default function Accounts() {
         onClose={() => { setCcFormOpen(false); setEditingCc(undefined); }}
         onSubmit={(data) => editingCc ? updateCreditCard({ ...data, id: editingCc.id }) : addCreditCard(data)}
         initial={editingCc}
+        currentUsed={editingCc ? getCardUsed(editingCc.id) : 0}
+        onAdjustUsed={async (cardId, diff) => {
+          // diff > 0 means we need to INCREASE the bill -> add expense on card
+          // diff < 0 means we need to DECREASE the bill -> add income (refund) on card
+          await addTransaction({
+            title: "Ajuste de Fatura",
+            amount: Math.abs(diff),
+            type: diff > 0 ? "expense" : "income",
+            category: "Outros",
+            date: new Date().toISOString().split("T")[0],
+            description: "Ajuste manual da fatura do cartão",
+            paymentMethod: "Outro",
+            creditCardId: cardId,
+            isPaid: false,
+          });
+        }}
       />
 
       {/* Delete Confirmation */}
@@ -325,17 +355,20 @@ export default function Accounts() {
 }
 
 // --- Account Form ---
-function AccountFormDialog({ open, onClose, onSubmit, initial }: {
+function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, onAdjustBalance }: {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: Omit<Account, "id">) => void;
   initial?: Account;
+  currentBalance?: number;
+  onAdjustBalance?: (accountId: string, diff: number) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
   const [type, setType] = useState<"checking" | "savings">("checking");
   const [initialBalance, setInitialBalance] = useState("");
   const [color, setColor] = useState("blue");
+  const [adjustTo, setAdjustTo] = useState("");
 
   useEffect(() => {
     if (open) {
@@ -345,11 +378,12 @@ function AccountFormDialog({ open, onClose, onSubmit, initial }: {
         setType(initial.type);
         setInitialBalance(String(initial.initialBalance));
         setColor(initial.color);
+        setAdjustTo(typeof currentBalance === "number" ? currentBalance.toFixed(2) : "");
       } else {
-        setName(""); setBank(""); setType("checking"); setInitialBalance(""); setColor("blue");
+        setName(""); setBank(""); setType("checking"); setInitialBalance(""); setColor("blue"); setAdjustTo("");
       }
     }
-  }, [open, initial]);
+  }, [open, initial, currentBalance]);
 
   // Reset on open
   const resetForm = () => {
@@ -367,7 +401,20 @@ function AccountFormDialog({ open, onClose, onSubmit, initial }: {
         <DialogHeader>
           <DialogTitle>{initial ? "Editar Conta" : "Nova Conta"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit({ name, bank, type, initialBalance: parseFloat(initialBalance) || 0, color }); onClose(); }} className="space-y-4">
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+          await onSubmit({ name, bank, type, initialBalance: parseFloat(initialBalance) || 0, color });
+          if (initial && onAdjustBalance && typeof currentBalance === "number") {
+            const target = parseFloat(adjustTo);
+            if (!isNaN(target)) {
+              const diff = +(target - currentBalance).toFixed(2);
+              if (Math.abs(diff) >= 0.01) {
+                await onAdjustBalance(initial.id, diff);
+              }
+            }
+          }
+          onClose();
+        }} className="space-y-4">
           <div className="space-y-2">
             <Label>Nome da Conta</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ex: Conta Principal" />
@@ -415,6 +462,22 @@ function AccountFormDialog({ open, onClose, onSubmit, initial }: {
               </Select>
             </div>
           </div>
+          {initial && typeof currentBalance === "number" && (
+            <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
+              <Label className="text-foreground">Ajustar saldo atual</Label>
+              <p className="text-xs text-muted-foreground">
+                Saldo atual calculado: <strong className="text-foreground">{fmt(currentBalance)}</strong>.
+                Informe o saldo real — a diferença será lançada como uma transação de ajuste.
+              </p>
+              <Input
+                type="number"
+                step="0.01"
+                value={adjustTo}
+                onChange={(e) => setAdjustTo(e.target.value)}
+                placeholder={currentBalance.toFixed(2)}
+              />
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
             <Button type="submit">{initial ? "Salvar" : "Criar"}</Button>
@@ -426,11 +489,13 @@ function AccountFormDialog({ open, onClose, onSubmit, initial }: {
 }
 
 // --- Credit Card Form ---
-function CreditCardFormDialog({ open, onClose, onSubmit, initial }: {
+function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, onAdjustUsed }: {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: Omit<CreditCard, "id">) => void;
   initial?: CreditCard;
+  currentUsed?: number;
+  onAdjustUsed?: (cardId: string, diff: number) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
@@ -438,19 +503,21 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial }: {
   const [closingDay, setClosingDay] = useState("20");
   const [dueDay, setDueDay] = useState("27");
   const [color, setColor] = useState("purple");
+  const [adjustTo, setAdjustTo] = useState("");
 
   const resetForm = () => {
     if (initial) {
       setName(initial.name); setBank(initial.bank); setLimit(String(initial.limit));
       setClosingDay(String(initial.closingDay)); setDueDay(String(initial.dueDay)); setColor(initial.color);
+      setAdjustTo(typeof currentUsed === "number" ? currentUsed.toFixed(2) : "");
     } else {
-      setName(""); setBank(""); setLimit(""); setClosingDay("20"); setDueDay("27"); setColor("purple");
+      setName(""); setBank(""); setLimit(""); setClosingDay("20"); setDueDay("27"); setColor("purple"); setAdjustTo("");
     }
   };
 
   useEffect(() => {
     if (open) resetForm();
-  }, [open, initial]);
+  }, [open, initial, currentUsed]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -458,7 +525,20 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial }: {
         <DialogHeader>
           <DialogTitle>{initial ? "Editar Cartão" : "Novo Cartão"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color }); onClose(); }} className="space-y-4">
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+          await onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color });
+          if (initial && onAdjustUsed && typeof currentUsed === "number") {
+            const target = parseFloat(adjustTo);
+            if (!isNaN(target) && target >= 0) {
+              const diff = +(target - currentUsed).toFixed(2);
+              if (Math.abs(diff) >= 0.01) {
+                await onAdjustUsed(initial.id, diff);
+              }
+            }
+          }
+          onClose();
+        }} className="space-y-4">
           <div className="space-y-2">
             <Label>Nome do Cartão</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ex: Nubank Platinum" />
@@ -504,6 +584,23 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial }: {
               </Select>
             </div>
           </div>
+          {initial && typeof currentUsed === "number" && (
+            <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
+              <Label className="text-foreground">Ajustar fatura atual</Label>
+              <p className="text-xs text-muted-foreground">
+                Fatura atual em aberto: <strong className="text-foreground">{fmt(currentUsed)}</strong>.
+                Informe o valor real — a diferença será lançada como ajuste no cartão.
+              </p>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={adjustTo}
+                onChange={(e) => setAdjustTo(e.target.value)}
+                placeholder={currentUsed.toFixed(2)}
+              />
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
             <Button type="submit">{initial ? "Salvar" : "Criar"}</Button>
