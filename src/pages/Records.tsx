@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useCategories } from "@/contexts/CategoryContext";
+import { useAccounts } from "@/contexts/AccountContext";
 import { Transaction, TransactionType } from "@/lib/types";
 import { TransactionForm } from "@/components/TransactionForm";
 import { TransactionDetail } from "@/components/TransactionDetail";
@@ -14,16 +15,29 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
-type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "amount";
+type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "source" | "amount";
 type SortDir = "asc" | "desc";
 
 export default function Records() {
   const { transactions, addTransaction, updateTransaction, deleteTransaction } = useFinance();
   const { allCategoryNames } = useCategories();
+  const { accounts, creditCards } = useAccounts();
+
+  const sourceMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    accounts.forEach((a) => (m[`a:${a.id}`] = a.name));
+    creditCards.forEach((c) => (m[`c:${c.id}`] = `${c.name} (Cartão)`));
+    return m;
+  }, [accounts, creditCards]);
+
+  const getSourceKey = (t: Transaction) =>
+    t.accountId ? `a:${t.accountId}` : t.creditCardId ? `c:${t.creditCardId}` : "";
+  const getSourceName = (t: Transaction) => sourceMap[getSourceKey(t)] || "—";
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | TransactionType>("all");
   const [catFilter, setCatFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
 
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -52,6 +66,7 @@ export default function Records() {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
       if (typeFilter !== "all" && t.type !== typeFilter) return false;
       if (catFilter !== "all" && t.category !== catFilter) return false;
+      if (sourceFilter !== "all" && getSourceKey(t) !== sourceFilter) return false;
       return true;
     });
 
@@ -63,11 +78,12 @@ export default function Records() {
         case "category": cmp = a.category.localeCompare(b.category); break;
         case "type": cmp = a.type.localeCompare(b.type); break;
         case "paymentMethod": cmp = (a.paymentMethod || "").localeCompare(b.paymentMethod || ""); break;
+        case "source": cmp = getSourceName(a).localeCompare(getSourceName(b)); break;
         case "amount": cmp = a.amount - b.amount; break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [transactions, search, typeFilter, catFilter, sortKey, sortDir]);
+  }, [transactions, search, typeFilter, catFilter, sourceFilter, sortKey, sortDir, sourceMap]);
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const today = new Date().toISOString().split("T")[0];
@@ -80,17 +96,18 @@ export default function Records() {
       "Categoria": t.category,
       "Tipo": t.type === "income" ? "Entrada" : (t.date > today ? "Saída - Previsão" : "Saída"),
       "Pagamento": t.paymentMethod || "—",
+      "Conta/Cartão": getSourceName(t),
       "Valor (R$)": t.type === "income" ? t.amount : -t.amount,
       "Descrição": t.description || "",
     }));
     const ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = [{ wch: 12 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 18 }, { wch: 15 }, { wch: 30 }];
+    ws["!cols"] = [{ wch: 12 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 18 }, { wch: 22 }, { wch: 15 }, { wch: 30 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Registros");
     const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
     ws["!autofilter"] = { ref: XLSX.utils.encode_range(range) };
     XLSX.writeFile(wb, `registros_${new Date().toISOString().split("T")[0]}.xlsx`);
-  }, [filtered]);
+  }, [filtered, today, sourceMap]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -153,6 +170,18 @@ export default function Records() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v)}>
+            <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Conta/Cartão" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as contas</SelectItem>
+              {accounts.map((a) => (
+                <SelectItem key={a.id} value={`a:${a.id}`}>{a.name}</SelectItem>
+              ))}
+              {creditCards.map((c) => (
+                <SelectItem key={c.id} value={`c:${c.id}`}>{c.name} (Cartão)</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
@@ -190,6 +219,9 @@ export default function Records() {
                     {t.paymentMethod && (
                       <Badge variant="secondary" className="text-xs">{t.paymentMethod}</Badge>
                     )}
+                    {getSourceKey(t) && (
+                      <Badge variant="outline" className="text-xs">{getSourceName(t)}</Badge>
+                    )}
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewing(t)}>
@@ -217,6 +249,7 @@ export default function Records() {
                   <SortableHead col="category">Categoria</SortableHead>
                   <SortableHead col="type">Tipo</SortableHead>
                   <SortableHead col="paymentMethod">Pagamento</SortableHead>
+                  <SortableHead col="source">Conta/Cartão</SortableHead>
                   <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors text-right" onClick={() => toggleSort("amount")}>
                     <span className="flex items-center justify-end">Valor<SortIcon col="amount" /></span>
                   </TableHead>
@@ -238,6 +271,9 @@ export default function Records() {
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {t.paymentMethod || "—"}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {getSourceName(t)}
                     </TableCell>
                     <TableCell className={`text-right font-medium ${t.type === "income" ? "text-income" : "text-expense"}`}>
                       {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
