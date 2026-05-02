@@ -378,11 +378,12 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
         setType(initial.type);
         setInitialBalance(String(initial.initialBalance));
         setColor(initial.color);
+        setAdjustTo(typeof currentBalance === "number" ? currentBalance.toFixed(2) : "");
       } else {
-        setName(""); setBank(""); setType("checking"); setInitialBalance(""); setColor("blue");
+        setName(""); setBank(""); setType("checking"); setInitialBalance(""); setColor("blue"); setAdjustTo("");
       }
     }
-  }, [open, initial]);
+  }, [open, initial, currentBalance]);
 
   // Reset on open
   const resetForm = () => {
