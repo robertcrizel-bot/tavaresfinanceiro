@@ -170,6 +170,18 @@ export default function Records() {
               ))}
             </SelectContent>
           </Select>
+          <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v)}>
+            <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Conta/Cartão" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Todas as contas</SelectItem>
+              {accounts.map((a) => (
+                <SelectItem key={a.id} value={`a:${a.id}`}>{a.name}</SelectItem>
+              ))}
+              {creditCards.map((c) => (
+                <SelectItem key={c.id} value={`c:${c.id}`}>{c.name} (Cartão)</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
