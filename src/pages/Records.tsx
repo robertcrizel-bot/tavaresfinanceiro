@@ -249,6 +249,7 @@ export default function Records() {
                   <SortableHead col="category">Categoria</SortableHead>
                   <SortableHead col="type">Tipo</SortableHead>
                   <SortableHead col="paymentMethod">Pagamento</SortableHead>
+                  <SortableHead col="source">Conta/Cartão</SortableHead>
                   <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors text-right" onClick={() => toggleSort("amount")}>
                     <span className="flex items-center justify-end">Valor<SortIcon col="amount" /></span>
                   </TableHead>
