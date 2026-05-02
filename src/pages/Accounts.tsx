@@ -584,6 +584,23 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, o
               </Select>
             </div>
           </div>
+          {initial && typeof currentUsed === "number" && (
+            <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
+              <Label className="text-foreground">Ajustar fatura atual</Label>
+              <p className="text-xs text-muted-foreground">
+                Fatura atual em aberto: <strong className="text-foreground">{fmt(currentUsed)}</strong>.
+                Informe o valor real — a diferença será lançada como ajuste no cartão.
+              </p>
+              <Input
+                type="number"
+                step="0.01"
+                min="0"
+                value={adjustTo}
+                onChange={(e) => setAdjustTo(e.target.value)}
+                placeholder={currentUsed.toFixed(2)}
+              />
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
             <Button type="submit">{initial ? "Salvar" : "Criar"}</Button>
