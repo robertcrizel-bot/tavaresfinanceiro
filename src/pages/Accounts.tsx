@@ -355,17 +355,20 @@ export default function Accounts() {
 }
 
 // --- Account Form ---
-function AccountFormDialog({ open, onClose, onSubmit, initial }: {
+function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, onAdjustBalance }: {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: Omit<Account, "id">) => void;
   initial?: Account;
+  currentBalance?: number;
+  onAdjustBalance?: (accountId: string, diff: number) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
   const [type, setType] = useState<"checking" | "savings">("checking");
   const [initialBalance, setInitialBalance] = useState("");
   const [color, setColor] = useState("blue");
+  const [adjustTo, setAdjustTo] = useState("");
 
   useEffect(() => {
     if (open) {
