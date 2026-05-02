@@ -43,7 +43,7 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 
 export default function Accounts() {
   const { accounts, creditCards, addAccount, updateAccount, deleteAccount, addCreditCard, updateCreditCard, deleteCreditCard } = useAccounts();
-  const { transactions, payCardBill, transferBetweenAccounts } = useFinance();
+  const { transactions, addTransaction, payCardBill, transferBetweenAccounts } = useFinance();
 
   const [accFormOpen, setAccFormOpen] = useState(false);
   const [editingAcc, setEditingAcc] = useState<Account | undefined>();
