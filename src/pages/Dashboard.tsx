@@ -118,7 +118,7 @@ export default function Dashboard() {
   // Line chart data
   const lineData = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter((t) => t.type === "expense").forEach((t) => {
+    filtered.filter((t) => t.type === "expense" && !isTransfer(t)).forEach((t) => {
       map[t.date] = (map[t.date] || 0) + t.amount;
     });
     return Object.entries(map)
@@ -138,7 +138,7 @@ export default function Dashboard() {
 
   const barData = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter((t) => t.type === "expense").forEach((t) => {
+    filtered.filter((t) => t.type === "expense" && !isTransfer(t)).forEach((t) => {
       map[t.category] = (map[t.category] || 0) + t.amount;
     });
     return Object.entries(map)
