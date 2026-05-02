@@ -219,6 +219,9 @@ export default function Records() {
                     {t.paymentMethod && (
                       <Badge variant="secondary" className="text-xs">{t.paymentMethod}</Badge>
                     )}
+                    {getSourceKey(t) && (
+                      <Badge variant="outline" className="text-xs">{getSourceName(t)}</Badge>
+                    )}
                   </div>
                   <div className="flex gap-1">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewing(t)}>
