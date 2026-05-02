@@ -489,11 +489,13 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
 }
 
 // --- Credit Card Form ---
-function CreditCardFormDialog({ open, onClose, onSubmit, initial }: {
+function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, onAdjustUsed }: {
   open: boolean;
   onClose: () => void;
   onSubmit: (data: Omit<CreditCard, "id">) => void;
   initial?: CreditCard;
+  currentUsed?: number;
+  onAdjustUsed?: (cardId: string, diff: number) => Promise<void>;
 }) {
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
@@ -501,19 +503,21 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial }: {
   const [closingDay, setClosingDay] = useState("20");
   const [dueDay, setDueDay] = useState("27");
   const [color, setColor] = useState("purple");
+  const [adjustTo, setAdjustTo] = useState("");
 
   const resetForm = () => {
     if (initial) {
       setName(initial.name); setBank(initial.bank); setLimit(String(initial.limit));
       setClosingDay(String(initial.closingDay)); setDueDay(String(initial.dueDay)); setColor(initial.color);
+      setAdjustTo(typeof currentUsed === "number" ? currentUsed.toFixed(2) : "");
     } else {
-      setName(""); setBank(""); setLimit(""); setClosingDay("20"); setDueDay("27"); setColor("purple");
+      setName(""); setBank(""); setLimit(""); setClosingDay("20"); setDueDay("27"); setColor("purple"); setAdjustTo("");
     }
   };
 
   useEffect(() => {
     if (open) resetForm();
-  }, [open, initial]);
+  }, [open, initial, currentUsed]);
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -521,7 +525,20 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial }: {
         <DialogHeader>
           <DialogTitle>{initial ? "Editar Cartão" : "Novo Cartão"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color }); onClose(); }} className="space-y-4">
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+          await onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color });
+          if (initial && onAdjustUsed && typeof currentUsed === "number") {
+            const target = parseFloat(adjustTo);
+            if (!isNaN(target) && target >= 0) {
+              const diff = +(target - currentUsed).toFixed(2);
+              if (Math.abs(diff) >= 0.01) {
+                await onAdjustUsed(initial.id, diff);
+              }
+            }
+          }
+          onClose();
+        }} className="space-y-4">
           <div className="space-y-2">
             <Label>Nome do Cartão</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ex: Nubank Platinum" />
