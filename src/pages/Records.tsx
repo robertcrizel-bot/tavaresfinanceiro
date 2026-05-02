@@ -15,16 +15,29 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
-type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "amount";
+type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "source" | "amount";
 type SortDir = "asc" | "desc";
 
 export default function Records() {
   const { transactions, addTransaction, updateTransaction, deleteTransaction } = useFinance();
   const { allCategoryNames } = useCategories();
+  const { accounts, creditCards } = useAccounts();
+
+  const sourceMap = useMemo(() => {
+    const m: Record<string, string> = {};
+    accounts.forEach((a) => (m[`a:${a.id}`] = a.name));
+    creditCards.forEach((c) => (m[`c:${c.id}`] = `${c.name} (Cartão)`));
+    return m;
+  }, [accounts, creditCards]);
+
+  const getSourceKey = (t: Transaction) =>
+    t.accountId ? `a:${t.accountId}` : t.creditCardId ? `c:${t.creditCardId}` : "";
+  const getSourceName = (t: Transaction) => sourceMap[getSourceKey(t)] || "—";
 
   const [search, setSearch] = useState("");
   const [typeFilter, setTypeFilter] = useState<"all" | TransactionType>("all");
   const [catFilter, setCatFilter] = useState<string>("all");
+  const [sourceFilter, setSourceFilter] = useState<string>("all");
 
   const [sortKey, setSortKey] = useState<SortKey>("date");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
@@ -53,6 +66,7 @@ export default function Records() {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
       if (typeFilter !== "all" && t.type !== typeFilter) return false;
       if (catFilter !== "all" && t.category !== catFilter) return false;
+      if (sourceFilter !== "all" && getSourceKey(t) !== sourceFilter) return false;
       return true;
     });
 
@@ -64,11 +78,12 @@ export default function Records() {
         case "category": cmp = a.category.localeCompare(b.category); break;
         case "type": cmp = a.type.localeCompare(b.type); break;
         case "paymentMethod": cmp = (a.paymentMethod || "").localeCompare(b.paymentMethod || ""); break;
+        case "source": cmp = getSourceName(a).localeCompare(getSourceName(b)); break;
         case "amount": cmp = a.amount - b.amount; break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [transactions, search, typeFilter, catFilter, sortKey, sortDir]);
+  }, [transactions, search, typeFilter, catFilter, sourceFilter, sortKey, sortDir, sourceMap]);
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const today = new Date().toISOString().split("T")[0];
@@ -81,17 +96,18 @@ export default function Records() {
       "Categoria": t.category,
       "Tipo": t.type === "income" ? "Entrada" : (t.date > today ? "Saída - Previsão" : "Saída"),
       "Pagamento": t.paymentMethod || "—",
+      "Conta/Cartão": getSourceName(t),
       "Valor (R$)": t.type === "income" ? t.amount : -t.amount,
       "Descrição": t.description || "",
     }));
     const ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = [{ wch: 12 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 18 }, { wch: 15 }, { wch: 30 }];
+    ws["!cols"] = [{ wch: 12 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 18 }, { wch: 22 }, { wch: 15 }, { wch: 30 }];
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, "Registros");
     const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
     ws["!autofilter"] = { ref: XLSX.utils.encode_range(range) };
     XLSX.writeFile(wb, `registros_${new Date().toISOString().split("T")[0]}.xlsx`);
-  }, [filtered]);
+  }, [filtered, today, sourceMap]);
 
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
