@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useCategories } from "@/contexts/CategoryContext";
+import { useAccounts } from "@/contexts/AccountContext";
 import { Transaction, TransactionType } from "@/lib/types";
 import { TransactionForm } from "@/components/TransactionForm";
 import { TransactionDetail } from "@/components/TransactionDetail";
