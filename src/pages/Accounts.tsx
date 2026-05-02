@@ -198,6 +198,20 @@ export default function Accounts() {
         onClose={() => { setAccFormOpen(false); setEditingAcc(undefined); }}
         onSubmit={(data) => editingAcc ? updateAccount({ ...data, id: editingAcc.id }) : addAccount(data)}
         initial={editingAcc}
+        currentBalance={editingAcc ? getAccountBalance(editingAcc.id, editingAcc.initialBalance) : 0}
+        onAdjustBalance={async (accId, diff) => {
+          await addTransaction({
+            title: "Ajuste de Saldo",
+            amount: Math.abs(diff),
+            type: diff > 0 ? "income" : "expense",
+            category: "Outros",
+            date: new Date().toISOString().split("T")[0],
+            description: "Ajuste manual de saldo da conta",
+            paymentMethod: "Outro",
+            accountId: accId,
+            isPaid: true,
+          });
+        }}
       />
 
       {/* Credit Card Form */}
@@ -206,6 +220,22 @@ export default function Accounts() {
         onClose={() => { setCcFormOpen(false); setEditingCc(undefined); }}
         onSubmit={(data) => editingCc ? updateCreditCard({ ...data, id: editingCc.id }) : addCreditCard(data)}
         initial={editingCc}
+        currentUsed={editingCc ? getCardUsed(editingCc.id) : 0}
+        onAdjustUsed={async (cardId, diff) => {
+          // diff > 0 means we need to INCREASE the bill -> add expense on card
+          // diff < 0 means we need to DECREASE the bill -> add income (refund) on card
+          await addTransaction({
+            title: "Ajuste de Fatura",
+            amount: Math.abs(diff),
+            type: diff > 0 ? "expense" : "income",
+            category: "Outros",
+            date: new Date().toISOString().split("T")[0],
+            description: "Ajuste manual da fatura do cartão",
+            paymentMethod: "Outro",
+            creditCardId: cardId,
+            isPaid: false,
+          });
+        }}
       />
 
       {/* Delete Confirmation */}
