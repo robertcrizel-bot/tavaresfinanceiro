@@ -401,7 +401,20 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
         <DialogHeader>
           <DialogTitle>{initial ? "Editar Conta" : "Nova Conta"}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={(e) => { e.preventDefault(); onSubmit({ name, bank, type, initialBalance: parseFloat(initialBalance) || 0, color }); onClose(); }} className="space-y-4">
+        <form onSubmit={async (e) => {
+          e.preventDefault();
+          await onSubmit({ name, bank, type, initialBalance: parseFloat(initialBalance) || 0, color });
+          if (initial && onAdjustBalance && typeof currentBalance === "number") {
+            const target = parseFloat(adjustTo);
+            if (!isNaN(target)) {
+              const diff = +(target - currentBalance).toFixed(2);
+              if (Math.abs(diff) >= 0.01) {
+                await onAdjustBalance(initial.id, diff);
+              }
+            }
+          }
+          onClose();
+        }} className="space-y-4">
           <div className="space-y-2">
             <Label>Nome da Conta</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ex: Conta Principal" />
@@ -449,6 +462,22 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
               </Select>
             </div>
           </div>
+          {initial && typeof currentBalance === "number" && (
+            <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
+              <Label className="text-foreground">Ajustar saldo atual</Label>
+              <p className="text-xs text-muted-foreground">
+                Saldo atual calculado: <strong className="text-foreground">{fmt(currentBalance)}</strong>.
+                Informe o saldo real — a diferença será lançada como uma transação de ajuste.
+              </p>
+              <Input
+                type="number"
+                step="0.01"
+                value={adjustTo}
+                onChange={(e) => setAdjustTo(e.target.value)}
+                placeholder={currentBalance.toFixed(2)}
+              />
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
             <Button type="submit">{initial ? "Salvar" : "Criar"}</Button>
