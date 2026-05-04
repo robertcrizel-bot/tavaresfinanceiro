@@ -288,7 +288,7 @@ export default function Dashboard() {
       <TransactionForm
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        onSubmit={(data) => addTransaction(data)}
+        onSubmit={(data, options) => addTransaction(data, options)}
       />
     </div>
   );
