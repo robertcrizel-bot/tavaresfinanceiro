@@ -43,6 +43,7 @@ const colorIcon: Record<string, string> = {
 export default function Dashboard() {
   const { transactions, addTransaction } = useFinance();
   const { accounts, creditCards } = useAccounts();
+  const { transfers } = useTransfers();
   const [formOpen, setFormOpen] = useState(false);
   const [period, setPeriod] = useState<Period>("30");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -67,11 +68,9 @@ export default function Dashboard() {
     return transactions.filter((t) => t.date >= cutoffStr);
   }, [transactions, period, dateRange]);
 
-  const isTransfer = (t: Transaction) =>
-    t.title === "Transferência Enviada" || t.title === "Transferência Recebida";
-
-  const totalIncome = filtered.filter((t) => t.type === "income" && !isTransfer(t)).reduce((s, t) => s + t.amount, 0);
-  const totalExpense = filtered.filter((t) => t.type === "expense" && !isTransfer(t)).reduce((s, t) => s + t.amount, 0);
+  // Transfers are no longer in transactions table, so no isTransfer filter needed.
+  const totalIncome = filtered.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const totalExpense = filtered.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
   const days = useMemo(() => {
