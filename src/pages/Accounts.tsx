@@ -314,7 +314,13 @@ export default function Accounts() {
             e.preventDefault();
             const amt = parseFloat(transferAmount);
             if (!transferFrom || !transferTo || !amt || transferFrom === transferTo) return;
-            await transferBetweenAccounts(transferFrom, transferTo, amt, transferDesc || undefined);
+            await addTransfer({
+              fromAccountId: transferFrom,
+              toAccountId: transferTo,
+              amount: amt,
+              date: new Date().toISOString().split("T")[0],
+              description: transferDesc || undefined,
+            });
             setTransferOpen(false);
           }} className="space-y-4">
             <div className="space-y-2">
