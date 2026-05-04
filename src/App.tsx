@@ -7,12 +7,14 @@ import { FinanceProvider } from "@/contexts/FinanceContext";
 import { CategoryProvider } from "@/contexts/CategoryContext";
 import { AccountProvider } from "@/contexts/AccountContext";
 import { ForecastProvider } from "@/contexts/ForecastContext";
+import { TransferProvider } from "@/contexts/TransferContext";
 import AppLayout from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
 import Records from "@/pages/Records";
 import Accounts from "@/pages/Accounts";
 import Categories from "@/pages/Categories";
 import Forecasts from "@/pages/Forecasts";
+import Transfers from "@/pages/Transfers";
 import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
@@ -39,17 +41,20 @@ function ProtectedRoutes() {
       <AccountProvider>
         <CategoryProvider>
           <ForecastProvider>
-            <Routes>
-              <Route element={<AppLayout />}>
-                <Route path="/" element={<Dashboard />} />
-                <Route path="/records" element={<Records />} />
-                <Route path="/accounts" element={<Accounts />} />
-                <Route path="/categories" element={<Categories />} />
-                <Route path="/forecasts" element={<Forecasts />} />
-                <Route path="/profile" element={<Profile />} />
-              </Route>
-              <Route path="*" element={<NotFound />} />
-            </Routes>
+            <TransferProvider>
+              <Routes>
+                <Route element={<AppLayout />}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/records" element={<Records />} />
+                  <Route path="/accounts" element={<Accounts />} />
+                  <Route path="/categories" element={<Categories />} />
+                  <Route path="/forecasts" element={<Forecasts />} />
+                  <Route path="/transfers" element={<Transfers />} />
+                  <Route path="/profile" element={<Profile />} />
+                </Route>
+                <Route path="*" element={<NotFound />} />
+              </Routes>
+            </TransferProvider>
           </ForecastProvider>
         </CategoryProvider>
       </AccountProvider>

@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
+import { useTransfers } from "@/contexts/TransferContext";
 import { Transaction } from "@/lib/types";
 import { KpiCard } from "@/components/KpiCard";
 import { ChartCard } from "@/components/ChartCard";
@@ -42,6 +43,7 @@ const colorIcon: Record<string, string> = {
 export default function Dashboard() {
   const { transactions, addTransaction } = useFinance();
   const { accounts, creditCards } = useAccounts();
+  const { transfers } = useTransfers();
   const [formOpen, setFormOpen] = useState(false);
   const [period, setPeriod] = useState<Period>("30");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
@@ -66,11 +68,9 @@ export default function Dashboard() {
     return transactions.filter((t) => t.date >= cutoffStr);
   }, [transactions, period, dateRange]);
 
-  const isTransfer = (t: Transaction) =>
-    t.title === "Transferência Enviada" || t.title === "Transferência Recebida";
-
-  const totalIncome = filtered.filter((t) => t.type === "income" && !isTransfer(t)).reduce((s, t) => s + t.amount, 0);
-  const totalExpense = filtered.filter((t) => t.type === "expense" && !isTransfer(t)).reduce((s, t) => s + t.amount, 0);
+  // Transfers are no longer in transactions table, so no isTransfer filter needed.
+  const totalIncome = filtered.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
+  const totalExpense = filtered.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
   const days = useMemo(() => {
@@ -89,7 +89,7 @@ export default function Dashboard() {
 
   const topCategory = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter((t) => t.type === "expense" && !isTransfer(t)).forEach((t) => {
+    filtered.filter((t) => t.type === "expense").forEach((t) => {
       map[t.category] = (map[t.category] || 0) + t.amount;
     });
     let top = { cat: "—", val: 0 };
@@ -102,10 +102,16 @@ export default function Dashboard() {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const getAccountBalance = (accId: string, initialBalance: number) => {
-    return transactions.reduce((bal, t) => {
+    const txBal = transactions.reduce((bal, t) => {
       if (t.accountId !== accId) return bal;
       return t.type === "income" ? bal + t.amount : bal - t.amount;
     }, initialBalance);
+    const trBal = transfers.reduce((bal, t) => {
+      if (t.fromAccountId === accId) return bal - t.amount;
+      if (t.toAccountId === accId) return bal + t.amount;
+      return bal;
+    }, 0);
+    return txBal + trBal;
   };
 
   const getCardUsed = (ccId: string) => {
@@ -118,7 +124,7 @@ export default function Dashboard() {
   // Line chart data
   const lineData = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter((t) => t.type === "expense" && !isTransfer(t)).forEach((t) => {
+    filtered.filter((t) => t.type === "expense").forEach((t) => {
       map[t.date] = (map[t.date] || 0) + t.amount;
     });
     return Object.entries(map)
@@ -138,7 +144,7 @@ export default function Dashboard() {
 
   const barData = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter((t) => t.type === "expense" && !isTransfer(t)).forEach((t) => {
+    filtered.filter((t) => t.type === "expense").forEach((t) => {
       map[t.category] = (map[t.category] || 0) + t.amount;
     });
     return Object.entries(map)
@@ -282,7 +288,7 @@ export default function Dashboard() {
       <TransactionForm
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        onSubmit={(data) => addTransaction(data)}
+        onSubmit={(data, options) => addTransaction(data, options)}
       />
     </div>
   );

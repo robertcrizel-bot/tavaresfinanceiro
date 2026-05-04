@@ -7,11 +7,10 @@ import { toast } from "@/hooks/use-toast";
 interface FinanceContextType {
   transactions: Transaction[];
   loading: boolean;
-  addTransaction: (t: Omit<Transaction, "id">) => Promise<void>;
+  addTransaction: (t: Omit<Transaction, "id">, options?: { installments?: number }) => Promise<void>;
   updateTransaction: (t: Transaction) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   payCardBill: (creditCardId: string, accountId: string, amount: number) => Promise<void>;
-  transferBetweenAccounts: (fromAccountId: string, toAccountId: string, amount: number, description?: string) => Promise<void>;
   refetch: () => void;
 }
 
@@ -59,26 +58,76 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
 
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
-  const addTransaction = useCallback(async (t: Omit<Transaction, "id">) => {
+  const addTransaction = useCallback(async (t: Omit<Transaction, "id">, options?: { installments?: number }) => {
     if (!user) return;
-    const { error } = await supabase.from("transactions").insert({
+    const installments = options?.installments && options.installments > 1 ? options.installments : 1;
+
+    // Single (non-installment) insert
+    if (installments === 1) {
+      const { error } = await supabase.from("transactions").insert({
+        user_id: user.id,
+        title: t.title,
+        amount: t.amount,
+        type: t.type,
+        category: t.category,
+        date: t.date,
+        description: t.description || null,
+        payment_method: t.paymentMethod || null,
+        account_id: t.accountId || null,
+        credit_card_id: t.creditCardId || null,
+      });
+      if (error) toast({ title: "Erro ao criar registro", description: error.message, variant: "destructive" });
+      else { toast({ title: "Registro criado", description: t.title }); fetchTransactions(); }
+      return;
+    }
+
+    // Installments: split into N monthly transactions on the credit card
+    const baseDate = new Date(t.date + "T12:00:00");
+    const perInstallment = +(t.amount / installments).toFixed(2);
+    // Insert parent first to get its id
+    const { data: parent, error: parentErr } = await supabase.from("transactions").insert({
       user_id: user.id,
-      title: t.title,
-      amount: t.amount,
+      title: `${t.title} (1/${installments})`,
+      amount: perInstallment,
       type: t.type,
       category: t.category,
-      date: t.date,
+      date: baseDate.toISOString().split("T")[0],
       description: t.description || null,
       payment_method: t.paymentMethod || null,
       account_id: t.accountId || null,
       credit_card_id: t.creditCardId || null,
-    });
-    if (error) {
-      toast({ title: "Erro ao criar registro", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Registro criado", description: t.title });
-      fetchTransactions();
+      installments,
+      installment_number: 1,
+    }).select("id").single();
+
+    if (parentErr || !parent) {
+      toast({ title: "Erro ao criar parcelas", description: parentErr?.message, variant: "destructive" });
+      return;
     }
+
+    const rows = [];
+    for (let i = 2; i <= installments; i++) {
+      const d = new Date(baseDate);
+      d.setMonth(d.getMonth() + (i - 1));
+      rows.push({
+        user_id: user.id,
+        title: `${t.title} (${i}/${installments})`,
+        amount: perInstallment,
+        type: t.type,
+        category: t.category,
+        date: d.toISOString().split("T")[0],
+        description: t.description || null,
+        payment_method: t.paymentMethod || null,
+        account_id: t.accountId || null,
+        credit_card_id: t.creditCardId || null,
+        installments,
+        installment_number: i,
+        parent_transaction_id: parent.id,
+      });
+    }
+    const { error: childErr } = await supabase.from("transactions").insert(rows);
+    if (childErr) toast({ title: "Erro nas parcelas", description: childErr.message, variant: "destructive" });
+    else { toast({ title: "Compra parcelada", description: `${installments}x de ${perInstallment.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` }); fetchTransactions(); }
   }, [user, fetchTransactions]);
 
   const updateTransaction = useCallback(async (t: Transaction) => {
@@ -149,50 +198,10 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, [user, fetchTransactions]);
 
-  const transferBetweenAccounts = useCallback(async (fromAccountId: string, toAccountId: string, amount: number, description?: string) => {
-    if (!user) return;
-    const today = new Date().toISOString().split("T")[0];
-    const desc = description || "Transferência entre contas";
-
-    // Create expense from source account
-    const { error: e1 } = await supabase.from("transactions").insert({
-      user_id: user.id,
-      title: "Transferência Enviada",
-      amount,
-      type: "expense",
-      category: "Outros",
-      date: today,
-      description: desc,
-      payment_method: "Transferência",
-      account_id: fromAccountId,
-      is_paid: true,
-    });
-
-    // Create income to destination account
-    const { error: e2 } = await supabase.from("transactions").insert({
-      user_id: user.id,
-      title: "Transferência Recebida",
-      amount,
-      type: "income",
-      category: "Outros",
-      date: today,
-      description: desc,
-      payment_method: "Transferência",
-      account_id: toAccountId,
-      is_paid: true,
-    });
-
-    if (e1 || e2) {
-      toast({ title: "Erro na transferência", description: (e1 || e2)?.message, variant: "destructive" });
-    } else {
-      toast({ title: "Transferência realizada!", description: desc });
-      fetchTransactions();
-    }
-  }, [user, fetchTransactions]);
-
   return (
-    <FinanceContext.Provider value={{ transactions, loading, addTransaction, updateTransaction, deleteTransaction, payCardBill, transferBetweenAccounts, refetch: fetchTransactions }}>
+    <FinanceContext.Provider value={{ transactions, loading, addTransaction, updateTransaction, deleteTransaction, payCardBill, refetch: fetchTransactions }}>
       {children}
     </FinanceContext.Provider>
   );
 };
+

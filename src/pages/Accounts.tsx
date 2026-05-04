@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAccounts } from "@/contexts/AccountContext";
+import { useTransfers } from "@/contexts/TransferContext";
 import { Account, CreditCard } from "@/lib/types";
 import { useFinance } from "@/contexts/FinanceContext";
 import { Button } from "@/components/ui/button";
@@ -43,7 +44,8 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 
 export default function Accounts() {
   const { accounts, creditCards, addAccount, updateAccount, deleteAccount, addCreditCard, updateCreditCard, deleteCreditCard } = useAccounts();
-  const { transactions, addTransaction, payCardBill, transferBetweenAccounts } = useFinance();
+  const { transactions, addTransaction, payCardBill } = useFinance();
+  const { transfers, addTransfer } = useTransfers();
 
   const [accFormOpen, setAccFormOpen] = useState(false);
   const [editingAcc, setEditingAcc] = useState<Account | undefined>();
@@ -58,12 +60,18 @@ export default function Accounts() {
   const [transferAmount, setTransferAmount] = useState("");
   const [transferDesc, setTransferDesc] = useState("");
 
-  // Compute account balances
+  // Compute account balances (transactions + transfers)
   const getAccountBalance = (accId: string, initialBalance: number) => {
-    return transactions.reduce((bal, t) => {
+    const txBal = transactions.reduce((bal, t) => {
       if (t.accountId !== accId) return bal;
       return t.type === "income" ? bal + t.amount : bal - t.amount;
     }, initialBalance);
+    const trBal = transfers.reduce((bal, t) => {
+      if (t.fromAccountId === accId) return bal - t.amount;
+      if (t.toAccountId === accId) return bal + t.amount;
+      return bal;
+    }, 0);
+    return txBal + trBal;
   };
 
   // Compute credit card used
@@ -306,7 +314,13 @@ export default function Accounts() {
             e.preventDefault();
             const amt = parseFloat(transferAmount);
             if (!transferFrom || !transferTo || !amt || transferFrom === transferTo) return;
-            await transferBetweenAccounts(transferFrom, transferTo, amt, transferDesc || undefined);
+            await addTransfer({
+              fromAccountId: transferFrom,
+              toAccountId: transferTo,
+              amount: amt,
+              date: new Date().toISOString().split("T")[0],
+              description: transferDesc || undefined,
+            });
             setTransferOpen(false);
           }} className="space-y-4">
             <div className="space-y-2">

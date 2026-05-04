@@ -1,4 +1,4 @@
-import { LayoutDashboard, List, User, Wallet, Tag, CalendarClock } from "lucide-react";
+import { LayoutDashboard, List, User, Wallet, Tag, CalendarClock, ArrowLeftRight } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -17,6 +17,7 @@ const mainItems = [
   { title: "Dashboard", url: "/", icon: LayoutDashboard },
   { title: "Meus Registros", url: "/records", icon: List },
   { title: "Contas & Cartões", url: "/accounts", icon: Wallet },
+  { title: "Transferências", url: "/transfers", icon: ArrowLeftRight },
   { title: "Categorias", url: "/categories", icon: Tag },
   { title: "Previsões", url: "/forecasts", icon: CalendarClock },
 ];

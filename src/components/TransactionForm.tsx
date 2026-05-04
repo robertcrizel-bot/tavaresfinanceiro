@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface TransactionFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<Transaction, "id">) => void;
+  onSubmit: (data: Omit<Transaction, "id">, options?: { installments?: number }) => void;
   initial?: Transaction;
 }
 
@@ -28,6 +28,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
   const [accountId, setAccountId] = useState("");
   const [creditCardId, setCreditCardId] = useState("");
+  const [installments, setInstallments] = useState<string>("1");
 
   useEffect(() => {
     if (initial) {
@@ -40,10 +41,11 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
       setPaymentMethod(initial.paymentMethod || "");
       setAccountId(initial.accountId || "");
       setCreditCardId(initial.creditCardId || "");
+      setInstallments("1");
     } else {
       setTitle(""); setAmount(""); setType("expense"); setCategory("Outros");
       setDate(new Date().toISOString().split("T")[0]); setDescription("");
-      setPaymentMethod(""); setAccountId(""); setCreditCardId("");
+      setPaymentMethod(""); setAccountId(""); setCreditCardId(""); setInstallments("1");
     }
   }, [initial, open]);
 
@@ -51,19 +53,26 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      title,
-      amount: parseFloat(amount),
-      type,
-      category,
-      date,
-      description: description || undefined,
-      paymentMethod: paymentMethod ? paymentMethod as PaymentMethod : undefined,
-      accountId: accountId && accountId !== "none" ? accountId : undefined,
-      creditCardId: creditCardId && creditCardId !== "none" ? creditCardId : undefined,
-    });
+    const installmentsNum = parseInt(installments) || 1;
+    const isInstallment = !initial && type === "expense" && creditCardId && creditCardId !== "none" && installmentsNum > 1;
+    onSubmit(
+      {
+        title,
+        amount: parseFloat(amount),
+        type,
+        category,
+        date,
+        description: description || undefined,
+        paymentMethod: paymentMethod ? paymentMethod as PaymentMethod : undefined,
+        accountId: accountId && accountId !== "none" ? accountId : undefined,
+        creditCardId: creditCardId && creditCardId !== "none" ? creditCardId : undefined,
+      },
+      isInstallment ? { installments: installmentsNum } : undefined,
+    );
     onClose();
   };
+
+  const showInstallments = !initial && type === "expense" && creditCardId && creditCardId !== "none";
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
@@ -135,6 +144,26 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
               </Select>
             </div>
           </div>
+          {showInstallments && (
+            <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+              <Label>Parcelar em</Label>
+              <Select value={installments} onValueChange={setInstallments}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 24 }, (_, i) => i + 1).map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n === 1 ? "À vista" : `${n}x de ${(parseFloat(amount || "0") / n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {parseInt(installments) > 1 && (
+                <p className="text-xs text-muted-foreground">
+                  Será criada uma transação por mês na fatura do cartão, começando na data informada.
+                </p>
+              )}
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Forma de Pagamento <span className="text-muted-foreground text-xs">(opcional)</span></Label>
             <Select value={paymentMethod || "none"} onValueChange={(v) => setPaymentMethod(v === "none" ? "" : v as PaymentMethod)}>
