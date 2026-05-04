@@ -102,10 +102,16 @@ export default function Dashboard() {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
   const getAccountBalance = (accId: string, initialBalance: number) => {
-    return transactions.reduce((bal, t) => {
+    const txBal = transactions.reduce((bal, t) => {
       if (t.accountId !== accId) return bal;
       return t.type === "income" ? bal + t.amount : bal - t.amount;
     }, initialBalance);
+    const trBal = transfers.reduce((bal, t) => {
+      if (t.fromAccountId === accId) return bal - t.amount;
+      if (t.toAccountId === accId) return bal + t.amount;
+      return bal;
+    }, 0);
+    return txBal + trBal;
   };
 
   const getCardUsed = (ccId: string) => {
