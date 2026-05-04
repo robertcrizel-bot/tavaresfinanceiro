@@ -7,11 +7,10 @@ import { toast } from "@/hooks/use-toast";
 interface FinanceContextType {
   transactions: Transaction[];
   loading: boolean;
-  addTransaction: (t: Omit<Transaction, "id">) => Promise<void>;
+  addTransaction: (t: Omit<Transaction, "id">, options?: { installments?: number }) => Promise<void>;
   updateTransaction: (t: Transaction) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   payCardBill: (creditCardId: string, accountId: string, amount: number) => Promise<void>;
-  transferBetweenAccounts: (fromAccountId: string, toAccountId: string, amount: number, description?: string) => Promise<void>;
   refetch: () => void;
 }
 
