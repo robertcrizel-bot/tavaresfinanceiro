@@ -12,7 +12,7 @@ import { Textarea } from "@/components/ui/textarea";
 interface TransactionFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<Transaction, "id">) => void;
+  onSubmit: (data: Omit<Transaction, "id">, options?: { installments?: number }) => void;
   initial?: Transaction;
 }
 
