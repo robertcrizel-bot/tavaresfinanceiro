@@ -144,6 +144,26 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
               </Select>
             </div>
           </div>
+          {showInstallments && (
+            <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+              <Label>Parcelar em</Label>
+              <Select value={installments} onValueChange={setInstallments}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 24 }, (_, i) => i + 1).map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n === 1 ? "À vista" : `${n}x de ${(parseFloat(amount || "0") / n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {parseInt(installments) > 1 && (
+                <p className="text-xs text-muted-foreground">
+                  Será criada uma transação por mês na fatura do cartão, começando na data informada.
+                </p>
+              )}
+            </div>
+          )}
           <div className="space-y-2">
             <Label>Forma de Pagamento <span className="text-muted-foreground text-xs">(opcional)</span></Label>
             <Select value={paymentMethod || "none"} onValueChange={(v) => setPaymentMethod(v === "none" ? "" : v as PaymentMethod)}>
