@@ -28,6 +28,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod | "">("");
   const [accountId, setAccountId] = useState("");
   const [creditCardId, setCreditCardId] = useState("");
+  const [installments, setInstallments] = useState<string>("1");
 
   useEffect(() => {
     if (initial) {
@@ -40,10 +41,11 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
       setPaymentMethod(initial.paymentMethod || "");
       setAccountId(initial.accountId || "");
       setCreditCardId(initial.creditCardId || "");
+      setInstallments("1");
     } else {
       setTitle(""); setAmount(""); setType("expense"); setCategory("Outros");
       setDate(new Date().toISOString().split("T")[0]); setDescription("");
-      setPaymentMethod(""); setAccountId(""); setCreditCardId("");
+      setPaymentMethod(""); setAccountId(""); setCreditCardId(""); setInstallments("1");
     }
   }, [initial, open]);
 
