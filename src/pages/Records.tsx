@@ -303,11 +303,11 @@ export default function Records() {
       <TransactionForm
         open={formOpen}
         onClose={() => { setFormOpen(false); setEditing(undefined); }}
-        onSubmit={(data) => {
+        onSubmit={(data, options) => {
           if (editing) {
             updateTransaction({ ...data, id: editing.id });
           } else {
-            addTransaction(data);
+            addTransaction(data, options);
           }
         }}
         initial={editing}
