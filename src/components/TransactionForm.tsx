@@ -53,19 +53,26 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    onSubmit({
-      title,
-      amount: parseFloat(amount),
-      type,
-      category,
-      date,
-      description: description || undefined,
-      paymentMethod: paymentMethod ? paymentMethod as PaymentMethod : undefined,
-      accountId: accountId && accountId !== "none" ? accountId : undefined,
-      creditCardId: creditCardId && creditCardId !== "none" ? creditCardId : undefined,
-    });
+    const installmentsNum = parseInt(installments) || 1;
+    const isInstallment = !initial && type === "expense" && creditCardId && creditCardId !== "none" && installmentsNum > 1;
+    onSubmit(
+      {
+        title,
+        amount: parseFloat(amount),
+        type,
+        category,
+        date,
+        description: description || undefined,
+        paymentMethod: paymentMethod ? paymentMethod as PaymentMethod : undefined,
+        accountId: accountId && accountId !== "none" ? accountId : undefined,
+        creditCardId: creditCardId && creditCardId !== "none" ? creditCardId : undefined,
+      },
+      isInstallment ? { installments: installmentsNum } : undefined,
+    );
     onClose();
   };
+
+  const showInstallments = !initial && type === "expense" && creditCardId && creditCardId !== "none";
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
