@@ -248,7 +248,10 @@ export type Database = {
           date: string
           description: string | null
           id: string
+          installment_number: number | null
+          installments: number | null
           is_paid: boolean
+          parent_transaction_id: string | null
           payment_method: string | null
           title: string
           type: string
@@ -264,7 +267,10 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          installment_number?: number | null
+          installments?: number | null
           is_paid?: boolean
+          parent_transaction_id?: string | null
           payment_method?: string | null
           title: string
           type: string
@@ -280,7 +286,10 @@ export type Database = {
           date?: string
           description?: string | null
           id?: string
+          installment_number?: number | null
+          installments?: number | null
           is_paid?: boolean
+          parent_transaction_id?: string | null
           payment_method?: string | null
           title?: string
           type?: string
@@ -303,6 +312,42 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      transfers: {
+        Row: {
+          amount: number
+          created_at: string
+          date: string
+          description: string | null
+          from_account_id: string
+          id: string
+          to_account_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string
+          date?: string
+          description?: string | null
+          from_account_id: string
+          id?: string
+          to_account_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string
+          date?: string
+          description?: string | null
+          from_account_id?: string
+          id?: string
+          to_account_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
     }
     Views: {
