@@ -43,7 +43,8 @@ const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", curren
 
 export default function Accounts() {
   const { accounts, creditCards, addAccount, updateAccount, deleteAccount, addCreditCard, updateCreditCard, deleteCreditCard } = useAccounts();
-  const { transactions, addTransaction, payCardBill, transferBetweenAccounts } = useFinance();
+  const { transactions, addTransaction, payCardBill } = useFinance();
+  const { transfers, addTransfer } = useTransfers();
 
   const [accFormOpen, setAccFormOpen] = useState(false);
   const [editingAcc, setEditingAcc] = useState<Account | undefined>();
@@ -58,12 +59,18 @@ export default function Accounts() {
   const [transferAmount, setTransferAmount] = useState("");
   const [transferDesc, setTransferDesc] = useState("");
 
-  // Compute account balances
+  // Compute account balances (transactions + transfers)
   const getAccountBalance = (accId: string, initialBalance: number) => {
-    return transactions.reduce((bal, t) => {
+    const txBal = transactions.reduce((bal, t) => {
       if (t.accountId !== accId) return bal;
       return t.type === "income" ? bal + t.amount : bal - t.amount;
     }, initialBalance);
+    const trBal = transfers.reduce((bal, t) => {
+      if (t.fromAccountId === accId) return bal - t.amount;
+      if (t.toAccountId === accId) return bal + t.amount;
+      return bal;
+    }, 0);
+    return txBal + trBal;
   };
 
   // Compute credit card used
