@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
+import { useTransfers } from "@/contexts/TransferContext";
 import { Transaction } from "@/lib/types";
 import { KpiCard } from "@/components/KpiCard";
 import { ChartCard } from "@/components/ChartCard";
