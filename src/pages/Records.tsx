@@ -211,15 +211,15 @@ export default function Records() {
                       {new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR")}
                     </p>
                   </div>
-                  <p className={`text-sm font-semibold whitespace-nowrap ${t.type === "income" ? "text-income" : "text-expense"}`}>
-                    {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
+                  <p className={`text-sm font-semibold whitespace-nowrap ${isBillPayment(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
+                    {isBillPayment(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
                   </p>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">{t.category}</Badge>
-                    <Badge variant={t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
-                      {t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída"}
+                    <Badge variant={isBillPayment(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isBillPayment(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
+                      {getTypeLabel(t)}
                     </Badge>
                     {t.paymentMethod && (
                       <Badge variant="secondary" className="text-xs">{t.paymentMethod}</Badge>
