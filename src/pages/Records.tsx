@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { isBillPaymentTransaction } from "@/lib/transaction-classification";
 import * as XLSX from "xlsx";
 
 type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "source" | "amount";
@@ -64,7 +65,8 @@ export default function Records() {
   const filtered = useMemo(() => {
     const list = transactions.filter((t) => {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
-      if (typeFilter !== "all" && t.type !== typeFilter) return false;
+      const isBillPayment = isBillPaymentTransaction(t);
+      if (typeFilter !== "all" && (isBillPayment || t.type !== typeFilter)) return false;
       if (catFilter !== "all" && t.category !== catFilter) return false;
       if (sourceFilter !== "all" && getSourceKey(t) !== sourceFilter) return false;
       return true;
@@ -87,17 +89,20 @@ export default function Records() {
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const today = new Date().toISOString().split("T")[0];
+  const isBillPayment = (t: Transaction) => isBillPaymentTransaction(t);
   const isForecast = (t: Transaction) => t.type === "expense" && t.date > today;
+  const getTypeLabel = (t: Transaction) => isBillPayment(t) ? "Pagamento de Fatura" : t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída";
+  const getSignedAmount = (t: Transaction) => isBillPayment(t) ? 0 : t.type === "income" ? t.amount : -t.amount;
 
   const exportToXlsx = useCallback(() => {
     const data = filtered.map((t) => ({
       "Data": new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR"),
       "Título": t.title,
       "Categoria": t.category,
-      "Tipo": t.type === "income" ? "Entrada" : (t.date > today ? "Saída - Previsão" : "Saída"),
+      "Tipo": getTypeLabel(t),
       "Pagamento": t.paymentMethod || "—",
       "Conta/Cartão": getSourceName(t),
-      "Valor (R$)": t.type === "income" ? t.amount : -t.amount,
+      "Valor (R$)": getSignedAmount(t),
       "Descrição": t.description || "",
     }));
     const ws = XLSX.utils.json_to_sheet(data);
@@ -153,7 +158,7 @@ export default function Records() {
           <Input id="search-records" placeholder="Buscar por título..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <div className="flex gap-3">
-          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as any)}>
+          <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "all" | TransactionType)}>
             <SelectTrigger className="w-full sm:w-[150px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
@@ -206,15 +211,15 @@ export default function Records() {
                       {new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR")}
                     </p>
                   </div>
-                  <p className={`text-sm font-semibold whitespace-nowrap ${t.type === "income" ? "text-income" : "text-expense"}`}>
-                    {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
+                  <p className={`text-sm font-semibold whitespace-nowrap ${isBillPayment(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
+                    {isBillPayment(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
                   </p>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">{t.category}</Badge>
-                    <Badge variant={t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
-                      {t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída"}
+                    <Badge variant={isBillPayment(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isBillPayment(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
+                      {getTypeLabel(t)}
                     </Badge>
                     {t.paymentMethod && (
                       <Badge variant="secondary" className="text-xs">{t.paymentMethod}</Badge>
@@ -265,8 +270,8 @@ export default function Records() {
                     <TableCell className="font-medium text-foreground">{t.title}</TableCell>
                     <TableCell><Badge variant="outline" className="text-xs">{t.category}</Badge></TableCell>
                     <TableCell>
-                      <Badge variant={t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
-                        {t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída"}
+                      <Badge variant={isBillPayment(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isBillPayment(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
+                        {getTypeLabel(t)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
@@ -275,8 +280,8 @@ export default function Records() {
                     <TableCell className="text-muted-foreground text-sm">
                       {getSourceName(t)}
                     </TableCell>
-                    <TableCell className={`text-right font-medium ${t.type === "income" ? "text-income" : "text-expense"}`}>
-                      {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
+                    <TableCell className={`text-right font-medium ${isBillPayment(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
+                      {isBillPayment(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
