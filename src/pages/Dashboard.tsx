@@ -68,9 +68,11 @@ export default function Dashboard() {
     return transactions.filter((t) => t.date >= cutoffStr);
   }, [transactions, period, dateRange]);
 
-  // Transfers are no longer in transactions table, so no isTransfer filter needed.
-  const totalIncome = filtered.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-  const totalExpense = filtered.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  // Bill payments (have both account and card) are excluded — they're not real expenses,
+  // they just move money from account to card debt (already counted at purchase time).
+  const isBillPayment = (t: Transaction) => !!(t.accountId && t.creditCardId);
+  const totalIncome = filtered.filter((t) => t.type === "income" && !isBillPayment(t)).reduce((s, t) => s + t.amount, 0);
+  const totalExpense = filtered.filter((t) => t.type === "expense" && !isBillPayment(t)).reduce((s, t) => s + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
   const days = useMemo(() => {
