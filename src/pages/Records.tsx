@@ -270,8 +270,8 @@ export default function Records() {
                     <TableCell className="font-medium text-foreground">{t.title}</TableCell>
                     <TableCell><Badge variant="outline" className="text-xs">{t.category}</Badge></TableCell>
                     <TableCell>
-                      <Badge variant={t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
-                        {t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída"}
+                      <Badge variant={isBillPayment(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isBillPayment(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
+                        {getTypeLabel(t)}
                       </Badge>
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
@@ -280,8 +280,8 @@ export default function Records() {
                     <TableCell className="text-muted-foreground text-sm">
                       {getSourceName(t)}
                     </TableCell>
-                    <TableCell className={`text-right font-medium ${t.type === "income" ? "text-income" : "text-expense"}`}>
-                      {t.type === "income" ? "+" : "-"}{fmt(t.amount)}
+                    <TableCell className={`text-right font-medium ${isBillPayment(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
+                      {isBillPayment(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
