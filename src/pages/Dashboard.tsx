@@ -68,9 +68,11 @@ export default function Dashboard() {
     return transactions.filter((t) => t.date >= cutoffStr);
   }, [transactions, period, dateRange]);
 
-  // Transfers are no longer in transactions table, so no isTransfer filter needed.
-  const totalIncome = filtered.filter((t) => t.type === "income").reduce((s, t) => s + t.amount, 0);
-  const totalExpense = filtered.filter((t) => t.type === "expense").reduce((s, t) => s + t.amount, 0);
+  // Bill payments (have both account and card) are excluded — they're not real expenses,
+  // they just move money from account to card debt (already counted at purchase time).
+  const isBillPayment = (t: Transaction) => !!(t.accountId && t.creditCardId);
+  const totalIncome = filtered.filter((t) => t.type === "income" && !isBillPayment(t)).reduce((s, t) => s + t.amount, 0);
+  const totalExpense = filtered.filter((t) => t.type === "expense" && !isBillPayment(t)).reduce((s, t) => s + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
   const days = useMemo(() => {
@@ -89,7 +91,7 @@ export default function Dashboard() {
 
   const topCategory = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter((t) => t.type === "expense").forEach((t) => {
+    filtered.filter((t) => t.type === "expense" && !isBillPayment(t)).forEach((t) => {
       map[t.category] = (map[t.category] || 0) + t.amount;
     });
     let top = { cat: "—", val: 0 };
@@ -124,7 +126,7 @@ export default function Dashboard() {
   // Line chart data
   const lineData = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter((t) => t.type === "expense").forEach((t) => {
+    filtered.filter((t) => t.type === "expense" && !isBillPayment(t)).forEach((t) => {
       map[t.date] = (map[t.date] || 0) + t.amount;
     });
     return Object.entries(map)
@@ -144,7 +146,7 @@ export default function Dashboard() {
 
   const barData = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter((t) => t.type === "expense").forEach((t) => {
+    filtered.filter((t) => t.type === "expense" && !isBillPayment(t)).forEach((t) => {
       map[t.category] = (map[t.category] || 0) + t.amount;
     });
     return Object.entries(map)
@@ -156,7 +158,7 @@ export default function Dashboard() {
   const insights = useMemo(() => {
     const list: string[] = [];
     if (topCategory !== "—") {
-      const catTotal = filtered.filter((t) => t.type === "expense" && t.category === topCategory).reduce((s, t) => s + t.amount, 0);
+      const catTotal = filtered.filter((t) => t.type === "expense" && !isBillPayment(t) && t.category === topCategory).reduce((s, t) => s + t.amount, 0);
       const pct = totalExpense > 0 ? Math.round((catTotal / totalExpense) * 100) : 0;
       list.push(`${topCategory} representa ${pct}% dos seus gastos no período.`);
     }
