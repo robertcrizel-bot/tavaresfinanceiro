@@ -13,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { isBillPaymentTransaction } from "@/lib/transaction-classification";
 import * as XLSX from "xlsx";
 
 type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "source" | "amount";
@@ -64,7 +65,8 @@ export default function Records() {
   const filtered = useMemo(() => {
     const list = transactions.filter((t) => {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
-      if (typeFilter !== "all" && t.type !== typeFilter) return false;
+      const isBillPayment = isBillPaymentTransaction(t);
+      if (typeFilter !== "all" && (isBillPayment || t.type !== typeFilter)) return false;
       if (catFilter !== "all" && t.category !== catFilter) return false;
       if (sourceFilter !== "all" && getSourceKey(t) !== sourceFilter) return false;
       return true;
@@ -87,17 +89,20 @@ export default function Records() {
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const today = new Date().toISOString().split("T")[0];
+  const isBillPayment = (t: Transaction) => isBillPaymentTransaction(t);
   const isForecast = (t: Transaction) => t.type === "expense" && t.date > today;
+  const getTypeLabel = (t: Transaction) => isBillPayment(t) ? "Pagamento de Fatura" : t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída";
+  const getSignedAmount = (t: Transaction) => isBillPayment(t) ? 0 : t.type === "income" ? t.amount : -t.amount;
 
   const exportToXlsx = useCallback(() => {
     const data = filtered.map((t) => ({
       "Data": new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR"),
       "Título": t.title,
       "Categoria": t.category,
-      "Tipo": t.type === "income" ? "Entrada" : (t.date > today ? "Saída - Previsão" : "Saída"),
+      "Tipo": getTypeLabel(t),
       "Pagamento": t.paymentMethod || "—",
       "Conta/Cartão": getSourceName(t),
-      "Valor (R$)": t.type === "income" ? t.amount : -t.amount,
+      "Valor (R$)": getSignedAmount(t),
       "Descrição": t.description || "",
     }));
     const ws = XLSX.utils.json_to_sheet(data);
