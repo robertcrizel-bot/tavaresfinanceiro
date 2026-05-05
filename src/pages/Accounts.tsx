@@ -190,7 +190,7 @@ export default function Accounts() {
                         variant="outline"
                         size="sm"
                         className="w-full mt-3 gap-2"
-                        onClick={() => { setPayingCard({ card: cc, amount: used }); setPayAccountId(""); }}
+                        onClick={() => { setPayingCard({ card: cc, amount: used }); setPayAccountId(""); setPayAmount(used.toFixed(2)); setPayDate(new Date().toISOString().split("T")[0]); setPayMethod("Transferência"); }}
                       >
                         <Receipt className="h-3.5 w-3.5" /> Pagar Fatura
                       </Button>
