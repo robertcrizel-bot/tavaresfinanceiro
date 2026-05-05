@@ -54,6 +54,9 @@ export default function Accounts() {
   const [deleting, setDeleting] = useState<{ type: "account" | "card"; id: string } | null>(null);
   const [payingCard, setPayingCard] = useState<{ card: CreditCard; amount: number } | null>(null);
   const [payAccountId, setPayAccountId] = useState("");
+  const [payAmount, setPayAmount] = useState("");
+  const [payDate, setPayDate] = useState("");
+  const [payMethod, setPayMethod] = useState("Transferência");
   const [transferOpen, setTransferOpen] = useState(false);
   const [transferFrom, setTransferFrom] = useState("");
   const [transferTo, setTransferTo] = useState("");
