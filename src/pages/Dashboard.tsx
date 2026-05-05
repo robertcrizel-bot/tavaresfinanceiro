@@ -158,7 +158,7 @@ export default function Dashboard() {
   const insights = useMemo(() => {
     const list: string[] = [];
     if (topCategory !== "—") {
-      const catTotal = filtered.filter((t) => t.type === "expense" && t.category === topCategory).reduce((s, t) => s + t.amount, 0);
+      const catTotal = filtered.filter((t) => t.type === "expense" && !isBillPayment(t) && t.category === topCategory).reduce((s, t) => s + t.amount, 0);
       const pct = totalExpense > 0 ? Math.round((catTotal / totalExpense) * 100) : 0;
       list.push(`${topCategory} representa ${pct}% dos seus gastos no período.`);
     }
