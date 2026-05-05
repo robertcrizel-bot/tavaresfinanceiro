@@ -273,30 +273,57 @@ export default function Accounts() {
           <AlertDialogHeader>
             <AlertDialogTitle>Pagar Fatura — {payingCard?.card.name}</AlertDialogTitle>
             <AlertDialogDescription>
-              Valor da fatura: <strong className="text-foreground">{fmt(payingCard?.amount ?? 0)}</strong>.
-              Selecione a conta para debitar o pagamento.
+              Valor total da fatura: <strong className="text-foreground">{fmt(payingCard?.amount ?? 0)}</strong>.
+              Você pode editar o valor pago, a data e a forma de pagamento. Pagamentos parciais abatem somente o que foi pago.
             </AlertDialogDescription>
           </AlertDialogHeader>
-          <div className="py-2">
-            <Label className="mb-2 block">Conta de Pagamento</Label>
-            <Select value={payAccountId} onValueChange={setPayAccountId}>
-              <SelectTrigger><SelectValue placeholder="Selecione uma conta" /></SelectTrigger>
-              <SelectContent>
-                {accounts.map((acc) => (
-                  <SelectItem key={acc.id} value={acc.id}>
-                    {acc.name} — {acc.bank}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="py-2 space-y-3">
+            <div>
+              <Label className="mb-2 block">Conta de Pagamento</Label>
+              <Select value={payAccountId} onValueChange={setPayAccountId}>
+                <SelectTrigger><SelectValue placeholder="Selecione uma conta" /></SelectTrigger>
+                <SelectContent>
+                  {accounts.map((acc) => (
+                    <SelectItem key={acc.id} value={acc.id}>
+                      {acc.name} — {acc.bank}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <Label className="mb-2 block">Valor Pago</Label>
+                <Input type="number" step="0.01" min="0" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+              </div>
+              <div>
+                <Label className="mb-2 block">Data</Label>
+                <Input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+              </div>
+            </div>
+            <div>
+              <Label className="mb-2 block">Forma de Pagamento</Label>
+              <Select value={payMethod} onValueChange={setPayMethod}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Transferência">Transferência</SelectItem>
+                  <SelectItem value="PIX">PIX</SelectItem>
+                  <SelectItem value="Débito">Débito</SelectItem>
+                  <SelectItem value="Dinheiro">Dinheiro</SelectItem>
+                  <SelectItem value="Boleto">Boleto</SelectItem>
+                  <SelectItem value="Outro">Outro</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              disabled={!payAccountId}
+              disabled={!payAccountId || !payAmount || parseFloat(payAmount) <= 0}
               onClick={async () => {
                 if (payingCard && payAccountId) {
-                  await payCardBill(payingCard.card.id, payAccountId, payingCard.amount);
+                  const amt = parseFloat(payAmount);
+                  await payCardBill(payingCard.card.id, payAccountId, amt, payDate, payMethod);
                   setPayingCard(null);
                 }
               }}
