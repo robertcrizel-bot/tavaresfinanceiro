@@ -10,6 +10,7 @@ import { TransactionForm } from "@/components/TransactionForm";
 import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet } from "lucide-react";
+import { isBillPaymentTransaction } from "@/lib/transaction-classification";
 import {
   LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -68,9 +69,8 @@ export default function Dashboard() {
     return transactions.filter((t) => t.date >= cutoffStr);
   }, [transactions, period, dateRange]);
 
-  // Bill payments (have both account and card) are excluded — they're not real expenses,
-  // they just move money from account to card debt (already counted at purchase time).
-  const isBillPayment = (t: Transaction) => !!(t.accountId && t.creditCardId);
+  // Bill payments are excluded from expense metrics because the card purchase was already counted.
+  const isBillPayment = (t: Transaction) => isBillPaymentTransaction(t);
   const totalIncome = filtered.filter((t) => t.type === "income" && !isBillPayment(t)).reduce((s, t) => s + t.amount, 0);
   const totalExpense = filtered.filter((t) => t.type === "expense" && !isBillPayment(t)).reduce((s, t) => s + t.amount, 0);
   const balance = totalIncome - totalExpense;
