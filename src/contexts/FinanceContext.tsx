@@ -160,40 +160,88 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, [fetchTransactions]);
 
-  const payCardBill = useCallback(async (creditCardId: string, accountId: string, amount: number) => {
+  const payCardBill = useCallback(async (creditCardId: string, accountId: string, amount: number, date?: string, paymentMethod?: string) => {
     if (!user) return;
 
-    // 1. Mark all unpaid transactions for this card as paid
-    const { error: updateError } = await supabase
+    // Fetch unpaid card transactions ordered by date asc to apply payment FIFO
+    const { data: unpaid, error: fetchErr } = await supabase
       .from("transactions")
-      .update({ is_paid: true })
+      .select("id, amount, date")
       .eq("credit_card_id", creditCardId)
-      .eq("is_paid", false);
+      .eq("is_paid", false)
+      .order("date", { ascending: true });
 
-    if (updateError) {
-      toast({ title: "Erro ao pagar fatura", description: updateError.message, variant: "destructive" });
+    if (fetchErr) {
+      toast({ title: "Erro ao buscar fatura", description: fetchErr.message, variant: "destructive" });
       return;
     }
 
-    // 2. Create an expense transaction from the account
+    const totalUnpaid = (unpaid || []).reduce((s, r) => s + Number(r.amount), 0);
+    let remaining = Math.min(amount, totalUnpaid);
+
+    // Mark transactions paid until remaining is exhausted; split last one if partial
+    const idsToMark: string[] = [];
+    for (const row of unpaid || []) {
+      const v = Number(row.amount);
+      if (remaining >= v - 0.001) {
+        idsToMark.push(row.id);
+        remaining = +(remaining - v).toFixed(2);
+      } else if (remaining > 0.001) {
+        // Partial payment of this transaction: reduce its amount by `remaining` and mark the paid portion
+        const paidPortion = +remaining.toFixed(2);
+        const leftover = +(v - paidPortion).toFixed(2);
+        // Update existing row to leftover (keeps unpaid)
+        await supabase.from("transactions").update({ amount: leftover }).eq("id", row.id);
+        // Insert a paid sibling for the paid portion
+        await supabase.from("transactions").insert({
+          user_id: user.id,
+          title: "Parcial fatura",
+          amount: paidPortion,
+          type: "expense",
+          category: "Fatura Cartão",
+          date: row.date,
+          description: "Parte paga de lançamento da fatura",
+          credit_card_id: creditCardId,
+          is_paid: true,
+        });
+        remaining = 0;
+        break;
+      } else {
+        break;
+      }
+    }
+
+    if (idsToMark.length > 0) {
+      const { error: updErr } = await supabase
+        .from("transactions")
+        .update({ is_paid: true })
+        .in("id", idsToMark);
+      if (updErr) {
+        toast({ title: "Erro ao quitar lançamentos", description: updErr.message, variant: "destructive" });
+        return;
+      }
+    }
+
+    // Debit the account: register a transfer-like expense tied to the account, NOT counted as expense in dashboards.
+    // We store with a special category "Pagamento Fatura" and link to creditCardId so dashboards can exclude it.
     const { error: insertError } = await supabase.from("transactions").insert({
       user_id: user.id,
       title: "Pagamento de Fatura",
       amount,
       type: "expense",
-      category: "Fatura Cartão",
-      date: new Date().toISOString().split("T")[0],
-      description: "Pagamento automático de fatura de cartão de crédito",
-      payment_method: "Transferência",
+      category: "Pagamento Fatura",
+      date: date || new Date().toISOString().split("T")[0],
+      description: "Pagamento de fatura de cartão de crédito",
+      payment_method: paymentMethod || "Transferência",
       account_id: accountId,
-      credit_card_id: null,
+      credit_card_id: creditCardId,
       is_paid: true,
     });
 
     if (insertError) {
       toast({ title: "Erro ao registrar pagamento", description: insertError.message, variant: "destructive" });
     } else {
-      toast({ title: "Fatura paga!", description: "O saldo do cartão foi zerado." });
+      toast({ title: "Fatura paga!", description: `Pagamento de ${amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} registrado.` });
       fetchTransactions();
     }
   }, [user, fetchTransactions]);
