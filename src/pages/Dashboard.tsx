@@ -91,7 +91,7 @@ export default function Dashboard() {
 
   const topCategory = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter((t) => t.type === "expense").forEach((t) => {
+    filtered.filter((t) => t.type === "expense" && !isBillPayment(t)).forEach((t) => {
       map[t.category] = (map[t.category] || 0) + t.amount;
     });
     let top = { cat: "—", val: 0 };
