@@ -10,7 +10,7 @@ import { TransactionForm } from "@/components/TransactionForm";
 import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet } from "lucide-react";
-import { isFinancialNeutralTransaction } from "@/lib/transaction-classification";
+import { isFinancialNeutralTransaction, isBillPaymentTransaction } from "@/lib/transaction-classification";
 import {
   LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -119,7 +119,7 @@ export default function Dashboard() {
   const getCardUsed = (ccId: string) => {
     return transactions.reduce((total, t) => {
       if (t.creditCardId !== ccId || t.isPaid) return total;
-      if (isNeutral(t)) return total;
+      if (isBillPaymentTransaction(t)) return total;
       return total + (t.type === "income" ? -t.amount : t.amount);
     }, 0);
   };
