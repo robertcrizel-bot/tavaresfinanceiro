@@ -10,7 +10,7 @@ import { TransactionForm } from "@/components/TransactionForm";
 import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet } from "lucide-react";
-import { isFinancialNeutralTransaction } from "@/lib/transaction-classification";
+import { isFinancialNeutralTransaction, isBillPaymentTransaction } from "@/lib/transaction-classification";
 import {
   LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
