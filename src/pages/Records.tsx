@@ -302,6 +302,11 @@ export default function Records() {
                     <TableCell className="text-muted-foreground text-sm">
                       {getSourceName(t)}
                     </TableCell>
+                    <TableCell className="text-muted-foreground text-sm max-w-[240px]">
+                      <span className="block truncate" title={t.description || ""}>
+                        {t.description || "—"}
+                      </span>
+                    </TableCell>
                     <TableCell className={`text-right font-medium ${isNeutral(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
                       {isNeutral(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
                     </TableCell>
