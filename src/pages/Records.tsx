@@ -63,12 +63,31 @@ export default function Records() {
   };
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     const list = transactions.filter((t) => {
-      if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
       const isNeutral = isFinancialNeutralTransaction(t);
       if (typeFilter !== "all" && (isNeutral || t.type !== typeFilter)) return false;
       if (catFilter !== "all" && t.category !== catFilter) return false;
       if (sourceFilter !== "all" && getSourceKey(t) !== sourceFilter) return false;
+      if (q) {
+        const dateStr = new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR");
+        const typeLabel = isNeutral
+          ? (isAdjustmentTransaction(t) ? "ajuste" : "pagamento de fatura")
+          : t.type === "income" ? "entrada" : "saída saida";
+        const amountStr = t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+        const haystack = [
+          t.title,
+          t.category,
+          t.description || "",
+          t.paymentMethod || "",
+          getSourceName(t),
+          dateStr,
+          typeLabel,
+          amountStr,
+          String(t.amount),
+        ].join(" ").toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
 
@@ -157,7 +176,7 @@ export default function Records() {
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-          <Input id="search-records" placeholder="Buscar por título..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
+          <Input id="search-records" placeholder="Buscar em todas as colunas..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
         <div className="flex gap-3">
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "all" | TransactionType)}>
@@ -257,6 +276,7 @@ export default function Records() {
                   <SortableHead col="type">Tipo</SortableHead>
                   <SortableHead col="paymentMethod">Pagamento</SortableHead>
                   <SortableHead col="source">Conta/Cartão</SortableHead>
+                  <TableHead>Observações</TableHead>
                   <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors text-right" onClick={() => toggleSort("amount")}>
                     <span className="flex items-center justify-end">Valor<SortIcon col="amount" /></span>
                   </TableHead>
@@ -281,6 +301,11 @@ export default function Records() {
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {getSourceName(t)}
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm max-w-[240px]">
+                      <span className="block truncate" title={t.description || ""}>
+                        {t.description || "—"}
+                      </span>
                     </TableCell>
                     <TableCell className={`text-right font-medium ${isNeutral(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
                       {isNeutral(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
