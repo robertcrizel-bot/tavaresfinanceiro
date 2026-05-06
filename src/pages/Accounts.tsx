@@ -12,6 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { isAdjustmentTransaction, isBillPaymentTransaction } from "@/lib/transaction-classification";
 
 const COLORS = [
   { value: "purple", label: "Roxo" },
@@ -67,6 +68,8 @@ export default function Accounts() {
   const getAccountBalance = (accId: string, initialBalance: number) => {
     const txBal = transactions.reduce((bal, t) => {
       if (t.accountId !== accId) return bal;
+      if (isAdjustmentTransaction(t)) return bal + (t.type === "income" ? t.amount : -t.amount);
+      if (isBillPaymentTransaction(t)) return bal - t.amount;
       return t.type === "income" ? bal + t.amount : bal - t.amount;
     }, initialBalance);
     const trBal = transfers.reduce((bal, t) => {
@@ -81,6 +84,7 @@ export default function Accounts() {
   const getCardUsed = (ccId: string) => {
     return transactions.reduce((total, t) => {
       if (t.creditCardId !== ccId || t.isPaid) return total;
+      if (isBillPaymentTransaction(t)) return total;
       return total + t.amount;
     }, 0);
   };
