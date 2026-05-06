@@ -63,12 +63,31 @@ export default function Records() {
   };
 
   const filtered = useMemo(() => {
+    const q = search.trim().toLowerCase();
     const list = transactions.filter((t) => {
-      if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
       const isNeutral = isFinancialNeutralTransaction(t);
       if (typeFilter !== "all" && (isNeutral || t.type !== typeFilter)) return false;
       if (catFilter !== "all" && t.category !== catFilter) return false;
       if (sourceFilter !== "all" && getSourceKey(t) !== sourceFilter) return false;
+      if (q) {
+        const dateStr = new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR");
+        const typeLabel = isNeutral
+          ? (isAdjustmentTransaction(t) ? "ajuste" : "pagamento de fatura")
+          : t.type === "income" ? "entrada" : "saída saida";
+        const amountStr = t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
+        const haystack = [
+          t.title,
+          t.category,
+          t.description || "",
+          t.paymentMethod || "",
+          getSourceName(t),
+          dateStr,
+          typeLabel,
+          amountStr,
+          String(t.amount),
+        ].join(" ").toLowerCase();
+        if (!haystack.includes(q)) return false;
+      }
       return true;
     });
 
