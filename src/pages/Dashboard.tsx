@@ -10,7 +10,7 @@ import { TransactionForm } from "@/components/TransactionForm";
 import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet } from "lucide-react";
-import { isBillPaymentTransaction } from "@/lib/transaction-classification";
+import { isFinancialNeutralTransaction } from "@/lib/transaction-classification";
 import {
   LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -69,10 +69,10 @@ export default function Dashboard() {
     return transactions.filter((t) => t.date >= cutoffStr);
   }, [transactions, period, dateRange]);
 
-  // Bill payments are excluded from expense metrics because the card purchase was already counted.
-  const isBillPayment = (t: Transaction) => isBillPaymentTransaction(t);
-  const totalIncome = filtered.filter((t) => t.type === "income" && !isBillPayment(t)).reduce((s, t) => s + t.amount, 0);
-  const totalExpense = filtered.filter((t) => t.type === "expense" && !isBillPayment(t)).reduce((s, t) => s + t.amount, 0);
+  // Bill payments and manual adjustments do not change income/expense metrics.
+  const isNeutral = (t: Transaction) => isFinancialNeutralTransaction(t);
+  const totalIncome = filtered.filter((t) => t.type === "income" && !isNeutral(t)).reduce((s, t) => s + t.amount, 0);
+  const totalExpense = filtered.filter((t) => t.type === "expense" && !isNeutral(t)).reduce((s, t) => s + t.amount, 0);
   const balance = totalIncome - totalExpense;
 
   const days = useMemo(() => {
@@ -91,7 +91,7 @@ export default function Dashboard() {
 
   const topCategory = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter((t) => t.type === "expense" && !isBillPayment(t)).forEach((t) => {
+    filtered.filter((t) => t.type === "expense" && !isNeutral(t)).forEach((t) => {
       map[t.category] = (map[t.category] || 0) + t.amount;
     });
     let top = { cat: "—", val: 0 };
@@ -119,14 +119,15 @@ export default function Dashboard() {
   const getCardUsed = (ccId: string) => {
     return transactions.reduce((total, t) => {
       if (t.creditCardId !== ccId || t.isPaid) return total;
-      return total + t.amount;
+      if (isNeutral(t)) return total;
+      return total + (t.type === "income" ? -t.amount : t.amount);
     }, 0);
   };
 
   // Line chart data
   const lineData = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter((t) => t.type === "expense" && !isBillPayment(t)).forEach((t) => {
+    filtered.filter((t) => t.type === "expense" && !isNeutral(t)).forEach((t) => {
       map[t.date] = (map[t.date] || 0) + t.amount;
     });
     return Object.entries(map)
@@ -146,7 +147,7 @@ export default function Dashboard() {
 
   const barData = useMemo(() => {
     const map: Record<string, number> = {};
-    filtered.filter((t) => t.type === "expense" && !isBillPayment(t)).forEach((t) => {
+    filtered.filter((t) => t.type === "expense" && !isNeutral(t)).forEach((t) => {
       map[t.category] = (map[t.category] || 0) + t.amount;
     });
     return Object.entries(map)
@@ -158,7 +159,7 @@ export default function Dashboard() {
   const insights = useMemo(() => {
     const list: string[] = [];
     if (topCategory !== "—") {
-      const catTotal = filtered.filter((t) => t.type === "expense" && !isBillPayment(t) && t.category === topCategory).reduce((s, t) => s + t.amount, 0);
+      const catTotal = filtered.filter((t) => t.type === "expense" && !isNeutral(t) && t.category === topCategory).reduce((s, t) => s + t.amount, 0);
       const pct = totalExpense > 0 ? Math.round((catTotal / totalExpense) * 100) : 0;
       list.push(`${topCategory} representa ${pct}% dos seus gastos no período.`);
     }

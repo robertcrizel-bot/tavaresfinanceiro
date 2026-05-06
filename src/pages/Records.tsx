@@ -13,7 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
-import { isBillPaymentTransaction } from "@/lib/transaction-classification";
+import { isAdjustmentTransaction, isBillPaymentTransaction, isFinancialNeutralTransaction } from "@/lib/transaction-classification";
 import * as XLSX from "xlsx";
 
 type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "source" | "amount";
@@ -65,8 +65,8 @@ export default function Records() {
   const filtered = useMemo(() => {
     const list = transactions.filter((t) => {
       if (search && !t.title.toLowerCase().includes(search.toLowerCase())) return false;
-      const isBillPayment = isBillPaymentTransaction(t);
-      if (typeFilter !== "all" && (isBillPayment || t.type !== typeFilter)) return false;
+      const isNeutral = isFinancialNeutralTransaction(t);
+      if (typeFilter !== "all" && (isNeutral || t.type !== typeFilter)) return false;
       if (catFilter !== "all" && t.category !== catFilter) return false;
       if (sourceFilter !== "all" && getSourceKey(t) !== sourceFilter) return false;
       return true;
@@ -90,9 +90,11 @@ export default function Records() {
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
   const today = new Date().toISOString().split("T")[0];
   const isBillPayment = (t: Transaction) => isBillPaymentTransaction(t);
+  const isAdjustment = (t: Transaction) => isAdjustmentTransaction(t);
+  const isNeutral = (t: Transaction) => isFinancialNeutralTransaction(t);
   const isForecast = (t: Transaction) => t.type === "expense" && t.date > today;
-  const getTypeLabel = (t: Transaction) => isBillPayment(t) ? "Pagamento de Fatura" : t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída";
-  const getSignedAmount = (t: Transaction) => isBillPayment(t) ? 0 : t.type === "income" ? t.amount : -t.amount;
+  const getTypeLabel = (t: Transaction) => isAdjustment(t) ? "Ajuste" : isBillPayment(t) ? "Pagamento de Fatura" : t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída";
+  const getSignedAmount = (t: Transaction) => isNeutral(t) ? 0 : t.type === "income" ? t.amount : -t.amount;
 
   const exportToXlsx = useCallback(() => {
     const data = filtered.map((t) => ({
@@ -211,14 +213,14 @@ export default function Records() {
                       {new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR")}
                     </p>
                   </div>
-                  <p className={`text-sm font-semibold whitespace-nowrap ${isBillPayment(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
-                    {isBillPayment(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
+                  <p className={`text-sm font-semibold whitespace-nowrap ${isNeutral(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
+                    {isNeutral(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
                   </p>
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2 flex-wrap">
                     <Badge variant="outline" className="text-xs">{t.category}</Badge>
-                    <Badge variant={isBillPayment(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isBillPayment(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
+                    <Badge variant={isNeutral(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isNeutral(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
                       {getTypeLabel(t)}
                     </Badge>
                     {t.paymentMethod && (
@@ -270,7 +272,7 @@ export default function Records() {
                     <TableCell className="font-medium text-foreground">{t.title}</TableCell>
                     <TableCell><Badge variant="outline" className="text-xs">{t.category}</Badge></TableCell>
                     <TableCell>
-                      <Badge variant={isBillPayment(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isBillPayment(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
+                      <Badge variant={isNeutral(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isNeutral(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
                         {getTypeLabel(t)}
                       </Badge>
                     </TableCell>
@@ -280,8 +282,8 @@ export default function Records() {
                     <TableCell className="text-muted-foreground text-sm">
                       {getSourceName(t)}
                     </TableCell>
-                    <TableCell className={`text-right font-medium ${isBillPayment(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
-                      {isBillPayment(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
+                    <TableCell className={`text-right font-medium ${isNeutral(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
+                      {isNeutral(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
