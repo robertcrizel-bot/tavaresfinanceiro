@@ -85,7 +85,7 @@ export default function Accounts() {
     return transactions.reduce((total, t) => {
       if (t.creditCardId !== ccId || t.isPaid) return total;
       if (isBillPaymentTransaction(t)) return total;
-      return total + t.amount;
+      return total + (t.type === "income" ? -t.amount : t.amount);
     }, 0);
   };
 
