@@ -3,6 +3,7 @@ import { Transaction } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { isBillPaymentTransaction } from "@/lib/transaction-classification";
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -151,6 +152,45 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
   }, [fetchTransactions]);
 
   const deleteTransaction = useCallback(async (id: string) => {
+    const transaction = transactions.find((t) => t.id === id);
+
+    if (transaction && isBillPaymentTransaction(transaction)) {
+      const { data: paidRows, error: fetchErr } = await supabase
+        .from("transactions")
+        .select("id")
+        .eq("credit_card_id", transaction.creditCardId)
+        .eq("is_paid", true)
+        .neq("id", id)
+        .order("date", { ascending: false })
+        .limit(1000);
+
+      if (fetchErr) {
+        toast({ title: "Erro ao reabrir fatura", description: fetchErr.message, variant: "destructive" });
+        return;
+      }
+
+      const idsToReopen: string[] = [];
+      let remaining = transaction.amount;
+      for (const row of paidRows || []) {
+        const paidTransaction = transactions.find((t) => t.id === row.id);
+        if (!paidTransaction || isBillPaymentTransaction(paidTransaction)) continue;
+        idsToReopen.push(row.id);
+        remaining = +(remaining - paidTransaction.amount).toFixed(2);
+        if (remaining <= 0.001) break;
+      }
+
+      if (idsToReopen.length > 0) {
+        const { error: reopenErr } = await supabase
+          .from("transactions")
+          .update({ is_paid: false })
+          .in("id", idsToReopen);
+        if (reopenErr) {
+          toast({ title: "Erro ao reabrir fatura", description: reopenErr.message, variant: "destructive" });
+          return;
+        }
+      }
+    }
+
     const { error } = await supabase.from("transactions").delete().eq("id", id);
     if (error) {
       toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
