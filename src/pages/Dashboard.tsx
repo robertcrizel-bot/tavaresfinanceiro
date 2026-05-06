@@ -119,7 +119,7 @@ export default function Dashboard() {
   const getCardUsed = (ccId: string) => {
     return transactions.reduce((total, t) => {
       if (t.creditCardId !== ccId || t.isPaid) return total;
-      if (isNeutral(t)) return total;
+      if (isBillPaymentTransaction(t)) return total;
       return total + (t.type === "income" ? -t.amount : t.amount);
     }, 0);
   };
