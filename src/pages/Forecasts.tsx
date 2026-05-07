@@ -13,10 +13,25 @@ import { CalendarClock, Plus, ChevronLeft, ChevronRight, Check, Undo2, Pencil, T
 import { format, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
+import { PAYMENT_METHODS, PaymentMethod } from "@/lib/types";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function Forecasts() {
   const { bills, payments, loading, addBill, updateBill, deleteBill, markAsPaid, unmarkAsPaid } = useForecast();
   const { accounts } = useAccounts();
+  const { categories } = useCategories();
+  const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [editingBill, setEditingBill] = useState<RecurringBill | null>(null);
+
+  // Pay dialog state
+  const [payOpen, setPayOpen] = useState(false);
+  const [payBill, setPayBill] = useState<RecurringBill | null>(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payDate, setPayDate] = useState("");
+  const [payMethod, setPayMethod] = useState<PaymentMethod | "">("Transferência");
+  const [payAccountId, setPayAccountId] = useState<string>("");
+  const [payDescription, setPayDescription] = useState("");
   const { categories } = useCategories();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
