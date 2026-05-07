@@ -32,10 +32,6 @@ export default function Forecasts() {
   const [payMethod, setPayMethod] = useState<PaymentMethod | "">("Transferência");
   const [payAccountId, setPayAccountId] = useState<string>("");
   const [payDescription, setPayDescription] = useState("");
-  const { categories } = useCategories();
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingBill, setEditingBill] = useState<RecurringBill | null>(null);
 
   // Form state
   const [formName, setFormName] = useState("");
