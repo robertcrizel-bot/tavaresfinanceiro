@@ -31,7 +31,7 @@ interface ForecastContextType {
   addBill: (b: Omit<RecurringBill, "id">) => Promise<void>;
   updateBill: (b: RecurringBill) => Promise<void>;
   deleteBill: (id: string) => Promise<void>;
-  markAsPaid: (bill: RecurringBill, referenceMonth: string) => Promise<void>;
+  markAsPaid: (bill: RecurringBill, referenceMonth: string, overrides?: { amount?: number; date?: string; paymentMethod?: string; accountId?: string | null; description?: string | null; }) => Promise<void>;
   unmarkAsPaid: (paymentId: string) => Promise<void>;
   refetch: () => void;
 }
@@ -123,25 +123,31 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
     else { toast({ title: "Previsão excluída", variant: "destructive" }); fetchData(); }
   }, [fetchData]);
 
-  const markAsPaid = useCallback(async (bill: RecurringBill, referenceMonth: string) => {
+  const markAsPaid = useCallback(async (bill: RecurringBill, referenceMonth: string, overrides?: { amount?: number; date?: string; paymentMethod?: string; accountId?: string | null; description?: string | null; }) => {
     if (!user) return;
 
-    // Parse reference month to build the date
-    const [year, month] = referenceMonth.split("-").map(Number);
-    const dueDate = new Date(year, month - 1, bill.dueDay);
-    const dateStr = dueDate.toISOString().split("T")[0];
+    let dateStr: string;
+    if (overrides?.date) {
+      dateStr = overrides.date;
+    } else {
+      const [year, month] = referenceMonth.split("-").map(Number);
+      const dueDate = new Date(year, month - 1, bill.dueDay);
+      dateStr = dueDate.toISOString().split("T")[0];
+    }
+
+    const accountId = overrides?.accountId !== undefined ? overrides.accountId : bill.accountId;
 
     // Create a real transaction
     const { data: txData, error: txError } = await supabase.from("transactions").insert({
       user_id: user.id,
       title: bill.name,
-      amount: bill.amount,
+      amount: overrides?.amount ?? bill.amount,
       type: "expense",
       category: bill.category,
       date: dateStr,
-      description: bill.description || `Pagamento de ${bill.name}`,
-      payment_method: "Transferência",
-      account_id: bill.accountId,
+      description: overrides?.description ?? (bill.description || `Pagamento de ${bill.name}`),
+      payment_method: overrides?.paymentMethod ?? "Transferência",
+      account_id: accountId,
       is_paid: true,
     }).select("id").single();
 

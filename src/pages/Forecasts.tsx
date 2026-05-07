@@ -13,6 +13,8 @@ import { CalendarClock, Plus, ChevronLeft, ChevronRight, Check, Undo2, Pencil, T
 import { format, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
+import { PAYMENT_METHODS, PaymentMethod } from "@/lib/types";
+import { Textarea } from "@/components/ui/textarea";
 
 export default function Forecasts() {
   const { bills, payments, loading, addBill, updateBill, deleteBill, markAsPaid, unmarkAsPaid } = useForecast();
@@ -21,6 +23,15 @@ export default function Forecasts() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<RecurringBill | null>(null);
+
+  // Pay dialog state
+  const [payOpen, setPayOpen] = useState(false);
+  const [payBill, setPayBill] = useState<RecurringBill | null>(null);
+  const [payAmount, setPayAmount] = useState("");
+  const [payDate, setPayDate] = useState("");
+  const [payMethod, setPayMethod] = useState<PaymentMethod | "">("Transferência");
+  const [payAccountId, setPayAccountId] = useState<string>("");
+  const [payDescription, setPayDescription] = useState("");
 
   // Form state
   const [formName, setFormName] = useState("");
@@ -102,6 +113,30 @@ export default function Forecasts() {
       await addBill(data);
     }
     setDialogOpen(false);
+  };
+
+  const openPay = (bill: RecurringBill) => {
+    setPayBill(bill);
+    setPayAmount(String(bill.amount));
+    const [year, month] = referenceMonth.split("-").map(Number);
+    const dueDate = new Date(year, month - 1, bill.dueDay);
+    setPayDate(dueDate.toISOString().split("T")[0]);
+    setPayMethod("Transferência");
+    setPayAccountId(bill.accountId || "");
+    setPayDescription(bill.description || "");
+    setPayOpen(true);
+  };
+
+  const handleConfirmPay = async () => {
+    if (!payBill) return;
+    await markAsPaid(payBill, referenceMonth, {
+      amount: Number(payAmount),
+      date: payDate,
+      paymentMethod: payMethod || undefined,
+      accountId: payAccountId || null,
+      description: payDescription || null,
+    });
+    setPayOpen(false);
   };
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
@@ -241,7 +276,7 @@ export default function Forecasts() {
                       </Button>
                     ) : (
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-primary"
-                        onClick={() => markAsPaid(bill, referenceMonth)} title="Marcar como pago">
+                        onClick={() => openPay(bill)} title="Marcar como pago">
                         <Check className="h-4 w-4" />
                       </Button>
                     )}
@@ -325,6 +360,60 @@ export default function Forecasts() {
             <Button onClick={handleSave} disabled={!formName || !formAmount || !formCategory}>
               {editingBill ? "Salvar" : "Criar"}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Pay Dialog */}
+      <Dialog open={payOpen} onOpenChange={setPayOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Registrar Pagamento</DialogTitle>
+            <DialogDescription>
+              {payBill ? `${payBill.name} — ajuste os dados do pagamento` : ""}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div>
+              <Label>Valor pago (R$)</Label>
+              <Input type="number" step="0.01" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+            </div>
+            <div>
+              <Label>Data do pagamento</Label>
+              <Input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
+            </div>
+            <div>
+              <Label>Forma de pagamento</Label>
+              <Select value={payMethod || "none"} onValueChange={(v) => setPayMethod(v === "none" ? "" : v as PaymentMethod)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma</SelectItem>
+                  {PAYMENT_METHODS.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Conta</Label>
+              <Select value={payAccountId || "none"} onValueChange={(v) => setPayAccountId(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma</SelectItem>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label>Observações</Label>
+              <Textarea value={payDescription} onChange={(e) => setPayDescription(e.target.value)} rows={2} />
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPayOpen(false)}>Cancelar</Button>
+            <Button onClick={handleConfirmPay} disabled={!payAmount || !payDate}>Confirmar Pagamento</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
