@@ -274,12 +274,12 @@ export default function Records() {
                   <SortableHead col="title">Título</SortableHead>
                   <SortableHead col="category">Categoria</SortableHead>
                   <SortableHead col="type">Tipo</SortableHead>
-                  <SortableHead col="paymentMethod">Pagamento</SortableHead>
-                  <SortableHead col="source">Conta/Cartão</SortableHead>
-                  <TableHead>Observações</TableHead>
                   <TableHead className="cursor-pointer select-none hover:text-foreground transition-colors text-right" onClick={() => toggleSort("amount")}>
                     <span className="flex items-center justify-end">Valor<SortIcon col="amount" /></span>
                   </TableHead>
+                  <SortableHead col="paymentMethod">Pagamento</SortableHead>
+                  <SortableHead col="source">Conta/Cartão</SortableHead>
+                  <TableHead>Observações</TableHead>
                   <TableHead className="text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
@@ -296,6 +296,9 @@ export default function Records() {
                         {getTypeLabel(t)}
                       </Badge>
                     </TableCell>
+                    <TableCell className={`text-right font-medium ${isNeutral(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
+                      {isNeutral(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
+                    </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {t.paymentMethod || "—"}
                     </TableCell>
@@ -306,9 +309,6 @@ export default function Records() {
                       <span className="block truncate" title={t.description || ""}>
                         {t.description || "—"}
                       </span>
-                    </TableCell>
-                    <TableCell className={`text-right font-medium ${isNeutral(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
-                      {isNeutral(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
