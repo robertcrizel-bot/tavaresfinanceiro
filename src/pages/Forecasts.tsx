@@ -115,6 +115,30 @@ export default function Forecasts() {
     setDialogOpen(false);
   };
 
+  const openPay = (bill: RecurringBill) => {
+    setPayBill(bill);
+    setPayAmount(String(bill.amount));
+    const [year, month] = referenceMonth.split("-").map(Number);
+    const dueDate = new Date(year, month - 1, bill.dueDay);
+    setPayDate(dueDate.toISOString().split("T")[0]);
+    setPayMethod("Transferência");
+    setPayAccountId(bill.accountId || "");
+    setPayDescription(bill.description || "");
+    setPayOpen(true);
+  };
+
+  const handleConfirmPay = async () => {
+    if (!payBill) return;
+    await markAsPaid(payBill, referenceMonth, {
+      amount: Number(payAmount),
+      date: payDate,
+      paymentMethod: payMethod || undefined,
+      accountId: payAccountId || null,
+      description: payDescription || null,
+    });
+    setPayOpen(false);
+  };
+
   const expenseCategories = categories.filter((c) => c.type === "expense");
 
   if (loading) {
