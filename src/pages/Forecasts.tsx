@@ -252,7 +252,7 @@ export default function Forecasts() {
                       </Button>
                     ) : (
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-primary"
-                        onClick={() => markAsPaid(bill, referenceMonth)} title="Marcar como pago">
+                        onClick={() => openPay(bill)} title="Marcar como pago">
                         <Check className="h-4 w-4" />
                       </Button>
                     )}
