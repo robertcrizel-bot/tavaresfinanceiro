@@ -31,7 +31,7 @@ interface ForecastContextType {
   addBill: (b: Omit<RecurringBill, "id">) => Promise<void>;
   updateBill: (b: RecurringBill) => Promise<void>;
   deleteBill: (id: string) => Promise<void>;
-  markAsPaid: (bill: RecurringBill, referenceMonth: string) => Promise<void>;
+  markAsPaid: (bill: RecurringBill, referenceMonth: string, overrides?: { amount?: number; date?: string; paymentMethod?: string; accountId?: string | null; description?: string | null; }) => Promise<void>;
   unmarkAsPaid: (paymentId: string) => Promise<void>;
   refetch: () => void;
 }
