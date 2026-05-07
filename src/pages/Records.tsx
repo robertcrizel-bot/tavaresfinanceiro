@@ -296,6 +296,9 @@ export default function Records() {
                         {getTypeLabel(t)}
                       </Badge>
                     </TableCell>
+                    <TableCell className={`text-right font-medium ${isNeutral(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
+                      {isNeutral(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
+                    </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
                       {t.paymentMethod || "—"}
                     </TableCell>
@@ -306,9 +309,6 @@ export default function Records() {
                       <span className="block truncate" title={t.description || ""}>
                         {t.description || "—"}
                       </span>
-                    </TableCell>
-                    <TableCell className={`text-right font-medium ${isNeutral(t) ? "text-muted-foreground" : t.type === "income" ? "text-income" : "text-expense"}`}>
-                      {isNeutral(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
