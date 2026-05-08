@@ -8,11 +8,36 @@ import { isBillPaymentTransaction } from "@/lib/transaction-classification";
 interface FinanceContextType {
   transactions: Transaction[];
   loading: boolean;
-  addTransaction: (t: Omit<Transaction, "id">, options?: { installments?: number }) => Promise<void>;
-  updateTransaction: (t: Transaction) => Promise<void>;
+  addTransaction: (t: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => Promise<void>;
+  updateTransaction: (t: Transaction, options?: { attachments?: File[] }) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   payCardBill: (creditCardId: string, accountId: string, amount: number, date?: string, paymentMethod?: string) => Promise<void>;
   refetch: () => void;
+}
+
+async function uploadAttachments(userId: string, transactionId: string, files: File[]) {
+  for (const file of files) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${userId}/${transactionId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+    const { error: upErr } = await supabase.storage
+      .from("transaction-attachments")
+      .upload(path, file, { contentType: file.type || undefined, upsert: false });
+    if (upErr) {
+      toast({ title: "Erro ao anexar arquivo", description: upErr.message, variant: "destructive" });
+      continue;
+    }
+    const { error: insErr } = await supabase.from("transaction_attachments").insert({
+      user_id: userId,
+      transaction_id: transactionId,
+      file_path: path,
+      file_name: file.name,
+      mime_type: file.type || null,
+      size: file.size,
+    });
+    if (insErr) {
+      toast({ title: "Erro ao salvar anexo", description: insErr.message, variant: "destructive" });
+    }
+  }
 }
 
 const FinanceContext = createContext<FinanceContextType | null>(null);
