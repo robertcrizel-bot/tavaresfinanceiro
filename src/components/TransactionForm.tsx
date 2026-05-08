@@ -30,6 +30,9 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
   const [accountId, setAccountId] = useState("");
   const [creditCardId, setCreditCardId] = useState("");
   const [installments, setInstallments] = useState<string>("1");
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initial) {
@@ -48,14 +51,28 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
       setDate(new Date().toISOString().split("T")[0]); setDescription("");
       setPaymentMethod(""); setAccountId(""); setCreditCardId(""); setInstallments("1");
     }
+    setAttachments([]);
   }, [initial, open]);
 
   const categories = getCategoriesByType(type);
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files) return;
+    const list = Array.from(files);
+    setAttachments((prev) => [...prev, ...list]);
+  };
+
+  const removeAttachment = (idx: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const installmentsNum = parseInt(installments) || 1;
     const isInstallment = !initial && type === "expense" && creditCardId && creditCardId !== "none" && installmentsNum > 1;
+    const opts: { installments?: number; attachments?: File[] } = {};
+    if (isInstallment) opts.installments = installmentsNum;
+    if (attachments.length > 0) opts.attachments = attachments;
     onSubmit(
       {
         title,
@@ -68,7 +85,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
         accountId: accountId && accountId !== "none" ? accountId : undefined,
         creditCardId: creditCardId && creditCardId !== "none" ? creditCardId : undefined,
       },
-      isInstallment ? { installments: installmentsNum } : undefined,
+      Object.keys(opts).length > 0 ? opts : undefined,
     );
     onClose();
   };
