@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Transaction, TransactionType, Category, PaymentMethod, PAYMENT_METHODS } from "@/lib/types";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
@@ -8,11 +8,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { Paperclip, Camera, X, FileIcon } from "lucide-react";
 
 interface TransactionFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<Transaction, "id">, options?: { installments?: number }) => void;
+  onSubmit: (data: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => void;
   initial?: Transaction;
 }
 
@@ -29,6 +30,9 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
   const [accountId, setAccountId] = useState("");
   const [creditCardId, setCreditCardId] = useState("");
   const [installments, setInstallments] = useState<string>("1");
+  const [attachments, setAttachments] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (initial) {
@@ -47,14 +51,28 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
       setDate(new Date().toISOString().split("T")[0]); setDescription("");
       setPaymentMethod(""); setAccountId(""); setCreditCardId(""); setInstallments("1");
     }
+    setAttachments([]);
   }, [initial, open]);
 
   const categories = getCategoriesByType(type);
+
+  const handleFiles = (files: FileList | null) => {
+    if (!files) return;
+    const list = Array.from(files);
+    setAttachments((prev) => [...prev, ...list]);
+  };
+
+  const removeAttachment = (idx: number) => {
+    setAttachments((prev) => prev.filter((_, i) => i !== idx));
+  };
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const installmentsNum = parseInt(installments) || 1;
     const isInstallment = !initial && type === "expense" && creditCardId && creditCardId !== "none" && installmentsNum > 1;
+    const opts: { installments?: number; attachments?: File[] } = {};
+    if (isInstallment) opts.installments = installmentsNum;
+    if (attachments.length > 0) opts.attachments = attachments;
     onSubmit(
       {
         title,
@@ -67,7 +85,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
         accountId: accountId && accountId !== "none" ? accountId : undefined,
         creditCardId: creditCardId && creditCardId !== "none" ? creditCardId : undefined,
       },
-      isInstallment ? { installments: installmentsNum } : undefined,
+      Object.keys(opts).length > 0 ? opts : undefined,
     );
     onClose();
   };
@@ -179,6 +197,53 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
           <div className="space-y-2">
             <Label>Descrição <span className="text-muted-foreground text-xs">(opcional)</span></Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
+          </div>
+          <div className="space-y-2">
+            <Label>Anexos <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+            <div className="flex flex-wrap gap-2">
+              <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
+                <Paperclip className="h-4 w-4 mr-2" /> Arquivo
+              </Button>
+              <Button type="button" variant="outline" size="sm" onClick={() => cameraInputRef.current?.click()}>
+                <Camera className="h-4 w-4 mr-2" /> Câmera
+              </Button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept="image/*,application/pdf,.doc,.docx,.xls,.xlsx,.txt,.csv"
+                className="hidden"
+                onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
+              />
+              <input
+                ref={cameraInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                multiple
+                className="hidden"
+                onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
+              />
+            </div>
+            {attachments.length > 0 && (
+              <ul className="space-y-1 mt-2">
+                {attachments.map((f, i) => (
+                  <li key={i} className="flex items-center justify-between rounded-md border border-border bg-muted/30 px-2 py-1 text-xs">
+                    <span className="flex items-center gap-2 truncate">
+                      <FileIcon className="h-3.5 w-3.5 shrink-0" />
+                      <span className="truncate">{f.name}</span>
+                      <span className="text-muted-foreground shrink-0">({(f.size / 1024).toFixed(0)} KB)</span>
+                    </span>
+                    <button type="button" onClick={() => removeAttachment(i)} className="text-muted-foreground hover:text-destructive">
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+            {initial && (
+              <p className="text-xs text-muted-foreground">Os anexos selecionados serão adicionados a este registro.</p>
+            )}
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>

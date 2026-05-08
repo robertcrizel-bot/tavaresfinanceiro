@@ -8,11 +8,36 @@ import { isBillPaymentTransaction } from "@/lib/transaction-classification";
 interface FinanceContextType {
   transactions: Transaction[];
   loading: boolean;
-  addTransaction: (t: Omit<Transaction, "id">, options?: { installments?: number }) => Promise<void>;
-  updateTransaction: (t: Transaction) => Promise<void>;
+  addTransaction: (t: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => Promise<void>;
+  updateTransaction: (t: Transaction, options?: { attachments?: File[] }) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   payCardBill: (creditCardId: string, accountId: string, amount: number, date?: string, paymentMethod?: string) => Promise<void>;
   refetch: () => void;
+}
+
+async function uploadAttachments(userId: string, transactionId: string, files: File[]) {
+  for (const file of files) {
+    const safeName = file.name.replace(/[^a-zA-Z0-9._-]/g, "_");
+    const path = `${userId}/${transactionId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeName}`;
+    const { error: upErr } = await supabase.storage
+      .from("transaction-attachments")
+      .upload(path, file, { contentType: file.type || undefined, upsert: false });
+    if (upErr) {
+      toast({ title: "Erro ao anexar arquivo", description: upErr.message, variant: "destructive" });
+      continue;
+    }
+    const { error: insErr } = await supabase.from("transaction_attachments").insert({
+      user_id: userId,
+      transaction_id: transactionId,
+      file_path: path,
+      file_name: file.name,
+      mime_type: file.type || null,
+      size: file.size,
+    });
+    if (insErr) {
+      toast({ title: "Erro ao salvar anexo", description: insErr.message, variant: "destructive" });
+    }
+  }
 }
 
 const FinanceContext = createContext<FinanceContextType | null>(null);
@@ -59,13 +84,14 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
 
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
-  const addTransaction = useCallback(async (t: Omit<Transaction, "id">, options?: { installments?: number }) => {
+  const addTransaction = useCallback(async (t: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => {
     if (!user) return;
     const installments = options?.installments && options.installments > 1 ? options.installments : 1;
+    const attachments = options?.attachments || [];
 
     // Single (non-installment) insert
     if (installments === 1) {
-      const { error } = await supabase.from("transactions").insert({
+      const { data: inserted, error } = await supabase.from("transactions").insert({
         user_id: user.id,
         title: t.title,
         amount: t.amount,
@@ -76,16 +102,22 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
         payment_method: t.paymentMethod || null,
         account_id: t.accountId || null,
         credit_card_id: t.creditCardId || null,
-      });
-      if (error) toast({ title: "Erro ao criar registro", description: error.message, variant: "destructive" });
-      else { toast({ title: "Registro criado", description: t.title }); fetchTransactions(); }
+      }).select("id").single();
+      if (error || !inserted) {
+        toast({ title: "Erro ao criar registro", description: error?.message, variant: "destructive" });
+        return;
+      }
+      if (attachments.length > 0) {
+        await uploadAttachments(user.id, inserted.id, attachments);
+      }
+      toast({ title: "Registro criado", description: t.title });
+      fetchTransactions();
       return;
     }
 
     // Installments: split into N monthly transactions on the credit card
     const baseDate = new Date(t.date + "T12:00:00");
     const perInstallment = +(t.amount / installments).toFixed(2);
-    // Insert parent first to get its id
     const { data: parent, error: parentErr } = await supabase.from("transactions").insert({
       user_id: user.id,
       title: `${t.title} (1/${installments})`,
@@ -127,11 +159,18 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       });
     }
     const { error: childErr } = await supabase.from("transactions").insert(rows);
-    if (childErr) toast({ title: "Erro nas parcelas", description: childErr.message, variant: "destructive" });
-    else { toast({ title: "Compra parcelada", description: `${installments}x de ${perInstallment.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` }); fetchTransactions(); }
+    if (childErr) {
+      toast({ title: "Erro nas parcelas", description: childErr.message, variant: "destructive" });
+      return;
+    }
+    if (attachments.length > 0) {
+      await uploadAttachments(user.id, parent.id, attachments);
+    }
+    toast({ title: "Compra parcelada", description: `${installments}x de ${perInstallment.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` });
+    fetchTransactions();
   }, [user, fetchTransactions]);
 
-  const updateTransaction = useCallback(async (t: Transaction) => {
+  const updateTransaction = useCallback(async (t: Transaction, options?: { attachments?: File[] }) => {
     const { error } = await supabase.from("transactions").update({
       title: t.title,
       amount: t.amount,
@@ -145,11 +184,14 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }).eq("id", t.id);
     if (error) {
       toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Registro atualizado", description: t.title });
-      fetchTransactions();
+      return;
     }
-  }, [fetchTransactions]);
+    if (user && options?.attachments && options.attachments.length > 0) {
+      await uploadAttachments(user.id, t.id, options.attachments);
+    }
+    toast({ title: "Registro atualizado", description: t.title });
+    fetchTransactions();
+  }, [user, fetchTransactions]);
 
   const deleteTransaction = useCallback(async (id: string) => {
     const transaction = transactions.find((t) => t.id === id);

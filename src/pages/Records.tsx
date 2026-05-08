@@ -337,7 +337,7 @@ export default function Records() {
         onClose={() => { setFormOpen(false); setEditing(undefined); }}
         onSubmit={(data, options) => {
           if (editing) {
-            updateTransaction({ ...data, id: editing.id });
+            updateTransaction({ ...data, id: editing.id }, options?.attachments ? { attachments: options.attachments } : undefined);
           } else {
             addTransaction(data, options);
           }

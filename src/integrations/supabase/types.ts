@@ -238,6 +238,39 @@ export type Database = {
           },
         ]
       }
+      transaction_attachments: {
+        Row: {
+          created_at: string
+          file_name: string
+          file_path: string
+          id: string
+          mime_type: string | null
+          size: number | null
+          transaction_id: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          file_name: string
+          file_path: string
+          id?: string
+          mime_type?: string | null
+          size?: number | null
+          transaction_id: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          file_name?: string
+          file_path?: string
+          id?: string
+          mime_type?: string | null
+          size?: number | null
+          transaction_id?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       transactions: {
         Row: {
           account_id: string | null
