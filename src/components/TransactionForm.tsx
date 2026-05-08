@@ -197,6 +197,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
           <div className="space-y-2">
             <Label>Descrição <span className="text-muted-foreground text-xs">(opcional)</span></Label>
             <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
+          </div>
           <div className="space-y-2">
             <Label>Anexos <span className="text-muted-foreground text-xs">(opcional)</span></Label>
             <div className="flex flex-wrap gap-2">
