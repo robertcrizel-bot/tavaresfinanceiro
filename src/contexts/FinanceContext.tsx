@@ -84,13 +84,14 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
 
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
-  const addTransaction = useCallback(async (t: Omit<Transaction, "id">, options?: { installments?: number }) => {
+  const addTransaction = useCallback(async (t: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => {
     if (!user) return;
     const installments = options?.installments && options.installments > 1 ? options.installments : 1;
+    const attachments = options?.attachments || [];
 
     // Single (non-installment) insert
     if (installments === 1) {
-      const { error } = await supabase.from("transactions").insert({
+      const { data: inserted, error } = await supabase.from("transactions").insert({
         user_id: user.id,
         title: t.title,
         amount: t.amount,
@@ -101,16 +102,22 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
         payment_method: t.paymentMethod || null,
         account_id: t.accountId || null,
         credit_card_id: t.creditCardId || null,
-      });
-      if (error) toast({ title: "Erro ao criar registro", description: error.message, variant: "destructive" });
-      else { toast({ title: "Registro criado", description: t.title }); fetchTransactions(); }
+      }).select("id").single();
+      if (error || !inserted) {
+        toast({ title: "Erro ao criar registro", description: error?.message, variant: "destructive" });
+        return;
+      }
+      if (attachments.length > 0) {
+        await uploadAttachments(user.id, inserted.id, attachments);
+      }
+      toast({ title: "Registro criado", description: t.title });
+      fetchTransactions();
       return;
     }
 
     // Installments: split into N monthly transactions on the credit card
     const baseDate = new Date(t.date + "T12:00:00");
     const perInstallment = +(t.amount / installments).toFixed(2);
-    // Insert parent first to get its id
     const { data: parent, error: parentErr } = await supabase.from("transactions").insert({
       user_id: user.id,
       title: `${t.title} (1/${installments})`,
@@ -152,11 +159,18 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       });
     }
     const { error: childErr } = await supabase.from("transactions").insert(rows);
-    if (childErr) toast({ title: "Erro nas parcelas", description: childErr.message, variant: "destructive" });
-    else { toast({ title: "Compra parcelada", description: `${installments}x de ${perInstallment.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` }); fetchTransactions(); }
+    if (childErr) {
+      toast({ title: "Erro nas parcelas", description: childErr.message, variant: "destructive" });
+      return;
+    }
+    if (attachments.length > 0) {
+      await uploadAttachments(user.id, parent.id, attachments);
+    }
+    toast({ title: "Compra parcelada", description: `${installments}x de ${perInstallment.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` });
+    fetchTransactions();
   }, [user, fetchTransactions]);
 
-  const updateTransaction = useCallback(async (t: Transaction) => {
+  const updateTransaction = useCallback(async (t: Transaction, options?: { attachments?: File[] }) => {
     const { error } = await supabase.from("transactions").update({
       title: t.title,
       amount: t.amount,
@@ -170,14 +184,14 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }).eq("id", t.id);
     if (error) {
       toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Registro atualizado", description: t.title });
-      fetchTransactions();
+      return;
     }
-  }, [fetchTransactions]);
-
-  const deleteTransaction = useCallback(async (id: string) => {
-    const transaction = transactions.find((t) => t.id === id);
+    if (user && options?.attachments && options.attachments.length > 0) {
+      await uploadAttachments(user.id, t.id, options.attachments);
+    }
+    toast({ title: "Registro atualizado", description: t.title });
+    fetchTransactions();
+  }, [user, fetchTransactions]);
 
     if (transaction && isBillPaymentTransaction(transaction)) {
       const { data: paidRows, error: fetchErr } = await supabase
