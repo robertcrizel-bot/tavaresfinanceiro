@@ -58,10 +58,24 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
 
   const categories = getCategoriesByType(type);
 
-  const handleFiles = (files: FileList | null) => {
+  const handleFiles = async (files: FileList | null) => {
     if (!files) return;
     const list = Array.from(files);
-    setAttachments((prev) => [...prev, ...list]);
+    const MAX_SIZE = 15 * 1024 * 1024; // 15MB hard cap after compression
+    const processed: File[] = [];
+    for (const f of list) {
+      try {
+        const out = await compressImageFile(f);
+        if (out.size > MAX_SIZE) {
+          toast({ title: "Arquivo muito grande", description: `${f.name} excede 15MB e foi ignorado.`, variant: "destructive" });
+          continue;
+        }
+        processed.push(out);
+      } catch {
+        toast({ title: "Erro ao processar arquivo", description: f.name, variant: "destructive" });
+      }
+    }
+    if (processed.length > 0) setAttachments((prev) => [...prev, ...processed]);
   };
 
   const removeAttachment = (idx: number) => {
