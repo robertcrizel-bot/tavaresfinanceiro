@@ -193,6 +193,9 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     fetchTransactions();
   }, [user, fetchTransactions]);
 
+  const deleteTransaction = useCallback(async (id: string) => {
+    const transaction = transactions.find((t) => t.id === id);
+
     if (transaction && isBillPaymentTransaction(transaction)) {
       const { data: paidRows, error: fetchErr } = await supabase
         .from("transactions")
