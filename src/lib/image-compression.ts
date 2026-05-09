@@ -4,8 +4,8 @@ export async function compressImageFile(
   file: File,
   opts: { maxDimension?: number; quality?: number } = {},
 ): Promise<File> {
-  const maxDimension = opts.maxDimension ?? 1600;
-  const quality = opts.quality ?? 0.8;
+  const maxDimension = opts.maxDimension ?? 1024;
+  const quality = opts.quality ?? 0.7;
 
   if (!file.type.startsWith("image/")) return file;
   // Skip GIFs (would lose animation) and SVGs.
@@ -43,7 +43,7 @@ export async function compressImageFile(
     const canvas = document.createElement("canvas");
     canvas.width = targetW;
     canvas.height = targetH;
-    const ctx = canvas.getContext("2d");
+    const ctx = canvas.getContext("2d", { alpha: false });
     if (!ctx) return file;
     if (bitmap) ctx.drawImage(bitmap, 0, 0, targetW, targetH);
     else if (imgEl) ctx.drawImage(imgEl, 0, 0, targetW, targetH);
@@ -51,6 +51,8 @@ export async function compressImageFile(
     const blob: Blob | null = await new Promise((resolve) =>
       canvas.toBlob(resolve, "image/jpeg", quality),
     );
+    canvas.width = 0;
+    canvas.height = 0;
     if (!blob) return file;
     if (blob.size >= file.size) return file;
 
