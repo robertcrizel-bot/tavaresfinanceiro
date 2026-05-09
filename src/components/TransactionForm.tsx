@@ -275,7 +275,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
               <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                 <Paperclip className="h-4 w-4 mr-2" /> Arquivo
               </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => cameraInputRef.current?.click()}>
+              <Button type="button" variant="outline" size="sm" onClick={openCamera}>
                 <Camera className="h-4 w-4 mr-2" /> Câmera
               </Button>
               <input
@@ -286,16 +286,18 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
                 className="hidden"
                 onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
               />
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                multiple
-                className="hidden"
-                onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
-              />
             </div>
+            {cameraOpen && (
+              <div className="space-y-2 rounded-md border border-border bg-muted/30 p-2">
+                <video ref={videoRef} playsInline muted autoPlay className="aspect-video w-full rounded-md bg-background object-cover" />
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="ghost" size="sm" onClick={stopCamera}>Cancelar</Button>
+                  <Button type="button" size="sm" onClick={captureCameraPhoto}>
+                    <Circle className="h-4 w-4 mr-2 fill-current" /> Capturar
+                  </Button>
+                </div>
+              </div>
+            )}
             {attachments.length > 0 && (
               <ul className="space-y-1 mt-2">
                 {attachments.map((f, i) => (
