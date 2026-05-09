@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Transaction, TransactionType, Category, PaymentMethod, PAYMENT_METHODS } from "@/lib/types";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Paperclip, Camera, X, FileIcon } from "lucide-react";
+import { Paperclip, Camera, X, FileIcon, Circle } from "lucide-react";
 import { compressImageFile } from "@/lib/image-compression";
 import { toast } from "@/hooks/use-toast";
 
@@ -33,8 +33,10 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
   const [creditCardId, setCreditCardId] = useState("");
   const [installments, setInstallments] = useState<string>("1");
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (initial) {
