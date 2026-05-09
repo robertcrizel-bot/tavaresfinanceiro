@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { Transaction, TransactionType, Category, PaymentMethod, PAYMENT_METHODS } from "@/lib/types";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
@@ -8,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Paperclip, Camera, X, FileIcon } from "lucide-react";
+import { Paperclip, Camera, X, FileIcon, Circle } from "lucide-react";
 import { compressImageFile } from "@/lib/image-compression";
 import { toast } from "@/hooks/use-toast";
 
@@ -33,8 +33,10 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
   const [creditCardId, setCreditCardId] = useState("");
   const [installments, setInstallments] = useState<string>("1");
   const [attachments, setAttachments] = useState<File[]>([]);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
     if (initial) {
@@ -57,6 +59,59 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
   }, [initial, open]);
 
   const categories = getCategoriesByType(type);
+
+  const stopCamera = useCallback(() => {
+    cameraStream?.getTracks().forEach((track) => track.stop());
+    setCameraStream(null);
+    setCameraOpen(false);
+  }, [cameraStream]);
+
+  useEffect(() => {
+    if (!open) stopCamera();
+  }, [open, stopCamera]);
+
+  useEffect(() => {
+    if (!cameraStream || !videoRef.current) return;
+    videoRef.current.srcObject = cameraStream;
+    void videoRef.current.play().catch(() => undefined);
+  }, [cameraStream]);
+
+  const openCamera = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast({ title: "Câmera indisponível", description: "Use a opção Arquivo para anexar a imagem.", variant: "destructive" });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280, max: 1280 }, height: { ideal: 720, max: 720 } },
+        audio: false,
+      });
+      setCameraStream(stream);
+      setCameraOpen(true);
+    } catch {
+      toast({ title: "Não foi possível abrir a câmera", description: "Verifique a permissão da câmera no navegador.", variant: "destructive" });
+    }
+  };
+
+  const captureCameraPhoto = async () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) return;
+    const maxDimension = 1024;
+    const scale = Math.min(1, maxDimension / Math.max(video.videoWidth, video.videoHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.72));
+    canvas.width = 0;
+    canvas.height = 0;
+    if (!blob) return;
+    const file = new File([blob], `foto-${new Date().toISOString().replace(/[:.]/g, "-")}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+    setAttachments((prev) => [...prev, file]);
+    stopCamera();
+  };
 
   const handleFiles = async (files: FileList | null) => {
     if (!files) return;
@@ -220,7 +275,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
               <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                 <Paperclip className="h-4 w-4 mr-2" /> Arquivo
               </Button>
-              <Button type="button" variant="outline" size="sm" onClick={() => cameraInputRef.current?.click()}>
+              <Button type="button" variant="outline" size="sm" onClick={openCamera}>
                 <Camera className="h-4 w-4 mr-2" /> Câmera
               </Button>
               <input
@@ -231,16 +286,18 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
                 className="hidden"
                 onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
               />
-              <input
-                ref={cameraInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                multiple
-                className="hidden"
-                onChange={(e) => { handleFiles(e.target.files); e.target.value = ""; }}
-              />
             </div>
+            {cameraOpen && (
+              <div className="space-y-2 rounded-md border border-border bg-muted/30 p-2">
+                <video ref={videoRef} playsInline muted autoPlay className="aspect-video w-full rounded-md bg-background object-cover" />
+                <div className="flex justify-end gap-2">
+                  <Button type="button" variant="ghost" size="sm" onClick={stopCamera}>Cancelar</Button>
+                  <Button type="button" size="sm" onClick={captureCameraPhoto}>
+                    <Circle className="h-4 w-4 mr-2 fill-current" /> Capturar
+                  </Button>
+                </div>
+              </div>
+            )}
             {attachments.length > 0 && (
               <ul className="space-y-1 mt-2">
                 {attachments.map((f, i) => (
