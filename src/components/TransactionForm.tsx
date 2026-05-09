@@ -60,6 +60,59 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
 
   const categories = getCategoriesByType(type);
 
+  const stopCamera = useCallback(() => {
+    cameraStream?.getTracks().forEach((track) => track.stop());
+    setCameraStream(null);
+    setCameraOpen(false);
+  }, [cameraStream]);
+
+  useEffect(() => {
+    if (!open) stopCamera();
+  }, [open, stopCamera]);
+
+  useEffect(() => {
+    if (!cameraStream || !videoRef.current) return;
+    videoRef.current.srcObject = cameraStream;
+    void videoRef.current.play().catch(() => undefined);
+  }, [cameraStream]);
+
+  const openCamera = async () => {
+    if (!navigator.mediaDevices?.getUserMedia) {
+      toast({ title: "Câmera indisponível", description: "Use a opção Arquivo para anexar a imagem.", variant: "destructive" });
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode: { ideal: "environment" }, width: { ideal: 1280, max: 1280 }, height: { ideal: 720, max: 720 } },
+        audio: false,
+      });
+      setCameraStream(stream);
+      setCameraOpen(true);
+    } catch {
+      toast({ title: "Não foi possível abrir a câmera", description: "Verifique a permissão da câmera no navegador.", variant: "destructive" });
+    }
+  };
+
+  const captureCameraPhoto = async () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) return;
+    const maxDimension = 1024;
+    const scale = Math.min(1, maxDimension / Math.max(video.videoWidth, video.videoHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) return;
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.72));
+    canvas.width = 0;
+    canvas.height = 0;
+    if (!blob) return;
+    const file = new File([blob], `foto-${new Date().toISOString().replace(/[:.]/g, "-")}.jpg`, { type: "image/jpeg", lastModified: Date.now() });
+    setAttachments((prev) => [...prev, file]);
+    stopCamera();
+  };
+
   const handleFiles = async (files: FileList | null) => {
     if (!files) return;
     const list = Array.from(files);
