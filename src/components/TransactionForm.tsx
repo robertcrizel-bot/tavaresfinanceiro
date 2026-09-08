@@ -57,12 +57,19 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
       setCreditCardId(initial.creditCardId || "");
       setInstallments("1");
     } else {
-      setTitle(""); setAmount(""); setType("expense"); setCategory("Outros");
-      setDate(new Date().toISOString().split("T")[0]); setDescription("");
-      setPaymentMethod(""); setAccountId(""); setCreditCardId(""); setInstallments("1");
+      setTitle(prefill?.title ?? "");
+      setAmount(prefill?.amount != null ? String(prefill.amount) : "");
+      setType(prefill?.type ?? "expense");
+      setCategory(prefill?.category ?? "Outros");
+      setDate(prefill?.date ?? new Date().toISOString().split("T")[0]);
+      setDescription(prefill?.description ?? "");
+      setPaymentMethod(prefill?.paymentMethod ?? "");
+      setAccountId(prefill?.accountId ?? "");
+      setCreditCardId(prefill?.creditCardId ?? "");
+      setInstallments("1");
     }
-    setAttachments([]);
-  }, [initial, open]);
+    setAttachments(!initial && prefillAttachments ? [...prefillAttachments] : []);
+  }, [initial, open, prefill, prefillAttachments]);
 
   const categories = getCategoriesByType(type);
 
