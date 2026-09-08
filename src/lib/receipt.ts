@@ -49,7 +49,7 @@ async function pdfFirstPageToJpeg(file: File): Promise<File> {
   const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.82));
   canvas.width = 0;
   canvas.height = 0;
-  await pdf.destroy();
+  pdf.cleanup();
   if (!blob) throw new Error("falha ao converter PDF");
   return new File([blob], file.name.replace(/\.pdf$/i, "") + ".jpg", { type: "image/jpeg", lastModified: Date.now() });
 }
