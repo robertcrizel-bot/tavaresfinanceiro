@@ -1,51 +1,38 @@
+# Leitura automática de comprovantes
 
+Objetivo: você envia a foto/PDF de um comprovante (Pix, boleto pago, compra no cartão, cupom fiscal) e o app lê sozinho e abre o formulário de novo registro já preenchido para você conferir e salvar.
 
-## Plano: Aba "Previsões" — Contas Recorrentes
+## Como vai funcionar
 
-### O que será criado
+1. **Dentro do app** — novo botão "Ler comprovante" no Painel de Controle e em Meus Registros. Você escolhe uma imagem/PDF ou tira foto.
+2. **Compartilhando do banco** — com o app instalado na tela inicial (Android), o FinanceControl passa a aparecer no menu "Compartilhar" do celular. Ao compartilhar o comprovante, o app abre direto na tela de conferência.
+3. Em ambos os casos aparece uma tela "Confira o registro" com os campos já preenchidos e um aviso de baixa confiança quando o app não tiver certeza de algum dado.
+4. Você ajusta o que quiser e salva. O comprovante fica anexado ao registro.
 
-Uma nova seção no app chamada **Previsões** onde você cadastra despesas recorrentes (aluguel, energia, água, internet, etc.) informando:
-- Nome da despesa
-- Valor
-- Categoria
-- Dia do vencimento
-- Conta vinculada (opcional)
-- Quantidade de meses (ou "indefinido"/recorrente)
-- Data de início
+## O que o app tenta identificar
 
-O sistema gera automaticamente uma **linha do tempo** mostrando os próximos vencimentos, com status visual (pendente, vencido, pago) e um resumo do total previsto para o mês.
+- Entrada ou saída (Pix recebido x Pix enviado, pagamento de boleto, compra)
+- Valor e data (e hora quando houver)
+- Nome de quem pagou/recebeu → vira o título
+- Banco/instituição e forma de pagamento (Pix, boleto, crédito, débito)
+- Sugestão de categoria a partir das suas categorias cadastradas
+- Sugestão de conta ou cartão, comparando o banco do comprovante com suas contas
+- Identificador do comprovante (ID da transação / autenticação) guardado na observação, usado para avisar se aquele comprovante já foi lançado antes
 
-### Funcionalidades
+Compras no cartão de crédito também permitem escolher parcelamento na tela de conferência.
 
-1. **CRUD de previsões** — Criar, editar e excluir despesas recorrentes
-2. **Visão mensal** — Calendário/lista mostrando as contas do mês com status (a vencer, vencida, paga)
-3. **Resumo** — Cards no topo com total previsto, total pago e total pendente do mês
-4. **Marcar como paga** — Ao marcar, cria automaticamente um registro real na aba de Registros
-5. **Indicadores visuais** — Cores para status: verde (pago), amarelo (a vencer), vermelho (vencido)
+## Limites honestos
 
-### Etapas técnicas
+- A leitura usa inteligência artificial sobre a imagem: acerta muito bem em comprovantes nítidos, mas pode errar em fotos tortas, escuras ou cortadas — por isso a conferência antes de salvar.
+- O compartilhamento direto do banco funciona no Android com o app instalado; no iPhone o sistema não permite esse tipo de atalho, então lá o caminho é o botão dentro do app (a foto pode ser colada ou escolhida da galeria).
 
-1. **Nova tabela `recurring_bills`** no banco de dados:
-   - `id`, `user_id`, `name`, `amount`, `category`, `due_day` (dia do mês), `start_date`, `duration_months` (null = indefinido), `account_id` (opcional), `description`, `created_at`, `updated_at`
-   - RLS para privacidade por usuário
+## Detalhes técnicos
 
-2. **Nova tabela `bill_payments`** para rastrear quais meses já foram pagos:
-   - `id`, `user_id`, `recurring_bill_id`, `reference_month` (ex: "2026-04"), `paid_at`, `transaction_id` (link com o registro criado)
-   - RLS por usuário
-
-3. **Nova página `src/pages/Forecasts.tsx`**:
-   - Seletor de mês (navegar entre meses)
-   - Lista de contas do mês com status visual
-   - Botão para marcar como paga (cria transação automaticamente)
-   - Dialog para adicionar/editar previsão recorrente
-   - Cards KPI: Total Previsto, Pago, Pendente
-
-4. **Integração com navegação**:
-   - Adicionar rota `/forecasts` no `App.tsx`
-   - Adicionar item "Previsões" no `AppSidebar.tsx` e `BottomNav.tsx` (ícone CalendarClock)
-
-5. **Contexto `ForecastContext`**:
-   - CRUD de recurring_bills
-   - Lógica para calcular quais contas vencem em determinado mês
-   - Função para marcar como paga (insere em `bill_payments` + cria transação via `FinanceContext`)
-
+- **Edge function `parse-receipt`**: recebe a imagem em base64, chama o Lovable AI Gateway (`google/gemini-2.5-flash`, entrada multimodal) com um prompt em português e `tools`/structured output para devolver JSON estrito: `type`, `amount`, `date`, `time`, `counterparty`, `institution`, `payment_method`, `category_hint`, `receipt_id`, `raw_text`, `confidence` por campo. Trata 429/402 devolvendo mensagem amigável. `verify_jwt` ativo; usa o token do usuário.
+- **PDF**: renderizado no cliente (primeira página) para imagem antes do envio; imagens passam pelo `compressImage` já existente (máx. 1024px) para evitar estouro de memória no Android.
+- **Novo componente `ReceiptScanDialog`**: seleção/câmera → chamada da função → estado de carregamento → repassa o resultado ao `TransactionForm` via novas props `initialValues` e `pendingAttachment`, sem alterar a lógica de cálculo existente.
+- **Matching**: conta/cartão sugeridos por comparação normalizada de `bank`/`name` contra `accounts` e `credit_cards`; categoria por comparação contra `CategoryContext`.
+- **Duplicidade**: nova coluna `receipt_ref text` em `transactions` + índice único parcial `(user_id, receipt_ref) where receipt_ref is not null`; ao detectar repetição, o app avisa e deixa você decidir.
+- **Anexo**: o arquivo lido é enviado ao bucket `transaction-attachments` já existente após salvar, reaproveitando `uploadAttachments`.
+- **Share Target (Android)**: adicionar `share_target` (POST, `multipart/form-data`, aceitando `image/*` e `application/pdf`) ao `manifest.json` e um service worker mínimo que intercepta o POST, guarda o arquivo em cache/IndexedDB e redireciona para `/receipt`. O service worker será restrito a essa rota (sem cache de assets) para não trazer de volta o problema de conteúdo desatualizado.
+- **Nova rota `/receipt`** dentro das rotas protegidas, abrindo a tela de conferência.
