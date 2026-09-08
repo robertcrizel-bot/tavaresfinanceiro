@@ -17,9 +17,15 @@ interface TransactionFormProps {
   onClose: () => void;
   onSubmit: (data: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => void;
   initial?: Transaction;
+  /** Pre-filled values for a brand new record (e.g. read from a receipt). */
+  prefill?: Partial<Omit<Transaction, "id">>;
+  /** Files already selected for a brand new record (e.g. the receipt itself). */
+  prefillAttachments?: File[];
+  title?: string;
+  submitLabel?: string;
 }
 
-export function TransactionForm({ open, onClose, onSubmit, initial }: TransactionFormProps) {
+export function TransactionForm({ open, onClose, onSubmit, initial, prefill, prefillAttachments, title: dialogTitle, submitLabel }: TransactionFormProps) {
   const { accounts, creditCards } = useAccounts();
   const { getCategoriesByType } = useCategories();
   const [title, setTitle] = useState("");
