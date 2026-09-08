@@ -1,0 +1,13 @@
+{
+  "version": "7",
+  "dialect": "postgresql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "7",
+      "when": 1788884513590,
+      "tag": "0000_add_receipt_ref_to_transactions",
+      "breakpoints": true
+    }
+  ]
+}

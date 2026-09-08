@@ -17,9 +17,15 @@ interface TransactionFormProps {
   onClose: () => void;
   onSubmit: (data: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => void;
   initial?: Transaction;
+  /** Pre-filled values for a brand new record (e.g. read from a receipt). */
+  prefill?: Partial<Omit<Transaction, "id">>;
+  /** Files already selected for a brand new record (e.g. the receipt itself). */
+  prefillAttachments?: File[];
+  title?: string;
+  submitLabel?: string;
 }
 
-export function TransactionForm({ open, onClose, onSubmit, initial }: TransactionFormProps) {
+export function TransactionForm({ open, onClose, onSubmit, initial, prefill, prefillAttachments, title: dialogTitle, submitLabel }: TransactionFormProps) {
   const { accounts, creditCards } = useAccounts();
   const { getCategoriesByType } = useCategories();
   const [title, setTitle] = useState("");
@@ -51,12 +57,19 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
       setCreditCardId(initial.creditCardId || "");
       setInstallments("1");
     } else {
-      setTitle(""); setAmount(""); setType("expense"); setCategory("Outros");
-      setDate(new Date().toISOString().split("T")[0]); setDescription("");
-      setPaymentMethod(""); setAccountId(""); setCreditCardId(""); setInstallments("1");
+      setTitle(prefill?.title ?? "");
+      setAmount(prefill?.amount != null ? String(prefill.amount) : "");
+      setType(prefill?.type ?? "expense");
+      setCategory(prefill?.category ?? "Outros");
+      setDate(prefill?.date ?? new Date().toISOString().split("T")[0]);
+      setDescription(prefill?.description ?? "");
+      setPaymentMethod(prefill?.paymentMethod ?? "");
+      setAccountId(prefill?.accountId ?? "");
+      setCreditCardId(prefill?.creditCardId ?? "");
+      setInstallments("1");
     }
-    setAttachments([]);
-  }, [initial, open]);
+    setAttachments(!initial && prefillAttachments ? [...prefillAttachments] : []);
+  }, [initial, open, prefill, prefillAttachments]);
 
   const categories = getCategoriesByType(type);
 
@@ -167,7 +180,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initial ? "Editar Registro" : "Novo Registro"}</DialogTitle>
+          <DialogTitle>{dialogTitle ?? (initial ? "Editar Registro" : "Novo Registro")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -320,7 +333,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial }: Transactio
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-            <Button type="submit">{initial ? "Salvar" : "Adicionar"}</Button>
+            <Button type="submit">{submitLabel ?? (initial ? "Salvar" : "Adicionar")}</Button>
           </div>
         </form>
       </DialogContent>
