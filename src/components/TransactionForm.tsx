@@ -180,7 +180,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{initial ? "Editar Registro" : "Novo Registro"}</DialogTitle>
+          <DialogTitle>{dialogTitle ?? (initial ? "Editar Registro" : "Novo Registro")}</DialogTitle>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
@@ -333,7 +333,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-            <Button type="submit">{initial ? "Salvar" : "Adicionar"}</Button>
+            <Button type="submit">{submitLabel ?? (initial ? "Salvar" : "Adicionar")}</Button>
           </div>
         </form>
       </DialogContent>
