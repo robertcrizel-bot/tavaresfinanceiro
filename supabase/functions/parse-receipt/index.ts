@@ -118,16 +118,32 @@ Deno.serve(async (req) => {
       });
     }
 
-    const data = await response.json();
-    let text = data.output_text as string | undefined;
-    if (!text) {
-      const parts: string[] = [];
-      for (const item of data.output ?? []) {
-        for (const c of item.content ?? []) {
-          if (typeof c.text === "string") parts.push(c.text);
+    // Read the SSE stream and accumulate the answer text.
+    let text = "";
+    const reader = response.body!.getReader();
+    const decoder = new TextDecoder();
+    let buffer = "";
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buffer += decoder.decode(value, { stream: true });
+      const lines = buffer.split("\n");
+      buffer = lines.pop() ?? "";
+      for (const line of lines) {
+        if (!line.startsWith("data:")) continue;
+        const payload = line.slice(5).trim();
+        if (!payload || payload === "[DONE]") continue;
+        try {
+          const event = JSON.parse(payload);
+          if (event.type === "response.output_text.delta" && typeof event.delta === "string") {
+            text += event.delta;
+          } else if (event.type === "response.completed" && typeof event.response?.output_text === "string" && !text) {
+            text = event.response.output_text;
+          }
+        } catch {
+          /* ignore partial events */
         }
       }
-      text = parts.join("");
     }
 
     let parsed: unknown;
