@@ -9,7 +9,8 @@ import { InsightCard } from "@/components/InsightCard";
 import { TransactionForm } from "@/components/TransactionForm";
 import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet } from "lucide-react";
+import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet, ScanLine } from "lucide-react";
+import { Link } from "react-router-dom";
 import { isFinancialNeutralTransaction, isBillPaymentTransaction } from "@/lib/transaction-classification";
 import {
   LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
@@ -183,6 +184,9 @@ export default function Dashboard() {
           onPeriodChange={setPeriod}
           onDateRangeChange={setDateRange}
           />
+          <Button variant="outline" asChild className="gap-2">
+            <Link to="/receipt"><ScanLine className="h-4 w-4" /> Ler comprovante</Link>
+          </Button>
           <Button onClick={() => setFormOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" /> Novo Registro
           </Button>

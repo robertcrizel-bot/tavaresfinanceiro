@@ -8,7 +8,7 @@ import { isBillPaymentTransaction } from "@/lib/transaction-classification";
 interface FinanceContextType {
   transactions: Transaction[];
   loading: boolean;
-  addTransaction: (t: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => Promise<void>;
+  addTransaction: (t: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[]; receiptRef?: string }) => Promise<void>;
   updateTransaction: (t: Transaction, options?: { attachments?: File[] }) => Promise<void>;
   deleteTransaction: (id: string) => Promise<void>;
   payCardBill: (creditCardId: string, accountId: string, amount: number, date?: string, paymentMethod?: string) => Promise<void>;
@@ -84,7 +84,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
 
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
 
-  const addTransaction = useCallback(async (t: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => {
+  const addTransaction = useCallback(async (t: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[]; receiptRef?: string }) => {
     if (!user) return;
     const installments = options?.installments && options.installments > 1 ? options.installments : 1;
     const attachments = options?.attachments || [];
@@ -102,6 +102,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
         payment_method: t.paymentMethod || null,
         account_id: t.accountId || null,
         credit_card_id: t.creditCardId || null,
+        receipt_ref: options?.receiptRef || null,
       }).select("id").single();
       if (error || !inserted) {
         toast({ title: "Erro ao criar registro", description: error?.message, variant: "destructive" });
@@ -131,6 +132,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       credit_card_id: t.creditCardId || null,
       installments,
       installment_number: 1,
+      receipt_ref: options?.receiptRef || null,
     }).select("id").single();
 
     if (parentErr || !parent) {

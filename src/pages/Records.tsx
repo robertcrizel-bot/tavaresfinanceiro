@@ -12,7 +12,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown } from "lucide-react";
+import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown, ScanLine } from "lucide-react";
+import { Link } from "react-router-dom";
 import { isAdjustmentTransaction, isBillPaymentTransaction, isFinancialNeutralTransaction } from "@/lib/transaction-classification";
 import * as XLSX from "xlsx";
 
@@ -165,6 +166,9 @@ export default function Records() {
         <div className="flex gap-2 w-full sm:w-auto">
           <Button variant="outline" onClick={exportToXlsx} disabled={filtered.length === 0} className="gap-2 flex-1 sm:flex-none">
             <Download className="h-4 w-4" /> Exportar
+          </Button>
+          <Button variant="outline" asChild className="gap-2 flex-1 sm:flex-none">
+            <Link to="/receipt"><ScanLine className="h-4 w-4" /> Comprovante</Link>
           </Button>
           <Button onClick={() => { setEditing(undefined); setFormOpen(true); }} className="gap-2 flex-1 sm:flex-none">
             <Plus className="h-4 w-4" /> Novo Registro

@@ -15,6 +15,7 @@ import Accounts from "@/pages/Accounts";
 import Categories from "@/pages/Categories";
 import Forecasts from "@/pages/Forecasts";
 import Transfers from "@/pages/Transfers";
+import ReceiptImport from "@/pages/ReceiptImport";
 import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
 import NotFound from "@/pages/NotFound";
@@ -50,6 +51,7 @@ function ProtectedRoutes() {
                   <Route path="/categories" element={<Categories />} />
                   <Route path="/forecasts" element={<Forecasts />} />
                   <Route path="/transfers" element={<Transfers />} />
+                  <Route path="/receipt" element={<ReceiptImport />} />
                   <Route path="/profile" element={<Profile />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
