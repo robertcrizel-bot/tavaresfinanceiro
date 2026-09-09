@@ -35,7 +35,7 @@ async function pdfFirstPageToJpeg(file: File): Promise<File> {
   const pdf = await pdfjs.getDocument({ data: new Uint8Array(buffer) }).promise;
   const page = await pdf.getPage(1);
   const baseViewport = page.getViewport({ scale: 1 });
-  const scale = Math.min(2, 1400 / Math.max(baseViewport.width, baseViewport.height));
+  const scale = Math.min(3, 1800 / baseViewport.width, 4096 / baseViewport.height);
   const viewport = page.getViewport({ scale });
 
   const canvas = document.createElement("canvas");
@@ -61,7 +61,7 @@ export async function receiptToImageDataUrl(file: File): Promise<string> {
   if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
     imageFile = await pdfFirstPageToJpeg(file);
   }
-  const compressed = await compressImageFile(imageFile, { maxDimension: 1400, quality: 0.82 });
+  const compressed = await compressImageFile(imageFile, { maxWidth: 1800, maxHeight: 4096, quality: 0.9 });
   return blobToDataUrl(compressed);
 }
 

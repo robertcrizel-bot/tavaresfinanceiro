@@ -1,10 +1,19 @@
 // Compresses an image File by downscaling to a max dimension and re-encoding as JPEG.
 // Helps avoid out-of-memory crashes on mobile when attaching large camera photos.
+type CompressionBounds = { maxDimension?: number; maxWidth?: number; maxHeight?: number };
+
+export function calculateImageDimensions(width: number, height: number, opts: CompressionBounds = {}) {
+  const maxDimension = opts.maxDimension ?? 1024;
+  const maxWidth = opts.maxWidth ?? maxDimension;
+  const maxHeight = opts.maxHeight ?? maxDimension;
+  const scale = Math.min(1, maxWidth / width, maxHeight / height);
+  return { width: Math.round(width * scale), height: Math.round(height * scale) };
+}
+
 export async function compressImageFile(
   file: File,
-  opts: { maxDimension?: number; quality?: number } = {},
+  opts: CompressionBounds & { quality?: number } = {},
 ): Promise<File> {
-  const maxDimension = opts.maxDimension ?? 1024;
   const quality = opts.quality ?? 0.7;
 
   if (!file.type.startsWith("image/")) return file;
@@ -36,9 +45,7 @@ export async function compressImageFile(
       height = imgEl.naturalHeight;
     }
 
-    const scale = Math.min(1, maxDimension / Math.max(width, height));
-    const targetW = Math.round(width * scale);
-    const targetH = Math.round(height * scale);
+    const { width: targetW, height: targetH } = calculateImageDimensions(width, height, opts);
 
     const canvas = document.createElement("canvas");
     canvas.width = targetW;
