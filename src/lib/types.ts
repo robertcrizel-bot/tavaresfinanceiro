@@ -62,6 +62,7 @@ export interface Transaction {
   accountId?: string;
   creditCardId?: string;
   isPaid?: boolean;
+  hasAttachment?: boolean;
 }
 
 export const EXPENSE_CATEGORIES: Category[] = [

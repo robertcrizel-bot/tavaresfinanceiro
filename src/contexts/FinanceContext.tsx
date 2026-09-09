@@ -56,15 +56,22 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
   const fetchTransactions = useCallback(async () => {
     if (!user) { setTransactions([]); setLoading(false); return; }
     setLoading(true);
-    const { data, error } = await supabase
-      .from("transactions")
-      .select("*")
-      .order("created_at", { ascending: false });
-    if (error) {
-      toast({ title: "Erro ao carregar registros", description: error.message, variant: "destructive" });
+    const [txRes, attRes] = await Promise.all([
+      supabase
+        .from("transactions")
+        .select("*")
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("transaction_attachments")
+        .select("transaction_id"),
+    ]);
+
+    if (txRes.error) {
+      toast({ title: "Erro ao carregar registros", description: txRes.error.message, variant: "destructive" });
     } else {
+      const attSet = new Set((attRes.data || []).map((a) => a.transaction_id));
       setTransactions(
-        (data || []).map((r) => ({
+        (txRes.data || []).map((r) => ({
           id: r.id,
           title: r.title,
           amount: Number(r.amount),
@@ -76,6 +83,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
           accountId: r.account_id || undefined,
           creditCardId: r.credit_card_id || undefined,
           isPaid: (r as any).is_paid ?? false,
+          hasAttachment: attSet.has(r.id),
         }))
       );
     }

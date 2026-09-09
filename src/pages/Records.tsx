@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
-import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown, ScanLine } from "lucide-react";
+import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown, ScanLine, Paperclip } from "lucide-react";
 import { Link } from "react-router-dom";
 import { isAdjustmentTransaction, isBillPaymentTransaction, isFinancialNeutralTransaction } from "@/lib/transaction-classification";
 import * as XLSX from "xlsx";
@@ -246,7 +246,12 @@ export default function Records() {
               <div key={t.id} className="glass-card rounded-xl p-4 animate-fade-in space-y-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="font-medium text-foreground truncate">{t.title}</p>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <p className="font-medium text-foreground truncate">{t.title}</p>
+                      {t.hasAttachment && (
+                        <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" title="Possui anexo" />
+                      )}
+                    </div>
                     <p className="text-xs text-muted-foreground mt-0.5">
                       {new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR")}
                     </p>
@@ -268,7 +273,7 @@ export default function Records() {
                       <Badge variant="outline" className="text-xs">{getSourceName(t)}</Badge>
                     )}
                   </div>
-                  <div className="flex gap-1">
+                  <div className="flex gap-1 shrink-0">
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewing(t)}>
                       <Eye className="h-3.5 w-3.5" />
                     </Button>
@@ -280,6 +285,11 @@ export default function Records() {
                     </Button>
                   </div>
                 </div>
+                {t.description && (
+                  <div className="pt-2 border-t border-border/40 text-xs text-muted-foreground">
+                    <p className="break-words line-clamp-3">{t.description}</p>
+                  </div>
+                )}
               </div>
             ))}
           </div>
@@ -308,7 +318,14 @@ export default function Records() {
                     <TableCell className="text-muted-foreground text-sm">
                       {new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR")}
                     </TableCell>
-                    <TableCell className="font-medium text-foreground">{t.title}</TableCell>
+                    <TableCell className="font-medium text-foreground">
+                      <div className="flex items-center gap-1.5">
+                        <span>{t.title}</span>
+                        {t.hasAttachment && (
+                          <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" title="Possui anexo" />
+                        )}
+                      </div>
+                    </TableCell>
                     <TableCell><Badge variant="outline" className="text-xs">{t.category}</Badge></TableCell>
                     <TableCell>
                       <Badge variant={isNeutral(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isNeutral(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>

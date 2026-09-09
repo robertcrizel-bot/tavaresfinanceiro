@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { isAdjustmentTransaction, isBillPaymentTransaction, isFinancialNeutralTransaction } from "@/lib/transaction-classification";
 import { supabase } from "@/integrations/supabase/client";
+import { useFinance } from "@/contexts/FinanceContext";
 import { toast } from "@/hooks/use-toast";
 import { FileIcon, ImageIcon, Download, Trash2 } from "lucide-react";
 
@@ -23,6 +24,7 @@ interface AttachmentRow {
 }
 
 export function TransactionDetail({ transaction, open, onClose }: TransactionDetailProps) {
+  const { refetch } = useFinance();
   const [attachments, setAttachments] = useState<AttachmentRow[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -76,6 +78,7 @@ export function TransactionDetail({ transaction, open, onClose }: TransactionDet
       return;
     }
     setAttachments((prev) => prev.filter((a) => a.id !== att.id));
+    refetch();
     toast({ title: "Anexo removido" });
   };
 
