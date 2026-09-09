@@ -2,7 +2,9 @@
   "name": "FinanceControl",
   "short_name": "FinanceControl",
   "description": "Gerencie suas finanças pessoais com simplicidade e clareza.",
+  "id": "/",
   "start_url": "/",
+  "scope": "/",
   "display": "standalone",
   "background_color": "#0c1220",
   "theme_color": "#10b981",
@@ -17,7 +19,13 @@
       "files": [
         {
           "name": "receipt",
-          "accept": ["image/*", "application/pdf"]
+          "accept": [
+            "image/jpeg",
+            "image/png",
+            "image/webp",
+            "image/heic",
+            "application/pdf"
+          ]
         }
       ]
     }

@@ -17,8 +17,16 @@ export async function takeSharedReceipt(): Promise<File | null> {
   }
 }
 
+export function isLovablePreview(): boolean {
+  if (typeof window === "undefined") return false;
+  const host = window.location.hostname;
+  return /lovableproject\.com|lovable\.app|gptengineer\.run/.test(host);
+}
+
 export function registerReceiptServiceWorker() {
-  if (!("serviceWorker" in navigator)) return;
+  if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
+  if (isLovablePreview()) return;
+
   window.addEventListener("load", () => {
     navigator.serviceWorker.register("/sw.js").catch(() => undefined);
   });

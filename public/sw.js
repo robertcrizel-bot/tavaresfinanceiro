@@ -14,12 +14,31 @@ self.addEventListener("fetch", (event) => {
       (async () => {
         try {
           const formData = await event.request.formData();
-          const file =
-            formData.get("receipt") ||
-            formData.get("file") ||
-            formData.get("files") ||
-            formData.get("image");
-          if (file && typeof file !== "string") {
+          let file = null;
+
+          const candidateKeys = ["receipt", "file", "files", "image", "media"];
+          for (const key of candidateKeys) {
+            const entries = formData.getAll(key);
+            const found = entries.find(
+              (item) => typeof item === "object" && item !== null && "size" in item && item.size > 0
+            );
+            if (found) {
+              file = found;
+              break;
+            }
+          }
+
+          // Fallback: check all form values for the first Blob/File
+          if (!file) {
+            for (const value of formData.values()) {
+              if (typeof value === "object" && value !== null && "size" in value && value.size > 0) {
+                file = value;
+                break;
+              }
+            }
+          }
+
+          if (file) {
             const cache = await caches.open(SHARE_CACHE);
             await cache.put(
               SHARE_KEY,
@@ -34,7 +53,8 @@ self.addEventListener("fetch", (event) => {
         } catch (e) {
           // fall through to the app, which will show the manual picker
         }
-        return Response.redirect("/receipt?shared=1", 303);
+        const redirectTarget = new URL("./receipt?shared=1", self.registration.scope).href;
+        return Response.redirect(redirectTarget, 303);
       })(),
     );
   }

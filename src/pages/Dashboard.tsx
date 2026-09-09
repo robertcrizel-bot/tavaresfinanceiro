@@ -177,19 +177,27 @@ export default function Dashboard() {
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
         <h1 className="text-xl sm:text-2xl font-bold text-primary">Painel de Controle</h1>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
           <DashboardPeriodFilter
-          period={period}
-          dateRange={dateRange}
-          onPeriodChange={setPeriod}
-          onDateRangeChange={setDateRange}
+            period={period}
+            dateRange={dateRange}
+            onPeriodChange={setPeriod}
+            onDateRangeChange={setDateRange}
           />
-          <Button variant="outline" asChild className="gap-2">
-            <Link to="/receipt"><ScanLine className="h-4 w-4" /> Ler comprovante</Link>
-          </Button>
-          <Button onClick={() => setFormOpen(true)} className="gap-2">
-            <Plus className="h-4 w-4" /> Novo Registro
-          </Button>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button variant="outline" asChild className="gap-2 flex-1 sm:flex-none justify-center">
+              <Link to="/receipt">
+                <ScanLine className="h-4 w-4 shrink-0" />
+                <span className="sm:hidden">Comprovante</span>
+                <span className="hidden sm:inline">Ler comprovante</span>
+              </Link>
+            </Button>
+            <Button onClick={() => setFormOpen(true)} className="gap-2 flex-1 sm:flex-none justify-center">
+              <Plus className="h-4 w-4 shrink-0" />
+              <span className="sm:hidden">Novo</span>
+              <span className="hidden sm:inline">Novo Registro</span>
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -199,7 +207,9 @@ export default function Dashboard() {
         <KpiCard title="Total de Saídas" value={fmt(totalExpense)} icon={TrendingDown} color="red" />
         <KpiCard title="Saldo do Período" value={fmt(balance)} icon={Wallet} color="purple" />
         <KpiCard title="Gasto Médio Diário" value={fmt(avgDaily)} icon={CalendarDays} color="amber" />
-        <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} color="blue" />
+        <div className="col-span-2 md:col-span-1 xl:col-span-1">
+          <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} color="blue" />
+        </div>
       </div>
 
       {/* Accounts & Cards */}
@@ -210,13 +220,18 @@ export default function Dashboard() {
             {accounts.map((acc) => {
               const balance = getAccountBalance(acc.id, acc.initialBalance);
               return (
-                <div key={acc.id} className={`glass-card rounded-xl p-4 border-l-4 animate-fade-in ${colorBorder[acc.color] || "border-l-primary"} ${colorBg[acc.color] || ""}`}>
+                <div
+                  key={acc.id}
+                  className={`glass-card rounded-xl p-4 border-l-4 animate-fade-in flex flex-col justify-between min-h-[128px] ${colorBorder[acc.color] || "border-l-primary"} ${colorBg[acc.color] || ""}`}
+                >
                   <div className="flex items-center gap-2 mb-2">
-                    <Landmark className={`h-4 w-4 ${colorIcon[acc.color] || "text-muted-foreground"}`} />
-                    <span className="text-sm text-muted-foreground">{acc.name}</span>
+                    <Landmark className={`h-4 w-4 shrink-0 ${colorIcon[acc.color] || "text-muted-foreground"}`} />
+                    <span className="text-sm font-medium text-foreground truncate">{acc.name}</span>
                   </div>
-                  <p className={`text-xl font-bold ${balance >= 0 ? "text-income" : "text-expense"}`}>{fmt(balance)}</p>
-                  <p className="text-xs text-muted-foreground mt-1">{acc.bank} · {acc.type === "checking" ? "Corrente" : "Poupança"}</p>
+                  <div>
+                    <p className={`text-xl font-bold ${balance >= 0 ? "text-income" : "text-expense"}`}>{fmt(balance)}</p>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2">{acc.bank} · {acc.type === "checking" ? "Corrente" : "Poupança"}</p>
                 </div>
               );
             })}
@@ -225,18 +240,25 @@ export default function Dashboard() {
               const available = cc.limit - used;
               const pct = cc.limit > 0 ? Math.min((used / cc.limit) * 100, 100) : 0;
               return (
-                <div key={cc.id} className={`glass-card rounded-xl p-4 border-l-4 animate-fade-in ${colorBorder[cc.color] || "border-l-primary"} ${colorBg[cc.color] || ""}`}>
-                  <div className="flex items-center gap-2 mb-2">
-                    <CreditCard className={`h-4 w-4 ${colorIcon[cc.color] || "text-muted-foreground"}`} />
-                    <span className="text-sm text-muted-foreground">{cc.name}</span>
+                <div
+                  key={cc.id}
+                  className={`glass-card rounded-xl p-4 border-l-4 animate-fade-in flex flex-col justify-between min-h-[128px] ${colorBorder[cc.color] || "border-l-primary"} ${colorBg[cc.color] || ""}`}
+                >
+                  <div>
+                    <div className="flex items-center gap-2 mb-2">
+                      <CreditCard className={`h-4 w-4 shrink-0 ${colorIcon[cc.color] || "text-muted-foreground"}`} />
+                      <span className="text-sm font-medium text-foreground truncate">{cc.name}</span>
+                    </div>
+                    <p className="text-xl font-bold text-expense">{fmt(used)}</p>
                   </div>
-                  <p className="text-xl font-bold text-expense">{fmt(used)}</p>
-                  <div className="mt-2 w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                    <div className="h-full rounded-full bg-expense transition-all" style={{ width: `${pct}%` }} />
-                  </div>
-                  <div className="flex justify-between text-xs text-muted-foreground mt-1">
-                    <span>Disponível: {fmt(available)}</span>
-                    <span>Limite: {fmt(cc.limit)}</span>
+                  <div className="mt-2 space-y-1.5">
+                    <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
+                      <div className="h-full rounded-full bg-expense transition-all" style={{ width: `${pct}%` }} />
+                    </div>
+                    <div className="flex justify-between text-xs text-muted-foreground">
+                      <span>Disponível: {fmt(available)}</span>
+                      <span>Limite: {fmt(cc.limit)}</span>
+                    </div>
                   </div>
                 </div>
               );
