@@ -132,6 +132,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       credit_card_id: t.creditCardId || null,
       installments,
       installment_number: 1,
+      receipt_ref: options?.receiptRef || null,
     }).select("id").single();
 
     if (parentErr || !parent) {
