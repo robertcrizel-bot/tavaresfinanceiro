@@ -23,6 +23,7 @@ const SCHEMA = {
     receipt_id: { type: ["string", "null"] },
     title: { type: ["string", "null"] },
     notes: { type: ["string", "null"] },
+    purchased_items: { type: "array", items: { type: "string" } },
     low_confidence_fields: { type: "array", items: { type: "string" } },
   },
   required: [
@@ -38,6 +39,7 @@ const SCHEMA = {
     "receipt_id",
     "title",
     "notes",
+    "purchased_items",
     "low_confidence_fields",
   ],
 };
@@ -72,6 +74,7 @@ Deno.serve(async (req) => {
       "- date: formato YYYY-MM-DD. Hoje é " + today + ".",
       "- title: nome curto da outra parte ou do estabelecimento.",
       "- receipt_id: ID da transação / código de autenticação / chave, se houver.",
+      "- purchased_items: para cupom/nota fiscal, liste cada produto comprado como aparece no documento, incluindo quantidade ou unidade quando legíveis (ex: '2x Leite integral 1L'). Não inclua subtotal, desconto, troco, impostos ou formas de pagamento. Para outros comprovantes ou quando não houver itens legíveis, use [].",
       "- category_hint: escolha uma destas categorias quando fizer sentido: " + (categories.join(", ") || "nenhuma"),
       "- institution: banco/instituição do comprovante. Contas cadastradas do usuário: " + (accounts.join(", ") || "nenhuma"),
       "- low_confidence_fields: liste os campos que você não conseguiu ler com certeza.",

@@ -10,6 +10,7 @@ import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
 import { takeSharedReceipt } from "@/lib/shared-receipt";
 import { parseReceipt, matchByName, matchCategory, ParsedReceipt } from "@/lib/receipt";
+import { formatReceiptDescription } from "@/lib/receipt-description";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
 
@@ -39,17 +40,13 @@ export default function ReceiptImport() {
       const method = PAYMENT_METHODS.includes(parsed.payment_method as PaymentMethod)
         ? (parsed.payment_method as PaymentMethod)
         : undefined;
-      const notes = [parsed.notes, parsed.receipt_id ? `ID do comprovante: ${parsed.receipt_id}` : null]
-        .filter(Boolean)
-        .join(" | ");
-
       return {
         title: parsed.title || parsed.counterparty || "Comprovante",
         amount: parsed.amount ?? undefined,
         type: parsed.type === "income" ? "income" : "expense",
         category: (matchCategory(allCategoryNames, parsed.category_hint) as Category) ?? ("Outros" as Category),
         date: parsed.date ?? new Date().toISOString().split("T")[0],
-        description: notes || undefined,
+        description: formatReceiptDescription(parsed),
         paymentMethod: method,
         accountId: isCard ? undefined : account?.id,
         creditCardId: isCard ? card?.id : undefined,
@@ -110,6 +107,7 @@ export default function ReceiptImport() {
     title: "título",
     payment_method: "forma de pagamento",
     institution: "banco",
+    purchased_items: "itens comprados",
   };
 
   return (
