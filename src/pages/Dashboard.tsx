@@ -216,7 +216,7 @@ export default function Dashboard() {
       {(accounts.length > 0 || creditCards.length > 0) && (
         <div>
           <h2 className="text-sm font-medium text-muted-foreground mb-3">Contas & Cartões</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+          <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {accounts.map((acc) => {
               const balance = getAccountBalance(acc.id, acc.initialBalance);
               return (
