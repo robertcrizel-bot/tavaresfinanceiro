@@ -84,6 +84,7 @@ Deno.serve(async (req) => {
       headers: { "Content-Type": "application/json", "Lovable-API-Key": key },
       body: JSON.stringify({
         model: "openai/gpt-6-astra",
+        stream: true,
         reasoning: { effort: "low" },
         input: [
           {
