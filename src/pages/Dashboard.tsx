@@ -276,7 +276,16 @@ export default function Dashboard() {
               <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} />
               <YAxis tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} width={45} />
               <Tooltip
-                contentStyle={{ backgroundColor: "hsl(224 18% 13%)", border: "1px solid hsl(224 14% 18%)", borderRadius: 8, color: "hsl(210 20% 92%)" }}
+                contentStyle={{
+                  backgroundColor: "hsl(224 18% 13%)",
+                  border: "1px solid hsl(224 14% 22%)",
+                  borderRadius: 8,
+                  color: "#f1f5f9",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                }}
+                labelStyle={{ color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}
+                itemStyle={{ color: "#f1f5f9" }}
+                cursor={{ stroke: "hsl(215 15% 52%)", strokeWidth: 1, strokeDasharray: "3 3" }}
                 formatter={(value: number) => [fmt(value), "Total"]}
               />
               <Line type="monotone" dataKey="total" stroke="hsl(160 84% 39%)" strokeWidth={2} dot={{ r: 3, fill: "hsl(160 84% 39%)" }} />
@@ -291,7 +300,16 @@ export default function Dashboard() {
               <XAxis dataKey="category" tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} />
               <YAxis tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} width={45} />
               <Tooltip
-                contentStyle={{ backgroundColor: "hsl(224 18% 13%)", border: "1px solid hsl(224 14% 18%)", borderRadius: 8, color: "hsl(210 20% 92%)" }}
+                contentStyle={{
+                  backgroundColor: "hsl(224 18% 13%)",
+                  border: "1px solid hsl(224 14% 22%)",
+                  borderRadius: 8,
+                  color: "#f1f5f9",
+                  boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
+                }}
+                labelStyle={{ color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}
+                itemStyle={{ color: "#f1f5f9" }}
+                cursor={{ fill: "hsl(224 14% 22% / 0.4)" }}
                 formatter={(value: number) => [fmt(value), "Total"]}
               />
               <Bar dataKey="total" radius={[6, 6, 0, 0]}>
