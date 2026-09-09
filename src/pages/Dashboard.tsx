@@ -183,6 +183,9 @@ export default function Dashboard() {
           onPeriodChange={setPeriod}
           onDateRangeChange={setDateRange}
           />
+          <Button variant="outline" asChild className="gap-2">
+            <Link to="/receipt"><ScanLine className="h-4 w-4" /> Ler comprovante</Link>
+          </Button>
           <Button onClick={() => setFormOpen(true)} className="gap-2">
             <Plus className="h-4 w-4" /> Novo Registro
           </Button>

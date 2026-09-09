@@ -166,6 +166,9 @@ export default function Records() {
           <Button variant="outline" onClick={exportToXlsx} disabled={filtered.length === 0} className="gap-2 flex-1 sm:flex-none">
             <Download className="h-4 w-4" /> Exportar
           </Button>
+          <Button variant="outline" asChild className="gap-2 flex-1 sm:flex-none">
+            <Link to="/receipt"><ScanLine className="h-4 w-4" /> Comprovante</Link>
+          </Button>
           <Button onClick={() => { setEditing(undefined); setFormOpen(true); }} className="gap-2 flex-1 sm:flex-none">
             <Plus className="h-4 w-4" /> Novo Registro
           </Button>
