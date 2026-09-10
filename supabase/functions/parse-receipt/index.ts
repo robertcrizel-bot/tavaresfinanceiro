@@ -23,7 +23,20 @@ const SCHEMA = {
     receipt_id: { type: ["string", "null"] },
     title: { type: ["string", "null"] },
     notes: { type: ["string", "null"] },
-    purchased_items: { type: "array", items: { type: "string" } },
+    purchased_items: {
+      type: "array",
+      items: {
+        type: "object",
+        additionalProperties: false,
+        properties: {
+          name: { type: "string" },
+          quantity: { type: ["number", "null"] },
+          unit_price: { type: ["number", "null"] },
+          total: { type: ["number", "null"] },
+        },
+        required: ["name", "quantity", "unit_price", "total"],
+      },
+    },
     low_confidence_fields: { type: "array", items: { type: "string" } },
   },
   required: [
