@@ -1,6 +1,13 @@
 import { compressImageFile } from "@/lib/image-compression";
 import { supabase } from "@/integrations/supabase/client";
 
+export interface PurchasedItem {
+  name: string;
+  quantity: number | null;
+  unit_price: number | null;
+  total: number | null;
+}
+
 export interface ParsedReceipt {
   is_receipt: boolean;
   type: "income" | "expense" | "unknown";
@@ -14,7 +21,7 @@ export interface ParsedReceipt {
   receipt_id: string | null;
   title: string | null;
   notes: string | null;
-  purchased_items?: string[];
+  purchased_items?: PurchasedItem[];
   low_confidence_fields: string[];
 }
 
@@ -61,7 +68,7 @@ export async function receiptToImageDataUrl(file: File): Promise<string> {
   if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
     imageFile = await pdfFirstPageToJpeg(file);
   }
-  const compressed = await compressImageFile(imageFile, { maxWidth: 1800, maxHeight: 4096, quality: 0.9 });
+  const compressed = await compressImageFile(imageFile, { maxWidth: 2000, maxHeight: 6000, quality: 0.92 });
   return blobToDataUrl(compressed);
 }
 

@@ -181,7 +181,8 @@ export default function ReceiptImport() {
 
         {lowConfidence.length > 0 && !loading && (
           <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
-            Confira com atenção: {lowConfidence.map((f) => fieldLabels[f] ?? f).join(", ")}.
+            Confira com atenção:{" "}
+            {[...new Set(lowConfidence.map((f) => fieldLabels[f.replace(/\[\d+\].*$/, "")] ?? fieldLabels[f] ?? f))].join(", ")}.
           </div>
         )}
       </Card>
