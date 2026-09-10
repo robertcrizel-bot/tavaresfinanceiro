@@ -21,7 +21,7 @@ export interface ParsedReceipt {
   receipt_id: string | null;
   title: string | null;
   notes: string | null;
-  purchased_items?: string[];
+  purchased_items?: PurchasedItem[];
   low_confidence_fields: string[];
 }
 
