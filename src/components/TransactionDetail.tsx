@@ -157,15 +157,15 @@ export function TransactionDetail({ transaction, open, onClose }: TransactionDet
 
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => !nextOpen && onClose()}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] w-[calc(100%-2rem)] max-w-3xl overflow-x-hidden overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Detalhes do Registro</DialogTitle>
         </DialogHeader>
 
         <div className="space-y-5">
-          <div className="space-y-1">
-            <div className="flex items-start justify-between gap-3">
-              <h3 className="text-lg font-semibold text-foreground break-words">{transaction.title}</h3>
+          <div className="space-y-1 rounded-lg border border-border bg-muted/20 p-4">
+            <div className="flex flex-col items-start justify-between gap-2 sm:flex-row sm:gap-4">
+              <h3 className="min-w-0 break-words text-lg font-semibold text-foreground">{transaction.title}</h3>
               <Badge className="shrink-0" variant={isNeutral ? "secondary" : transaction.type === "income" ? "default" : "destructive"}>
                 {isAdjustment ? "Ajuste" : isBillPayment ? "Pagamento de Fatura" : transaction.type === "income" ? "Entrada" : "Saída"}
               </Badge>
@@ -175,61 +175,84 @@ export function TransactionDetail({ transaction, open, onClose }: TransactionDet
             </p>
           </div>
 
-          <section className="space-y-2 text-sm">
+          <section className="space-y-3 text-sm">
             <h4 className="font-semibold text-foreground">Informações do registro</h4>
-            <dl className="space-y-2">
-              <div>
+            <dl className="grid gap-x-6 gap-y-3 rounded-lg border border-border p-4 sm:grid-cols-2 lg:grid-cols-3">
+              <div className="min-w-0">
                 <dt className="text-muted-foreground">Categoria</dt>
-                <dd className="text-foreground">{transaction.category}</dd>
+                <dd className="break-words font-medium text-foreground">{transaction.category}</dd>
               </div>
-              <div>
+              <div className="min-w-0">
                 <dt className="text-muted-foreground">Data</dt>
-                <dd className="text-foreground">{new Date(transaction.date + "T12:00:00").toLocaleDateString("pt-BR")}</dd>
+                <dd className="break-words font-medium text-foreground">{new Date(transaction.date + "T12:00:00").toLocaleDateString("pt-BR")}</dd>
               </div>
               {transaction.paymentMethod && (
-                <div>
+                <div className="min-w-0">
                   <dt className="text-muted-foreground">Pagamento</dt>
-                  <dd className="text-foreground">{transaction.paymentMethod}</dd>
+                  <dd className="break-words font-medium text-foreground">{transaction.paymentMethod}</dd>
                 </div>
               )}
               {creditCard && (
-                <div>
+                <div className="min-w-0">
                   <dt className="text-muted-foreground">Cartão</dt>
-                  <dd className="text-foreground">{creditCard.name}</dd>
+                  <dd className="break-words font-medium text-foreground">{creditCard.name}</dd>
                 </div>
               )}
               {account && (
-                <div>
+                <div className="min-w-0">
                   <dt className="text-muted-foreground">Conta</dt>
-                  <dd className="text-foreground">{account.name}</dd>
+                  <dd className="break-words font-medium text-foreground">{account.name}</dd>
                 </div>
               )}
             </dl>
           </section>
 
           {transaction.description && (
-            <section className="space-y-1 text-sm">
+            <section className="space-y-2 text-sm">
               <h4 className="font-semibold text-foreground">Descrição</h4>
-              <p className="text-foreground whitespace-pre-wrap break-words">{transaction.description}</p>
+              <p className="whitespace-pre-wrap break-words rounded-lg border border-border p-4 text-foreground">{transaction.description}</p>
             </section>
           )}
 
           {hasReceiptDetails && (
-            <section className="space-y-1 text-sm">
+            <section className="space-y-3 text-sm">
               <h4 className="font-semibold text-foreground">Dados do comprovante</h4>
-              {receipt?.merchantName && <p className="text-foreground break-words">{receipt.merchantName}</p>}
-              {receipt?.taxId && <p className="text-foreground">{formatTaxId(receipt.taxId)}</p>}
-              {receipt?.fiscalDocumentNumber && <p className="text-foreground">NFC-e nº {receipt.fiscalDocumentNumber}</p>}
-              {(receipt?.cardBrand || receipt?.cardLastFour) && (
-                <p className="text-foreground">
-                  {[receipt.cardBrand, receipt.cardLastFour ? `•••• ${receipt.cardLastFour.replace(/\D/g, "").slice(-4) || receipt.cardLastFour}` : null]
-                    .filter(Boolean)
-                    .join(" ")}
-                </p>
-              )}
-              {!receipt?.fiscalDocumentNumber && transaction.receiptRef && (
-                <p className="text-foreground break-all">Identificador · {transaction.receiptRef}</p>
-              )}
+              <dl className="grid gap-x-6 gap-y-3 rounded-lg border border-border p-4 sm:grid-cols-2">
+                {receipt?.merchantName && (
+                  <div className="min-w-0">
+                    <dt className="text-muted-foreground">Estabelecimento</dt>
+                    <dd className="break-words font-medium text-foreground">{receipt.merchantName}</dd>
+                  </div>
+                )}
+                {receipt?.taxId && (
+                  <div className="min-w-0">
+                    <dt className="text-muted-foreground">Documento</dt>
+                    <dd className="break-words font-medium text-foreground">{formatTaxId(receipt.taxId)}</dd>
+                  </div>
+                )}
+                {receipt?.fiscalDocumentNumber && (
+                  <div className="min-w-0">
+                    <dt className="text-muted-foreground">Documento fiscal</dt>
+                    <dd className="break-words font-medium text-foreground">NFC-e nº {receipt.fiscalDocumentNumber}</dd>
+                  </div>
+                )}
+                {(receipt?.cardBrand || receipt?.cardLastFour) && (
+                  <div className="min-w-0">
+                    <dt className="text-muted-foreground">Cartão</dt>
+                    <dd className="break-words font-medium text-foreground">
+                      {[receipt.cardBrand, receipt.cardLastFour ? `•••• ${receipt.cardLastFour.replace(/\D/g, "").slice(-4) || receipt.cardLastFour}` : null]
+                        .filter(Boolean)
+                        .join(" ")}
+                    </dd>
+                  </div>
+                )}
+                {!receipt?.fiscalDocumentNumber && transaction.receiptRef && (
+                  <div className="min-w-0 sm:col-span-2">
+                    <dt className="text-muted-foreground">Identificador</dt>
+                    <dd className="break-all font-medium text-foreground">{transaction.receiptRef}</dd>
+                  </div>
+                )}
+              </dl>
             </section>
           )}
 
