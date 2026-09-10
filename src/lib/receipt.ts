@@ -1,6 +1,13 @@
 import { compressImageFile } from "@/lib/image-compression";
 import { supabase } from "@/integrations/supabase/client";
 
+export interface PurchasedItem {
+  name: string;
+  quantity: number | null;
+  unit_price: number | null;
+  total: number | null;
+}
+
 export interface ParsedReceipt {
   is_receipt: boolean;
   type: "income" | "expense" | "unknown";
