@@ -107,7 +107,7 @@ Deno.serve(async (req) => {
       body: JSON.stringify({
         model: "openai/gpt-6-astra",
         stream: true,
-        reasoning: { effort: "low" },
+        reasoning: { effort: "medium" },
         input: [
           {
             role: "user",
