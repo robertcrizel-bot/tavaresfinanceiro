@@ -322,7 +322,7 @@ export default function Records() {
                       <div className="flex items-center gap-1.5">
                         <span>{t.title}</span>
                         {t.hasAttachment && (
-                          <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" title="Possui anexo" />
+                          <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" aria-label="Possui anexo" />
                         )}
                       </div>
                     </TableCell>
