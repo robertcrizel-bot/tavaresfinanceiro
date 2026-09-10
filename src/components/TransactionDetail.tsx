@@ -37,21 +37,24 @@ const formatTaxId = (value: string) => {
 };
 
 const isAdditionalReceiptLine = (line: string) =>
-  /(?:^id do comprovante:|\b(?:pagamento|cart[aã]o|cr[eé]dito|d[eé]bito|pix|dinheiro|boleto|transfer[eê]ncia|bandeira|final|visa|mastercard|elo|amex|hipercard|parcelad[oa]|[àa] vista|troco|desconto|acr[eé]scimo|tributos?|diverg[eê]ncia)\b)/i.test(line);
+  /\b(?:pagamento|cart[aã]o|cr[eé]dito|d[eé]bito|pix|dinheiro|boleto|transfer[eê]ncia|bandeira|final|visa|mastercard|elo|amex|hipercard|parcelad[oa]|[àa] vista|troco|desconto|acr[eé]scimo|tributos?|diverg[eê]ncia)\b/i.test(line);
+
+const isReceiptIdLine = (line: string) => /^id do comprovante:/i.test(line);
 
 const splitReceiptDescription = (description?: string) => {
   const lines = (description ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
   const itemsHeadingIndex = lines.findIndex((line) => /^itens(?: da compra)?:$/i.test(line));
 
   if (itemsHeadingIndex < 0) {
-    return { hasItemsHeading: false, itemLines: [] as string[], additionalLines: lines };
+    return { hasItemsHeading: false, itemLines: [] as string[], additionalLines: lines.filter((line) => !isReceiptIdLine(line)) };
   }
 
   const itemLines: string[] = [];
-  const additionalLines = lines.slice(0, itemsHeadingIndex);
+  const additionalLines = lines.slice(0, itemsHeadingIndex).filter((line) => !isReceiptIdLine(line));
   let readingAdditionalInfo = false;
 
   for (const line of lines.slice(itemsHeadingIndex + 1)) {
+    if (isReceiptIdLine(line)) continue;
     if (/^informa(?:ç|c)[oõ]es adicionais:$/i.test(line)) {
       readingAdditionalInfo = true;
       continue;
