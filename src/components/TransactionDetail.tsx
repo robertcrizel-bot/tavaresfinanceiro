@@ -36,6 +36,37 @@ const formatTaxId = (value: string) => {
   return value;
 };
 
+const isAdditionalReceiptLine = (line: string) =>
+  /(?:^id do comprovante:|\b(?:pagamento|cart[aã]o|cr[eé]dito|d[eé]bito|pix|dinheiro|boleto|transfer[eê]ncia|bandeira|final|visa|mastercard|elo|amex|hipercard|parcelad[oa]|[àa] vista|troco|desconto|acr[eé]scimo|tributos?|diverg[eê]ncia)\b)/i.test(line);
+
+const splitReceiptDescription = (description?: string) => {
+  const lines = (description ?? "").split("\n").map((line) => line.trim()).filter(Boolean);
+  const itemsHeadingIndex = lines.findIndex((line) => /^itens(?: da compra)?:$/i.test(line));
+
+  if (itemsHeadingIndex < 0) {
+    return { hasItemsHeading: false, itemLines: [] as string[], additionalLines: lines };
+  }
+
+  const itemLines: string[] = [];
+  const additionalLines = lines.slice(0, itemsHeadingIndex);
+  let readingAdditionalInfo = false;
+
+  for (const line of lines.slice(itemsHeadingIndex + 1)) {
+    if (/^informa(?:ç|c)[oõ]es adicionais:$/i.test(line)) {
+      readingAdditionalInfo = true;
+      continue;
+    }
+    if (readingAdditionalInfo || isAdditionalReceiptLine(line)) {
+      readingAdditionalInfo = true;
+      additionalLines.push(line);
+    } else {
+      itemLines.push(line);
+    }
+  }
+
+  return { hasItemsHeading: true, itemLines, additionalLines };
+};
+
 export function TransactionDetail({ transaction, open, onClose }: TransactionDetailProps) {
   const { refetch } = useFinance();
   const { accounts, creditCards } = useAccounts();
@@ -98,9 +129,12 @@ export function TransactionDetail({ transaction, open, onClose }: TransactionDet
   const account = accounts.find((item) => item.id === transaction.accountId);
   const creditCard = creditCards.find((item) => item.id === transaction.creditCardId);
   const receipt = transaction.receiptDetails;
+  const separatedDescription = splitReceiptDescription(transaction.description);
+  const hasCardDetails = Boolean(receipt?.cardBrand || receipt?.cardLastFour);
+  const shouldSeparateDescription = separatedDescription.hasItemsHeading || hasCardDetails;
+  const hasSeparatedDescription = separatedDescription.itemLines.length > 0 || separatedDescription.additionalLines.length > 0 || hasCardDetails;
   const hasReceiptDetails = Boolean(
-    receipt?.merchantName || receipt?.taxId || receipt?.fiscalDocumentNumber ||
-    receipt?.cardBrand || receipt?.cardLastFour || transaction.receiptRef,
+    receipt?.merchantName || receipt?.taxId || receipt?.fiscalDocumentNumber || transaction.receiptRef,
   );
 
   const createFileUrl = async (attachment: AttachmentRow, download = false) => {
@@ -207,10 +241,45 @@ export function TransactionDetail({ transaction, open, onClose }: TransactionDet
             </dl>
           </section>
 
-          {transaction.description && (
+          {(transaction.description || hasCardDetails) && (
             <section className="space-y-2 text-sm">
               <h4 className="font-semibold text-foreground">Descrição</h4>
-              <p className="whitespace-pre-wrap break-words rounded-lg border border-border p-4 text-foreground">{transaction.description}</p>
+              {shouldSeparateDescription && hasSeparatedDescription ? (
+                <div className="space-y-3">
+                  {separatedDescription.itemLines.length > 0 && (
+                    <div className="rounded-lg border border-border p-4">
+                      <h5 className="font-medium text-foreground">Itens da compra</h5>
+                      <ul className="mt-2 space-y-1.5">
+                        {separatedDescription.itemLines.map((line, index) => (
+                          <li key={`${line}-${index}`} className="break-words text-foreground">{line}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  {(separatedDescription.additionalLines.length > 0 || hasCardDetails) && (
+                    <div className="rounded-lg border border-border p-4">
+                      <h5 className="font-medium text-foreground">Informações adicionais</h5>
+                      <div className="mt-2 space-y-2">
+                        {separatedDescription.additionalLines.map((line, index) => (
+                          <p key={`${line}-${index}`} className="whitespace-pre-wrap break-words text-foreground">{line}</p>
+                        ))}
+                        {hasCardDetails && (
+                          <dl>
+                            <dt className="text-muted-foreground">Cartão</dt>
+                            <dd className="break-words font-medium text-foreground">
+                              {[receipt?.cardBrand, receipt?.cardLastFour ? `•••• ${receipt.cardLastFour.replace(/\D/g, "").slice(-4) || receipt.cardLastFour}` : null]
+                                .filter(Boolean)
+                                .join(" ")}
+                            </dd>
+                          </dl>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <p className="whitespace-pre-wrap break-words rounded-lg border border-border p-4 text-foreground">{transaction.description}</p>
+              )}
             </section>
           )}
 
@@ -234,16 +303,6 @@ export function TransactionDetail({ transaction, open, onClose }: TransactionDet
                   <div className="min-w-0">
                     <dt className="text-muted-foreground">Documento fiscal</dt>
                     <dd className="break-words font-medium text-foreground">NFC-e nº {receipt.fiscalDocumentNumber}</dd>
-                  </div>
-                )}
-                {(receipt?.cardBrand || receipt?.cardLastFour) && (
-                  <div className="min-w-0">
-                    <dt className="text-muted-foreground">Cartão</dt>
-                    <dd className="break-words font-medium text-foreground">
-                      {[receipt.cardBrand, receipt.cardLastFour ? `•••• ${receipt.cardLastFour.replace(/\D/g, "").slice(-4) || receipt.cardLastFour}` : null]
-                        .filter(Boolean)
-                        .join(" ")}
-                    </dd>
                   </div>
                 )}
                 {!receipt?.fiscalDocumentNumber && transaction.receiptRef && (
@@ -279,7 +338,7 @@ export function TransactionDetail({ transaction, open, onClose }: TransactionDet
                           <img
                             src={previewUrl}
                             alt={`Miniatura de ${attachment.file_name}`}
-                            className="h-36 w-full object-contain"
+                            className="h-48 w-full object-contain sm:h-52"
                           />
                         </button>
                       )}
