@@ -19,6 +19,11 @@ export interface ParsedReceipt {
   payment_method: string;
   category_hint: string | null;
   receipt_id: string | null;
+  merchant_name: string | null;
+  tax_id: string | null;
+  fiscal_document_number: string | null;
+  card_brand: string | null;
+  card_last_four: string | null;
   title: string | null;
   notes: string | null;
   purchased_items?: PurchasedItem[];

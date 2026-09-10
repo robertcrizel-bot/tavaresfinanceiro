@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { Transaction } from "@/lib/types";
+import { ReceiptDetails, Transaction } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -82,8 +82,12 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
           paymentMethod: (r.payment_method as Transaction["paymentMethod"]) || undefined,
           accountId: r.account_id || undefined,
           creditCardId: r.credit_card_id || undefined,
-          isPaid: (r as any).is_paid ?? false,
+          isPaid: r.is_paid ?? false,
           hasAttachment: attSet.has(r.id),
+          receiptRef: r.receipt_ref || undefined,
+          receiptDetails: r.receipt_details && typeof r.receipt_details === "object" && !Array.isArray(r.receipt_details)
+            ? r.receipt_details as ReceiptDetails
+            : undefined,
         }))
       );
     }
@@ -111,6 +115,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
         account_id: t.accountId || null,
         credit_card_id: t.creditCardId || null,
         receipt_ref: options?.receiptRef || null,
+        receipt_details: t.receiptDetails || null,
       }).select("id").single();
       if (error || !inserted) {
         toast({ title: "Erro ao criar registro", description: error?.message, variant: "destructive" });
@@ -141,6 +146,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       installments,
       installment_number: 1,
       receipt_ref: options?.receiptRef || null,
+      receipt_details: t.receiptDetails || null,
     }).select("id").single();
 
     if (parentErr || !parent) {
@@ -191,6 +197,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       payment_method: t.paymentMethod || null,
       account_id: t.accountId || null,
       credit_card_id: t.creditCardId || null,
+      receipt_details: t.receiptDetails || null,
     }).eq("id", t.id);
     if (error) {
       toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });

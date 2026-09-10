@@ -50,6 +50,13 @@ export default function ReceiptImport() {
         paymentMethod: method,
         accountId: isCard ? undefined : account?.id,
         creditCardId: isCard ? card?.id : undefined,
+        receiptDetails: {
+          merchantName: parsed.merchant_name?.trim() || undefined,
+          taxId: parsed.tax_id?.trim() || undefined,
+          fiscalDocumentNumber: parsed.fiscal_document_number?.trim() || undefined,
+          cardBrand: parsed.card_brand?.trim() || undefined,
+          cardLastFour: parsed.card_last_four?.trim() || undefined,
+        },
       };
     },
     [accounts, creditCards, allCategoryNames],
@@ -107,6 +114,11 @@ export default function ReceiptImport() {
     title: "título",
     payment_method: "forma de pagamento",
     institution: "banco",
+    merchant_name: "razão social",
+    tax_id: "CNPJ/CPF",
+    fiscal_document_number: "número do documento",
+    card_brand: "bandeira do cartão",
+    card_last_four: "final do cartão",
     purchased_items: "itens comprados",
   };
 

@@ -50,6 +50,14 @@ export interface CreditCard {
   color: string;
 }
 
+export interface ReceiptDetails {
+  merchantName?: string;
+  taxId?: string;
+  fiscalDocumentNumber?: string;
+  cardBrand?: string;
+  cardLastFour?: string;
+}
+
 export interface Transaction {
   id: string;
   title: string;
@@ -63,6 +71,8 @@ export interface Transaction {
   creditCardId?: string;
   isPaid?: boolean;
   hasAttachment?: boolean;
+  receiptRef?: string;
+  receiptDetails?: ReceiptDetails;
 }
 
 export const EXPENSE_CATEGORIES: Category[] = [

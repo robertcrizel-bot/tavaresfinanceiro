@@ -168,6 +168,8 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
         paymentMethod: paymentMethod ? paymentMethod as PaymentMethod : undefined,
         accountId: accountId && accountId !== "none" ? accountId : undefined,
         creditCardId: creditCardId && creditCardId !== "none" ? creditCardId : undefined,
+        receiptRef: initial?.receiptRef ?? prefill?.receiptRef,
+        receiptDetails: initial?.receiptDetails ?? prefill?.receiptDetails,
       },
       Object.keys(opts).length > 0 ? opts : undefined,
     );
