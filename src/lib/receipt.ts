@@ -68,7 +68,7 @@ export async function receiptToImageDataUrl(file: File): Promise<string> {
   if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
     imageFile = await pdfFirstPageToJpeg(file);
   }
-  const compressed = await compressImageFile(imageFile, { maxWidth: 1800, maxHeight: 4096, quality: 0.9 });
+  const compressed = await compressImageFile(imageFile, { maxWidth: 2000, maxHeight: 6000, quality: 0.92 });
   return blobToDataUrl(compressed);
 }
 
