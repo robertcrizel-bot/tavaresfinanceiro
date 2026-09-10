@@ -1,31 +1,30 @@
-# Plano: aparecer no "Compartilhar" do celular + ajuste de layout
+# Ajuste: descrição com os itens do cupom fiscal
 
-## 1. App não aparece na lista de compartilhamento
+Hoje, ao ler um cupom de mercado, a descrição vem com um resumo em texto ("Cupom com 11 itens... divergência entre os valores...") em vez da lista de produtos. Os itens até são contados, mas não são transcritos.
 
-O compartilhamento só funciona no Android, no app **publicado** e **instalado na tela inicial** (no iPhone o sistema não permite isso — lá o caminho continua sendo o botão "Ler comprovante" dentro do app).
+## O que muda
 
-Além disso, a configuração atual do app tem detalhes que fazem o Android ignorar o recurso. Correções:
+- A leitura passa a devolver **cada produto do cupom com o seu valor**, e a descrição fica assim:
 
-- Declarar tipos de arquivo explícitos (JPEG, PNG, WEBP, HEIC, PDF) em vez de apenas "imagens", que várias versões do Android descartam.
-- Adicionar identificador e escopo fixos do app, exigidos para o registro do alvo de compartilhamento.
-- Garantir que o recebimento do arquivo esteja ativo assim que o app é instalado, com redirecionamento correto para a tela de conferência.
-- Não ativar esse mecanismo dentro da pré-visualização do Lovable, apenas no app publicado.
+```text
+Itens:
+2x Leite Integral 1L — R$ 9,80
+Pão Francês 500g — R$ 6,49
+Refrigerante Cola 2L — R$ 8,99
+...
+```
 
-Depois disso é necessário: publicar, abrir o link publicado no Chrome do Android, instalar pelo menu "Adicionar à tela inicial", abrir o app instalado uma vez, e só então ele passa a aparecer no menu Compartilhar do app do banco.
-
-Também será adicionada, na tela "Instalar", uma explicação curta de como habilitar o compartilhamento e o aviso de que no iPhone ele não existe.
-
-## 2. Cards e botões desalinhados
-
-- No painel e em Meus Registros, os botões do topo passam a quebrar em linha própria no celular, ocupando largura igual, sem espremer o título.
-- Em telas pequenas os botões mostram texto curto ("Comprovante", "Novo"), e em telas maiores o texto completo.
-- Revisão dos cartões de indicadores e dos cartões de contas/cartões para manter altura e espaçamento iguais em celular, tablet e desktop.
-- Verificação nas larguras de celular, tablet e desktop antes de concluir.
+- Observações extras (divergência de valores, forma de pagamento, ID do comprovante) continuam aparecendo, mas **depois** da lista, não no lugar dela.
+- A leitura fica mais rigorosa: a inteligência é instruída a percorrer a seção de produtos linha por linha e nunca substituir a lista por um resumo do tipo "cupom com N itens".
+- A imagem enviada para leitura passa a manter mais definição em cupons longos e estreitos, para que os nomes e preços das últimas linhas não se percam.
 
 ## Detalhes técnicos
 
-- `public/manifest.json`: adicionar `id`, `scope`, e trocar `accept` por lista MIME explícita (`image/jpeg`, `image/png`, `image/webp`, `image/heic`, `application/pdf`).
-- `public/sw.js`: manter apenas o handler POST de `/receipt-share`, aceitando também `formData.getAll` para múltiplos campos; redirecionar com URL absoluta baseada em `self.registration.scope`.
-- `src/lib/shared-receipt.ts`: registrar o service worker apenas fora de hostnames de preview/dev do Lovable.
-- `src/pages/Dashboard.tsx`, `src/pages/Records.tsx`: cabeçalho responsivo (`flex-wrap`, botões `flex-1 sm:flex-none`, rótulos com `hidden sm:inline`).
-- `src/pages/Install.tsx`: seção com instruções de compartilhamento (Android) e limitação do iOS.
+- `supabase/functions/parse-receipt/index.ts`:
+  - Trocar `purchased_items: string[]` por uma lista de objetos: `{ name, quantity, unit_price, total }` (todos os campos presentes, valores desconhecidos como `null`).
+  - Reforçar o prompt: proibir resumos/contagens em `purchased_items` e em `notes`; `notes` só para observações que não sejam produtos.
+  - Elevar `reasoning.effort` de `low` para `medium` para melhorar a transcrição de listas longas.
+- `src/lib/receipt.ts`: atualizar o tipo `ParsedReceipt`; aumentar o limite de altura/qualidade na compressão para cupons longos (manter teto de memória seguro para Android).
+- `src/lib/receipt-description.ts`: formatar uma linha por item com `nome — R$ valor` (quantidade como prefixo `Nx` quando houver), e manter observações e ID depois da lista.
+- `src/lib/receipt-description.test.ts`: atualizar/estender os testes para o novo formato (com valor, sem valor, lista vazia).
+- Validar chamando a função com um cupom real e conferindo a descrição gerada na tela de conferência.
