@@ -1,7 +1,7 @@
 import type { ParsedReceipt, PurchasedItem } from "@/lib/receipt";
 
 const brl = (value: number) =>
-  value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  `R$ ${value.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d),)/g, ".")}`;
 
 export function formatPurchasedItem(item: PurchasedItem): string | null {
   const name = (item.name ?? "").trim();
