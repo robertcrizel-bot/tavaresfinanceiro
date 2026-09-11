@@ -296,7 +296,7 @@ export default function Records() {
 
           {/* Desktop table */}
           <div className="glass-card rounded-xl overflow-hidden animate-fade-in hidden md:block">
-            <Table>
+            <Table className="[&_th]:px-3 [&_td]:px-3">
               <TableHeader>
                 <TableRow className="border-border hover:bg-transparent">
                   <SortableHead col="date">Data</SortableHead>
