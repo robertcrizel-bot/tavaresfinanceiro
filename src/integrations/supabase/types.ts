@@ -196,6 +196,7 @@ export type Database = {
           duration_months: number | null
           id: string
           name: string
+          scoped_edits: Json
           start_date: string
           updated_at: string
           user_id: string
@@ -210,6 +211,7 @@ export type Database = {
           duration_months?: number | null
           id?: string
           name: string
+          scoped_edits?: Json
           start_date?: string
           updated_at?: string
           user_id: string
@@ -224,6 +226,7 @@ export type Database = {
           duration_months?: number | null
           id?: string
           name?: string
+          scoped_edits?: Json
           start_date?: string
           updated_at?: string
           user_id?: string
