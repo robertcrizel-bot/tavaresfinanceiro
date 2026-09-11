@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import {
+  applyRecurringBillDeletion,
   applyRecurringBillEdit,
   emptyScopedEdits,
+  isRecurringBillActiveInMonth,
+  normalizeScopedEdits,
   resolveRecurringBill,
   type EditableRecurringBill,
 } from "@/lib/recurring-bill-editing";
@@ -65,5 +68,48 @@ describe("recurring bill editing scopes", () => {
     expect(resolveRecurringBill(edited, "2026-10").amount).toBe(1100);
     expect(edited.scopedEdits).toEqual(emptyScopedEdits());
     expect(edited.id).toBe("bill-1");
+  });
+});
+
+describe("recurring bill deletion scopes", () => {
+  it("removes only the selected month", () => {
+    const deleted = applyRecurringBillDeletion(bill(), "this", "2026-04");
+
+    expect(isRecurringBillActiveInMonth(deleted, "2026-03")).toBe(true);
+    expect(isRecurringBillActiveInMonth(deleted, "2026-04")).toBe(false);
+    expect(isRecurringBillActiveInMonth(deleted, "2026-05")).toBe(true);
+    expect(deleted.scopedEdits.deletedMonths).toEqual({ "2026-04": true });
+  });
+
+  it("removes the selected month and all following months", () => {
+    const deleted = applyRecurringBillDeletion(bill(), "future", "2026-04");
+
+    expect(isRecurringBillActiveInMonth(deleted, "2026-03")).toBe(true);
+    expect(isRecurringBillActiveInMonth(deleted, "2026-04")).toBe(false);
+    expect(isRecurringBillActiveInMonth(deleted, "2026-12")).toBe(false);
+    expect(deleted.scopedEdits.deletedFrom).toBe("2026-04");
+  });
+
+  it("removes the entire recurrence", () => {
+    const deleted = applyRecurringBillDeletion(bill(), "all", "2026-04");
+
+    expect(isRecurringBillActiveInMonth(deleted, "2026-01")).toBe(false);
+    expect(isRecurringBillActiveInMonth(deleted, "2026-04")).toBe(false);
+    expect(isRecurringBillActiveInMonth(deleted, "2026-12")).toBe(false);
+    expect(deleted.scopedEdits.deletedFrom).toBe("2026-01");
+  });
+
+  it("keeps deletions idempotent and preserves them across edits", () => {
+    const deletedOnce = applyRecurringBillDeletion(bill(), "this", "2026-04");
+    const deletedTwice = applyRecurringBillDeletion(deletedOnce, "this", "2026-04");
+    const edited = applyRecurringBillEdit(deletedTwice, editedValues, "future", "2026-03");
+
+    expect(deletedTwice.scopedEdits.deletedMonths).toEqual({ "2026-04": true });
+    expect(isRecurringBillActiveInMonth(edited, "2026-04")).toBe(false);
+    expect(resolveRecurringBill(edited, "2026-03").amount).toBe(1100);
+  });
+
+  it("normalizes records created before deletion markers existed", () => {
+    expect(normalizeScopedEdits({ months: {}, future: [] })).toEqual(emptyScopedEdits());
   });
 });

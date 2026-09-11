@@ -8,7 +8,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CalendarClock, Plus, ChevronLeft, ChevronRight, Check, Undo2, Pencil, Trash2, CircleDollarSign, Clock, AlertTriangle } from "lucide-react";
 import { format, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -19,6 +21,7 @@ import {
   getMinimumDurationMonths,
   isRecurringBillActiveInMonth,
   resolveRecurringBill,
+  type RecurringBillDeleteScope,
   type RecurringBillEditScope,
 } from "@/lib/recurring-bill-editing";
 
@@ -30,6 +33,8 @@ export default function Forecasts() {
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<RecurringBill | null>(null);
   const [editScope, setEditScope] = useState<RecurringBillEditScope>("this");
+  const [deletingBill, setDeletingBill] = useState<RecurringBill | null>(null);
+  const [deleteScope, setDeleteScope] = useState<RecurringBillDeleteScope>("this");
 
   // Pay dialog state
   const [payOpen, setPayOpen] = useState(false);
@@ -138,6 +143,17 @@ export default function Forecasts() {
       description: payDescription || null,
     });
     setPayOpen(false);
+  };
+
+  const openDelete = (bill: RecurringBill) => {
+    setDeletingBill(bill);
+    setDeleteScope("this");
+  };
+
+  const handleDelete = async () => {
+    if (!deletingBill) return;
+    await deleteBill(deletingBill.id, deleteScope, referenceMonth);
+    setDeletingBill(null);
   };
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
@@ -294,7 +310,7 @@ export default function Forecasts() {
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
-                      onClick={() => deleteBill(bill.id)}>
+                      onClick={() => openDelete(bill)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   </div>
@@ -397,6 +413,46 @@ export default function Forecasts() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <AlertDialog open={Boolean(deletingBill)} onOpenChange={(open) => !open && setDeletingBill(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Excluir previsão recorrente?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Escolha o alcance da exclusão. Exclusões parciais não apagam o histórico de pagamentos já realizados.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <RadioGroup value={deleteScope} onValueChange={(value) => setDeleteScope(value as RecurringBillDeleteScope)}>
+            <Label htmlFor="delete-this" className="flex cursor-pointer items-start gap-3 rounded-md border p-3">
+              <RadioGroupItem value="this" id="delete-this" className="mt-0.5" />
+              <span>
+                <span className="block font-medium">Somente este mês</span>
+                <span className="block text-sm font-normal text-muted-foreground">Remove apenas a competência selecionada.</span>
+              </span>
+            </Label>
+            <Label htmlFor="delete-future" className="flex cursor-pointer items-start gap-3 rounded-md border p-3">
+              <RadioGroupItem value="future" id="delete-future" className="mt-0.5" />
+              <span>
+                <span className="block font-medium">Este mês e os próximos</span>
+                <span className="block text-sm font-normal text-muted-foreground">Mantém as competências anteriores.</span>
+              </span>
+            </Label>
+            <Label htmlFor="delete-all" className="flex cursor-pointer items-start gap-3 rounded-md border p-3">
+              <RadioGroupItem value="all" id="delete-all" className="mt-0.5" />
+              <span>
+                <span className="block font-medium">Toda a recorrência</span>
+                <span className="block text-sm font-normal text-muted-foreground">Remove a série completa.</span>
+              </span>
+            </Label>
+          </RadioGroup>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDelete} className="bg-destructive text-destructive-foreground hover:bg-destructive/90">
+              Excluir
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Pay Dialog */}
       <Dialog open={payOpen} onOpenChange={setPayOpen}>

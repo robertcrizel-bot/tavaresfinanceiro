@@ -1,4 +1,5 @@
 export type RecurringBillEditScope = "this" | "future" | "all";
+export type RecurringBillDeleteScope = RecurringBillEditScope;
 
 export interface RecurringBillValues {
   name: string;
@@ -15,6 +16,8 @@ type MonthlyBillValues = Omit<RecurringBillValues, "durationMonths">;
 export interface RecurringBillScopedEdits {
   months: Record<string, MonthlyBillValues>;
   future: Array<{ from: string; values: RecurringBillValues }>;
+  deletedMonths: Record<string, true>;
+  deletedFrom: string | null;
 }
 
 export interface EditableRecurringBill extends RecurringBillValues {
@@ -23,11 +26,16 @@ export interface EditableRecurringBill extends RecurringBillValues {
   scopedEdits: RecurringBillScopedEdits;
 }
 
-export const emptyScopedEdits = (): RecurringBillScopedEdits => ({ months: {}, future: [] });
+export const emptyScopedEdits = (): RecurringBillScopedEdits => ({
+  months: {},
+  future: [],
+  deletedMonths: {},
+  deletedFrom: null,
+});
 
 export const normalizeScopedEdits = (value: unknown): RecurringBillScopedEdits => {
   if (!value || typeof value !== "object" || Array.isArray(value)) return emptyScopedEdits();
-  const edits = value as { months?: unknown; future?: unknown };
+  const edits = value as { months?: unknown; future?: unknown; deletedMonths?: unknown; deletedFrom?: unknown };
   const months = edits.months && typeof edits.months === "object" && !Array.isArray(edits.months)
     ? edits.months as Record<string, MonthlyBillValues>
     : {};
@@ -36,7 +44,15 @@ export const normalizeScopedEdits = (value: unknown): RecurringBillScopedEdits =
         Boolean(edit) && typeof edit === "object" && typeof edit.from === "string" && Boolean(edit.values)
       ))
     : [];
-  return { months, future };
+  const deletedMonths = edits.deletedMonths && typeof edits.deletedMonths === "object" && !Array.isArray(edits.deletedMonths)
+    ? Object.fromEntries(
+        Object.entries(edits.deletedMonths)
+          .filter(([, deleted]) => deleted === true)
+          .map(([month]) => [month, true] as const),
+      )
+    : {};
+  const deletedFrom = typeof edits.deletedFrom === "string" ? edits.deletedFrom : null;
+  return { months, future, deletedMonths, deletedFrom };
 };
 
 const getValues = (bill: RecurringBillValues): RecurringBillValues => ({
@@ -66,6 +82,9 @@ const monthNumber = (month: string) => {
 export const isRecurringBillActiveInMonth = (bill: EditableRecurringBill, referenceMonth: string) => {
   const startMonth = bill.startDate.slice(0, 7);
   if (referenceMonth < startMonth) return false;
+  const scopedEdits = normalizeScopedEdits(bill.scopedEdits);
+  if (scopedEdits.deletedMonths[referenceMonth]) return false;
+  if (scopedEdits.deletedFrom && referenceMonth >= scopedEdits.deletedFrom) return false;
   const resolved = resolveRecurringBill(bill, referenceMonth);
   if (resolved.durationMonths == null) return true;
   return monthNumber(referenceMonth) - monthNumber(startMonth) < resolved.durationMonths;
@@ -84,7 +103,8 @@ export const applyRecurringBillEdit = (
 ): EditableRecurringBill => {
   const values = getValues(editedValues);
   if (scope === "all") {
-    return { ...bill, ...values, scopedEdits: emptyScopedEdits() };
+    const { deletedMonths, deletedFrom } = normalizeScopedEdits(bill.scopedEdits);
+    return { ...bill, ...values, scopedEdits: { ...emptyScopedEdits(), deletedMonths, deletedFrom } };
   }
 
   const scopedEdits = normalizeScopedEdits(bill.scopedEdits);
@@ -102,11 +122,47 @@ export const applyRecurringBillEdit = (
   return {
     ...bill,
     scopedEdits: {
+      ...scopedEdits,
       months: Object.fromEntries(Object.entries(scopedEdits.months).filter(([month]) => month < referenceMonth)),
       future: [
         ...scopedEdits.future.filter((edit) => edit.from < referenceMonth),
         { from: referenceMonth, values },
       ],
+    },
+  };
+};
+
+export const applyRecurringBillDeletion = (
+  bill: EditableRecurringBill,
+  scope: RecurringBillDeleteScope,
+  referenceMonth: string,
+): EditableRecurringBill => {
+  const scopedEdits = normalizeScopedEdits(bill.scopedEdits);
+
+  if (scope === "this") {
+    return {
+      ...bill,
+      scopedEdits: {
+        ...scopedEdits,
+        deletedMonths: { ...scopedEdits.deletedMonths, [referenceMonth]: true },
+      },
+    };
+  }
+
+  const deletedFrom = scope === "all"
+    ? bill.startDate.slice(0, 7)
+    : !scopedEdits.deletedFrom || referenceMonth < scopedEdits.deletedFrom
+      ? referenceMonth
+      : scopedEdits.deletedFrom;
+
+  return {
+    ...bill,
+    scopedEdits: {
+      ...scopedEdits,
+      deletedMonths: Object.fromEntries(
+        Object.entries(scopedEdits.deletedMonths).filter(([month]) => month < deletedFrom),
+      ),
+      deletedFrom,
     },
   };
 };

@@ -6,8 +6,10 @@ import { toast } from "@/hooks/use-toast";
 import type { Json } from "@/integrations/supabase/types";
 import {
   applyRecurringBillEdit,
+  applyRecurringBillDeletion,
   normalizeScopedEdits,
   type EditableRecurringBill,
+  type RecurringBillDeleteScope,
   type RecurringBillEditScope,
 } from "@/lib/recurring-bill-editing";
 
@@ -27,7 +29,7 @@ interface ForecastContextType {
   loading: boolean;
   addBill: (b: Omit<RecurringBill, "id" | "scopedEdits">) => Promise<void>;
   updateBill: (b: RecurringBill, scope: RecurringBillEditScope, referenceMonth: string) => Promise<void>;
-  deleteBill: (id: string) => Promise<void>;
+  deleteBill: (id: string, scope: RecurringBillDeleteScope, referenceMonth: string) => Promise<void>;
   markAsPaid: (bill: RecurringBill, referenceMonth: string, overrides?: { amount?: number; date?: string; paymentMethod?: string; accountId?: string | null; description?: string | null; }) => Promise<void>;
   unmarkAsPaid: (paymentId: string) => Promise<void>;
   refetch: () => void;
@@ -119,11 +121,16 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
     else { toast({ title: "Previsão atualizada", description: b.name }); fetchData(); }
   }, [bills, fetchData]);
 
-  const deleteBill = useCallback(async (id: string) => {
-    const { error } = await supabase.from("recurring_bills").delete().eq("id", id);
+  const deleteBill = useCallback(async (id: string, scope: RecurringBillDeleteScope, referenceMonth: string) => {
+    const currentBill = bills.find((item) => item.id === id);
+    if (!currentBill) return;
+    const updatedBill = applyRecurringBillDeletion(currentBill, scope, referenceMonth);
+    const { error } = await supabase.from("recurring_bills").update({
+      scoped_edits: updatedBill.scopedEdits as unknown as Json,
+    }).eq("id", id);
     if (error) toast({ title: "Erro ao excluir", description: error.message, variant: "destructive" });
     else { toast({ title: "Previsão excluída", variant: "destructive" }); fetchData(); }
-  }, [fetchData]);
+  }, [bills, fetchData]);
 
   const markAsPaid = useCallback(async (bill: RecurringBill, referenceMonth: string, overrides?: { amount?: number; date?: string; paymentMethod?: string; accountId?: string | null; description?: string | null; }) => {
     if (!user) return;
