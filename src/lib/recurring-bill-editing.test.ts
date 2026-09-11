@@ -72,6 +72,55 @@ describe("recurring bill editing scopes", () => {
     expect(edited.scopedEdits).toEqual(emptyScopedEdits());
     expect(edited.id).toBe("bill-1");
   });
+
+  it.each([
+    { scope: "this" as const, expectedDueDays: [15, 11, 11], expectedAmounts: [1500, 1000, 1000] },
+    { scope: "future" as const, expectedDueDays: [15, 15, 15], expectedAmounts: [1500, 1500, 1500] },
+    { scope: "all" as const, expectedDueDays: [15, 15, 15], expectedAmounts: [1500, 1500, 1500] },
+  ])("applies due day and amount uniformly with $scope scope", ({ scope, expectedDueDays, expectedAmounts }) => {
+    const septemberBill = {
+      ...bill(),
+      startDate: "2026-09-01",
+      dueDay: 11,
+      durationMonths: null,
+    };
+    const edited = applyRecurringBillEdit(
+      septemberBill,
+      { ...editedValues, dueDay: 15, amount: 1500, durationMonths: null },
+      scope,
+      "2026-09",
+    );
+    const months = ["2026-09", "2026-10", "2026-11"].map((month) => resolveRecurringBill(edited, month));
+
+    expect(months.map((month) => month.dueDay)).toEqual(expectedDueDays);
+    expect(months.map((month) => month.amount)).toEqual(expectedAmounts);
+  });
+
+  it("preserves existing scoped edits when changing only the selected month", () => {
+    const septemberBill = { ...bill(), startDate: "2026-09-01", dueDay: 11, durationMonths: null };
+    const withFutureEdit = applyRecurringBillEdit(
+      septemberBill,
+      { ...editedValues, dueDay: 13, amount: 1200, durationMonths: null },
+      "future",
+      "2026-09",
+    );
+    const withOctoberEdit = applyRecurringBillEdit(
+      withFutureEdit,
+      { ...editedValues, dueDay: 20, amount: 1300, durationMonths: null },
+      "this",
+      "2026-10",
+    );
+    const septemberValues = resolveRecurringBill(withOctoberEdit, "2026-09");
+    const edited = applyRecurringBillEdit(
+      withOctoberEdit,
+      { ...septemberValues, dueDay: 15, amount: 1250 },
+      "this",
+      "2026-09",
+    );
+
+    expect(resolveRecurringBill(edited, "2026-09")).toMatchObject({ dueDay: 15, amount: 1250 });
+    expect(resolveRecurringBill(edited, "2026-10")).toMatchObject({ dueDay: 20, amount: 1300 });
+  });
 });
 
 describe("recurring bill deletion scopes", () => {

@@ -33,7 +33,7 @@ export default function Forecasts() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<RecurringBill | null>(null);
-  const [editScope, setEditScope] = useState<RecurringBillEditScope>("this");
+  const [editScope, setEditScope] = useState<RecurringBillEditScope | "">("");
   const [deletingBill, setDeletingBill] = useState<RecurringBill | null>(null);
   const [deleteScope, setDeleteScope] = useState<RecurringBillDeleteScope>("this");
 
@@ -72,6 +72,7 @@ export default function Forecasts() {
 
   const openNew = () => {
     setEditingBill(null);
+    setEditScope("");
     setFormName(""); setFormAmount(""); setFormCategory(""); setFormDueDay("1");
     setFormDuration(""); setFormAccountId(""); setFormDescription("");
     setDialogOpen(true);
@@ -86,7 +87,7 @@ export default function Forecasts() {
     setFormDuration(bill.durationMonths ? String(bill.durationMonths) : "");
     setFormAccountId(bill.accountId || "");
     setFormDescription(bill.description || "");
-    setEditScope("this");
+    setEditScope("");
     setDialogOpen(true);
   };
 
@@ -104,6 +105,7 @@ export default function Forecasts() {
       description: formDescription || null,
     };
     if (editingBill) {
+      if (!editScope) return;
       await updateBill({ ...editingBill, ...data }, editScope, referenceMonth);
     } else {
       await addBill(data);
@@ -152,7 +154,7 @@ export default function Forecasts() {
     : [];
   const minimumDuration = editingBill ? getMinimumDurationMonths(editingBill.startDate, protectedMonths) : 1;
   const durationInvalid = Boolean(
-    editingBill && editScope !== "this" && formDuration && Number(formDuration) < minimumDuration,
+    editingBill && editScope && editScope !== "this" && formDuration && Number(formDuration) < minimumDuration,
   );
 
   if (loading) {
@@ -313,7 +315,7 @@ export default function Forecasts() {
                     )}
 
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
-                      onClick={() => openEdit(bill)}>
+                      onClick={() => openEdit(bill)} title="Editar previsão">
                       <Pencil className="h-4 w-4" />
                     </Button>
                     <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
@@ -343,7 +345,7 @@ export default function Forecasts() {
               <div>
                 <Label>Aplicar alteração em</Label>
                 <Select value={editScope} onValueChange={(value) => setEditScope(value as RecurringBillEditScope)}>
-                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder="Selecione o alcance" /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="this">Somente este mês</SelectItem>
                     <SelectItem value="future">Este mês e os próximos</SelectItem>
@@ -380,12 +382,15 @@ export default function Forecasts() {
                 <Label>Duração (meses)</Label>
                 <Input
                   type="number"
-                  min={editingBill && editScope !== "this" ? minimumDuration : 1}
+                  min={editingBill && editScope && editScope !== "this" ? minimumDuration : 1}
                   value={formDuration}
                   onChange={(e) => setFormDuration(e.target.value)}
                   placeholder="Indefinido"
-                  disabled={Boolean(editingBill && editScope === "this")}
+                  disabled={Boolean(editingBill && (!editScope || editScope === "this"))}
                 />
+                {editingBill && !editScope && (
+                  <p className="mt-1 text-xs text-muted-foreground">Escolha o alcance da alteração antes de salvar.</p>
+                )}
                 {editingBill && editScope === "this" && (
                   <p className="mt-1 text-xs text-muted-foreground">A duração pertence à recorrência e não muda em apenas um mês.</p>
                 )}
@@ -414,7 +419,7 @@ export default function Forecasts() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={!formName || !formAmount || !formCategory || durationInvalid}>
+            <Button onClick={handleSave} disabled={!formName || !formAmount || !formCategory || durationInvalid || Boolean(editingBill && !editScope)}>
               {editingBill ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
