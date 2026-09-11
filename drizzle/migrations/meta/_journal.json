@@ -8,6 +8,13 @@
       "when": 1788884513590,
       "tag": "0000_add_receipt_ref_to_transactions",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1789129495410,
+      "tag": "0001_add_scoped_edits_to_recurring_bills",
+      "breakpoints": true
     }
   ]
 }
