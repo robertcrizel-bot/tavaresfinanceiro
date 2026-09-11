@@ -15,6 +15,13 @@
       "when": 1789129495410,
       "tag": "0001_add_scoped_edits_to_recurring_bills",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1789151462139,
+      "tag": "0002_add_receipt_details_to_transactions",
+      "breakpoints": true
     }
   ]
 }

@@ -289,6 +289,7 @@ export type Database = {
           is_paid: boolean
           parent_transaction_id: string | null
           payment_method: string | null
+          receipt_details: Json | null
           receipt_ref: string | null
           title: string
           type: string
@@ -309,6 +310,7 @@ export type Database = {
           is_paid?: boolean
           parent_transaction_id?: string | null
           payment_method?: string | null
+          receipt_details?: Json | null
           receipt_ref?: string | null
           title: string
           type: string
@@ -329,6 +331,7 @@ export type Database = {
           is_paid?: boolean
           parent_transaction_id?: string | null
           payment_method?: string | null
+          receipt_details?: Json | null
           receipt_ref?: string | null
           title?: string
           type?: string
