@@ -17,6 +17,7 @@ import { ptBR } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
 import { PAYMENT_METHODS, PaymentMethod } from "@/lib/types";
 import { Textarea } from "@/components/ui/textarea";
+import { getForecastTemporalStatus, getPaymentForCompetence } from "@/lib/forecast-status";
 import {
   getMinimumDurationMonths,
   isRecurringBillActiveInMonth,
@@ -63,18 +64,7 @@ export default function Forecasts() {
       .map((bill) => resolveRecurringBill(bill, referenceMonth));
   }, [bills, referenceMonth]);
 
-  const getPayment = (billId: string) =>
-    payments.find((p) => p.recurringBillId === billId && p.referenceMonth === referenceMonth);
-
-  const getStatus = (bill: RecurringBill) => {
-    const payment = getPayment(bill.id);
-    if (payment) return "paid";
-    const today = new Date();
-    const [year, month] = referenceMonth.split("-").map(Number);
-    const dueDate = new Date(year, month - 1, bill.dueDay);
-    if (today > dueDate) return "overdue";
-    return "pending";
-  };
+  const getPayment = (billId: string) => getPaymentForCompetence(payments, billId, referenceMonth);
 
   const totalPrevisto = activeBills.reduce((sum, b) => sum + b.amount, 0);
   const totalPago = activeBills.filter((b) => getPayment(b.id)).reduce((sum, b) => sum + b.amount, 0);
@@ -257,8 +247,12 @@ export default function Forecasts() {
       ) : (
         <div className="space-y-2">
           {activeBills.map((bill) => {
-            const status = getStatus(bill);
             const payment = getPayment(bill.id);
+            const status = getForecastTemporalStatus({
+              referenceMonth,
+              dueDay: bill.dueDay,
+              isPaid: Boolean(payment),
+            });
             const account = accounts.find((a) => a.id === bill.accountId);
 
             return (
@@ -266,20 +260,33 @@ export default function Forecasts() {
                 <CardContent className="p-4 flex items-center justify-between gap-3">
                   <div className="flex items-center gap-3 min-w-0 flex-1">
                     <div className={`p-2 rounded-lg shrink-0 ${
-                      status === "paid" ? "bg-primary/10" :
-                      status === "overdue" ? "bg-destructive/10" :
-                      "bg-warning/10"
-                    }`}>
-                      {status === "paid" ? <Check className="h-4 w-4 text-primary" /> :
-                       status === "overdue" ? <AlertTriangle className="h-4 w-4 text-destructive" /> :
-                       <Clock className="h-4 w-4 text-warning" />}
+                       status.kind === "paid" ? "bg-primary/10" :
+                       status.kind === "overdue" ? "bg-destructive/10" :
+                       status.kind === "upcoming" ? "bg-muted" :
+                       "bg-warning/10"
+                     }`}>
+                      {status.kind === "paid" ? <Check className="h-4 w-4 text-primary" /> :
+                       status.kind === "overdue" ? <AlertTriangle className="h-4 w-4 text-destructive" /> :
+                       <Clock className={`h-4 w-4 ${status.kind === "upcoming" ? "text-muted-foreground" : "text-warning"}`} />}
                     </div>
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="font-medium text-foreground truncate">{bill.name}</span>
                         <Badge variant="outline" className="text-[10px] shrink-0">
-                          Dia {bill.dueDay}
+                          Dia {Number(status.dueDate.slice(-2))}
                         </Badge>
+                        {status.label && (
+                          <Badge
+                            variant={status.kind === "overdue" ? "destructive" : status.kind === "paid" ? "default" : "outline"}
+                            className={`text-[10px] shrink-0 ${
+                              status.kind === "due-today" || status.kind === "due-soon"
+                                ? "border-warning/40 bg-warning/10 text-warning"
+                                : ""
+                            }`}
+                          >
+                            {status.label}
+                          </Badge>
+                        )}
                       </div>
                       <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
                         <span>{bill.category}</span>
@@ -293,7 +300,7 @@ export default function Forecasts() {
                       {bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </span>
 
-                    {status === "paid" && payment ? (
+                    {status.kind === "paid" && payment ? (
                       <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
                         onClick={() => unmarkAsPaid(payment.id)} title="Desmarcar pagamento">
                         <Undo2 className="h-4 w-4" />

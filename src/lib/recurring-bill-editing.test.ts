@@ -54,8 +54,11 @@ describe("recurring bill editing scopes", () => {
     const edited = applyRecurringBillEdit(bill(), editedValues, "future", "2026-04");
 
     expect(resolveRecurringBill(edited, "2026-03").amount).toBe(1000);
+    expect(resolveRecurringBill(edited, "2026-03").dueDay).toBe(10);
     expect(resolveRecurringBill(edited, "2026-04").amount).toBe(1100);
+    expect(resolveRecurringBill(edited, "2026-04").dueDay).toBe(12);
     expect(resolveRecurringBill(edited, "2026-10").amount).toBe(1100);
+    expect(resolveRecurringBill(edited, "2026-10").dueDay).toBe(12);
     expect(resolveRecurringBill(edited, "2026-10").id).toBe("bill-1");
   });
 
