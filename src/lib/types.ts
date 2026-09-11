@@ -50,13 +50,13 @@ export interface CreditCard {
   color: string;
 }
 
-export interface ReceiptDetails {
+export type ReceiptDetails = {
   merchantName?: string;
   taxId?: string;
   fiscalDocumentNumber?: string;
   cardBrand?: string;
   cardLastFour?: string;
-}
+};
 
 export interface Transaction {
   id: string;
