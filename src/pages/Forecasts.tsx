@@ -168,7 +168,7 @@ export default function Forecasts() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
             <CalendarClock className="h-6 w-6 text-primary" />
@@ -176,7 +176,7 @@ export default function Forecasts() {
           </h1>
           <p className="text-sm text-muted-foreground mt-1">Gerencie suas despesas recorrentes</p>
         </div>
-        <Button onClick={openNew} size="sm" className="gap-1.5">
+        <Button onClick={openNew} size="sm" className="gap-1.5 self-start sm:self-auto whitespace-nowrap">
           <Plus className="h-4 w-4" /> Nova Previsão
         </Button>
       </div>
@@ -225,11 +225,11 @@ export default function Forecasts() {
       </div>
 
       {/* Month selector */}
-      <div className="flex items-center justify-center gap-4">
+      <div className="flex items-center justify-center gap-2 sm:gap-4">
         <Button variant="outline" size="icon" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
-        <span className="text-lg font-semibold text-foreground capitalize min-w-[160px] text-center">
+        <span className="text-base sm:text-lg font-semibold text-foreground capitalize min-w-[130px] sm:min-w-[160px] text-center">
           {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
         </span>
         <Button variant="outline" size="icon" onClick={() => setCurrentMonth((m) => addMonths(m, 1))}>
@@ -259,21 +259,23 @@ export default function Forecasts() {
 
             return (
               <Card key={bill.id} className="border-border bg-card hover:bg-accent/30 transition-colors">
-                <CardContent className="p-4 flex items-center justify-between gap-3">
-                  <div className="flex items-center gap-3 min-w-0 flex-1">
-                    <div className={`p-2 rounded-lg shrink-0 ${
+                <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                  <div className="flex items-start gap-3 min-w-0">
+                    <div className={`p-2 rounded-lg shrink-0 mt-0.5 ${
                        status.kind === "paid" ? "bg-primary/10" :
                        status.kind === "overdue" ? "bg-destructive/10" :
                        status.kind === "upcoming" ? "bg-muted" :
                        "bg-warning/10"
-                     }`}>
+                      }`}>
                       {status.kind === "paid" ? <Check className="h-4 w-4 text-primary" /> :
                        status.kind === "overdue" ? <AlertTriangle className="h-4 w-4 text-destructive" /> :
                        <Clock className={`h-4 w-4 ${status.kind === "upcoming" ? "text-muted-foreground" : "text-warning"}`} />}
                     </div>
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="font-medium text-foreground truncate">{bill.name}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-medium text-foreground break-words leading-snug">
+                        {bill.name}
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 mt-1">
                         <Badge variant="outline" className="text-[10px] shrink-0">
                           Dia {Number(status.dueDate.slice(-2))}
                         </Badge>
@@ -290,38 +292,45 @@ export default function Forecasts() {
                           </Badge>
                         )}
                       </div>
-                      <div className="flex items-center gap-2 text-xs text-muted-foreground mt-0.5">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-1.5">
                         <span>{bill.category}</span>
-                        {account && <span>• {account.name}</span>}
+                        {account && (
+                          <>
+                            <span>•</span>
+                            <span>{account.name}</span>
+                          </>
+                        )}
                       </div>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center justify-between gap-3 sm:justify-end sm:shrink-0 border-t border-border/40 pt-2 sm:border-t-0 sm:pt-0">
                     <span className="font-semibold text-foreground">
                       {bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                     </span>
 
-                    {status.kind === "paid" && payment ? (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
-                        onClick={() => unmarkAsPaid(payment.id)} title="Desmarcar pagamento">
-                        <Undo2 className="h-4 w-4" />
-                      </Button>
-                    ) : (
-                      <Button variant="ghost" size="icon" className="h-8 w-8 text-primary"
-                        onClick={() => openPay(bill)} title="Marcar como pago">
-                        <Check className="h-4 w-4" />
-                      </Button>
-                    )}
+                    <div className="flex items-center gap-0.5">
+                      {status.kind === "paid" && payment ? (
+                        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
+                          onClick={() => unmarkAsPaid(payment.id)} title="Desmarcar pagamento">
+                          <Undo2 className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" className="h-9 w-9 text-primary"
+                          onClick={() => openPay(bill)} title="Marcar como pago">
+                          <Check className="h-4 w-4" />
+                        </Button>
+                      )}
 
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
-                      onClick={() => openEdit(bill)} title="Editar previsão">
-                      <Pencil className="h-4 w-4" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
-                      onClick={() => openDelete(bill)}>
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
+                        onClick={() => openEdit(bill)} title="Editar previsão">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive"
+                        onClick={() => openDelete(bill)} title="Excluir previsão">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </div>
                 </CardContent>
               </Card>
