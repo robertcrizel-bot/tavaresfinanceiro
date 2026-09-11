@@ -12,8 +12,8 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { isAdjustmentTransaction, isBillPaymentTransaction } from "@/lib/transaction-classification";
 import { getCardCommittedAmount, getCardCurrentInvoiceAmount } from "@/lib/credit-card-billing";
+import { calculateAccountBalances } from "@/lib/financial-calculations";
 
 const COLORS = [
   { value: "purple", label: "Roxo" },
@@ -65,21 +65,7 @@ export default function Accounts() {
   const [transferAmount, setTransferAmount] = useState("");
   const [transferDesc, setTransferDesc] = useState("");
 
-  // Compute account balances (transactions + transfers)
-  const getAccountBalance = (accId: string, initialBalance: number) => {
-    const txBal = transactions.reduce((bal, t) => {
-      if (t.accountId !== accId) return bal;
-      if (isAdjustmentTransaction(t)) return bal + (t.type === "income" ? t.amount : -t.amount);
-      if (isBillPaymentTransaction(t)) return bal - t.amount;
-      return t.type === "income" ? bal + t.amount : bal - t.amount;
-    }, initialBalance);
-    const trBal = transfers.reduce((bal, t) => {
-      if (t.fromAccountId === accId) return bal - t.amount;
-      if (t.toAccountId === accId) return bal + t.amount;
-      return bal;
-    }, 0);
-    return txBal + trBal;
-  };
+  const accountBalances = calculateAccountBalances(accounts, transactions, transfers);
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
@@ -108,7 +94,7 @@ export default function Accounts() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {accounts.map((acc) => {
-                const balance = getAccountBalance(acc.id, acc.initialBalance);
+                const balance = accountBalances[acc.id];
                 return (
                   <div key={acc.id} className={`glass-card rounded-xl p-5 border-l-4 animate-fade-in ${colorClasses[acc.color] || "border-primary"}`}>
                     <div className="flex items-start justify-between mb-3">
@@ -211,7 +197,7 @@ export default function Accounts() {
         onClose={() => { setAccFormOpen(false); setEditingAcc(undefined); }}
         onSubmit={(data) => editingAcc ? updateAccount({ ...data, id: editingAcc.id }) : addAccount(data)}
         initial={editingAcc}
-        currentBalance={editingAcc ? getAccountBalance(editingAcc.id, editingAcc.initialBalance) : 0}
+        currentBalance={editingAcc ? accountBalances[editingAcc.id] : 0}
         onAdjustBalance={async (accId, diff) => {
           await addTransaction({
             title: "Ajuste de Saldo",

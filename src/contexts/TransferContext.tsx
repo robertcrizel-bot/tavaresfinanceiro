@@ -1,7 +1,8 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { getTransferValidationError } from "@/lib/financial-calculations";
 
 export interface Transfer {
   id: string;
@@ -34,6 +35,7 @@ export const TransferProvider = ({ children }: { children: React.ReactNode }) =>
   const { user } = useAuth();
   const [transfers, setTransfers] = useState<Transfer[]>([]);
   const [loading, setLoading] = useState(true);
+  const addingTransfer = useRef(false);
 
   const fetchTransfers = useCallback(async () => {
     if (!user) { setTransfers([]); setLoading(false); return; }
@@ -45,7 +47,7 @@ export const TransferProvider = ({ children }: { children: React.ReactNode }) =>
     if (error) {
       toast({ title: "Erro ao carregar transferências", description: error.message, variant: "destructive" });
     } else {
-      setTransfers((data || []).map((r: any) => ({
+      setTransfers((data || []).map((r) => ({
         id: r.id,
         fromAccountId: r.from_account_id,
         toAccountId: r.to_account_id,
@@ -62,19 +64,35 @@ export const TransferProvider = ({ children }: { children: React.ReactNode }) =>
 
   const addTransfer = useCallback(async (t: Omit<Transfer, "id" | "createdAt">) => {
     if (!user) return;
-    const { error } = await supabase.from("transfers").insert({
-      user_id: user.id,
-      from_account_id: t.fromAccountId,
-      to_account_id: t.toAccountId,
-      amount: t.amount,
-      date: t.date,
-      description: t.description || null,
-    });
-    if (error) toast({ title: "Erro na transferência", description: error.message, variant: "destructive" });
-    else { toast({ title: "Transferência registrada" }); fetchTransfers(); }
+    const validationError = getTransferValidationError(t);
+    if (validationError) {
+      toast({ title: "Transferência inválida", description: validationError, variant: "destructive" });
+      return;
+    }
+    if (addingTransfer.current) return;
+    addingTransfer.current = true;
+    try {
+      const { error } = await supabase.from("transfers").insert({
+        user_id: user.id,
+        from_account_id: t.fromAccountId,
+        to_account_id: t.toAccountId,
+        amount: t.amount,
+        date: t.date,
+        description: t.description || null,
+      });
+      if (error) toast({ title: "Erro na transferência", description: error.message, variant: "destructive" });
+      else { toast({ title: "Transferência registrada" }); await fetchTransfers(); }
+    } finally {
+      addingTransfer.current = false;
+    }
   }, [user, fetchTransfers]);
 
   const updateTransfer = useCallback(async (t: Transfer) => {
+    const validationError = getTransferValidationError(t);
+    if (validationError) {
+      toast({ title: "Transferência inválida", description: validationError, variant: "destructive" });
+      return;
+    }
     const { error } = await supabase.from("transfers").update({
       from_account_id: t.fromAccountId,
       to_account_id: t.toAccountId,
@@ -83,13 +101,13 @@ export const TransferProvider = ({ children }: { children: React.ReactNode }) =>
       description: t.description || null,
     }).eq("id", t.id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else { toast({ title: "Transferência atualizada" }); fetchTransfers(); }
+    else { toast({ title: "Transferência atualizada" }); await fetchTransfers(); }
   }, [fetchTransfers]);
 
   const deleteTransfer = useCallback(async (id: string) => {
     const { error } = await supabase.from("transfers").delete().eq("id", id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else { toast({ title: "Transferência excluída", variant: "destructive" }); fetchTransfers(); }
+    else { toast({ title: "Transferência excluída", variant: "destructive" }); await fetchTransfers(); }
   }, [fetchTransfers]);
 
   return (

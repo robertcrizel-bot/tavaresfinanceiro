@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet, ScanLine } from "lucide-react";
 import { Link } from "react-router-dom";
 import { isFinancialNeutralTransaction, isBillPaymentTransaction } from "@/lib/transaction-classification";
+import { calculateAccountBalances, calculateFinancialTotals } from "@/lib/financial-calculations";
 import {
   LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
@@ -73,8 +74,7 @@ export default function Dashboard() {
 
   // Bill payments and manual adjustments do not change income/expense metrics.
   const isNeutral = (t: Transaction) => isFinancialNeutralTransaction(t);
-  const totalIncome = filtered.filter((t) => t.type === "income" && !isNeutral(t)).reduce((s, t) => s + t.amount, 0);
-  const totalExpense = filtered.filter((t) => t.type === "expense" && !isNeutral(t)).reduce((s, t) => s + t.amount, 0);
+  const { income: totalIncome, expense: totalExpense } = calculateFinancialTotals(filtered);
   const balance = totalIncome - totalExpense;
 
   const days = useMemo(() => {
@@ -105,18 +105,7 @@ export default function Dashboard() {
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
-  const getAccountBalance = (accId: string, initialBalance: number) => {
-    const txBal = transactions.reduce((bal, t) => {
-      if (t.accountId !== accId) return bal;
-      return t.type === "income" ? bal + t.amount : bal - t.amount;
-    }, initialBalance);
-    const trBal = transfers.reduce((bal, t) => {
-      if (t.fromAccountId === accId) return bal - t.amount;
-      if (t.toAccountId === accId) return bal + t.amount;
-      return bal;
-    }, 0);
-    return txBal + trBal;
-  };
+  const accountBalances = calculateAccountBalances(accounts, transactions, transfers);
 
   const getCardUsed = (ccId: string) => {
     return transactions.reduce((total, t) => {
@@ -219,7 +208,7 @@ export default function Dashboard() {
           <h2 className="text-sm font-medium text-muted-foreground mb-3">Contas & Cartões</h2>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {accounts.map((acc) => {
-              const balance = getAccountBalance(acc.id, acc.initialBalance);
+              const balance = accountBalances[acc.id];
               return (
                 <div
                   key={acc.id}
