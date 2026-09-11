@@ -15,6 +15,12 @@ import { ptBR } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
 import { PAYMENT_METHODS, PaymentMethod } from "@/lib/types";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  getMinimumDurationMonths,
+  isRecurringBillActiveInMonth,
+  resolveRecurringBill,
+  type RecurringBillEditScope,
+} from "@/lib/recurring-bill-editing";
 
 export default function Forecasts() {
   const { bills, payments, loading, addBill, updateBill, deleteBill, markAsPaid, unmarkAsPaid } = useForecast();
@@ -23,6 +29,7 @@ export default function Forecasts() {
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<RecurringBill | null>(null);
+  const [editScope, setEditScope] = useState<RecurringBillEditScope>("this");
 
   // Pay dialog state
   const [payOpen, setPayOpen] = useState(false);
@@ -46,18 +53,9 @@ export default function Forecasts() {
 
   // Which bills are active for the current month
   const activeBills = useMemo(() => {
-    const [year, month] = referenceMonth.split("-").map(Number);
-    const refDate = new Date(year, month - 1, 1);
-
-    return bills.filter((b) => {
-      const start = new Date(b.startDate);
-      if (refDate < new Date(start.getFullYear(), start.getMonth(), 1)) return false;
-      if (b.durationMonths) {
-        const end = addMonths(start, b.durationMonths);
-        if (refDate >= new Date(end.getFullYear(), end.getMonth(), 1)) return false;
-      }
-      return true;
-    });
+    return bills
+      .filter((bill) => isRecurringBillActiveInMonth(bill, referenceMonth))
+      .map((bill) => resolveRecurringBill(bill, referenceMonth));
   }, [bills, referenceMonth]);
 
   const getPayment = (billId: string) =>
@@ -93,6 +91,7 @@ export default function Forecasts() {
     setFormDuration(bill.durationMonths ? String(bill.durationMonths) : "");
     setFormAccountId(bill.accountId || "");
     setFormDescription(bill.description || "");
+    setEditScope("this");
     setDialogOpen(true);
   };
 
@@ -103,12 +102,14 @@ export default function Forecasts() {
       category: formCategory,
       dueDay: Number(formDueDay),
       startDate: editingBill?.startDate || new Date().toISOString().split("T")[0],
-      durationMonths: formDuration ? Number(formDuration) : null,
+      durationMonths: editingBill && editScope === "this"
+        ? editingBill.durationMonths
+        : formDuration ? Number(formDuration) : null,
       accountId: formAccountId || null,
       description: formDescription || null,
     };
     if (editingBill) {
-      await updateBill({ ...data, id: editingBill.id });
+      await updateBill({ ...editingBill, ...data }, editScope, referenceMonth);
     } else {
       await addBill(data);
     }
@@ -140,6 +141,13 @@ export default function Forecasts() {
   };
 
   const expenseCategories = categories.filter((c) => c.type === "expense");
+  const protectedMonths = editingBill
+    ? [referenceMonth, ...payments.filter((payment) => payment.recurringBillId === editingBill.id).map((payment) => payment.referenceMonth)]
+    : [];
+  const minimumDuration = editingBill ? getMinimumDurationMonths(editingBill.startDate, protectedMonths) : 1;
+  const durationInvalid = Boolean(
+    editingBill && editScope !== "this" && formDuration && Number(formDuration) < minimumDuration,
+  );
 
   if (loading) {
     return (
@@ -308,6 +316,19 @@ export default function Forecasts() {
           </DialogHeader>
 
           <div className="space-y-4">
+            {editingBill && (
+              <div>
+                <Label>Aplicar alteração em</Label>
+                <Select value={editScope} onValueChange={(value) => setEditScope(value as RecurringBillEditScope)}>
+                  <SelectTrigger><SelectValue /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="this">Somente este mês</SelectItem>
+                    <SelectItem value="future">Este mês e os próximos</SelectItem>
+                    <SelectItem value="all">Toda a recorrência</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div>
               <Label>Nome</Label>
               <Input value={formName} onChange={(e) => setFormName(e.target.value)} placeholder="Ex: Aluguel" />
@@ -334,12 +355,25 @@ export default function Forecasts() {
               </div>
               <div>
                 <Label>Duração (meses)</Label>
-                <Input type="number" value={formDuration} onChange={(e) => setFormDuration(e.target.value)} placeholder="Indefinido" />
+                <Input
+                  type="number"
+                  min={editingBill && editScope !== "this" ? minimumDuration : 1}
+                  value={formDuration}
+                  onChange={(e) => setFormDuration(e.target.value)}
+                  placeholder="Indefinido"
+                  disabled={Boolean(editingBill && editScope === "this")}
+                />
+                {editingBill && editScope === "this" && (
+                  <p className="mt-1 text-xs text-muted-foreground">A duração pertence à recorrência e não muda em apenas um mês.</p>
+                )}
+                {durationInvalid && (
+                  <p className="mt-1 text-xs text-destructive">Use no mínimo {minimumDuration} meses para preservar ocorrências já pagas.</p>
+                )}
               </div>
             </div>
             <div>
               <Label>Conta vinculada (opcional)</Label>
-              <Select value={formAccountId} onValueChange={setFormAccountId}>
+              <Select value={formAccountId} onValueChange={(value) => setFormAccountId(value === "none" ? "" : value)}>
                 <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhuma</SelectItem>
@@ -357,7 +391,7 @@ export default function Forecasts() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={!formName || !formAmount || !formCategory}>
+            <Button onClick={handleSave} disabled={!formName || !formAmount || !formCategory || durationInvalid}>
               {editingBill ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
