@@ -55,8 +55,8 @@ export default function Dashboard() {
     if (period === "month") {
       const now = new Date();
       const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
-      return transactions.filter((t) => t.date >= firstDay && t.date <= lastDay);
+      const today = now.toISOString().split("T")[0];
+      return transactions.filter((t) => t.date >= firstDay && t.date <= today);
     }
     if (period === "custom") {
       if (!dateRange?.from) return transactions;
@@ -67,7 +67,8 @@ export default function Dashboard() {
     const cutoff = new Date();
     cutoff.setDate(cutoff.getDate() - Number(period));
     const cutoffStr = cutoff.toISOString().split("T")[0];
-    return transactions.filter((t) => t.date >= cutoffStr);
+    const today = new Date().toISOString().split("T")[0];
+    return transactions.filter((t) => t.date >= cutoffStr && t.date <= today);
   }, [transactions, period, dateRange]);
 
   // Bill payments and manual adjustments do not change income/expense metrics.

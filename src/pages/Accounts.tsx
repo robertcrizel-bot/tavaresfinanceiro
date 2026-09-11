@@ -13,6 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { isAdjustmentTransaction, isBillPaymentTransaction } from "@/lib/transaction-classification";
+import { getCardCommittedAmount, getCardCurrentInvoiceAmount } from "@/lib/credit-card-billing";
 
 const COLORS = [
   { value: "purple", label: "Roxo" },
@@ -78,15 +79,6 @@ export default function Accounts() {
       return bal;
     }, 0);
     return txBal + trBal;
-  };
-
-  // Compute credit card used
-  const getCardUsed = (ccId: string) => {
-    return transactions.reduce((total, t) => {
-      if (t.creditCardId !== ccId || t.isPaid) return total;
-      if (isBillPaymentTransaction(t)) return total;
-      return total + (t.type === "income" ? -t.amount : t.amount);
-    }, 0);
   };
 
   return (
@@ -159,7 +151,8 @@ export default function Accounts() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {creditCards.map((cc) => {
-                const used = getCardUsed(cc.id);
+                const used = getCardCommittedAmount(transactions, cc.id);
+                const currentInvoice = getCardCurrentInvoiceAmount(transactions, cc.id);
                 const available = cc.limit - used;
                 const pct = cc.limit > 0 ? Math.min((used / cc.limit) * 100, 100) : 0;
                 return (
@@ -181,6 +174,7 @@ export default function Accounts() {
                         </Button>
                       </div>
                     </div>
+                    <p className="text-xs text-muted-foreground">Limite comprometido</p>
                     <p className="text-2xl font-bold text-expense">{fmt(used)}</p>
                     <div className="mt-2 w-full h-2 rounded-full bg-muted overflow-hidden">
                       <div className="h-full rounded-full bg-expense transition-all" style={{ width: `${pct}%` }} />
@@ -189,12 +183,16 @@ export default function Accounts() {
                       <span>Disponível: {fmt(available)}</span>
                       <span>Limite: {fmt(cc.limit)}</span>
                     </div>
-                    {used > 0 && (
+                    <div className="mt-3 flex items-center justify-between text-sm">
+                      <span className="text-muted-foreground">Fatura atual</span>
+                      <strong className="text-foreground">{fmt(currentInvoice)}</strong>
+                    </div>
+                    {currentInvoice > 0 && (
                       <Button
                         variant="outline"
                         size="sm"
                         className="w-full mt-3 gap-2"
-                        onClick={() => { setPayingCard({ card: cc, amount: used }); setPayAccountId(""); setPayAmount(used.toFixed(2)); setPayDate(new Date().toISOString().split("T")[0]); setPayMethod("Transferência"); }}
+                        onClick={() => { setPayingCard({ card: cc, amount: currentInvoice }); setPayAccountId(""); setPayAmount(currentInvoice.toFixed(2)); setPayDate(new Date().toISOString().split("T")[0]); setPayMethod("Transferência"); }}
                       >
                         <Receipt className="h-3.5 w-3.5" /> Pagar Fatura
                       </Button>
@@ -235,7 +233,7 @@ export default function Accounts() {
         onClose={() => { setCcFormOpen(false); setEditingCc(undefined); }}
         onSubmit={(data) => editingCc ? updateCreditCard({ ...data, id: editingCc.id }) : addCreditCard(data)}
         initial={editingCc}
-        currentUsed={editingCc ? getCardUsed(editingCc.id) : 0}
+        currentUsed={editingCc ? getCardCurrentInvoiceAmount(transactions, editingCc.id) : 0}
         onAdjustUsed={async (cardId, diff) => {
           // diff > 0 means we need to INCREASE the bill -> add expense on card
           // diff < 0 means we need to DECREASE the bill -> add income (refund) on card
@@ -298,7 +296,7 @@ export default function Accounts() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <Label className="mb-2 block">Valor Pago</Label>
-                <Input type="number" step="0.01" min="0" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+                <Input type="number" step="0.01" min="0" max={payingCard?.amount} value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
               </div>
               <div>
                 <Label className="mb-2 block">Data</Label>
@@ -323,7 +321,7 @@ export default function Accounts() {
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
             <AlertDialogAction
-              disabled={!payAccountId || !payAmount || parseFloat(payAmount) <= 0}
+              disabled={!payAccountId || !payAmount || parseFloat(payAmount) <= 0 || parseFloat(payAmount) > (payingCard?.amount ?? 0)}
               onClick={async () => {
                 if (payingCard && payAccountId) {
                   const amt = parseFloat(payAmount);

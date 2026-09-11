@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
 import { isBillPaymentTransaction } from "@/lib/transaction-classification";
+import { getCardInvoiceEndDate } from "@/lib/credit-card-billing";
 
 interface FinanceContextType {
   transactions: Transaction[];
@@ -268,6 +269,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       .select("id, amount, date")
       .eq("credit_card_id", creditCardId)
       .eq("is_paid", false)
+      .lte("date", getCardInvoiceEndDate())
       .order("date", { ascending: true });
 
     if (fetchErr) {
@@ -276,7 +278,12 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }
 
     const totalUnpaid = (unpaid || []).reduce((s, r) => s + Number(r.amount), 0);
-    let remaining = Math.min(amount, totalUnpaid);
+    const appliedAmount = Math.min(amount, totalUnpaid);
+    if (appliedAmount <= 0) {
+      toast({ title: "Fatura sem saldo", description: "Não há lançamentos nesta fatura para pagar.", variant: "destructive" });
+      return;
+    }
+    let remaining = appliedAmount;
 
     // Mark transactions paid until remaining is exhausted; split last one if partial
     const idsToMark: string[] = [];
@@ -326,7 +333,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     const { error: insertError } = await supabase.from("transactions").insert({
       user_id: user.id,
       title: "Pagamento de Fatura",
-      amount,
+      amount: appliedAmount,
       type: "expense",
       category: "Pagamento Fatura",
       date: date || new Date().toISOString().split("T")[0],
@@ -340,7 +347,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     if (insertError) {
       toast({ title: "Erro ao registrar pagamento", description: insertError.message, variant: "destructive" });
     } else {
-      toast({ title: "Fatura paga!", description: `Pagamento de ${amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} registrado.` });
+      toast({ title: "Fatura paga!", description: `Pagamento de ${appliedAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} registrado.` });
       fetchTransactions();
     }
   }, [user, fetchTransactions]);
