@@ -146,7 +146,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
       installments,
       installment_number: 1,
       receipt_ref: options?.receiptRef || null,
-      receipt_details: t.receiptDetails || null,
+      ...(t.receiptDetails ? { receipt_details: t.receiptDetails } : {}),
     }).select("id").single();
 
     if (parentErr || !parent) {
