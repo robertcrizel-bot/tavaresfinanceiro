@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Camera, Loader2, Paperclip, ScanLine, AlertTriangle } from "lucide-react";
 import { TransactionForm } from "@/components/TransactionForm";
 import { useFinance } from "@/contexts/FinanceContext";
@@ -28,8 +29,14 @@ export default function ReceiptImport() {
   const [lowConfidence, setLowConfidence] = useState<string[]>([]);
   const [duplicate, setDuplicate] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
+  const [cameraOpen, setCameraOpen] = useState(false);
+  const [cameraStarting, setCameraStarting] = useState(false);
+  const [cameraReady, setCameraReady] = useState(false);
+  const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const cameraStreamRef = useRef<MediaStream | null>(null);
+  const cameraRequestRef = useRef(0);
   const sharedChecked = useRef(false);
 
   const buildPrefill = useCallback(
@@ -98,6 +105,109 @@ export default function ReceiptImport() {
     [accounts, creditCards, allCategoryNames, buildPrefill],
   );
 
+  const releaseCamera = useCallback(() => {
+    cameraRequestRef.current++;
+    cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
+    cameraStreamRef.current = null;
+    if (videoRef.current) videoRef.current.srcObject = null;
+  }, []);
+
+  const closeCamera = useCallback(() => {
+    releaseCamera();
+    setCameraStream(null);
+    setCameraStarting(false);
+    setCameraReady(false);
+    setCameraOpen(false);
+  }, [releaseCamera]);
+
+  useEffect(() => () => releaseCamera(), [releaseCamera]);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    if (!cameraStream || !video) return;
+    video.srcObject = cameraStream;
+    void video.play().catch(() => {
+      if (cameraStreamRef.current !== cameraStream) return;
+      closeCamera();
+      setError("Não foi possível iniciar a câmera. Use Escolher arquivo para enviar a foto.");
+    });
+    return () => {
+      if (video.srcObject === cameraStream) video.srcObject = null;
+    };
+  }, [cameraStream, closeCamera]);
+
+  const openCamera = async () => {
+    setError(null);
+    if (!navigator.mediaDevices?.getUserMedia) {
+      setError("A câmera não está disponível neste navegador. Use Escolher arquivo para enviar a foto.");
+      return;
+    }
+
+    const requestId = ++cameraRequestRef.current;
+    setCameraOpen(true);
+    setCameraStarting(true);
+    setCameraReady(false);
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({
+        video: {
+          facingMode: { ideal: "environment" },
+          width: { ideal: 1920 },
+          height: { ideal: 1080 },
+        },
+        audio: false,
+      });
+      if (cameraRequestRef.current !== requestId) {
+        stream.getTracks().forEach((track) => track.stop());
+        return;
+      }
+      cameraStreamRef.current = stream;
+      setCameraStream(stream);
+      setCameraStarting(false);
+    } catch (cameraError) {
+      if (cameraRequestRef.current !== requestId) return;
+      closeCamera();
+      const permissionDenied = (cameraError as { name?: string })?.name === "NotAllowedError";
+      setError(permissionDenied
+        ? "A permissão da câmera foi negada. Autorize o acesso ou use Escolher arquivo."
+        : "Não foi possível abrir a câmera. Use Escolher arquivo para enviar a foto.");
+    }
+  };
+
+  const captureCameraPhoto = async () => {
+    const video = videoRef.current;
+    if (!video || !video.videoWidth || !video.videoHeight) {
+      setError("A câmera ainda não está pronta. Aguarde um instante e tente novamente.");
+      return;
+    }
+
+    const maxDimension = 1920;
+    const scale = Math.min(1, maxDimension / Math.max(video.videoWidth, video.videoHeight));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(video.videoWidth * scale);
+    canvas.height = Math.round(video.videoHeight * scale);
+
+    try {
+      const ctx = canvas.getContext("2d", { alpha: false });
+      if (!ctx) throw new Error("canvas unavailable");
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      closeCamera();
+
+      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+      if (!blob) throw new Error("capture failed");
+      const file = new File([blob], `comprovante-${new Date().toISOString().replace(/[:.]/g, "-")}.jpg`, {
+        type: "image/jpeg",
+        lastModified: Date.now(),
+      });
+      void processFile(file);
+    } catch {
+      closeCamera();
+      setError("Não foi possível fotografar o comprovante. Tente novamente ou use Escolher arquivo.");
+    } finally {
+      canvas.width = 0;
+      canvas.height = 0;
+    }
+  };
+
   useEffect(() => {
     if (sharedChecked.current) return;
     sharedChecked.current = true;
@@ -143,7 +253,7 @@ export default function ReceiptImport() {
               <Button className="gap-2" onClick={() => fileInputRef.current?.click()}>
                 <Paperclip className="h-4 w-4" /> Escolher arquivo
               </Button>
-              <Button variant="outline" className="gap-2" onClick={() => cameraInputRef.current?.click()}>
+              <Button variant="outline" className="gap-2" onClick={() => void openCamera()}>
                 <Camera className="h-4 w-4" /> Tirar foto
               </Button>
             </div>
@@ -151,18 +261,6 @@ export default function ReceiptImport() {
               ref={fileInputRef}
               type="file"
               accept="image/*,application/pdf"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (f) void processFile(f);
-              }}
-            />
-            <input
-              ref={cameraInputRef}
-              type="file"
-              accept="image/*"
-              capture="environment"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -198,6 +296,37 @@ export default function ReceiptImport() {
           </div>
         )}
       </Card>
+
+      <Dialog open={cameraOpen} onOpenChange={(open) => !open && closeCamera()}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Fotografar comprovante</DialogTitle>
+            <DialogDescription>Enquadre todo o comprovante e mantenha o texto bem iluminado.</DialogDescription>
+          </DialogHeader>
+          <div className="relative aspect-video overflow-hidden rounded-md bg-black">
+            {(cameraStarting || !cameraReady) && (
+              <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 text-sm text-white">
+                <Loader2 className="h-5 w-5 animate-spin" /> Preparando câmera...
+              </div>
+            )}
+            <video
+              ref={videoRef}
+              data-testid="receipt-camera-video"
+              playsInline
+              muted
+              autoPlay
+              onCanPlay={() => setCameraReady(true)}
+              className="h-full w-full object-contain"
+            />
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={closeCamera}>Cancelar</Button>
+            <Button type="button" onClick={() => void captureCameraPhoto()} disabled={cameraStarting || !cameraReady}>
+              <Camera className="mr-2 h-4 w-4" /> Fotografar
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {prefill && (
         <TransactionForm
