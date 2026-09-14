@@ -102,4 +102,25 @@ describe("ReceiptImport metadata", () => {
       expect.objectContaining({ receiptRef: "receipt-1", attachments: [file] }),
     );
   });
+
+  it.each([
+    ["Escolher arquivo", 0, "image/*,application/pdf", null],
+    ["Tirar foto", 1, "image/*", "environment"],
+  ])("sends the %s input through the same receipt parser", async (_label, inputIndex, accept, capture) => {
+    const { container } = render(<ReceiptImport />);
+    const inputs = container.querySelectorAll<HTMLInputElement>('input[type="file"]');
+    const input = inputs[inputIndex];
+    const file = new File(["receipt"], `receipt-${inputIndex}.jpg`, { type: "image/jpeg" });
+
+    expect(input).toBeDefined();
+    expect(input.accept).toBe(accept);
+    expect(input.getAttribute("capture")).toBe(capture);
+
+    fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(mocks.parseReceipt).toHaveBeenCalledWith(file, {
+      categories: ["Alimentação", "Outros"],
+      accounts: [],
+    }));
+  });
 });
