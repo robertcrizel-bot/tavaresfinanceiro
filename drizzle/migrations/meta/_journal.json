@@ -22,6 +22,13 @@
       "when": 1789151462139,
       "tag": "0002_add_receipt_details_to_transactions",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1789395020878,
+      "tag": "0003_add_categories_monthly_budget",
+      "breakpoints": true
     }
   ]
 }
