@@ -7,6 +7,17 @@ export interface TransferBalanceEntry {
   amount: number;
 }
 
+type CategorySpendTransaction = Pick<
+  Transaction,
+  "amount" | "type" | "category" | "date" | "title" | "description" | "accountId" | "creditCardId"
+>;
+
+export interface CategoryBudgetUsage {
+  percentage: number;
+  available: number;
+  exceeded: number;
+}
+
 export const getTransferValidationError = (transfer: TransferBalanceEntry) => {
   if (!transfer.fromAccountId || !transfer.toAccountId) return "Selecione as contas de origem e destino.";
   if (transfer.fromAccountId === transfer.toAccountId) return "As contas de origem e destino devem ser diferentes.";
@@ -45,3 +56,24 @@ export const calculateFinancialTotals = (transactions: Transaction[]) => transac
   },
   { income: 0, expense: 0 },
 );
+
+export const calculateCurrentMonthCategorySpending = (
+  transactions: CategorySpendTransaction[],
+  referenceDate = new Date(),
+) => {
+  const monthKey = `${referenceDate.getFullYear()}-${String(referenceDate.getMonth() + 1).padStart(2, "0")}`;
+
+  return transactions.reduce<Record<string, number>>((spending, transaction) => {
+    if (transaction.type !== "expense") return spending;
+    if (transaction.date.slice(0, 7) !== monthKey) return spending;
+    if (isFinancialNeutralTransaction(transaction)) return spending;
+    spending[transaction.category] = (spending[transaction.category] || 0) + transaction.amount;
+    return spending;
+  }, {});
+};
+
+export const calculateCategoryBudgetUsage = (spent: number, budget: number): CategoryBudgetUsage => ({
+  percentage: budget > 0 ? (spent * 100) / budget : 0,
+  available: Math.max(budget - spent, 0),
+  exceeded: Math.max(spent - budget, 0),
+});

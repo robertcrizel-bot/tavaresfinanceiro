@@ -7,13 +7,14 @@ export interface UserCategory {
   id: string;
   name: string;
   type: "income" | "expense" | "both";
+  monthlyBudget: number | null;
 }
 
 interface CategoryContextType {
   categories: UserCategory[];
   loading: boolean;
-  addCategory: (name: string, type: UserCategory["type"]) => Promise<void>;
-  updateCategory: (id: string, name: string, type: UserCategory["type"]) => Promise<void>;
+  addCategory: (name: string, type: UserCategory["type"], monthlyBudget?: number | null) => Promise<void>;
+  updateCategory: (id: string, name: string, type: UserCategory["type"], monthlyBudget?: number | null) => Promise<void>;
   deleteCategory: (id: string) => Promise<void>;
   getCategoriesByType: (type: "income" | "expense") => string[];
   allCategoryNames: string[];
@@ -74,19 +75,34 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
       if (seedError) {
         toast({ title: "Erro ao criar categorias padrão", description: seedError.message, variant: "destructive" });
       } else {
-        setCategories((seeded || []).map((r) => ({ id: r.id, name: r.name, type: r.type as UserCategory["type"] })));
+        setCategories((seeded || []).map((r) => ({
+          id: r.id,
+          name: r.name,
+          type: r.type as UserCategory["type"],
+          monthlyBudget: r.monthly_budget == null ? null : Number(r.monthly_budget),
+        })));
       }
     } else {
-      setCategories(data.map((r) => ({ id: r.id, name: r.name, type: r.type as UserCategory["type"] })));
+      setCategories(data.map((r) => ({
+        id: r.id,
+        name: r.name,
+        type: r.type as UserCategory["type"],
+        monthlyBudget: r.monthly_budget == null ? null : Number(r.monthly_budget),
+      })));
     }
     setLoading(false);
   }, [user]);
 
   useEffect(() => { fetchCategories(); }, [fetchCategories]);
 
-  const addCategory = useCallback(async (name: string, type: UserCategory["type"]) => {
+  const addCategory = useCallback(async (name: string, type: UserCategory["type"], monthlyBudget: number | null = null) => {
     if (!user) return;
-    const { error } = await supabase.from("categories").insert({ user_id: user.id, name, type });
+    const { error } = await supabase.from("categories").insert({
+      user_id: user.id,
+      name,
+      type,
+      monthly_budget: type === "expense" ? monthlyBudget : null,
+    });
     if (error) {
       toast({ title: "Erro ao criar categoria", description: error.message, variant: "destructive" });
     } else {
@@ -95,8 +111,17 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
     }
   }, [user, fetchCategories]);
 
-  const updateCategory = useCallback(async (id: string, name: string, type: UserCategory["type"]) => {
-    const { error } = await supabase.from("categories").update({ name, type }).eq("id", id);
+  const updateCategory = useCallback(async (
+    id: string,
+    name: string,
+    type: UserCategory["type"],
+    monthlyBudget: number | null = null,
+  ) => {
+    const { error } = await supabase.from("categories").update({
+      name,
+      type,
+      monthly_budget: type === "expense" ? monthlyBudget : null,
+    }).eq("id", id);
     if (error) {
       toast({ title: "Erro ao atualizar categoria", description: error.message, variant: "destructive" });
     } else {

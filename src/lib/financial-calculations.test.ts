@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateAccountBalances,
+  calculateCategoryBudgetUsage,
+  calculateCurrentMonthCategorySpending,
   calculateFinancialTotals,
   getTransferValidationError,
   type TransferBalanceEntry,
@@ -22,6 +24,16 @@ const transfer = (fromAccountId: string, toAccountId: string, amount: number): T
 
 const balancesFor = (transfers: TransferBalanceEntry[]) => calculateAccountBalances(accounts, [], transfers);
 const totalBalance = (balances: Record<string, number>) => Object.values(balances).reduce((sum, value) => sum + value, 0);
+
+const transaction = (overrides: Partial<Transaction> = {}): Transaction => ({
+  id: "transaction",
+  title: "Compra",
+  amount: 100,
+  type: "expense",
+  category: "Alimentação",
+  date: "2026-09-10",
+  ...overrides,
+});
 
 describe("transfer balance calculations", () => {
   it("debits the source and credits the destination on creation", () => {
@@ -82,5 +94,89 @@ describe("transfer balance calculations", () => {
 
   it("ignores an orphan transfer instead of applying a one-sided effect", () => {
     expect(balancesFor([transfer("A", "missing", 200)])).toEqual({ A: 1000, B: 500, C: 700, D: 300 });
+  });
+});
+
+describe("current month category spending", () => {
+  const referenceDate = new Date(2026, 8, 14);
+
+  it("counts a regular expense in the current civil month", () => {
+    expect(calculateCurrentMonthCategorySpending([transaction()], referenceDate)).toEqual({ Alimentação: 100 });
+  });
+
+  it("counts a credit card purchase", () => {
+    const spending = calculateCurrentMonthCategorySpending([
+      transaction({ amount: 250, creditCardId: "card-1" }),
+    ], referenceDate);
+
+    expect(spending.Alimentação).toBe(250);
+  });
+
+  it("does not count a card bill payment", () => {
+    const spending = calculateCurrentMonthCategorySpending([
+      transaction({
+        title: "Pagamento de Fatura",
+        category: "Pagamento Fatura" as Transaction["category"],
+        accountId: "account-1",
+        creditCardId: "card-1",
+      }),
+    ], referenceDate);
+
+    expect(spending).toEqual({});
+  });
+
+  it("does not count financially neutral adjustments", () => {
+    const spending = calculateCurrentMonthCategorySpending([
+      transaction({ title: "Ajuste de saldo", category: "Outros", description: "Ajuste manual" }),
+    ], referenceDate);
+
+    expect(spending).toEqual({});
+  });
+
+  it("does not receive separate transfers and keeps normal transfer-method expenses", () => {
+    const separateTransfers = [transfer("A", "B", 500)];
+    const spending = calculateCurrentMonthCategorySpending([
+      transaction({ paymentMethod: "Transferência" }),
+    ], referenceDate);
+
+    expect(separateTransfers).toHaveLength(1);
+    expect(spending.Alimentação).toBe(100);
+  });
+
+  it("counts only the installment dated in the current month", () => {
+    const spending = calculateCurrentMonthCategorySpending([
+      transaction({ id: "installment-current", amount: 80, date: "2026-09-20", creditCardId: "card-1" }),
+      transaction({ id: "installment-future", amount: 80, date: "2026-10-20", creditCardId: "card-1" }),
+    ], referenceDate);
+
+    expect(spending.Alimentação).toBe(80);
+  });
+
+  it("ignores income and expenses outside the current month", () => {
+    const spending = calculateCurrentMonthCategorySpending([
+      transaction({ type: "income", amount: 500 }),
+      transaction({ date: "2026-08-31", amount: 40 }),
+      transaction({ date: "2026-10-01", amount: 60 }),
+    ], referenceDate);
+
+    expect(spending).toEqual({});
+  });
+});
+
+describe("category budget usage", () => {
+  it("calculates percentage and available amount", () => {
+    expect(calculateCategoryBudgetUsage(740, 1000)).toEqual({
+      percentage: 74,
+      available: 260,
+      exceeded: 0,
+    });
+  });
+
+  it("calculates the exceeded amount", () => {
+    expect(calculateCategoryBudgetUsage(1150, 1000)).toEqual({
+      percentage: 115,
+      available: 0,
+      exceeded: 150,
+    });
   });
 });
