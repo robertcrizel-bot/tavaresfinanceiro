@@ -201,6 +201,7 @@ export type Database = {
           name: string
           scoped_edits: Json
           start_date: string
+          type: string
           updated_at: string
           user_id: string
         }
@@ -216,6 +217,7 @@ export type Database = {
           name: string
           scoped_edits?: Json
           start_date?: string
+          type?: string
           updated_at?: string
           user_id: string
         }
@@ -231,6 +233,7 @@ export type Database = {
           name?: string
           scoped_edits?: Json
           start_date?: string
+          type?: string
           updated_at?: string
           user_id?: string
         }
