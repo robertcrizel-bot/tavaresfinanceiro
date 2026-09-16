@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { Transaction, TransactionType, Category, PaymentMethod, PAYMENT_METHODS } from "@/lib/types";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
+import { useFinance } from "@/contexts/FinanceContext";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,8 +10,10 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Paperclip, Camera, X, FileIcon, Circle } from "lucide-react";
+import { Progress } from "@/components/ui/progress";
 import { compressImageFile } from "@/lib/image-compression";
 import { toast } from "@/hooks/use-toast";
+import { calculateCurrentMonthCategorySpending, calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
 
 interface TransactionFormProps {
   open: boolean;
@@ -27,7 +30,8 @@ interface TransactionFormProps {
 
 export function TransactionForm({ open, onClose, onSubmit, initial, prefill, prefillAttachments, title: dialogTitle, submitLabel }: TransactionFormProps) {
   const { accounts, creditCards } = useAccounts();
-  const { getCategoriesByType } = useCategories();
+  const { getCategoriesByType, categories: allCategories } = useCategories();
+  const { transactions } = useFinance();
   const [title, setTitle] = useState("");
   const [amount, setAmount] = useState("");
   const [type, setType] = useState<TransactionType>("expense");
@@ -72,6 +76,35 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
   }, [initial, open, prefill, prefillAttachments]);
 
   const categories = getCategoriesByType(type);
+
+  const budgetInfo = useMemo(() => {
+    if (type !== "expense") return null;
+    const selectedCategory = allCategories.find((c) => c.name === category);
+    if (!selectedCategory || selectedCategory.monthlyBudget == null) return null;
+
+    const spendingMonth = new Date(date + "T00:00:00");
+    const monthlySpending = calculateCurrentMonthCategorySpending(transactions, spendingMonth);
+    const rawSpent = monthlySpending[category] || 0;
+
+    const currentAmount = parseFloat(amount) || 0;
+    const isEditing = Boolean(initial);
+    const sameMonth = isEditing && initial!.date.slice(0, 7) === date.slice(0, 7);
+    const sameCategory = isEditing && initial!.type === "expense" && initial!.category === category;
+    const subtractCurrent = isEditing && sameMonth && sameCategory;
+    const spentWithoutCurrent = subtractCurrent ? rawSpent - initial!.amount : rawSpent;
+    const projectedSpent = spentWithoutCurrent + currentAmount;
+
+    const budget = selectedCategory.monthlyBudget!;
+    const usage = calculateCategoryBudgetUsage(projectedSpent, budget);
+
+    return {
+      budget,
+      spent: spentWithoutCurrent,
+      currentAmount,
+      projectedSpent,
+      usage,
+    };
+  }, [type, category, date, amount, initial, transactions, allCategories]);
 
   const stopCamera = useCallback(() => {
     cameraStream?.getTracks().forEach((track) => track.stop());
@@ -222,6 +255,31 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
             </div>
           </div>
+          {budgetInfo && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs space-y-2">
+              <p className="text-muted-foreground text-[11px]">Orçamento utilizado após este lançamento</p>
+              <div>
+                <span className="font-semibold text-sm">
+                  {budgetInfo.projectedSpent.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </span>
+                <span className="text-muted-foreground"> de {budgetInfo.budget.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+              </div>
+              <div className="relative">
+                <Progress
+                  value={Math.min(budgetInfo.usage.percentage, 100)}
+                  className={`h-6 ${budgetInfo.usage.exceeded > 0 ? "[&>div]:bg-destructive" : ""}`}
+                />
+                <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold text-white pointer-events-none select-none">
+                  {Math.round(budgetInfo.usage.percentage)}%
+                </span>
+              </div>
+              <p className={budgetInfo.usage.exceeded > 0 ? "font-medium text-destructive" : "text-muted-foreground"}>
+                {budgetInfo.usage.exceeded > 0
+                  ? `${budgetInfo.usage.exceeded.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} acima do orçamento`
+                  : `${budgetInfo.usage.available.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} disponíveis`}
+              </p>
+            </div>
+          )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
               <Label>Conta <span className="text-muted-foreground text-xs">(opcional)</span></Label>
