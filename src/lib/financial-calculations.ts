@@ -1,5 +1,8 @@
 import { isFinancialNeutralTransaction } from "@/lib/transaction-classification";
+import { isRecurringBillActiveInMonth, resolveRecurringBill, type EditableRecurringBill } from "@/lib/recurring-bill-editing";
+import { getPaymentForCompetence } from "@/lib/forecast-status";
 import type { Account, Transaction } from "@/lib/types";
+import type { UserCategory } from "@/contexts/CategoryContext";
 
 export interface TransferBalanceEntry {
   fromAccountId: string;
@@ -77,3 +80,123 @@ export const calculateCategoryBudgetUsage = (spent: number, budget: number): Cat
   available: Math.max(budget - spent, 0),
   exceeded: Math.max(spent - budget, 0),
 });
+
+interface CompetencePayment {
+  recurringBillId: string;
+  referenceMonth: string;
+}
+
+export interface CategoryBudgetProjection {
+  realized: number;
+  committed: number;
+  projected: number;
+  budget: number;
+  percentage: number;
+  available: number;
+  exceeded: number;
+}
+
+export const calculateMonthlyCategoryBudgetProjection = ({
+  transactions,
+  bills,
+  payments,
+  categories,
+  referenceMonth,
+  category,
+}: {
+  transactions: CategorySpendTransaction[];
+  bills: EditableRecurringBill[];
+  payments: CompetencePayment[];
+  categories: UserCategory[];
+  referenceMonth: string;
+  category: string;
+}): CategoryBudgetProjection | null => {
+  const categoryObj = categories.find((c) => c.name === category);
+  if (!categoryObj || categoryObj.monthlyBudget == null) return null;
+
+  const spendingMonth = new Date(referenceMonth + "-15T00:00:00");
+  const monthlySpending = calculateCurrentMonthCategorySpending(transactions, spendingMonth);
+  const realized = monthlySpending[category] || 0;
+
+  const committed = bills
+    .filter((bill) => {
+      if (!isRecurringBillActiveInMonth(bill, referenceMonth)) return false;
+      const resolved = resolveRecurringBill(bill, referenceMonth);
+      if (resolved.type !== "expense") return false;
+      if (resolved.category !== category) return false;
+      if (getPaymentForCompetence(payments, bill.id, referenceMonth)) return false;
+      return true;
+    })
+    .reduce((sum, bill) => {
+      const resolved = resolveRecurringBill(bill, referenceMonth);
+      return sum + resolved.amount;
+    }, 0);
+
+  const projected = realized + committed;
+  const budget = categoryObj.monthlyBudget;
+  const usage = calculateCategoryBudgetUsage(projected, budget);
+
+  return {
+    realized,
+    committed,
+    projected,
+    budget,
+    ...usage,
+  };
+};
+
+export const simulateForecastBudgetProjection = ({
+  persistedProjection,
+  editingBillResolved,
+  isBillCommitted,
+  isBillPaid,
+  newAmount,
+  newType,
+  newCategory,
+  categories,
+}: {
+  persistedProjection: CategoryBudgetProjection | null;
+  editingBillResolved: EditableRecurringBill | null;
+  isBillCommitted: boolean;
+  isBillPaid: boolean;
+  newAmount: number;
+  newType: "expense" | "income";
+  newCategory: string;
+  categories: UserCategory[];
+}): CategoryBudgetProjection | null => {
+  if (isBillPaid) return persistedProjection;
+
+  if (newType !== "expense") return null;
+
+  const categoryObj = categories.find((c) => c.name === newCategory);
+  if (!categoryObj || categoryObj.monthlyBudget == null) return null;
+
+  const safeNewAmount = Number.isFinite(newAmount) && newAmount > 0 ? newAmount : 0;
+
+  const base = persistedProjection ?? {
+    realized: 0,
+    committed: 0,
+    projected: 0,
+    budget: categoryObj.monthlyBudget,
+    percentage: 0,
+    available: categoryObj.monthlyBudget,
+    exceeded: 0,
+  };
+
+  const subtract = (editingBillResolved && isBillCommitted && editingBillResolved.category === newCategory)
+    ? editingBillResolved.amount
+    : 0;
+
+  const committed = Math.max(base.committed - subtract + safeNewAmount, 0);
+  const projected = base.realized + committed;
+  const budget = categoryObj.monthlyBudget;
+  const usage = calculateCategoryBudgetUsage(projected, budget);
+
+  return {
+    realized: base.realized,
+    committed,
+    projected,
+    budget,
+    ...usage,
+  };
+};

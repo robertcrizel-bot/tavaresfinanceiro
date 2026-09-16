@@ -2,6 +2,7 @@ import { useState, useMemo } from "react";
 import { useForecast, RecurringBill } from "@/contexts/ForecastContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
+import { useFinance } from "@/contexts/FinanceContext";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { CalendarClock, Plus, ChevronLeft, ChevronRight, Check, Undo2, Pencil, Trash2, CircleDollarSign, Clock, AlertTriangle } from "lucide-react";
 import { format, addMonths, subMonths } from "date-fns";
@@ -18,6 +20,7 @@ import { Loader2 } from "lucide-react";
 import { PAYMENT_METHODS, PaymentMethod } from "@/lib/types";
 import { Textarea } from "@/components/ui/textarea";
 import { getForecastTemporalStatus, getPaymentForCompetence } from "@/lib/forecast-status";
+import { calculateMonthlyCategoryBudgetProjection, simulateForecastBudgetProjection } from "@/lib/financial-calculations";
 import {
   getMinimumDurationMonths,
   isRecurringBillActiveInMonth,
@@ -30,6 +33,7 @@ export default function Forecasts() {
   const { bills, payments, loading, addBill, updateBill, deleteBill, markAsPaid, unmarkAsPaid } = useForecast();
   const { accounts } = useAccounts();
   const { categories } = useCategories();
+  const { transactions } = useFinance();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<RecurringBill | null>(null);
@@ -70,6 +74,35 @@ export default function Forecasts() {
   const totalPrevisto = activeBills.reduce((sum, b) => sum + b.amount, 0);
   const totalPago = activeBills.filter((b) => getPayment(b.id)).reduce((sum, b) => sum + b.amount, 0);
   const totalPendente = totalPrevisto - totalPago;
+
+  const formBudgetProjection = useMemo(() => {
+    if (formType !== "expense" || !formCategory) return null;
+    const selectedCategory = categories.find((c) => c.name === formCategory && c.type === "expense");
+    if (!selectedCategory || !selectedCategory.monthlyBudget || selectedCategory.monthlyBudget <= 0) return null;
+    const persistedProjection = calculateMonthlyCategoryBudgetProjection({
+      transactions,
+      bills,
+      payments,
+      categories,
+      referenceMonth,
+      category: formCategory,
+    });
+    const editingBillResolved = editingBill && isRecurringBillActiveInMonth(editingBill, referenceMonth) ? resolveRecurringBill(editingBill, referenceMonth) : null;
+    const editingBillPayment = editingBill ? getPaymentForCompetence(payments, editingBill.id, referenceMonth) : null;
+    const isBillPaid = Boolean(editingBill && editingBillPayment);
+    const isBillCommitted = Boolean(editingBillResolved && editingBillResolved.type === "expense" && !isBillPaid);
+    const newAmount = Number(formAmount);
+    return simulateForecastBudgetProjection({
+      persistedProjection,
+      editingBillResolved,
+      isBillCommitted,
+      isBillPaid,
+      newAmount,
+      newType: formType,
+      newCategory: formCategory,
+      categories,
+    });
+  }, [formType, formCategory, formAmount, editingBill, referenceMonth, transactions, payments, categories]);
 
   const openNew = () => {
     setEditingBill(null);
@@ -355,15 +388,15 @@ export default function Forecasts() {
 
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
+        <DialogContent className="max-w-md max-h-[90vh] flex flex-col overflow-hidden p-0">
+          <DialogHeader className="px-6 pt-6 pb-0 shrink-0">
             <DialogTitle>{editingBill ? "Editar Previsão" : "Nova Previsão"}</DialogTitle>
             <DialogDescription>
               {editingBill ? "Atualize os dados da previsão recorrente" : "Cadastre uma nova previsão recorrente"}
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
+          <div className="space-y-4 flex-1 min-h-0 overflow-y-auto px-6 py-4">
             {editingBill && (
               <div>
                 <Label>Aplicar alteração em</Label>
@@ -406,6 +439,43 @@ export default function Forecasts() {
                 </SelectContent>
               </Select>
             </div>
+            {formBudgetProjection && (
+              <Card className="border border-border bg-muted/30">
+                <CardContent className="p-3 space-y-2">
+                  <p className="text-xs font-medium text-muted-foreground">Orçamento de {formCategory}</p>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Já gasto:</span>
+                    <span className="font-medium">
+                      {formBudgetProjection.realized.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-muted-foreground">Com esta e outras previsões:</span>
+                    <span className="font-medium">
+                      {formBudgetProjection.committed.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-xs font-medium">
+                    <span>
+                      {formBudgetProjection.projected.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      {" de "}
+                      {formBudgetProjection.budget!.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                    </span>
+                    <span>{Math.round(formBudgetProjection.percentage)}%</span>
+                  </div>
+                  <Progress
+                    value={Math.min(formBudgetProjection.percentage, 100)}
+                    className="h-2"
+                    indicatorClassName={formBudgetProjection.percentage > 100 ? "bg-destructive" : "bg-primary"}
+                  />
+                  <p className={`text-xs font-medium ${formBudgetProjection.exceeded > 0 ? "text-destructive" : "text-muted-foreground"}`}>
+                    {formBudgetProjection.exceeded > 0
+                      ? `${formBudgetProjection.exceeded.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} acima do orçamento`
+                      : `${formBudgetProjection.available.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} ainda disponíveis`}
+                  </p>
+                </CardContent>
+              </Card>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label>Dia do vencimento</Label>
@@ -450,7 +520,7 @@ export default function Forecasts() {
             </div>
           </div>
 
-          <DialogFooter>
+          <DialogFooter className="px-6 pb-6 pt-0 shrink-0">
             <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
             <Button onClick={handleSave} disabled={!formName || !formAmount || !formCategory || durationInvalid || Boolean(editingBill && !editScope)}>
               {editingBill ? "Salvar" : "Criar"}
