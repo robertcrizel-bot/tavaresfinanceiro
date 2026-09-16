@@ -1,14 +1,17 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Transaction } from "@/lib/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 import { isAdjustmentTransaction, isBillPaymentTransaction, isFinancialNeutralTransaction } from "@/lib/transaction-classification";
 import { supabase } from "@/integrations/supabase/client";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
+import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
 import { FileIcon, ImageIcon, Download, Eye, Trash2 } from "lucide-react";
+import { calculateCurrentMonthCategorySpending, calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
 
 interface TransactionDetailProps {
   transaction: Transaction | null;
@@ -71,8 +74,9 @@ const splitReceiptDescription = (description?: string) => {
 };
 
 export function TransactionDetail({ transaction, open, onClose }: TransactionDetailProps) {
-  const { refetch } = useFinance();
+  const { refetch, transactions } = useFinance();
   const { accounts, creditCards } = useAccounts();
+  const { categories } = useCategories();
   const [attachments, setAttachments] = useState<AttachmentRow[]>([]);
   const [previewUrls, setPreviewUrls] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(false);
@@ -121,6 +125,20 @@ export function TransactionDetail({ transaction, open, onClose }: TransactionDet
 
     return () => { cancelled = true; };
   }, [transaction, open]);
+
+  const budgetInfo = useMemo(() => {
+    if (!transaction || transaction.type !== "expense") return null;
+    const categoryObj = categories.find((c) => c.name === transaction.category);
+    if (!categoryObj || categoryObj.monthlyBudget == null) return null;
+
+    const spendingMonth = new Date(transaction.date + "T00:00:00");
+    const monthlySpending = calculateCurrentMonthCategorySpending(transactions, spendingMonth);
+    const totalSpent = monthlySpending[transaction.category] || 0;
+    const budget = categoryObj.monthlyBudget;
+    const usage = calculateCategoryBudgetUsage(totalSpent, budget);
+
+    return { budget, totalSpent, usage };
+  }, [transaction, transactions, categories]);
 
   if (!transaction) return null;
 
@@ -243,6 +261,32 @@ export function TransactionDetail({ transaction, open, onClose }: TransactionDet
               )}
             </dl>
           </section>
+
+          {budgetInfo && (
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs space-y-2">
+              <p className="text-muted-foreground text-[11px]">Orçamento utilizado no mês</p>
+              <div>
+                <span className="font-semibold text-sm">
+                  {budgetInfo.totalSpent.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </span>
+                <span className="text-muted-foreground"> de {budgetInfo.budget.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+              </div>
+              <div className="relative">
+                <Progress
+                  value={Math.min(budgetInfo.usage.percentage, 100)}
+                  className={`h-6 ${budgetInfo.usage.exceeded > 0 ? "[&>div]:bg-destructive" : ""}`}
+                />
+                <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold text-white pointer-events-none select-none">
+                  {Math.round(budgetInfo.usage.percentage)}%
+                </span>
+              </div>
+              <p className={budgetInfo.usage.exceeded > 0 ? "font-medium text-destructive" : "text-muted-foreground"}>
+                {budgetInfo.usage.exceeded > 0
+                  ? `${budgetInfo.usage.exceeded.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} acima do orçamento`
+                  : `${budgetInfo.usage.available.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} disponíveis`}
+              </p>
+            </div>
+          )}
 
           {(transaction.description || hasCardDetails) && (
             <section className="space-y-2 text-sm">
