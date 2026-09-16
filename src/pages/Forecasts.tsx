@@ -49,6 +49,7 @@ export default function Forecasts() {
   // Form state
   const [formName, setFormName] = useState("");
   const [formAmount, setFormAmount] = useState("");
+  const [formType, setFormType] = useState<"expense" | "income">("expense");
   const [formCategory, setFormCategory] = useState("");
   const [formDueDay, setFormDueDay] = useState("1");
   const [formDuration, setFormDuration] = useState("");
@@ -73,7 +74,7 @@ export default function Forecasts() {
   const openNew = () => {
     setEditingBill(null);
     setEditScope("");
-    setFormName(""); setFormAmount(""); setFormCategory(""); setFormDueDay("1");
+    setFormName(""); setFormAmount(""); setFormType("expense"); setFormCategory(""); setFormDueDay("1");
     setFormDuration(""); setFormAccountId(""); setFormDescription("");
     setDialogOpen(true);
   };
@@ -82,6 +83,7 @@ export default function Forecasts() {
     setEditingBill(bill);
     setFormName(bill.name);
     setFormAmount(String(bill.amount));
+    setFormType(bill.type);
     setFormCategory(bill.category);
     setFormDueDay(String(bill.dueDay));
     setFormDuration(bill.durationMonths ? String(bill.durationMonths) : "");
@@ -95,6 +97,7 @@ export default function Forecasts() {
     const data = {
       name: formName,
       amount: Number(formAmount),
+      type: formType,
       category: formCategory,
       dueDay: Number(formDueDay),
       startDate: editingBill?.startDate || new Date().toISOString().split("T")[0],
@@ -148,7 +151,7 @@ export default function Forecasts() {
     setDeletingBill(null);
   };
 
-  const expenseCategories = categories.filter((c) => c.type === "expense");
+  const filteredCategories = categories.filter((c) => c.type === formType);
   const protectedMonths = editingBill
     ? [referenceMonth, ...payments.filter((payment) => payment.recurringBillId === editingBill.id).map((payment) => payment.referenceMonth)]
     : [];
@@ -174,7 +177,7 @@ export default function Forecasts() {
             <CalendarClock className="h-6 w-6 text-primary" />
             Previsões
           </h1>
-          <p className="text-sm text-muted-foreground mt-1">Gerencie suas despesas recorrentes</p>
+          <p className="text-sm text-muted-foreground mt-1">Gerencie suas entradas e saídas previstas</p>
         </div>
         <Button onClick={openNew} size="sm" className="gap-1.5 self-start sm:self-auto whitespace-nowrap">
           <Plus className="h-4 w-4" /> Nova Previsão
@@ -254,6 +257,7 @@ export default function Forecasts() {
               referenceMonth,
               dueDay: bill.dueDay,
               isPaid: Boolean(payment),
+              type: bill.type,
             });
             const account = accounts.find((a) => a.id === bill.accountId);
 
@@ -278,6 +282,16 @@ export default function Forecasts() {
                       <div className="flex flex-wrap items-center gap-2 mt-1">
                         <Badge variant="outline" className="text-[10px] shrink-0">
                           Dia {Number(status.dueDate.slice(-2))}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={`text-[10px] shrink-0 ${
+                            bill.type === "income"
+                              ? "border-primary/40 bg-primary/10 text-primary"
+                              : "border-destructive/40 bg-destructive/10 text-destructive"
+                          }`}
+                        >
+                          {bill.type === "income" ? "Entrada" : "Saída"}
                         </Badge>
                         {status.label && (
                           <Badge
@@ -312,12 +326,12 @@ export default function Forecasts() {
                     <div className="flex items-center gap-0.5">
                       {status.kind === "paid" && payment ? (
                         <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
-                          onClick={() => unmarkAsPaid(payment.id)} title="Desmarcar pagamento">
+                          onClick={() => unmarkAsPaid(payment.id)} title={bill.type === "income" ? "Desmarcar recebimento" : "Desmarcar pagamento"}>
                           <Undo2 className="h-4 w-4" />
                         </Button>
                       ) : (
                         <Button variant="ghost" size="icon" className="h-9 w-9 text-primary"
-                          onClick={() => openPay(bill)} title="Marcar como pago">
+                          onClick={() => openPay(bill)} title={bill.type === "income" ? "Marcar como recebido" : "Marcar como pago"}>
                           <Check className="h-4 w-4" />
                         </Button>
                       )}
@@ -345,7 +359,7 @@ export default function Forecasts() {
           <DialogHeader>
             <DialogTitle>{editingBill ? "Editar Previsão" : "Nova Previsão"}</DialogTitle>
             <DialogDescription>
-              {editingBill ? "Atualize os dados da despesa recorrente" : "Cadastre uma nova despesa recorrente"}
+              {editingBill ? "Atualize os dados da previsão recorrente" : "Cadastre uma nova previsão recorrente"}
             </DialogDescription>
           </DialogHeader>
 
@@ -372,11 +386,21 @@ export default function Forecasts() {
               <Input type="number" value={formAmount} onChange={(e) => setFormAmount(e.target.value)} placeholder="0,00" />
             </div>
             <div>
+              <Label>Tipo</Label>
+              <Select value={formType} onValueChange={(value) => { setFormType(value as "expense" | "income"); setFormCategory(""); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="expense">Saída</SelectItem>
+                  <SelectItem value="income">Entrada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
               <Label>Categoria</Label>
               <Select value={formCategory} onValueChange={setFormCategory}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {expenseCategories.map((c) => (
+                  {filteredCategories.map((c) => (
                     <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
@@ -479,22 +503,22 @@ export default function Forecasts() {
       <Dialog open={payOpen} onOpenChange={setPayOpen}>
         <DialogContent className="max-w-md">
           <DialogHeader>
-            <DialogTitle>Registrar Pagamento</DialogTitle>
+            <DialogTitle>{payBill?.type === "income" ? "Registrar Recebimento" : "Registrar Pagamento"}</DialogTitle>
             <DialogDescription>
-              {payBill ? `${payBill.name} — ajuste os dados do pagamento` : ""}
+              {payBill ? `${payBill.name} — ajuste os dados do ${payBill.type === "income" ? "recebimento" : "pagamento"}` : ""}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div>
-              <Label>Valor pago (R$)</Label>
+              <Label>{payBill?.type === "income" ? "Valor recebido (R$)" : "Valor pago (R$)"}</Label>
               <Input type="number" step="0.01" value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
             </div>
             <div>
-              <Label>Data do pagamento</Label>
+              <Label>{payBill?.type === "income" ? "Data do recebimento" : "Data do pagamento"}</Label>
               <Input type="date" value={payDate} onChange={(e) => setPayDate(e.target.value)} />
             </div>
             <div>
-              <Label>Forma de pagamento</Label>
+              <Label>{payBill?.type === "income" ? "Forma de recebimento" : "Forma de pagamento"}</Label>
               <Select value={payMethod || "none"} onValueChange={(v) => setPayMethod(v === "none" ? "" : v as PaymentMethod)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -524,7 +548,7 @@ export default function Forecasts() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPayOpen(false)}>Cancelar</Button>
-            <Button onClick={handleConfirmPay} disabled={!payAmount || !payDate}>Confirmar Pagamento</Button>
+            <Button onClick={handleConfirmPay} disabled={!payAmount || !payDate}>{payBill?.type === "income" ? "Confirmar Recebimento" : "Confirmar Pagamento"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

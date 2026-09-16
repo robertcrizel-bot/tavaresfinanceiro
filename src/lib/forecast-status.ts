@@ -33,11 +33,13 @@ export const getForecastTemporalStatus = ({
   referenceMonth,
   dueDay,
   isPaid,
+  type = "expense",
   today = new Date(),
 }: {
   referenceMonth: string;
   dueDay: number;
   isPaid: boolean;
+  type?: "expense" | "income";
   today?: Date;
 }): ForecastTemporalStatus => {
   const dueDate = getCompetenceDueDate(referenceMonth, dueDay);
@@ -46,7 +48,7 @@ export const getForecastTemporalStatus = ({
   const todayNumber = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
   const daysUntilDue = Math.round((dueDateNumber - todayNumber) / DAY_IN_MS);
 
-  if (isPaid) return { kind: "paid", label: "Pago", dueDate, daysUntilDue };
+  if (isPaid) return { kind: "paid", label: type === "income" ? "Recebido" : "Pago", dueDate, daysUntilDue };
   if (daysUntilDue < 0) return { kind: "overdue", label: "Vencido", dueDate, daysUntilDue };
   if (daysUntilDue === 0) return { kind: "due-today", label: "Vence hoje", dueDate, daysUntilDue };
   if (daysUntilDue <= 7) {

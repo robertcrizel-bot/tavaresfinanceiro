@@ -9,6 +9,7 @@ export interface RecurringBillValues {
   durationMonths: number | null;
   accountId: string | null;
   description: string | null;
+  type: "expense" | "income";
 }
 
 type MonthlyBillValues = Omit<RecurringBillValues, "durationMonths">;

@@ -68,6 +68,7 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
         durationMonths: r.duration_months,
         accountId: r.account_id,
         description: r.description,
+        type: r.type === "income" ? "income" : "expense",
         scopedEdits: normalizeScopedEdits(r.scoped_edits),
       })));
     }
@@ -97,6 +98,7 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
       duration_months: b.durationMonths,
       account_id: b.accountId,
       description: b.description,
+      type: b.type,
     });
     if (error) toast({ title: "Erro ao criar previsão", description: error.message, variant: "destructive" });
     else { toast({ title: "Previsão criada", description: b.name }); fetchData(); }
@@ -115,6 +117,7 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
       duration_months: updatedBill.durationMonths,
       account_id: updatedBill.accountId,
       description: updatedBill.description,
+      type: updatedBill.type,
       scoped_edits: updatedBill.scopedEdits as unknown as Json,
     }).eq("id", updatedBill.id);
     if (error) toast({ title: "Erro ao atualizar", description: error.message, variant: "destructive" });
@@ -151,17 +154,17 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
       user_id: user.id,
       title: bill.name,
       amount: overrides?.amount ?? bill.amount,
-      type: "expense",
+      type: bill.type,
       category: bill.category,
       date: dateStr,
-      description: overrides?.description ?? (bill.description || `Pagamento de ${bill.name}`),
+      description: overrides?.description ?? (bill.description || (bill.type === "income" ? `Recebimento de ${bill.name}` : `Pagamento de ${bill.name}`)),
       payment_method: overrides?.paymentMethod ?? "Transferência",
       account_id: accountId,
       is_paid: true,
     }).select("id").single();
 
     if (txError) {
-      toast({ title: "Erro ao registrar pagamento", description: txError.message, variant: "destructive" });
+      toast({ title: bill.type === "income" ? "Erro ao registrar recebimento" : "Erro ao registrar pagamento", description: txError.message, variant: "destructive" });
       return;
     }
 
@@ -174,9 +177,9 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
     });
 
     if (error) {
-      toast({ title: "Erro ao marcar como pago", description: error.message, variant: "destructive" });
+      toast({ title: bill.type === "income" ? "Erro ao marcar como recebido" : "Erro ao marcar como pago", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Conta paga!", description: `${bill.name} — ${referenceMonth}` });
+      toast({ title: bill.type === "income" ? "Recebimento registrado!" : "Conta paga!", description: `${bill.name} — ${referenceMonth}` });
       fetchData();
       refetchTransactions();
     }
@@ -185,6 +188,7 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
   const unmarkAsPaid = useCallback(async (paymentId: string) => {
     // Find the payment to get transaction_id
     const payment = payments.find(p => p.id === paymentId);
+    const bill = payment ? bills.find(b => b.id === payment.recurringBillId) : null;
     
     // Delete the linked transaction if exists
     if (payment?.transactionId) {
@@ -195,11 +199,11 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
     if (error) {
       toast({ title: "Erro ao desmarcar", description: error.message, variant: "destructive" });
     } else {
-      toast({ title: "Pagamento desmarcado" });
+      toast({ title: bill?.type === "income" ? "Recebimento desmarcado" : "Pagamento desmarcado" });
       fetchData();
       refetchTransactions();
     }
-  }, [payments, fetchData, refetchTransactions]);
+  }, [payments, bills, fetchData, refetchTransactions]);
 
   return (
     <ForecastContext.Provider value={{ bills, payments, loading, addBill, updateBill, deleteBill, markAsPaid, unmarkAsPaid, refetch: fetchData }}>
