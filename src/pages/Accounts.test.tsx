@@ -57,6 +57,10 @@ vi.mock("@/components/AccountStatementDialog", () => ({
   default: ({ open, onClose, account }: any) => open ? <div data-testid="statement-dialog">{account?.name}</div> : null,
 }));
 
+vi.mock("@/components/CreditCardStatementDialog", () => ({
+  default: ({ open, onClose, card }: any) => open ? <div data-testid="cc-statement-dialog">{card?.name}</div> : null,
+}));
+
 vi.mock("@/components/ui/dialog", () => {
   const Wrapper = ({ children }: { children?: ReactNode }) => <>{children}</>;
   return {
@@ -120,19 +124,16 @@ describe("Accounts page", () => {
     expect(screen.getByText(/Saldo inicial/)).toBeTruthy();
   });
 
-  it("clicking 'Ver extrato' opens dialog with correct account", () => {
+  it("clicking 'Ver extrato' opens account dialog", () => {
     render(<Accounts />);
     fireEvent.click(screen.getByText("Ver extrato"));
     expect(screen.getByTestId("statement-dialog")).toBeTruthy();
     expect(screen.getByTestId("statement-dialog").textContent).toBe("Inter Robert");
   });
 
-  it("'Ver extrato' button is not inside cards tab panel", () => {
+  it("shows both account and cards tabs", () => {
     render(<Accounts />);
-    const cardsPanel = document.querySelector('[role="tabpanel"]:not([data-state="active"])');
-    if (cardsPanel) {
-      expect(cardsPanel.textContent).not.toContain("Ver extrato");
-    }
-    expect(screen.getByText("Ver extrato")).toBeTruthy();
+    expect(screen.getByText("Contas")).toBeTruthy();
+    expect(screen.getByText("Cartões")).toBeTruthy();
   });
 });
