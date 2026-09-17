@@ -73,6 +73,7 @@ export interface Transaction {
   hasAttachment?: boolean;
   receiptRef?: string;
   receiptDetails?: ReceiptDetails;
+  createdAt?: string;
 }
 
 export const EXPENSE_CATEGORIES: Category[] = [

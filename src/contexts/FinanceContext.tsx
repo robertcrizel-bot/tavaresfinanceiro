@@ -89,6 +89,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
           receiptDetails: r.receipt_details && typeof r.receipt_details === "object" && !Array.isArray(r.receipt_details)
             ? r.receipt_details as ReceiptDetails
             : undefined,
+          createdAt: r.created_at,
         }))
       );
     }

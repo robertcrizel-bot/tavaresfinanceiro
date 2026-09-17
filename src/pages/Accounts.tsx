@@ -10,10 +10,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight } from "lucide-react";
+import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { getCardCommittedAmount, getCardCurrentInvoiceAmount } from "@/lib/credit-card-billing";
 import { calculateAccountBalances } from "@/lib/financial-calculations";
+import AccountStatementDialog from "@/components/AccountStatementDialog";
 
 const COLORS = [
   { value: "purple", label: "Roxo" },
@@ -64,6 +65,7 @@ export default function Accounts() {
   const [transferTo, setTransferTo] = useState("");
   const [transferAmount, setTransferAmount] = useState("");
   const [transferDesc, setTransferDesc] = useState("");
+  const [statementAccount, setStatementAccount] = useState<{ id: string; name: string; initialBalance: number } | null>(null);
 
   const accountBalances = calculateAccountBalances(accounts, transactions, transfers);
 
@@ -116,6 +118,14 @@ export default function Accounts() {
                     </div>
                     <p className={`text-2xl font-bold ${balance >= 0 ? "text-income" : "text-expense"}`}>{fmt(balance)}</p>
                     <p className="text-xs text-muted-foreground mt-1">Saldo inicial: {fmt(acc.initialBalance)}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="mt-3 gap-2 text-xs text-muted-foreground hover:text-foreground"
+                      onClick={() => setStatementAccount({ id: acc.id, name: acc.name, initialBalance: acc.initialBalance })}
+                    >
+                      <FileText className="h-3.5 w-3.5" /> Ver extrato
+                    </Button>
                   </div>
                 );
               })}
@@ -382,6 +392,19 @@ export default function Accounts() {
           </form>
         </DialogContent>
       </Dialog>
+
+      {/* Account Statement Dialog */}
+      {statementAccount && (
+        <AccountStatementDialog
+          open={!!statementAccount}
+          onClose={() => setStatementAccount(null)}
+          account={statementAccount}
+          currentBalance={accountBalances[statementAccount.id] ?? 0}
+          transactions={transactions}
+          transfers={transfers}
+          accounts={accounts}
+        />
+      )}
     </div>
   );
 }
