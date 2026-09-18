@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => ({
   takeSharedReceipt: vi.fn(),
   duplicateLimit: vi.fn(),
   toast: vi.fn(),
+  extractReceiptText: vi.fn(),
+  parseReceiptText: vi.fn(),
 }));
 
 vi.mock("react-router-dom", async (importOriginal) => ({
@@ -30,6 +32,12 @@ vi.mock("@/lib/receipt", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/receipt")>(),
   parseReceipt: mocks.parseReceipt,
 }));
+vi.mock("@/lib/receipt-ocr", () => ({
+  extractReceiptText: mocks.extractReceiptText,
+}));
+vi.mock("@/lib/receipt-parser", () => ({
+  parseReceiptText: mocks.parseReceiptText,
+}));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: () => ({
@@ -40,14 +48,25 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 vi.mock("@/components/TransactionForm", () => ({
-  TransactionForm: ({ prefill, prefillAttachments, onSubmit }: {
+  TransactionForm: ({ prefill, prefillAttachments, lowConfidence, onSubmit }: {
     prefill: Record<string, unknown>;
     prefillAttachments?: File[];
+    lowConfidence?: string[];
     onSubmit: (data: Record<string, unknown>, options?: { attachments?: File[] }) => void;
   }) => (
-    <button type="button" onClick={() => onSubmit(prefill, { attachments: prefillAttachments })}>
-      Confirmar importação
-    </button>
+    <div>
+      <button type="button" onClick={() => onSubmit(prefill, { attachments: prefillAttachments })}>
+        Confirmar importação
+      </button>
+      {lowConfidence && lowConfidence.length > 0 && (
+        <div>
+          {lowConfidence.includes("counterparty") || lowConfidence.includes("merchant_name") || lowConfidence.includes("merchant_name_extracted")
+            ? <span>Confira este campo</span>
+            : null}
+        </div>
+      )}
+      <input aria-label="Título" defaultValue={String(prefill.title ?? "")} readOnly />
+    </div>
   ),
 }));
 
@@ -108,13 +127,17 @@ describe("ReceiptImport metadata", () => {
     vi.unstubAllGlobals();
   });
 
-  it("maps AI metadata and submits it with the receipt reference and attachment", async () => {
+  it("does not call parseReceipt on file selection and requires explicit 'Ler com IA' click", async () => {
     const { container } = render(<ReceiptImport />);
     const input = container.querySelector('input[type="file"]');
     const file = new File(["receipt"], "receipt.jpg", { type: "image/jpeg" });
     expect(input).not.toBeNull();
 
     fireEvent.change(input!, { target: { files: [file] } });
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler com IA" })).toBeInTheDocument());
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ler com IA" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
 
@@ -132,7 +155,7 @@ describe("ReceiptImport metadata", () => {
     );
   });
 
-  it("keeps Escolher arquivo on the normal file input and receipt parser", async () => {
+  it("keeps Escolher arquivo on the normal file input and requires 'Ler com IA' to trigger receipt parser", async () => {
     const { container } = render(<ReceiptImport />);
     const inputs = container.querySelectorAll<HTMLInputElement>('input[type="file"]');
     const input = inputs[0];
@@ -144,6 +167,11 @@ describe("ReceiptImport metadata", () => {
     expect(input).not.toHaveAttribute("capture");
 
     fireEvent.change(input, { target: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler com IA" })).toBeInTheDocument());
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ler com IA" }));
 
     await waitFor(() => expect(mocks.parseReceipt).toHaveBeenCalledWith(file, {
       categories: ["Alimentação", "Outros"],
@@ -169,7 +197,7 @@ describe("ReceiptImport metadata", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
-  it("captures a bounded JPEG, stops the camera and sends the File to the receipt parser", async () => {
+  it("captures a bounded JPEG, stops the camera and requires 'Ler com IA' to send to receipt parser", async () => {
     const { cameraStream, track } = installCamera();
     const { canvases, drawImage, toBlob } = installCameraCanvas();
     render(<ReceiptImport />);
@@ -182,17 +210,17 @@ describe("ReceiptImport metadata", () => {
     fireEvent.canPlay(video);
     fireEvent.click(screen.getByRole("button", { name: "Fotografar" }));
 
-    await waitFor(() => expect(mocks.parseReceipt).toHaveBeenCalled());
-    const capturedFile = mocks.parseReceipt.mock.calls[0][0] as File;
-    expect(capturedFile).toBeInstanceOf(File);
-    expect(capturedFile.type).toBe("image/jpeg");
-    expect(capturedFile.name).toMatch(/^comprovante-.*\.jpg$/);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler com IA" })).toBeInTheDocument());
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 1920, 1080);
     expect(toBlob).toHaveBeenCalledWith(expect.any(Function), "image/jpeg", 0.9);
     expect(track.stop).toHaveBeenCalledTimes(1);
     expect(video.srcObject).toBeNull();
     expect(canvases[0].width).toBe(0);
     expect(canvases[0].height).toBe(0);
+
+    fireEvent.click(screen.getByRole("button", { name: "Ler com IA" }));
+    await waitFor(() => expect(mocks.parseReceipt).toHaveBeenCalled());
   });
 
   it("preserves portrait proportions within the capture limit", async () => {
@@ -208,7 +236,7 @@ describe("ReceiptImport metadata", () => {
     fireEvent.canPlay(video);
     fireEvent.click(screen.getByRole("button", { name: "Fotografar" }));
 
-    await waitFor(() => expect(mocks.parseReceipt).toHaveBeenCalled());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler com IA" })).toBeInTheDocument());
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 1080, 1920);
     expect(track.stop).toHaveBeenCalledTimes(1);
   });
@@ -283,5 +311,497 @@ describe("ReceiptImport metadata", () => {
 
     expect(await screen.findByText("A câmera não está disponível neste navegador. Use Escolher arquivo para enviar a foto.")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Escolher arquivo" })).toBeInTheDocument();
+  });
+});
+
+describe("OCR local → TransactionForm flow", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mocks.takeSharedReceipt.mockResolvedValue(null);
+    mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  function selectFile() {
+    const { container } = render(<ReceiptImport />);
+    const input = container.querySelector('input[type="file"]');
+    const file = new File(["receipt"], "comprovante.jpg", { type: "image/jpeg" });
+    fireEvent.change(input!, { target: { files: [file] } });
+    return { container, file };
+  }
+
+  it("PIX Inter: preenche formulário com amount 6, expense, data 2026-09-11, Pix, favorecido sem prefixo", async () => {
+    mocks.extractReceiptText.mockResolvedValue({
+      text: "Comprovante de Pagamento\nPix enviado\nValor: R$ 6,00\nData: 11/09/2026\nHorário: 14:50\nQuem recebeu:\nRibeiro do Vale Alimentos LTDA\nInstituição recebedora:\nBanco Inter S.A.\nIdentificador: abc123",
+      confidence: 85,
+      durationMs: 1200,
+    });
+    mocks.parseReceiptText.mockReturnValue({
+      is_receipt: true,
+      type: "expense",
+      amount: 6,
+      date: "2026-09-11",
+      time: "14:50:00",
+      counterparty: "Ribeiro do Vale Alimentos LTDA",
+      institution: "Banco Inter",
+      payment_method: "Pix",
+      category_hint: null,
+      receipt_id: "abc123",
+      merchant_name: null,
+      tax_id: null,
+      fiscal_document_number: null,
+      card_brand: null,
+      card_last_four: null,
+      title: "Pagamento para Ribeiro do Vale Alimentos LTDA",
+      notes: null,
+      purchased_items: undefined,
+      low_confidence_fields: [],
+    });
+
+    const { file } = selectFile();
+    fireEvent.click(screen.getByRole("button", { name: "Testar OCR local" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Usar estes dados" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes dados" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
+
+    expect(mocks.addTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Ribeiro do Vale Alimentos LTDA",
+        amount: 6,
+        type: "expense",
+        date: "2026-09-11",
+        paymentMethod: "Pix",
+      }),
+      expect.objectContaining({ attachments: [file] }),
+    );
+  });
+
+  it("Drogal: preenche com itens, amount 185.06, comprovante original preservado", async () => {
+    mocks.extractReceiptText.mockResolvedValue({
+      text: "DROGAL FARMACÊUTICA LTDA\nCNPJ: 12.345.678/0001-90\nCUPOM FISCAL\nData: 11/09/2026\nPOSTEC POMADA 200 1X R$ 152,43\nDe 152,43 Poi 114,32 desconto\nMAMADES 26CPR 1X R$ 47,46\nDe 47,46 Poi 35,60 desconto\nCAFEINA 1X R$ 31,34\nDe 31,34 Por 18,80 desconto\nME OXICAM 10CPR 1X R$ 27,24\nDe 27,24 Poi 16,34 desconto\nValor à Pagar R$: 185,06\nFORMA PAGAMENTO: Transferência Bancária\nBanco: Bradesco",
+      confidence: 70,
+      durationMs: 2000,
+    });
+    mocks.parseReceiptText.mockReturnValue({
+      is_receipt: true,
+      type: "expense",
+      amount: 185.06,
+      date: "2026-09-11",
+      time: null,
+      counterparty: "DROGAL FARMACÊUTICA LTDA",
+      institution: "Bradesco",
+      payment_method: "Transferência",
+      category_hint: "Saúde",
+      receipt_id: null,
+      merchant_name: "DROGAL FARMACÊUTICA LTDA",
+      tax_id: "12.345.678/0001-90",
+      fiscal_document_number: null,
+      card_brand: null,
+      card_last_four: null,
+      title: "Pagamento para DROGAL FARMACÊUTICA LTDA",
+      notes: null,
+      purchased_items: [
+        { name: "POSTEC POMADA 200", quantity: 1, unit_price: 114.32, total: 114.32 },
+        { name: "MAMADES 26CPR", quantity: 1, unit_price: 35.60, total: 35.60 },
+        { name: "CAFEINA", quantity: 1, unit_price: 18.80, total: 18.80 },
+        { name: "ME OXICAM 10CPR", quantity: 1, unit_price: 16.34, total: 16.34 },
+      ],
+      low_confidence_fields: ["purchased_items"],
+    });
+
+    const { file } = selectFile();
+    fireEvent.click(screen.getByRole("button", { name: "Testar OCR local" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Usar estes dados" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes dados" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
+
+    expect(mocks.addTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "DROGAL FARMACÊUTICA LTDA",
+        amount: 185.06,
+        type: "expense",
+        date: "2026-09-11",
+        description: expect.stringContaining("POSTEC POMADA"),
+        paymentMethod: "Transferência",
+      }),
+      expect.objectContaining({ attachments: [file] }),
+    );
+  });
+
+  it("item_values_are_final: true — descrição contém valores individuais", async () => {
+    mocks.extractReceiptText.mockResolvedValue({
+      text: "DROGAL\nPOSTEC 1X R$ 114,32\nValor à Pagar R$: 114,32",
+      confidence: 70,
+      durationMs: 1000,
+    });
+    mocks.parseReceiptText.mockReturnValue({
+      is_receipt: true,
+      type: "expense",
+      amount: 114.32,
+      date: "2026-09-11",
+      time: null,
+      counterparty: "DROGAL",
+      institution: null,
+      payment_method: "Transferência",
+      category_hint: null,
+      receipt_id: null,
+      merchant_name: null,
+      tax_id: null,
+      fiscal_document_number: null,
+      card_brand: null,
+      card_last_four: null,
+      title: "DROGAL",
+      notes: null,
+      purchased_items: [
+        { name: "POSTEC POMADA 200", quantity: 1, unit_price: 114.32, total: 114.32 },
+      ],
+      item_values_are_final: true,
+      low_confidence_fields: [],
+    });
+
+    selectFile();
+    fireEvent.click(screen.getByRole("button", { name: "Testar OCR local" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Usar estes dados" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes dados" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
+
+    expect(mocks.addTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 114.32,
+        description: expect.stringContaining("R$ 114,32"),
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("item_values_are_final: false — descrição NÃO contém valores individuais", async () => {
+    mocks.extractReceiptText.mockResolvedValue({
+      text: "MERCADO\nARROZ 1X R$ 22,90\nVALOR TOTAL: R$ 163,82",
+      confidence: 70,
+      durationMs: 1000,
+    });
+    mocks.parseReceiptText.mockReturnValue({
+      is_receipt: true,
+      type: "expense",
+      amount: 163.82,
+      date: "2026-09-09",
+      time: null,
+      counterparty: "MERCADO",
+      institution: null,
+      payment_method: "TEF",
+      category_hint: null,
+      receipt_id: null,
+      merchant_name: null,
+      tax_id: null,
+      fiscal_document_number: null,
+      card_brand: null,
+      card_last_four: null,
+      title: "MERCADO",
+      notes: null,
+      purchased_items: [
+        { name: "ARROZ TIPO 1 5KG", quantity: 1, unit_price: 22.90, total: 22.90 },
+        { name: "FEIJAO CARIOCA 1KG", quantity: 2, unit_price: 8.49, total: 16.98 },
+      ],
+      item_values_are_final: false,
+      low_confidence_fields: [],
+    });
+
+    selectFile();
+    fireEvent.click(screen.getByRole("button", { name: "Testar OCR local" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Usar estes dados" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes dados" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
+
+    const call = mocks.addTransaction.mock.calls[0][0];
+    expect(call.amount).toBe(163.82);
+    expect(call.description).toContain("ARROZ TIPO 1 5KG");
+    expect(call.description).toContain("FEIJAO CARIOCA 1KG");
+    expect(call.description).not.toContain("R$");
+  });
+
+  it("sem item_values_are_final — descrição mantém valores (compatibilidade)", async () => {
+    mocks.extractReceiptText.mockResolvedValue({
+      text: "LOJA\nPRODUTO 1X R$ 50,00\nTotal: R$ 50,00",
+      confidence: 70,
+      durationMs: 1000,
+    });
+    mocks.parseReceiptText.mockReturnValue({
+      is_receipt: true,
+      type: "expense",
+      amount: 50,
+      date: "2026-09-10",
+      time: null,
+      counterparty: "LOJA",
+      institution: null,
+      payment_method: null,
+      category_hint: null,
+      receipt_id: null,
+      merchant_name: null,
+      tax_id: null,
+      fiscal_document_number: null,
+      card_brand: null,
+      card_last_four: null,
+      title: "LOJA",
+      notes: null,
+      purchased_items: [
+        { name: "PRODUTO X", quantity: 1, unit_price: 50, total: 50 },
+      ],
+      low_confidence_fields: [],
+    });
+
+    selectFile();
+    fireEvent.click(screen.getByRole("button", { name: "Testar OCR local" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Usar estes dados" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes dados" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
+
+    expect(mocks.addTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        amount: 50,
+        description: expect.stringContaining("R$ 50,00"),
+      }),
+      expect.anything(),
+    );
+  });
+
+  it("Cupom difícil: merchant de baixa confiança NÃO vira título confiável, time 19:99:00 rejeitado", async () => {
+    mocks.extractReceiptText.mockResolvedValue({
+      text: "SHALES wr yp 2\nR$ 163,82\n10/09/2026 19:99:00\nTransferência",
+      confidence: 35,
+      durationMs: 1500,
+    });
+    mocks.parseReceiptText.mockReturnValue({
+      is_receipt: true,
+      type: "expense",
+      amount: 163.82,
+      date: "2026-09-10",
+      time: null,
+      counterparty: "SHALES wr yp 2",
+      institution: null,
+      payment_method: "Transferência",
+      category_hint: null,
+      receipt_id: null,
+      merchant_name: "SHALES wr yp 2",
+      tax_id: null,
+      fiscal_document_number: null,
+      card_brand: null,
+      card_last_four: null,
+      title: "Pagamento para SHALES wr yp 2",
+      notes: null,
+      purchased_items: undefined,
+      low_confidence_fields: ["counterparty", "merchant_name", "merchant_name_extracted", "type", "amount"],
+    });
+
+    selectFile();
+    fireEvent.click(screen.getByRole("button", { name: "Testar OCR local" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Usar estes dados" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes dados" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+
+    const titleInput = screen.getByLabelText(/título/i) as HTMLInputElement;
+    expect(titleInput.value).toBe("");
+    expect(screen.getByText(/confira este campo/i)).toBeInTheDocument();
+  });
+
+  it("Clicar 'Usar estes dados' NÃO chama addTransaction imediatamente", async () => {
+    mocks.extractReceiptText.mockResolvedValue({
+      text: "Pix enviado\nR$ 50,00\n10/09/2026",
+      confidence: 80,
+      durationMs: 1000,
+    });
+    mocks.parseReceiptText.mockReturnValue({
+      is_receipt: true,
+      type: "expense",
+      amount: 50,
+      date: "2026-09-10",
+      time: null,
+      counterparty: null,
+      institution: null,
+      payment_method: "Pix",
+      category_hint: null,
+      receipt_id: null,
+      merchant_name: null,
+      tax_id: null,
+      fiscal_document_number: null,
+      card_brand: null,
+      card_last_four: null,
+      title: "Despesa",
+      notes: null,
+      purchased_items: undefined,
+      low_confidence_fields: ["type", "counterparty"],
+    });
+
+    selectFile();
+    fireEvent.click(screen.getByRole("button", { name: "Testar OCR local" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Usar estes dados" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes dados" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+    expect(mocks.addTransaction).not.toHaveBeenCalled();
+  });
+
+  it("Somente o submit do TransactionForm salva", async () => {
+    mocks.extractReceiptText.mockResolvedValue({
+      text: "Pix enviado\nR$ 50,00\n10/09/2026",
+      confidence: 80,
+      durationMs: 1000,
+    });
+    mocks.parseReceiptText.mockReturnValue({
+      is_receipt: true,
+      type: "expense",
+      amount: 50,
+      date: "2026-09-10",
+      time: null,
+      counterparty: null,
+      institution: null,
+      payment_method: "Pix",
+      category_hint: null,
+      receipt_id: null,
+      merchant_name: null,
+      tax_id: null,
+      fiscal_document_number: null,
+      card_brand: null,
+      card_last_four: null,
+      title: "Despesa",
+      notes: null,
+      purchased_items: undefined,
+      low_confidence_fields: [],
+    });
+
+    selectFile();
+    fireEvent.click(screen.getByRole("button", { name: "Testar OCR local" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Usar estes dados" })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Usar estes dados" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+
+    expect(mocks.addTransaction).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
+    expect(mocks.addTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("Lovable AI (parseReceipt) continua intacto e não é afetado pelo OCR local", async () => {
+    mocks.parseReceipt.mockResolvedValue({
+      is_receipt: true,
+      type: "expense",
+      amount: 120,
+      date: "2026-09-11",
+      time: "12:00",
+      counterparty: "Mercado",
+      institution: null,
+      payment_method: "Cartão de Débito",
+      category_hint: "Alimentação",
+      receipt_id: "receipt-1",
+      merchant_name: "Mercado Central",
+      tax_id: null,
+      fiscal_document_number: null,
+      card_brand: null,
+      card_last_four: null,
+      title: "Mercado",
+      notes: null,
+      purchased_items: [],
+      low_confidence_fields: [],
+    });
+
+    const { container } = render(<ReceiptImport />);
+    const input = container.querySelector('input[type="file"]');
+    const file = new File(["receipt"], "receipt.jpg", { type: "image/jpeg" });
+    fireEvent.change(input!, { target: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler com IA" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Ler com IA" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
+
+    expect(mocks.parseReceipt).toHaveBeenCalledWith(file, expect.any(Object));
+    expect(mocks.addTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it("Botão 'Usar estes dados' não aparece quando OCR não é comprovante", async () => {
+    mocks.extractReceiptText.mockResolvedValue({
+      text: "Texto qualquer sem comprovante",
+      confidence: 50,
+      durationMs: 800,
+    });
+    mocks.parseReceiptText.mockReturnValue({
+      is_receipt: false,
+      type: "unknown",
+      amount: null,
+      date: null,
+      time: null,
+      counterparty: null,
+      institution: null,
+      payment_method: null,
+      category_hint: null,
+      receipt_id: null,
+      merchant_name: null,
+      tax_id: null,
+      fiscal_document_number: null,
+      card_brand: null,
+      card_last_four: null,
+      title: null,
+      notes: null,
+      purchased_items: undefined,
+      low_confidence_fields: [],
+    });
+
+    selectFile();
+    fireEvent.click(screen.getByRole("button", { name: "Testar OCR local" }));
+    await waitFor(() => expect(screen.getByText("Resultado do OCR Local")).toBeInTheDocument());
+
+    expect(screen.queryByRole("button", { name: "Usar estes dados" })).not.toBeInTheDocument();
+  });
+
+  it("Botão 'Usar estes dados' não aparece quando amount é null", async () => {
+    mocks.extractReceiptText.mockResolvedValue({
+      text: "Comprovante\nData: 10/09/2026\nPix",
+      confidence: 40,
+      durationMs: 800,
+    });
+    mocks.parseReceiptText.mockReturnValue({
+      is_receipt: true,
+      type: "expense",
+      amount: null,
+      date: "2026-09-10",
+      time: null,
+      counterparty: null,
+      institution: null,
+      payment_method: null,
+      category_hint: null,
+      receipt_id: null,
+      merchant_name: null,
+      tax_id: null,
+      fiscal_document_number: null,
+      card_brand: null,
+      card_last_four: null,
+      title: "Despesa",
+      notes: null,
+      purchased_items: undefined,
+      low_confidence_fields: ["amount"],
+    });
+
+    selectFile();
+    fireEvent.click(screen.getByRole("button", { name: "Testar OCR local" }));
+    await waitFor(() => expect(screen.getByText("Resultado do OCR Local")).toBeInTheDocument());
+
+    expect(screen.queryByRole("button", { name: "Usar estes dados" })).not.toBeInTheDocument();
   });
 });

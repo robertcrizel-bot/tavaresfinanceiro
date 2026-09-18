@@ -24,11 +24,13 @@ interface TransactionFormProps {
   prefill?: Partial<Omit<Transaction, "id">>;
   /** Files already selected for a brand new record (e.g. the receipt itself). */
   prefillAttachments?: File[];
+  /** Fields with low confidence from OCR — show a discreet "Confira este campo" hint. */
+  lowConfidence?: string[];
   title?: string;
   submitLabel?: string;
 }
 
-export function TransactionForm({ open, onClose, onSubmit, initial, prefill, prefillAttachments, title: dialogTitle, submitLabel }: TransactionFormProps) {
+export function TransactionForm({ open, onClose, onSubmit, initial, prefill, prefillAttachments, lowConfidence, title: dialogTitle, submitLabel }: TransactionFormProps) {
   const { accounts, creditCards } = useAccounts();
   const { getCategoriesByType, categories: allCategories } = useCategories();
   const { transactions } = useFinance();
@@ -105,6 +107,14 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
       usage,
     };
   }, [type, category, date, amount, initial, transactions, allCategories]);
+
+  const isLowConfidence = (field: string) =>
+    Boolean(lowConfidence?.some((f) => f === field || f.startsWith(field + "[")));
+
+  const LowConfidenceHint = ({ field }: { field: string }) =>
+    isLowConfidence(field) ? (
+      <span className="text-xs text-yellow-600 dark:text-yellow-400 ml-1">Confira este campo</span>
+    ) : null;
 
   const stopCamera = useCallback(() => {
     cameraStream?.getTracks().forEach((track) => track.stop());
@@ -219,16 +229,16 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-2">
-            <Label>Título</Label>
+            <Label>Título <LowConfidenceHint field="counterparty" /></Label>
             <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Ex: Supermercado" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label>Valor (R$)</Label>
+              <Label>Valor (R$) <LowConfidenceHint field="amount" /></Label>
               <Input type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="0,00" />
             </div>
             <div className="space-y-2">
-              <Label>Tipo</Label>
+              <Label>Tipo <LowConfidenceHint field="type" /></Label>
               <Select value={type} onValueChange={(v: TransactionType) => { setType(v); setCategory("Outros"); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -251,7 +261,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Data</Label>
+              <Label>Data <LowConfidenceHint field="date" /></Label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
             </div>
           </div>
@@ -327,7 +337,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
             </div>
           )}
           <div className="space-y-2">
-            <Label>Forma de Pagamento <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+            <Label>Forma de Pagamento <span className="text-muted-foreground text-xs">(opcional)</span> <LowConfidenceHint field="payment_method" /></Label>
             <Select value={paymentMethod || "none"} onValueChange={(v) => setPaymentMethod(v === "none" ? "" : v as PaymentMethod)}>
               <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
               <SelectContent>

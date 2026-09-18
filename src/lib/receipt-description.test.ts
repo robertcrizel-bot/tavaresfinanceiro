@@ -76,4 +76,42 @@ describe("formatReceiptDescription", () => {
       ),
     ).toBe("Itens:\nCafé 500g — R$ 18,50");
   });
+
+  describe("item_values_are_final", () => {
+    const items = [
+      { name: "FEIJAO CARIOCA 1KG", quantity: 2, unit_price: 8.49, total: 16.98 },
+      { name: "MACARRAO ESPAGUETE 500G", quantity: 2, unit_price: 4.29, total: 8.58 },
+    ];
+
+    it("true → mostra valores individuais", () => {
+      const result = formatReceiptDescription({
+        purchased_items: items,
+        item_values_are_final: true,
+      });
+      expect(result).toContain("R$ 16,98");
+      expect(result).toContain("R$ 8,58");
+      expect(result).toContain("2x FEIJAO CARIOCA 1KG — R$ 16,98");
+      expect(result).toContain("2x MACARRAO ESPAGUETE 500G — R$ 8,58");
+    });
+
+    it("false → NÃO mostra valores individuais", () => {
+      const result = formatReceiptDescription({
+        purchased_items: items,
+        item_values_are_final: false,
+      });
+      expect(result).toContain("2x FEIJAO CARIOCA 1KG");
+      expect(result).toContain("2x MACARRAO ESPAGUETE 500G");
+      expect(result).not.toContain("R$");
+      expect(result).not.toContain("16,98");
+      expect(result).not.toContain("8,58");
+    });
+
+    it("undefined → mantém comportamento atual e mostra valores", () => {
+      const result = formatReceiptDescription({
+        purchased_items: items,
+      });
+      expect(result).toContain("R$ 16,98");
+      expect(result).toContain("R$ 8,58");
+    });
+  });
 });
