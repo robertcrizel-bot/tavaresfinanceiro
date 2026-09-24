@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,6 +14,11 @@ import { parseReceipt, matchByName, matchCategory, ParsedReceipt } from "@/lib/r
 import { formatReceiptDescription } from "@/lib/receipt-description";
 import { extractReceiptText } from "@/lib/receipt-ocr";
 import { parseReceiptText, LocalParsedReceipt } from "@/lib/receipt-parser";
+import { runLaboratory, type LabResult } from "@/lib/ocr-lab/runner";
+import { copyLabReport, buildLabReports, formatLabReport } from "@/lib/ocr-lab/reporter";
+import { STRATEGIES } from "@/lib/ocr-lab/types";
+import { paddleRecognize, formatPaddleReport, type PaddleOcrResult } from "@/lib/ocr-paddle-test/recognize";
+import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
 
@@ -46,6 +51,18 @@ export default function ReceiptImport() {
   const [ocrRawExpanded, setOcrRawExpanded] = useState(false);
   const [ocrPreprocessPreview, setOcrPreprocessPreview] = useState<string | null>(null);
   const [ocrPreprocessExpanded, setOcrPreprocessExpanded] = useState(false);
+  const [labRunning, setLabRunning] = useState(false);
+  const [labResults, setLabResults] = useState<LabResult[]>([]);
+  const [labProgress, setLabProgress] = useState("");
+  const [labExpanded, setLabExpanded] = useState(false);
+  const [labCopied, setLabCopied] = useState(false);
+  const [labExpandedStrategy, setLabExpandedStrategy] = useState<string | null>(null);
+  const labAbortRef = useRef<AbortController | null>(null);
+  const [paddleRunning, setPaddleRunning] = useState(false);
+  const [paddleResult, setPaddleResult] = useState<PaddleOcrResult | null>(null);
+  const [paddleProgress, setPaddleProgress] = useState("");
+  const [paddleExpanded, setPaddleExpanded] = useState(false);
+  const [paddleCopied, setPaddleCopied] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
@@ -207,6 +224,107 @@ export default function ReceiptImport() {
       setOcrProgress("");
     }
   }, [pendingFile]);
+
+  const runLab = useCallback(async () => {
+    const file = pendingFile;
+    if (!file) return;
+    setLabRunning(true);
+    setLabResults([]);
+    setLabExpanded(true);
+    setLabProgress("Iniciando laboratório...");
+
+    const controller = new AbortController();
+    labAbortRef.current = controller;
+
+    try {
+      const { preprocessReceiptImage } = await import("@/lib/receipt-ocr-preprocess");
+      const prepped = await preprocessReceiptImage(
+        await (await import("@/lib/receipt")).receiptToImageDataUrl(file),
+      );
+
+      const results = await runLaboratory({
+        imageDataUrl: prepped.imageDataUrl,
+        signal: controller.signal,
+        onProgress: (strategyId, index, total) => {
+          setLabProgress(`Estratégia ${strategyId} (${index + 1}/${total})`);
+        },
+      });
+      setLabResults(results);
+    } catch (e: unknown) {
+      if (e instanceof DOMException && e.name === "AbortError") {
+        setLabProgress("Cancelado.");
+      } else {
+        setLabProgress(`Erro: ${e instanceof Error ? e.message : String(e)}`);
+      }
+    } finally {
+      setLabRunning(false);
+      labAbortRef.current = null;
+    }
+  }, [pendingFile]);
+
+  const stopLab = useCallback(() => {
+    labAbortRef.current?.abort();
+    labAbortRef.current = null;
+    setLabRunning(false);
+  }, []);
+
+  const copyLabReportText = useCallback(async () => {
+    const ok = await copyLabReport(labResults);
+    if (ok) {
+      setLabCopied(true);
+      setTimeout(() => setLabCopied(false), 2000);
+    }
+  }, [labResults]);
+
+  const runPaddleOcr = useCallback(async () => {
+    const file = pendingFile;
+    if (!file) return;
+    setPaddleRunning(true);
+    setPaddleResult(null);
+    setPaddleExpanded(true);
+    setPaddleProgress("Carregando modelo PaddleOCR...");
+    try {
+      const { receiptToImageDataUrl } = await import("@/lib/receipt");
+      const imageDataUrl = await receiptToImageDataUrl(file);
+      const result = await paddleRecognize(imageDataUrl, (status) => {
+        setPaddleProgress(status);
+      });
+      setPaddleResult(result);
+    } catch (e: unknown) {
+      setPaddleResult({
+        text: "",
+        confidence: null,
+        regions: [],
+        timeMs: 0,
+        detectedBoxes: 0,
+        recognizedCount: 0,
+        backend: "unknown",
+        error: e instanceof Error ? e.message : String(e),
+      });
+    } finally {
+      setPaddleRunning(false);
+      setPaddleProgress("");
+    }
+  }, [pendingFile]);
+
+  const copyPaddleReport = useCallback(async () => {
+    if (!paddleResult) return;
+    const text = formatPaddleReport(paddleResult);
+    try {
+      await navigator.clipboard.writeText(text);
+      setPaddleCopied(true);
+      setTimeout(() => setPaddleCopied(false), 2000);
+    } catch {
+      // clipboard write failed silently
+    }
+  }, [paddleResult]);
+
+  const paddleReceipt = useMemo(() => {
+    if (!paddleResult || paddleResult.error || paddleResult.regions.length === 0) {
+      return null;
+    }
+    return buildPaddleReceiptResult(paddleResult.regions);
+  }, [paddleResult]);
 
   useEffect(() => () => releaseCamera(), [releaseCamera]);
 
@@ -859,6 +977,367 @@ export default function ReceiptImport() {
                     </details>
                   </div>
                 )}
+
+                <div className="rounded-md border border-dashed border-purple-400/50">
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-purple-600 dark:text-purple-400 hover:bg-purple-500/5 cursor-pointer"
+                    onClick={() => setLabExpanded(!labExpanded)}
+                  >
+                    Laboratório OCR ({STRATEGIES.length} estratégias)
+                    <span className="text-xs">{labExpanded ? "▲" : "▼"}</span>
+                  </button>
+                  {labExpanded && (
+                    <div className="border-t p-3 space-y-3">
+                      <div className="flex items-center gap-2">
+                        {!labRunning ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => void runLab()}
+                            disabled={!ocrResult}
+                          >
+                            <TestTube2 className="h-3.5 w-3.5" />
+                            Rodar todas as estratégias
+                          </Button>
+                        ) : (
+                          <Button
+                            variant="destructive"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={stopLab}
+                          >
+                            Parar
+                          </Button>
+                        )}
+                        {labResults.length > 0 && !labRunning && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => void copyLabReportText()}
+                          >
+                            {labCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                            {labCopied ? "Copiado" : "Copiar relatório do laboratório"}
+                          </Button>
+                        )}
+                      </div>
+
+                      {labRunning && labProgress && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {labProgress}
+                        </div>
+                      )}
+
+                      {labResults.length > 0 && (
+                        <div className="space-y-2">
+                          <div className="overflow-x-auto">
+                            <table className="w-full text-xs border-collapse">
+                              <thead>
+                                <tr className="border-b text-left text-muted-foreground">
+                                  <th className="py-1 px-2 font-medium">ID</th>
+                                  <th className="py-1 px-2 font-medium">Estratégia</th>
+                                  <th className="py-1 px-2 font-medium text-right">Confiança</th>
+                                  <th className="py-1 px-2 font-medium text-right">Tempo</th>
+                                  <th className="py-1 px-2 font-medium text-right">Linhas</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {labResults.map((r) => {
+                                  const lines = r.text ? r.text.split("\n").length : 0;
+                                  return (
+                                    <tr
+                                      key={r.strategyId}
+                                      className="border-b border-dashed cursor-pointer hover:bg-muted/50"
+                                      onClick={() => setLabExpandedStrategy(
+                                        labExpandedStrategy === r.strategyId ? null : r.strategyId,
+                                      )}
+                                    >
+                                      <td className="py-1 px-2 font-mono font-semibold">{r.strategyId}</td>
+                                      <td className="py-1 px-2">{r.strategyName}</td>
+                                      <td className="py-1 px-2 text-right font-mono">
+                                        {r.error ? (
+                                          <span className="text-red-500">erro</span>
+                                        ) : (
+                                          <span className={
+                                            r.confidence >= 70 ? "text-green-600" :
+                                            r.confidence >= 50 ? "text-yellow-600" : "text-red-600"
+                                          }>
+                                            {r.confidence}%
+                                          </span>
+                                        )}
+                                      </td>
+                                      <td className="py-1 px-2 text-right font-mono">
+                                        {(r.timeMs / 1000).toFixed(1)}s
+                                      </td>
+                                      <td className="py-1 px-2 text-right font-mono">{lines}</td>
+                                    </tr>
+                                  );
+                                })}
+                              </tbody>
+                            </table>
+                          </div>
+
+                          {labExpandedStrategy && (() => {
+                            const r = labResults.find((res) => res.strategyId === labExpandedStrategy);
+                            if (!r) return null;
+                            const strategy = STRATEGIES.find((s) => s.id === r.strategyId);
+                            return (
+                              <div className="rounded border bg-muted/30 p-2 space-y-1">
+                                <div className="text-xs font-medium">
+                                  {r.strategyId}: {r.strategyName}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  {strategy?.configLabel}
+                                </div>
+                                {r.error ? (
+                                  <div className="text-xs text-red-500 font-mono">{r.error}</div>
+                                ) : (
+                                  <pre className="whitespace-pre-wrap break-words text-xs font-mono max-h-48 overflow-auto bg-background p-2 rounded border">
+                                    {r.text || "(sem texto)"}
+                                  </pre>
+                                )}
+                              </div>
+                            );
+                          })()}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="rounded-md border border-dashed border-amber-400/50">
+                  <button
+                    type="button"
+                    className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-amber-600 dark:text-amber-400 hover:bg-amber-500/5 cursor-pointer"
+                    onClick={() => setPaddleExpanded(!paddleExpanded)}
+                  >
+                    PaddleOCR — protótipo
+                    <span className="text-xs">{paddleExpanded ? "▲" : "▼"}</span>
+                  </button>
+                  {paddleExpanded && (
+                    <div className="border-t p-3 space-y-3">
+                      <div className="flex items-center gap-2">
+                        {!paddleRunning ? (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => void runPaddleOcr()}
+                            disabled={!ocrResult}
+                          >
+                            <TestTube2 className="h-3.5 w-3.5" />
+                            Testar PaddleOCR
+                          </Button>
+                        ) : (
+                          <Button variant="destructive" size="sm" disabled>
+                            Processando...
+                          </Button>
+                        )}
+                        {paddleResult && !paddleRunning && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="gap-1.5"
+                            onClick={() => void copyPaddleReport()}
+                          >
+                            {paddleCopied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                            {paddleCopied ? "Copiado" : "Copiar relatório PaddleOCR"}
+                          </Button>
+                        )}
+                      </div>
+
+                      {paddleRunning && paddleProgress && (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          {paddleProgress}
+                        </div>
+                      )}
+
+                      {paddleResult && (
+                        <div className="space-y-2">
+                          <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+                            {paddleResult.error ? (
+                              <span className="text-red-500">Erro: {paddleResult.error}</span>
+                            ) : (
+                              <>
+                                <span>Tempo: <strong>{(paddleResult.timeMs / 1000).toFixed(1)}s</strong></span>
+                                <span>Backend: <strong>{paddleResult.backend}</strong></span>
+                                <span>Caixas: <strong>{paddleResult.detectedBoxes}</strong></span>
+                                <span>Regiões: <strong>{paddleResult.recognizedCount}</strong></span>
+                                {paddleResult.confidence !== null && (
+                                  <span>Confiança média: <strong>{Math.round(paddleResult.confidence * 100)}%</strong></span>
+                                )}
+                              </>
+                            )}
+                          </div>
+
+                          {paddleReceipt && !paddleResult.error && (
+                            <div className="rounded-md border p-3 space-y-3">
+                              <div className="text-sm font-medium text-amber-700 dark:text-amber-400">
+                                Resultado experimental
+                              </div>
+
+                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1 text-xs">
+                                <div>
+                                  <span className="text-muted-foreground">Estabelecimento:</span>{" "}
+                                  <strong>{paddleReceipt.merchant ?? "—"}</strong>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">CNPJ:</span>{" "}
+                                  <strong>{paddleReceipt.cnpj ?? "—"}</strong>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Data/hora:</span>{" "}
+                                  <strong>
+                                    {[paddleReceipt.date, paddleReceipt.time].filter(Boolean).join(" ") || "—"}
+                                  </strong>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Total do cupom:</span>{" "}
+                                  <strong>
+                                    {paddleReceipt.receiptTotal !== null
+                                      ? `R$ ${paddleReceipt.receiptTotal.toFixed(2).replace(".", ",")}`
+                                      : "—"}
+                                  </strong>
+                                </div>
+                              </div>
+
+                              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+                                <div className="rounded border bg-muted/30 p-2">
+                                  <div className="text-muted-foreground">Itens identificados</div>
+                                  <strong>{paddleReceipt.items.length}</strong>
+                                </div>
+                                <div className="rounded border bg-muted/30 p-2">
+                                  <div className="text-muted-foreground">Itens com valor</div>
+                                  <strong>
+                                    {paddleReceipt.items.filter((i) => i.effectiveValue !== null).length}
+                                  </strong>
+                                </div>
+                                <div className="rounded border bg-muted/30 p-2">
+                                  <div className="text-muted-foreground">Soma dos valores conhecidos</div>
+                                  <strong>
+                                    R$ {paddleReceipt.sumKnownItemValues.toFixed(2).replace(".", ",")}
+                                  </strong>
+                                </div>
+                                <div className="rounded border bg-muted/30 p-2">
+                                  <div className="text-muted-foreground">Diferença para o total</div>
+                                  <strong>
+                                    {paddleReceipt.differenceFromReceiptTotal !== null
+                                      ? `R$ ${paddleReceipt.differenceFromReceiptTotal.toFixed(2).replace(".", ",")}`
+                                      : "—"}
+                                  </strong>
+                                </div>
+                              </div>
+
+                              <div className="overflow-x-auto rounded border">
+                                <table className="w-full text-xs">
+                                  <thead className="bg-muted/50 text-left">
+                                    <tr>
+                                      <th className="px-2 py-1.5 font-medium">Produto</th>
+                                      <th className="px-2 py-1.5 font-medium">Qtd.</th>
+                                      <th className="px-2 py-1.5 font-medium">Un.</th>
+                                      <th className="px-2 py-1.5 font-medium">Preço unit.</th>
+                                      <th className="px-2 py-1.5 font-medium">Total identificado</th>
+                                      <th className="px-2 py-1.5 font-medium">Valor efetivo</th>
+                                      <th className="px-2 py-1.5 font-medium">Classificação</th>
+                                    </tr>
+                                  </thead>
+                                  <tbody>
+                                    {paddleReceipt.items.length === 0 ? (
+                                      <tr>
+                                        <td colSpan={7} className="px-2 py-2 text-muted-foreground">
+                                          Nenhum item identificado
+                                        </td>
+                                      </tr>
+                                    ) : (
+                                      paddleReceipt.items.map((item, index) => (
+                                        <tr key={index} className="border-t">
+                                          <td className="px-2 py-1.5 max-w-[180px] truncate" title={item.description ?? ""}>
+                                            {item.description ?? "—"}
+                                          </td>
+                                          <td className="px-2 py-1.5">{item.quantity ?? "—"}</td>
+                                          <td className="px-2 py-1.5">{item.unit ?? "—"}</td>
+                                          <td className="px-2 py-1.5">
+                                            {item.unitPrice !== null
+                                              ? item.unitPrice.toFixed(2).replace(".", ",")
+                                              : "—"}
+                                          </td>
+                                          <td className="px-2 py-1.5">
+                                            {item.originalTotal !== null
+                                              ? item.originalTotal.toFixed(2).replace(".", ",")
+                                              : "—"}
+                                          </td>
+                                          <td className="px-2 py-1.5">
+                                            {item.effectiveValue !== null
+                                              ? item.effectiveValue.toFixed(2).replace(".", ",")
+                                              : "—"}
+                                          </td>
+                                          <td className="px-2 py-1.5">{item.classification}</td>
+                                        </tr>
+                                      ))
+                                    )}
+                                  </tbody>
+                                </table>
+                              </div>
+
+                              {paddleReceipt.warnings.length > 0 && (
+                                <div className="rounded border border-amber-400/40 bg-amber-500/5 p-2 space-y-0.5">
+                                  <div className="text-xs font-medium text-amber-700 dark:text-amber-400">
+                                    Warnings
+                                  </div>
+                                  <ul className="text-xs text-muted-foreground list-disc pl-4">
+                                    {paddleReceipt.warnings.map((warning, index) => (
+                                      <li key={index}>{warning}</li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {paddleResult.regions.length > 0 && (
+                            <div className="rounded-md border">
+                              <details>
+                                <summary className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 cursor-pointer">
+                                  Regiões detectadas ({paddleResult.regions.length})
+                                  <span className="text-xs">▼</span>
+                                </summary>
+                                <div className="border-t p-3 space-y-1">
+                                  {paddleResult.regions.map((r, i) => (
+                                    <div key={i} className="text-xs font-mono">
+                                      <span className={
+                                        r.confidence >= 0.7 ? "text-green-600" :
+                                        r.confidence >= 0.4 ? "text-yellow-600" : "text-red-600"
+                                      }>[{Math.round(r.confidence * 100)}%]</span>{" "}
+                                      {r.text}
+                                    </div>
+                                  ))}
+                                </div>
+                              </details>
+                            </div>
+                          )}
+
+                          {paddleResult.text && (
+                            <div className="rounded-md border">
+                              <details>
+                                <summary className="w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted/50 cursor-pointer">
+                                  Texto bruto PaddleOCR
+                                  <span className="text-xs">▼</span>
+                                </summary>
+                                <pre className="whitespace-pre-wrap break-words border-t bg-muted p-3 text-xs font-mono max-h-60 overflow-auto">
+                                  {paddleResult.text}
+                                </pre>
+                              </details>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </>
             )}
           </div>
