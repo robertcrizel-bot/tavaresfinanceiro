@@ -10,7 +10,7 @@ import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
 import { takeSharedReceipt } from "@/lib/shared-receipt";
-import { parseReceipt, matchByName, matchCategory, ParsedReceipt } from "@/lib/receipt";
+import { receiptToImageDataUrl, matchByName, matchCategory, ParsedReceipt } from "@/lib/receipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
 import { extractReceiptText } from "@/lib/receipt-ocr";
 import { parseReceiptText, LocalParsedReceipt } from "@/lib/receipt-parser";
@@ -19,6 +19,7 @@ import { copyLabReport, buildLabReports, formatLabReport } from "@/lib/ocr-lab/r
 import { STRATEGIES } from "@/lib/ocr-lab/types";
 import { paddleRecognize, formatPaddleReport, type PaddleOcrResult } from "@/lib/ocr-paddle-test/recognize";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
+import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
 
@@ -45,6 +46,7 @@ export default function ReceiptImport() {
   const [ocrLoading, setOcrLoading] = useState(false);
   const [ocrResult, setOcrResult] = useState<{ text: string; confidence: number; durationMs: number; preprocessDurationMs?: number; preprocessApplied?: boolean; cropInfo?: { applied: boolean; originalWidth: number; croppedWidth: number; sideRemovalPct: number; confidence: number }; psm4Text?: string; psm4Confidence?: number; psm4Error?: string; psm3Lines?: { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number }; words: { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }[] }[]; psm4Lines?: { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number }; words: { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }[] }[]; psm3CropText?: string; psm3CropConfidence?: number; psm3CropLines?: { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number }; words: { text: string; confidence: number; bbox: { x0: number; y0: number; x1: number; y1: number } }[] }[]; psm3CropError?: string; psm3CropRectangle?: { left: number; top: number; width: number; height: number } } | null>(null);
   const [ocrProgress, setOcrProgress] = useState("");
+  const [readStatus, setReadStatus] = useState("");
   const [ocrOpen, setOcrOpen] = useState(false);
   const [ocrCopied, setOcrCopied] = useState(false);
   const [ocrParsed, setOcrParsed] = useState<LocalParsedReceipt | null>(null);
@@ -139,11 +141,14 @@ export default function ReceiptImport() {
       setLoading(true);
       setError(null);
       setDuplicate(false);
+      setReadStatus("Carregando modelo PaddleOCR...");
       try {
-        const parsed = await parseReceipt(file, {
-          categories: allCategoryNames,
-          accounts: [...accounts.map((a) => `${a.name} (${a.bank})`), ...creditCards.map((c) => `${c.name} (${c.bank})`)],
-        });
+        const imageDataUrl = await receiptToImageDataUrl(file);
+        const ocr = await paddleRecognize(imageDataUrl, (status) => setReadStatus(status));
+        if (ocr.error) {
+          throw new Error("Não foi possível ler o comprovante agora. Verifique a foto e tente novamente.");
+        }
+        const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
         if (!parsed.is_receipt) {
           setError("Essa imagem não parece ser um comprovante. Tente outra foto mais nítida.");
           return;
@@ -165,6 +170,7 @@ export default function ReceiptImport() {
         setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante.");
       } finally {
         setLoading(false);
+        setReadStatus("");
       }
     },
     [accounts, creditCards, allCategoryNames, buildPrefill],
@@ -464,6 +470,7 @@ export default function ReceiptImport() {
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
             <p className="text-sm text-muted-foreground">Lendo o comprovante...</p>
+            {readStatus && <p className="text-xs text-muted-foreground">{readStatus}</p>}
           </div>
         ) : (
           <>
@@ -482,7 +489,7 @@ export default function ReceiptImport() {
                     onClick={() => void processFile(pendingFile)}
                   >
                     {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanLine className="h-4 w-4" />}
-                    Ler com IA
+                    Ler comprovante
                   </Button>
                   <Button
                     variant="outline"
