@@ -20,11 +20,16 @@
         {
           "name": "receipt",
           "accept": [
-            "image/jpeg",
-            "image/png",
-            "image/webp",
-            "image/heic",
-            "application/pdf"
+            "image/*",
+            ".jpg",
+            ".jpeg",
+            ".png",
+            ".webp",
+            ".heic",
+            ".heif",
+            ".avif",
+            "application/pdf",
+            ".pdf"
           ]
         }
       ]
