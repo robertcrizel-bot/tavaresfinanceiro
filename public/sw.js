@@ -47,8 +47,41 @@ self.addEventListener("fetch", (event) => {
         const record = (stage, details) => appendDiagnostic(attemptId, ++sequence, stage, details);
         await record("sw_post_received", { method: event.request.method, pathname: url.pathname });
         try {
+          const contentType = event.request.headers.get("content-type");
+          const contentLength = event.request.headers.get("content-length");
+          let byteLength = null;
+          let bodyReadSucceeded = false;
+          try {
+            byteLength = (await event.request.clone().arrayBuffer()).byteLength;
+            bodyReadSucceeded = true;
+          } catch {
+            // The original request must still be parsed if diagnostic inspection fails.
+          }
+          await record("sw_request_inspected", {
+            contentType,
+            contentLength,
+            hasBody: event.request.body !== null,
+            isMultipartFormData: /^multipart\/form-data(?:;|$)/i.test(contentType || ""),
+            hasBoundary: /(?:^|;)\s*boundary\s*=/i.test(contentType || ""),
+            bodyReadSucceeded,
+            byteLength,
+          });
+
           const formData = await event.request.formData();
-          await record("sw_multipart_parsed", { keys: Array.from(formData.keys()) });
+          const entries = Array.from(formData.entries(), ([fieldName, value]) => {
+            const isFile = typeof File !== "undefined" && value instanceof File;
+            return {
+              fieldName,
+              entryType: isFile ? "File" : typeof value,
+              ...(isFile
+                ? { fileName: value.name, fileType: value.type, fileSize: value.size }
+                : {}),
+            };
+          });
+          await record("sw_multipart_parsed", {
+            keys: Array.from(formData.keys()),
+            entries,
+          });
           let file = null;
 
           const candidateKeys = ["receipt", "file", "files", "image", "media"];
