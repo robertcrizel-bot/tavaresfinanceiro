@@ -19,18 +19,7 @@
       "files": [
         {
           "name": "receipt",
-          "accept": [
-            "image/*",
-            ".jpg",
-            ".jpeg",
-            ".png",
-            ".webp",
-            ".heic",
-            ".heif",
-            ".avif",
-            "application/pdf",
-            ".pdf"
-          ]
+          "accept": ["image/*", "application/pdf"]
         }
       ]
     }
