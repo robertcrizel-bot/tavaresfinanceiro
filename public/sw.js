@@ -3,6 +3,36 @@
 
 const SHARE_CACHE = "shared-receipt";
 const SHARE_KEY = "/__shared-receipt";
+const DIAGNOSTIC_CACHE = "shared-receipt-diagnostics";
+const DIAGNOSTIC_PREFIX = "/__shared-receipt-diagnostics/";
+
+function createAttemptId() {
+  const suffix = self.crypto?.randomUUID?.() || Math.random().toString(36).slice(2);
+  return `${Date.now()}-${suffix}`;
+}
+
+async function appendDiagnostic(attemptId, sequence, stage, details) {
+  try {
+    const epochMs = Date.now();
+    const id = `${epochMs}-service-worker-${String(sequence).padStart(4, "0")}`;
+    const event = {
+      id,
+      attemptId,
+      timestamp: new Date(epochMs).toISOString(),
+      epochMs,
+      source: "service-worker",
+      stage,
+      details,
+    };
+    const cache = await caches.open(DIAGNOSTIC_CACHE);
+    const key = `${DIAGNOSTIC_PREFIX}${encodeURIComponent(attemptId)}/${id}`;
+    await cache.put(key, new Response(JSON.stringify(event), {
+      headers: { "Content-Type": "application/json" },
+    }));
+  } catch {
+    // Diagnostics must never interrupt the share target.
+  }
+}
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
@@ -12,8 +42,13 @@ self.addEventListener("fetch", (event) => {
   if (event.request.method === "POST" && url.pathname === "/receipt-share") {
     event.respondWith(
       (async () => {
+        const attemptId = createAttemptId();
+        let sequence = 0;
+        const record = (stage, details) => appendDiagnostic(attemptId, ++sequence, stage, details);
+        await record("sw_post_received", { method: event.request.method, pathname: url.pathname });
         try {
           const formData = await event.request.formData();
+          await record("sw_multipart_parsed", { keys: Array.from(formData.keys()) });
           let file = null;
 
           const candidateKeys = ["receipt", "file", "files", "image", "media"];
@@ -39,6 +74,11 @@ self.addEventListener("fetch", (event) => {
           }
 
           if (file) {
+            await record("sw_file_found", {
+              name: file.name || "comprovante",
+              size: file.size,
+              type: file.type || "application/octet-stream",
+            });
             const cache = await caches.open(SHARE_CACHE);
             await cache.put(
               SHARE_KEY,
@@ -49,11 +89,24 @@ self.addEventListener("fetch", (event) => {
                 },
               }),
             );
+            const stored = await cache.match(SHARE_KEY);
+            await record("sw_cache_write_finished", {
+              sharedReceiptExists: Boolean(stored),
+              storedSize: stored ? (await stored.clone().blob()).size : 0,
+            });
+          } else {
+            await record("sw_file_not_found", { keys: Array.from(formData.keys()) });
           }
         } catch (e) {
-          // fall through to the app, which will show the manual picker
+          await record("sw_share_failed", {
+            error: e instanceof Error ? e.message : String(e),
+          });
         }
-        const redirectTarget = new URL("./receipt?shared=1", self.registration.scope).href;
+        await record("sw_redirecting", { target: "./receipt?shared=1" });
+        const redirectUrl = new URL("./receipt", self.registration.scope);
+        redirectUrl.searchParams.set("shared", "1");
+        redirectUrl.searchParams.set("share_attempt", attemptId);
+        const redirectTarget = redirectUrl.href;
         return Response.redirect(redirectTarget, 303);
       })(),
     );

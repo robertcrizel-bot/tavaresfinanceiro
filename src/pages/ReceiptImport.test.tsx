@@ -7,6 +7,8 @@ const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   parseReceipt: vi.fn(),
   takeSharedReceipt: vi.fn(),
+  appendShareDiagnostic: vi.fn(),
+  readShareDiagnostics: vi.fn(),
   duplicateLimit: vi.fn(),
   toast: vi.fn(),
   extractReceiptText: vi.fn(),
@@ -20,6 +22,13 @@ const mocks = vi.hoisted(() => ({
 vi.mock("react-router-dom", async (importOriginal) => ({
   ...await importOriginal<typeof import("react-router-dom")>(),
   useNavigate: () => mocks.navigate,
+  useLocation: () => ({
+    pathname: window.location.pathname,
+    search: window.location.search,
+    hash: window.location.hash,
+    state: null,
+    key: "test",
+  }),
 }));
 vi.mock("@/contexts/FinanceContext", () => ({
   useFinance: () => ({ addTransaction: mocks.addTransaction }),
@@ -31,7 +40,11 @@ vi.mock("@/contexts/CategoryContext", () => ({
   useCategories: () => ({ allCategoryNames: ["Alimentação", "Outros"] }),
 }));
 vi.mock("@/hooks/use-toast", () => ({ toast: mocks.toast }));
-vi.mock("@/lib/shared-receipt", () => ({ takeSharedReceipt: mocks.takeSharedReceipt }));
+vi.mock("@/lib/shared-receipt", () => ({
+  takeSharedReceipt: mocks.takeSharedReceipt,
+  appendShareDiagnostic: mocks.appendShareDiagnostic,
+  readShareDiagnostics: mocks.readShareDiagnostics,
+}));
 vi.mock("@/lib/receipt", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/receipt")>(),
   parseReceipt: mocks.parseReceipt,
@@ -141,6 +154,8 @@ describe("ReceiptImport metadata", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.takeSharedReceipt.mockResolvedValue(null);
+    mocks.appendShareDiagnostic.mockResolvedValue(undefined);
+    mocks.readShareDiagnostics.mockResolvedValue([]);
     mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
     stubPaddleSuccess();
   });
@@ -351,6 +366,8 @@ describe("OCR local → TransactionForm flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.takeSharedReceipt.mockResolvedValue(null);
+    mocks.appendShareDiagnostic.mockResolvedValue(undefined);
+    mocks.readShareDiagnostics.mockResolvedValue([]);
     mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
   });
 
@@ -805,6 +822,8 @@ describe("PaddleOCR main flow (no paid AI)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.takeSharedReceipt.mockResolvedValue(null);
+    mocks.appendShareDiagnostic.mockResolvedValue(undefined);
+    mocks.readShareDiagnostics.mockResolvedValue([]);
     mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
     stubPaddleSuccess();
   });
@@ -812,6 +831,7 @@ describe("PaddleOCR main flow (no paid AI)", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    window.history.replaceState({}, "", "/");
   });
 
   function selectFile() {
@@ -880,10 +900,30 @@ describe("PaddleOCR main flow (no paid AI)", () => {
   it("shared receipt is processed automatically through PaddleOCR", async () => {
     const sharedFile = new File(["shared"], "shared.jpg", { type: "image/jpeg" });
     mocks.takeSharedReceipt.mockResolvedValue(sharedFile);
+    mocks.readShareDiagnostics.mockResolvedValue([
+      {
+        id: "1-service-worker-0001",
+        attemptId: "attempt-1",
+        timestamp: "2026-09-25T12:00:00.000Z",
+        epochMs: 1,
+        source: "service-worker",
+        stage: "sw_post_received",
+      },
+    ]);
+    window.history.replaceState({}, "", "/receipt?shared=1&share_attempt=attempt-1");
 
     render(<ReceiptImport />);
 
-    await waitFor(() => expect(mocks.takeSharedReceipt).toHaveBeenCalled());
+    expect(await screen.findByTestId("share-diagnostic-panel")).toHaveTextContent("attempt-1");
+    expect(screen.getByTestId("share-diagnostic-panel")).toHaveTextContent("sw_post_received");
+    await waitFor(() => expect(mocks.takeSharedReceipt).toHaveBeenCalledWith("attempt-1"));
+    await waitFor(() =>
+      expect(mocks.appendShareDiagnostic).toHaveBeenCalledWith(
+        "attempt-1",
+        "react_process_file_called",
+        expect.objectContaining({ name: "shared.jpg", type: "image/jpeg" }),
+      ),
+    );
     await waitFor(() =>
       expect(mocks.paddleRecognize).toHaveBeenCalledWith(
         "data:image/jpeg;base64,TEST",
@@ -894,6 +934,25 @@ describe("PaddleOCR main flow (no paid AI)", () => {
       expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument(),
     );
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
+  });
+
+  it("shows diagnostics when a shared URL reaches an already mounted receipt screen", async () => {
+    const { rerender } = render(<ReceiptImport />);
+    await waitFor(() => expect(mocks.takeSharedReceipt).toHaveBeenCalledTimes(1));
+    expect(mocks.takeSharedReceipt).toHaveBeenCalledWith(undefined);
+
+    window.history.replaceState({}, "", "/receipt?shared=1&share_attempt=reused-page");
+    rerender(<ReceiptImport />);
+
+    expect(await screen.findByTestId("share-diagnostic-panel")).toHaveTextContent("reused-page");
+    await waitFor(() =>
+      expect(mocks.appendShareDiagnostic).toHaveBeenCalledWith(
+        "reused-page",
+        "react_shared_location_observed",
+        expect.objectContaining({ sharedReceiptAlreadyChecked: true }),
+      ),
+    );
+    expect(mocks.takeSharedReceipt).toHaveBeenCalledTimes(1);
   });
 
   it("preserves parser nulls in the form (amount is never fabricated)", async () => {
