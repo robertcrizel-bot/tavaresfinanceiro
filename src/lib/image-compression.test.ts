@@ -2,8 +2,38 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { calculateImageDimensions, compressImageFile } from "@/lib/image-compression";
 
 const receiptOptions = { maxWidth: 2000, maxHeight: 6000, quality: 0.92 };
+type TransformMatrix = [number, number, number, number, number, number];
+type OrientationCase = [number, TransformMatrix | null, number, number, number, number];
 
-function makeJpeg(width: number, height: number, byteSize = 500 * 1024, orientation?: number, appendXmp = false) {
+const orientationCases: OrientationCase[] = [
+  [1, null, 2000, 1500, 2000, 1500],
+  [2, [-1, 0, 0, 1, 2000, 0], 2000, 1500, 2000, 1500],
+  [3, [-1, 0, 0, -1, 2000, 1500], 2000, 1500, 2000, 1500],
+  [4, [1, 0, 0, -1, 0, 1500], 2000, 1500, 2000, 1500],
+  [5, [0, 1, 1, 0, 0, 0], 2000, 2667, 2667, 2000],
+  [6, [0, 1, -1, 0, 2000, 0], 2000, 2667, 2667, 2000],
+  [7, [0, -1, -1, 0, 2000, 2667], 2000, 2667, 2667, 2000],
+  [8, [0, -1, 1, 0, 0, 2667], 2000, 2667, 2667, 2000],
+];
+
+function readBlob(blob: Blob): Promise<ArrayBuffer> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as ArrayBuffer);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsArrayBuffer(blob);
+  });
+}
+
+function makeJpeg(
+  width: number,
+  height: number,
+  byteSize = 500 * 1024,
+  orientation?: number,
+  appendXmp = false,
+  type = "image/jpeg",
+  duplicateOrientation = false,
+) {
   const bytes: number[] = [0xff, 0xd8];
 
   if (orientation) {
@@ -15,7 +45,9 @@ function makeJpeg(width: number, height: number, byteSize = 500 * 1024, orientat
       0x00, 0x00, 0x00, 0x00,
     ];
     const length = exif.length + 2;
-    bytes.push(0xff, 0xe1, length >> 8, length & 0xff, ...exif);
+    const segment = [0xff, 0xe1, length >> 8, length & 0xff, ...exif];
+    bytes.push(...segment);
+    if (duplicateOrientation) bytes.push(...segment);
   }
 
   if (appendXmp) {
@@ -34,23 +66,29 @@ function makeJpeg(width: number, height: number, byteSize = 500 * 1024, orientat
 
   const data = new Uint8Array(Math.max(byteSize, bytes.length));
   data.set(bytes);
-  const file = new File([data], "receipt.jpg", { type: "image/jpeg" });
+  const file = new File([data], "receipt.jpg", { type });
   Object.defineProperty(file, "slice", {
-    value: () => ({
-      arrayBuffer: async () => data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
-    }),
+    value: (start = 0, end = data.length, contentType = "") => {
+      const slice = data.slice(start, end);
+      const blob = new Blob([slice], { type: contentType });
+      Object.defineProperty(blob, "arrayBuffer", {
+        value: async () => slice.buffer.slice(slice.byteOffset, slice.byteOffset + slice.byteLength),
+      });
+      return blob;
+    },
   });
   return file;
 }
 
 function installCanvasMock(result: Blob | null = new Blob(["compressed"]), events: string[] = []) {
   const drawImage = vi.fn();
+  const transform = vi.fn();
   const canvases: HTMLCanvasElement[] = [];
   const encodedSizes: Array<{ width: number; height: number; quality: number | undefined }> = [];
 
   vi.spyOn(HTMLCanvasElement.prototype, "getContext").mockImplementation(function () {
     canvases.push(this as HTMLCanvasElement);
-    return { drawImage } as unknown as CanvasRenderingContext2D;
+    return { drawImage, transform } as unknown as CanvasRenderingContext2D;
   });
   const toBlob = vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation(function (callback, _type, quality) {
     events.push("toBlob");
@@ -58,7 +96,7 @@ function installCanvasMock(result: Blob | null = new Blob(["compressed"]), event
     callback(result);
   });
 
-  return { canvases, drawImage, encodedSizes, toBlob };
+  return { canvases, drawImage, transform, encodedSizes, toBlob };
 }
 
 function installBitmapMock(sourceWidth: number, sourceHeight: number, events: string[] = []) {
@@ -139,19 +177,128 @@ describe("compressImageFile", () => {
     expect(create).toHaveBeenCalledWith(file, expect.objectContaining({ resizeWidth: 2000, resizeHeight: 2667 }));
   });
 
-  it("keeps EXIF orientation when later APP1 metadata is present", async () => {
+  it("normalizes EXIF orientation when later APP1 metadata is present", async () => {
     const file = makeJpeg(4000, 3000, 500 * 1024, 6, true);
     const { create } = installBitmapMock(4000, 3000);
-    const { drawImage } = installCanvasMock();
+    const { drawImage, transform } = installCanvasMock();
 
     await compressImageFile(file, receiptOptions);
 
-    expect(create).toHaveBeenCalledWith(file, expect.objectContaining({
-      imageOrientation: "from-image",
-      resizeWidth: 2000,
-      resizeHeight: 2667,
+    expect(create).toHaveBeenCalledWith(expect.any(Blob), expect.objectContaining({
+      imageOrientation: "none",
+      resizeWidth: 2667,
+      resizeHeight: 2000,
     }));
-    expect(drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 2000, 2667);
+    expect(transform).toHaveBeenCalledWith(0, 1, -1, 0, 2000, 0);
+    expect(drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, 2667, 2000);
+  });
+
+  it.each(orientationCases)("normalizes EXIF orientation %i exactly once", async (
+    orientation,
+    matrix,
+    canvasWidth,
+    canvasHeight,
+    drawWidth,
+    drawHeight,
+  ) => {
+    const file = makeJpeg(4000, 3000, 500 * 1024, orientation);
+    const { create } = installBitmapMock(4000, 3000);
+    const { drawImage, transform, encodedSizes } = installCanvasMock();
+
+    await compressImageFile(file, receiptOptions);
+
+    const [decodeSource, options] = create.mock.calls[0];
+    if (orientation === 1) {
+      expect(decodeSource).toBe(file);
+      expect(options).toEqual({
+        imageOrientation: "from-image",
+        resizeWidth: 2000,
+        resizeHeight: 1500,
+        resizeQuality: "high",
+      });
+      expect(transform).not.toHaveBeenCalled();
+    } else {
+      expect(decodeSource).not.toBe(file);
+      expect(options).toEqual({
+        imageOrientation: "none",
+        resizeWidth: drawWidth,
+        resizeHeight: drawHeight,
+        resizeQuality: "high",
+      });
+      expect(transform).toHaveBeenCalledTimes(1);
+      expect(transform).toHaveBeenCalledWith(...matrix);
+    }
+    expect(drawImage).toHaveBeenCalledWith(expect.anything(), 0, 0, drawWidth, drawHeight);
+    expect(encodedSizes).toEqual([{ width: canvasWidth, height: canvasHeight, quality: 0.92 }]);
+  });
+
+  it("normalizes a small JPEG with EXIF even when the encoded result is larger", async () => {
+    const file = makeJpeg(1200, 800, 1000, 6);
+    const { create } = installBitmapMock(1200, 800);
+    const largerBlob = new Blob([new Uint8Array(2000)], { type: "image/jpeg" });
+    const { transform, encodedSizes } = installCanvasMock(largerBlob);
+
+    const output = await compressImageFile(file, receiptOptions);
+
+    expect(create).toHaveBeenCalledWith(expect.any(Blob), { imageOrientation: "none" });
+    expect(transform).toHaveBeenCalledWith(0, 1, -1, 0, 800, 0);
+    expect(encodedSizes).toEqual([{ width: 800, height: 1200, quality: 0.92 }]);
+    expect(output).not.toBe(file);
+    expect(output.type).toBe("image/jpeg");
+  });
+
+  it.each(["", "application/octet-stream"])(
+    "detects and normalizes JPEG bytes declared as %j",
+    async (type) => {
+      const file = makeJpeg(4000, 3000, 500 * 1024, 8, false, type);
+      const { create } = installBitmapMock(4000, 3000);
+      const { transform } = installCanvasMock();
+
+      const output = await compressImageFile(file, receiptOptions);
+
+      expect(create).toHaveBeenCalledWith(expect.any(Blob), expect.objectContaining({
+        imageOrientation: "none",
+        resizeWidth: 2667,
+        resizeHeight: 2000,
+      }));
+      expect(transform).toHaveBeenCalledWith(0, -1, 1, 0, 0, 2667);
+      expect(output).not.toBe(file);
+      expect(output.type).toBe("image/jpeg");
+    },
+  );
+
+  it("detects an undeclared JPEG by signature even when metadata is outside the inspected header", async () => {
+    const data = new Uint8Array(600 * 1024);
+    data.set([0xff, 0xd8, 0xff, 0xd9]);
+    const file = new File([data], "unusual-upload", { type: "application/octet-stream" });
+    Object.defineProperty(file, "slice", {
+      value: () => ({
+        arrayBuffer: async () => data.buffer.slice(data.byteOffset, data.byteOffset + data.byteLength),
+      }),
+    });
+    const { create } = installBitmapMock(1600, 2400);
+    installCanvasMock();
+
+    const output = await compressImageFile(file, receiptOptions);
+
+    expect(create).toHaveBeenCalledWith(file);
+    expect(output).not.toBe(file);
+    expect(output.type).toBe("image/jpeg");
+  });
+
+  it("removes every EXIF orientation before decoding to prevent the decoder from rotating twice", async () => {
+    const file = makeJpeg(4000, 3000, 500 * 1024, 6, false, "image/jpeg", true);
+    const { create } = installBitmapMock(4000, 3000);
+    const { transform } = installCanvasMock();
+
+    await compressImageFile(file, receiptOptions);
+
+    const [decodeSource, options] = create.mock.calls[0] as [Blob, ImageBitmapOptions];
+    const decodedBytes = new Uint8Array(await readBlob(decodeSource));
+    const decodedText = new TextDecoder().decode(decodedBytes);
+    expect(decodedText).not.toContain("Exif");
+    expect(options.imageOrientation).toBe("none");
+    expect(transform).toHaveBeenCalledTimes(1);
   });
 
   it("closes the bitmap before encoding and always releases the canvas", async () => {

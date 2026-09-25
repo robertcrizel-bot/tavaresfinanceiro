@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -9,12 +9,7 @@ import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
-import {
-  appendShareDiagnostic,
-  readShareDiagnostics,
-  takeSharedReceipt,
-  type ShareDiagnosticEvent,
-} from "@/lib/shared-receipt";
+import { takeSharedReceipt } from "@/lib/shared-receipt";
 import { receiptToImageDataUrl, matchByName, matchCategory, ParsedReceipt } from "@/lib/receipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
 import { extractReceiptText } from "@/lib/receipt-ocr";
@@ -32,16 +27,9 @@ const LOW_CONFIDENCE_TITLE_FIELDS = ["counterparty", "merchant_name", "merchant_
 
 export default function ReceiptImport() {
   const navigate = useNavigate();
-  const location = useLocation();
   const { addTransaction } = useFinance();
   const { accounts, creditCards } = useAccounts();
   const { allCategoryNames } = useCategories();
-  const shareParams = useMemo(() => new URLSearchParams(location.search), [location.search]);
-  const isSharedLaunch = shareParams.get("shared") === "1";
-  const attemptFromUrl = shareParams.get("share_attempt");
-  const fallbackAttemptRef = useRef(`react-only-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-  const diagnosticAttemptId = isSharedLaunch ? attemptFromUrl || fallbackAttemptRef.current : null;
-  const pageInstanceRef = useRef(`${Date.now()}-${Math.random().toString(36).slice(2)}`);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -78,53 +66,11 @@ export default function ReceiptImport() {
   const [paddleExpanded, setPaddleExpanded] = useState(false);
   const [paddleCopied, setPaddleCopied] = useState(false);
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [diagnosticEvents, setDiagnosticEvents] = useState<ShareDiagnosticEvent[]>([]);
-  const [diagnosticError, setDiagnosticError] = useState<string | null>(null);
-  const [diagnosticCopied, setDiagnosticCopied] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const cameraRequestRef = useRef(0);
   const sharedChecked = useRef(false);
-
-  const refreshDiagnostics = useCallback(async () => {
-    if (!diagnosticAttemptId) return;
-    try {
-      setDiagnosticEvents(await readShareDiagnostics(diagnosticAttemptId));
-      setDiagnosticError(null);
-    } catch (diagnosticReadError) {
-      setDiagnosticError(diagnosticReadError instanceof Error
-        ? diagnosticReadError.message
-        : String(diagnosticReadError));
-    }
-  }, [diagnosticAttemptId]);
-
-  const recordDiagnostic = useCallback(async (
-    attemptId: string | undefined,
-    stage: string,
-    details?: Record<string, unknown>,
-  ) => {
-    if (!attemptId) return;
-    await appendShareDiagnostic(attemptId, stage, details);
-    await refreshDiagnostics();
-  }, [refreshDiagnostics]);
-
-  const copyDiagnostics = async () => {
-    if (!diagnosticAttemptId) return;
-    const lines = [
-      `Tentativa: ${diagnosticAttemptId}`,
-      ...diagnosticEvents.map((event, index) =>
-        `${String(index + 1).padStart(2, "0")}. ${event.timestamp} [${event.source}] ${event.stage}${event.details ? ` ${JSON.stringify(event.details)}` : ""}`
-      ),
-    ];
-    try {
-      await navigator.clipboard.writeText(lines.join("\n"));
-      setDiagnosticCopied(true);
-      window.setTimeout(() => setDiagnosticCopied(false), 2000);
-    } catch (copyError) {
-      setDiagnosticError(copyError instanceof Error ? copyError.message : String(copyError));
-    }
-  };
 
   const buildPrefill = useCallback(
     (parsed: ParsedReceipt): Partial<Omit<Transaction, "id">> => {
@@ -190,35 +136,15 @@ export default function ReceiptImport() {
   );
 
   const processFile = useCallback(
-    async (file: File, shareAttemptId?: string) => {
-      await recordDiagnostic(shareAttemptId, "react_process_file_called", {
-        name: file.name,
-        size: file.size,
-        type: file.type,
-      });
+    async (file: File) => {
       setPendingFile(file);
       setLoading(true);
       setError(null);
       setDuplicate(false);
       setReadStatus("Carregando modelo PaddleOCR...");
       try {
-        await recordDiagnostic(shareAttemptId, "react_image_conversion_started");
         const imageDataUrl = await receiptToImageDataUrl(file);
-        await recordDiagnostic(shareAttemptId, "react_image_conversion_finished", {
-          dataUrlLength: imageDataUrl.length,
-        });
-        await recordDiagnostic(shareAttemptId, "react_paddle_started");
         const ocr = await paddleRecognize(imageDataUrl, (status) => setReadStatus(status));
-        await recordDiagnostic(
-          shareAttemptId,
-          ocr.error ? "react_paddle_failed" : "react_paddle_finished",
-          {
-            error: ocr.error || null,
-            detectedBoxes: ocr.detectedBoxes,
-            recognizedCount: ocr.recognizedCount,
-            durationMs: ocr.timeMs,
-          },
-        );
         if (ocr.error) {
           throw new Error("Não foi possível ler o comprovante agora. Verifique a foto e tente novamente.");
         }
@@ -240,18 +166,14 @@ export default function ReceiptImport() {
         setLowConfidence(parsed.low_confidence_fields || []);
         setPrefill(buildPrefill(parsed));
         setFormOpen(true);
-        await recordDiagnostic(shareAttemptId, "react_process_file_finished");
       } catch (e) {
-        await recordDiagnostic(shareAttemptId, "react_process_file_failed", {
-          error: e instanceof Error ? e.message : String(e),
-        });
         setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante.");
       } finally {
         setLoading(false);
         setReadStatus("");
       }
     },
-    [accounts, creditCards, allCategoryNames, buildPrefill, recordDiagnostic],
+    [accounts, creditCards, allCategoryNames, buildPrefill],
   );
 
   const releaseCamera = useCallback(() => {
@@ -501,44 +423,12 @@ export default function ReceiptImport() {
   useEffect(() => {
     if (sharedChecked.current) return;
     sharedChecked.current = true;
-    void (async () => {
-      if (isSharedLaunch && diagnosticAttemptId && !attemptFromUrl) {
-        const url = new URL(window.location.href);
-        url.searchParams.set("share_attempt", diagnosticAttemptId);
-        window.history.replaceState(window.history.state, "", url);
-      }
-      await recordDiagnostic(diagnosticAttemptId || undefined, "react_receipt_import_mounted", {
-        href: window.location.href,
-        pageInstanceId: pageInstanceRef.current,
-        navigationType: (performance.getEntriesByType("navigation")[0] as PerformanceNavigationTiming | undefined)?.type || "unknown",
-        attemptIdWasPresentInUrl: Boolean(attemptFromUrl),
-      });
-      const file = await takeSharedReceipt(diagnosticAttemptId || undefined);
-      await refreshDiagnostics();
+    void takeSharedReceipt().then((file) => {
       if (file) {
-        await recordDiagnostic(diagnosticAttemptId || undefined, "react_shared_file_dispatched");
-        void processFile(file, diagnosticAttemptId || undefined);
-      } else {
-        await recordDiagnostic(diagnosticAttemptId || undefined, "react_shared_file_missing");
+        void processFile(file);
       }
-    })();
-  }, [attemptFromUrl, diagnosticAttemptId, isSharedLaunch, processFile, recordDiagnostic, refreshDiagnostics]);
-
-  useEffect(() => {
-    if (!diagnosticAttemptId) return;
-    void refreshDiagnostics();
-    const interval = window.setInterval(() => void refreshDiagnostics(), 1000);
-    return () => window.clearInterval(interval);
-  }, [diagnosticAttemptId, refreshDiagnostics]);
-
-  useEffect(() => {
-    if (!diagnosticAttemptId) return;
-    void recordDiagnostic(diagnosticAttemptId, "react_shared_location_observed", {
-      href: window.location.href,
-      pageInstanceId: pageInstanceRef.current,
-      sharedReceiptAlreadyChecked: sharedChecked.current,
     });
-  }, [diagnosticAttemptId, location.search, recordDiagnostic]);
+  }, [processFile]);
 
   const applyOcrData = useCallback(() => {
     if (!ocrParsed || !ocrParsed.is_receipt || !pendingFile) return;
@@ -576,51 +466,6 @@ export default function ReceiptImport() {
           Envie a foto ou o PDF do comprovante e o app preenche o registro para você conferir.
         </p>
       </div>
-
-      {isSharedLaunch && (
-        <Card className="border-amber-500/60 bg-amber-500/10 p-4" data-testid="share-diagnostic-panel">
-          <div className="space-y-2">
-            <div>
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h2 className="font-semibold text-amber-200">Diagnóstico do compartilhamento</h2>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="outline"
-                  disabled={diagnosticEvents.length === 0}
-                  onClick={() => void copyDiagnostics()}
-                >
-                  {diagnosticCopied ? <Check className="mr-2 h-3.5 w-3.5" /> : <Copy className="mr-2 h-3.5 w-3.5" />}
-                  {diagnosticCopied ? "Copiado" : "Copiar diagnóstico"}
-                </Button>
-              </div>
-              <p className="break-all text-xs text-muted-foreground">
-                Tentativa: {diagnosticAttemptId || "sem identificador"}
-              </p>
-              {!attemptFromUrl && (
-                <p className="text-xs text-amber-300">
-                  O redirect não trouxe um identificador do service worker; foi criado um identificador apenas no React.
-                </p>
-              )}
-            </div>
-            {diagnosticError && (
-              <p className="text-xs text-destructive">Falha ao ler diagnóstico: {diagnosticError}</p>
-            )}
-            {diagnosticEvents.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Nenhum marco persistente encontrado.</p>
-            ) : (
-              <ol className="max-h-80 space-y-1 overflow-auto rounded bg-black/30 p-3 font-mono text-[11px]">
-                {diagnosticEvents.map((event, index) => (
-                  <li key={event.id} className="break-all">
-                    {String(index + 1).padStart(2, "0")}. {event.timestamp} [{event.source}] {event.stage}
-                    {event.details && ` ${JSON.stringify(event.details)}`}
-                  </li>
-                ))}
-              </ol>
-            )}
-          </div>
-        </Card>
-      )}
 
       <Card className="p-6 space-y-4">
         {loading ? (
