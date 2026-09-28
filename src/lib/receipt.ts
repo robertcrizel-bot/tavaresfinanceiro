@@ -1,4 +1,9 @@
-import { compressImageFile } from "@/lib/image-compression";
+import {
+  compressImageFile,
+  inspectJpegOrientation,
+  isDocumentOrientationClassificationEligible,
+} from "@/lib/image-compression";
+import { correctDocumentOrientation } from "@/lib/receipt-image-orientation";
 import { supabase } from "@/integrations/supabase/client";
 
 export interface PurchasedItem {
@@ -69,12 +74,17 @@ async function pdfFirstPageToJpeg(file: File): Promise<File> {
 
 /** Turns an uploaded receipt (image or PDF) into a compact JPEG data URL suitable for AI reading. */
 export async function receiptToImageDataUrl(file: File): Promise<string> {
+  const isPdf = file.type === "application/pdf" || /\.pdf$/i.test(file.name);
+  const orientationInspection = isPdf ? null : await inspectJpegOrientation(file);
   let imageFile = file;
-  if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)) {
+  if (isPdf) {
     imageFile = await pdfFirstPageToJpeg(file);
   }
-  const compressed = await compressImageFile(imageFile, { maxWidth: 2000, maxHeight: 6000, quality: 0.92 });
-  return blobToDataUrl(compressed);
+  let workingImage = await compressImageFile(imageFile, { maxWidth: 2000, maxHeight: 6000, quality: 0.92 });
+  if (orientationInspection && isDocumentOrientationClassificationEligible(orientationInspection)) {
+    workingImage = await correctDocumentOrientation(workingImage);
+  }
+  return blobToDataUrl(workingImage);
 }
 
 export async function parseReceipt(

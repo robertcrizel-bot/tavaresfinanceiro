@@ -836,6 +836,7 @@ describe("PaddleOCR main flow (no paid AI)", () => {
       "data:image/jpeg;base64,TEST",
       expect.any(Function),
     );
+    expect(mocks.paddleRecognize).toHaveBeenCalledTimes(1);
     expect(mocks.buildPaddleReceiptResult).toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
 

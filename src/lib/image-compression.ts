@@ -11,8 +11,56 @@ type JpegMetadata = {
 
 type JpegHeader = { hasJpegSignature: boolean; metadata: JpegMetadata | null };
 
+export type JpegOrientationInspection =
+  | { status: "absent"; width: number; height: number }
+  | { status: "present"; orientation: number; width: number; height: number }
+  | { status: "unknown"; reason: string };
+
+type ExifOrientationInspection =
+  | { status: "not-exif" }
+  | { status: "absent" }
+  | { status: "present"; orientation: number }
+  | { status: "malformed" };
+
 const JPEG_HEADER_LIMIT = 512 * 1024;
 const SMALL_FILE_LIMIT = 400 * 1024;
+
+function inspectExifOrientation(view: DataView, start: number, end: number): ExifOrientationInspection {
+  const signature = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00];
+  if (end - start < signature.length) {
+    const isTruncatedExif = end > start
+      && signature.slice(0, end - start).every((byte, index) => view.getUint8(start + index) === byte);
+    return isTruncatedExif ? { status: "malformed" } : { status: "not-exif" };
+  }
+  if (view.getUint32(start) !== 0x45786966 || view.getUint16(start + 4) !== 0) {
+    return { status: "not-exif" };
+  }
+  if (end - start < 14) return { status: "malformed" };
+
+  const tiffStart = start + 6;
+  const byteOrder = view.getUint16(tiffStart);
+  if (byteOrder !== 0x4949 && byteOrder !== 0x4d4d) return { status: "malformed" };
+  const littleEndian = byteOrder === 0x4949;
+  if (view.getUint16(tiffStart + 2, littleEndian) !== 42) return { status: "malformed" };
+
+  const ifdOffset = view.getUint32(tiffStart + 4, littleEndian);
+  const ifdStart = tiffStart + ifdOffset;
+  if (ifdStart < tiffStart || ifdStart + 2 > end) return { status: "malformed" };
+  const entryCount = view.getUint16(ifdStart, littleEndian);
+  for (let i = 0; i < entryCount; i++) {
+    const entry = ifdStart + 2 + i * 12;
+    if (entry + 12 > end) return { status: "malformed" };
+    if (view.getUint16(entry, littleEndian) !== 0x0112) continue;
+    if (view.getUint16(entry + 2, littleEndian) !== 3 || view.getUint32(entry + 4, littleEndian) !== 1) {
+      return { status: "malformed" };
+    }
+    const orientation = view.getUint16(entry + 8, littleEndian);
+    return orientation >= 1 && orientation <= 8
+      ? { status: "present", orientation }
+      : { status: "malformed" };
+  }
+  return { status: "absent" };
+}
 
 function parseExifOrientation(view: DataView, start: number, end: number): number | null {
   if (end - start < 14) return null;
@@ -93,6 +141,73 @@ async function readJpegHeader(file: File): Promise<JpegHeader> {
     hasJpegSignature: view.byteLength >= 2 && view.getUint16(0) === 0xffd8,
     metadata: parseJpegMetadata(header),
   };
+}
+
+export async function inspectJpegOrientation(file: Blob): Promise<JpegOrientationInspection> {
+  try {
+    const header = await file.slice(0, Math.min(file.size, JPEG_HEADER_LIMIT)).arrayBuffer();
+    const view = new DataView(header);
+    if (view.byteLength < 4 || view.getUint16(0) !== 0xffd8) {
+      return { status: "unknown", reason: "not-jpeg" };
+    }
+
+    let offset = 2;
+    let width = 0;
+    let height = 0;
+    let orientation: number | null = null;
+    let malformedExif = false;
+    const sofMarkers = new Set([0xc0, 0xc1, 0xc2, 0xc3, 0xc5, 0xc6, 0xc7, 0xc9, 0xca, 0xcb, 0xcd, 0xce, 0xcf]);
+
+    while (offset + 1 < view.byteLength) {
+      if (view.getUint8(offset) !== 0xff) {
+        return { status: "unknown", reason: "malformed-jpeg-header" };
+      }
+      while (offset < view.byteLength && view.getUint8(offset) === 0xff) offset++;
+      if (offset >= view.byteLength) break;
+      const marker = view.getUint8(offset++);
+
+      if (marker === 0xd9 || marker === 0xda) {
+        if (width === 0 || height === 0 || malformedExif) {
+          return { status: "unknown", reason: malformedExif ? "malformed-exif" : "missing-dimensions" };
+        }
+        return orientation === null
+          ? { status: "absent", width, height }
+          : { status: "present", orientation, width, height };
+      }
+      if (marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) continue;
+      if (offset + 2 > view.byteLength) break;
+
+      const segmentLength = view.getUint16(offset);
+      if (segmentLength < 2 || offset + segmentLength > view.byteLength) break;
+      const segmentStart = offset + 2;
+      const segmentEnd = offset + segmentLength;
+
+      if (marker === 0xe1) {
+        const result = inspectExifOrientation(view, segmentStart, segmentEnd);
+        if (result.status === "malformed") malformedExif = true;
+        if (result.status === "present") {
+          if (orientation !== null && orientation !== result.orientation) {
+            return { status: "unknown", reason: "conflicting-orientation" };
+          }
+          orientation = result.orientation;
+        }
+      }
+      if (sofMarkers.has(marker) && segmentEnd - segmentStart >= 5) {
+        height = view.getUint16(segmentStart + 1);
+        width = view.getUint16(segmentStart + 3);
+      }
+      offset = segmentEnd;
+    }
+
+    return { status: "unknown", reason: file.size > header.byteLength ? "truncated-header" : "incomplete-jpeg" };
+  } catch {
+    return { status: "unknown", reason: "read-failed" };
+  }
+}
+
+export function isDocumentOrientationClassificationEligible(inspection: JpegOrientationInspection): boolean {
+  return inspection.status === "absent"
+    || (inspection.status === "present" && inspection.orientation === 1);
 }
 
 function withoutExifOrientation(file: File, metadata: JpegMetadata): Blob {

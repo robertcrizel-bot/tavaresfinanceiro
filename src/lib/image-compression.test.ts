@@ -1,5 +1,10 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { calculateImageDimensions, compressImageFile } from "@/lib/image-compression";
+import {
+  calculateImageDimensions,
+  compressImageFile,
+  inspectJpegOrientation,
+  isDocumentOrientationClassificationEligible,
+} from "@/lib/image-compression";
 
 const receiptOptions = { maxWidth: 2000, maxHeight: 6000, quality: 0.92 };
 type TransformMatrix = [number, number, number, number, number, number];
@@ -33,6 +38,7 @@ function makeJpeg(
   appendXmp = false,
   type = "image/jpeg",
   duplicateOrientation = false,
+  app1Payload?: number[],
 ) {
   const bytes: number[] = [0xff, 0xd8];
 
@@ -54,6 +60,11 @@ function makeJpeg(
     const xmp = Array.from(new TextEncoder().encode("http://ns.adobe.com/xap/1.0/\0<xmp/>"));
     const length = xmp.length + 2;
     bytes.push(0xff, 0xe1, length >> 8, length & 0xff, ...xmp);
+  }
+
+  if (app1Payload) {
+    const length = app1Payload.length + 2;
+    bytes.push(0xff, 0xe1, length >> 8, length & 0xff, ...app1Payload);
   }
 
   bytes.push(
@@ -139,6 +150,62 @@ describe("calculateImageDimensions", () => {
 
   it("preserves the default attachment limit", () => {
     expect(calculateImageDimensions(3000, 4000)).toEqual({ width: 768, height: 1024 });
+  });
+});
+
+describe("inspectJpegOrientation", () => {
+  it("distinguishes absent EXIF from an explicit orientation 1", async () => {
+    const absent = await inspectJpegOrientation(makeJpeg(1536, 1157, 1000));
+    const explicitOne = await inspectJpegOrientation(makeJpeg(1536, 1157, 1000, 1));
+
+    expect(absent).toEqual({ status: "absent", width: 1536, height: 1157 });
+    expect(explicitOne).toEqual({ status: "present", orientation: 1, width: 1536, height: 1157 });
+    expect(isDocumentOrientationClassificationEligible(absent)).toBe(true);
+    expect(isDocumentOrientationClassificationEligible(explicitOne)).toBe(true);
+  });
+
+  it.each([2, 3, 4, 5, 6, 7, 8])("does not make EXIF orientation %i eligible", async (orientation) => {
+    const inspection = await inspectJpegOrientation(makeJpeg(1200, 800, 1000, orientation));
+
+    expect(inspection).toEqual({ status: "present", orientation, width: 1200, height: 800 });
+    expect(isDocumentOrientationClassificationEligible(inspection)).toBe(false);
+  });
+
+  it("treats an invalid EXIF orientation as unknown", async () => {
+    const inspection = await inspectJpegOrientation(makeJpeg(1200, 800, 1000, 9));
+
+    expect(inspection).toEqual({ status: "unknown", reason: "malformed-exif" });
+    expect(isDocumentOrientationClassificationEligible(inspection)).toBe(false);
+  });
+
+  it("treats a truncated EXIF signature as unknown", async () => {
+    const file = makeJpeg(
+      1200,
+      800,
+      1000,
+      undefined,
+      false,
+      "image/jpeg",
+      false,
+      [0x45, 0x78, 0x69, 0x66, 0x00],
+    );
+
+    const inspection = await inspectJpegOrientation(file);
+
+    expect(inspection).toEqual({ status: "unknown", reason: "malformed-exif" });
+    expect(isDocumentOrientationClassificationEligible(inspection)).toBe(false);
+  });
+
+  it("treats a non-JPEG and a truncated JPEG header as unknown", async () => {
+    const nonJpeg = await inspectJpegOrientation(new Blob(["not a jpeg"], { type: "image/jpeg" }));
+    const truncatedBytes = new Uint8Array(600 * 1024);
+    truncatedBytes.set([0xff, 0xd8, 0xff, 0xe1, 0xff, 0xff]);
+    const truncated = await inspectJpegOrientation(new Blob([truncatedBytes], { type: "image/jpeg" }));
+
+    expect(nonJpeg.status).toBe("unknown");
+    expect(truncated.status).toBe("unknown");
+    expect(isDocumentOrientationClassificationEligible(nonJpeg)).toBe(false);
+    expect(isDocumentOrientationClassificationEligible(truncated)).toBe(false);
   });
 });
 

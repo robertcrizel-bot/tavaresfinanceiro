@@ -1,6 +1,6 @@
-import ortWasmMjsUrl from "./runtime/ort-wasm-simd-threaded.jsep.mjs?url";
 import { spatialGroup } from "./spatialGrouper";
 import type { PaddleOcrRegion, PaddleOcrResult } from "./types";
+import { configureOrtWasm, ORT_WASM_PATHS } from "@/lib/ocr-runtime";
 
 let paddleInstance: unknown = null;
 let initializing = false;
@@ -19,6 +19,7 @@ async function getOrCreateInstance(): Promise<unknown> {
 
   initializing = true;
   try {
+    configureOrtWasm();
     const { PaddleOCR } = await import("@paddleocr/paddleocr-js");
     const instance = await PaddleOCR.create({
       lang: "pt",
@@ -26,10 +27,7 @@ async function getOrCreateInstance(): Promise<unknown> {
       initialize: true,
       ortOptions: {
         backend: "wasm",
-        wasmPaths: {
-          mjs: ortWasmMjsUrl,
-          wasm: "/ort-wasm/ort-wasm-simd-threaded.jsep.wasm",
-        },
+        wasmPaths: ORT_WASM_PATHS,
       },
     });
     paddleInstance = instance;
