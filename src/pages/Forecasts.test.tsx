@@ -1,9 +1,10 @@
 import React, { type ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi, beforeEach } from "vitest";
+import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import Forecasts from "@/pages/Forecasts";
 import type { RecurringBill } from "@/contexts/ForecastContext";
 import type { Transaction } from "@/lib/types";
+import { emptyScopedEdits, isRecurringBillActiveInMonth } from "@/lib/recurring-bill-editing";
 
 const mockData = vi.hoisted(() => ({
   categories: [
@@ -21,6 +22,7 @@ const mockData = vi.hoisted(() => ({
   ] as Transaction[],
   bills: [] as RecurringBill[],
   payments: [] as { id: string; recurringBillId: string; referenceMonth: string; paidAt: string; transactionId: string | null }[],
+  addBill: vi.fn(),
 }));
 
 vi.mock("@/contexts/ForecastContext", () => ({
@@ -28,7 +30,7 @@ vi.mock("@/contexts/ForecastContext", () => ({
     bills: mockData.bills,
     payments: mockData.payments,
     loading: false,
-    addBill: vi.fn(),
+    addBill: mockData.addBill,
     updateBill: vi.fn(),
     deleteBill: vi.fn(),
     markAsPaid: vi.fn(),
@@ -159,6 +161,10 @@ describe("Forecasts budget indicator", () => {
     mockData.payments = [];
   });
 
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
   const openForm = () => {
     fireEvent.click(screen.getByText("Nova Previsão"));
   };
@@ -193,6 +199,46 @@ describe("Forecasts budget indicator", () => {
     const parent = el.closest("span")?.parentElement;
     return parent?.textContent || "";
   };
+
+  it.each([
+    { type: "income" as const, category: "Salário" },
+    { type: "expense" as const, category: "Alimentação" },
+  ])("starts a 12-month $type recurrence in the selected month", async ({ type, category }) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 9, 15, 12));
+    render(<Forecasts />);
+
+    const monthSelector = screen.getByText("outubro 2026").parentElement;
+    fireEvent.click(monthSelector!.querySelectorAll("button")[0]);
+    expect(screen.getByText("setembro 2026")).toBeInTheDocument();
+
+    openForm();
+    fireEvent.change(screen.getByPlaceholderText("Ex: Aluguel"), { target: { value: "Aluguel" } });
+    setAmount("1000");
+    setType(type);
+    selectCategoryByName(category);
+    const numberInputs = screen.getAllByRole("spinbutton");
+    fireEvent.change(numberInputs[1], { target: { value: "10" } });
+    fireEvent.change(numberInputs[2], { target: { value: "12" } });
+    fireEvent.click(screen.getByText("Criar"));
+
+    expect(mockData.addBill).toHaveBeenCalledTimes(1);
+    const saved = mockData.addBill.mock.calls[0][0];
+    expect(saved).toMatchObject({ type, dueDay: 10, startDate: "2026-09-01", durationMonths: 12 });
+
+    const recurrence = { id: "new-bill", scopedEdits: emptyScopedEdits(), ...saved };
+    const months = [
+      "2026-08", "2026-09", "2026-10", "2026-11", "2026-12", "2027-01", "2027-02",
+      "2027-03", "2027-04", "2027-05", "2027-06", "2027-07", "2027-08", "2027-09",
+    ];
+    const occurrences = months
+      .filter((month) => isRecurringBillActiveInMonth(recurrence, month))
+      .map((month) => `${month}-10`);
+
+    expect(occurrences.slice(0, 2)).toEqual(["2026-09-10", "2026-10-10"]);
+    expect(occurrences).toHaveLength(12);
+    expect(occurrences).not.toContain("2027-09-10");
+  });
 
   it("shows budget indicator for expense with monthlyBudget", () => {
     render(<Forecasts />);

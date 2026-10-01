@@ -133,7 +133,7 @@ export default function Forecasts() {
       type: formType,
       category: formCategory,
       dueDay: Number(formDueDay),
-      startDate: editingBill?.startDate || new Date().toISOString().split("T")[0],
+      startDate: editingBill?.startDate || `${referenceMonth}-01`,
       durationMonths: editingBill && editScope === "this"
         ? editingBill.durationMonths
         : formDuration ? Number(formDuration) : null,
