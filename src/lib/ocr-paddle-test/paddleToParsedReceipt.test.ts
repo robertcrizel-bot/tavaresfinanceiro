@@ -3,6 +3,7 @@ import { paddleToParsedReceipt } from "./paddleToParsedReceipt";
 import { buildPaddleReceiptResult } from "./receiptResult";
 import type { PaddleReceiptItem, PaddleReceiptResult } from "./receiptResult";
 import { fonsecaRegions } from "./__fixtures__/fonseca.fixture";
+import { padaria1716FragmentedRegions } from "./__fixtures__/padaria-1716-fragmented.fixture";
 
 function makeItem(overrides: Partial<PaddleReceiptItem> = {}): PaddleReceiptItem {
   return {
@@ -266,5 +267,26 @@ describe("paddleToParsedReceipt with the real Fonseca fixture", () => {
     expect(banana?.quantity).toBe(1.246);
     expect(banana?.unit_price).toBe(6.98);
     expect(banana?.total).toBe(8.7);
+  });
+});
+
+describe("paddleToParsedReceipt with the fragmented padaria fixture", () => {
+  const paddle = buildPaddleReceiptResult(padaria1716FragmentedRegions);
+  const parsed = paddleToParsedReceipt(paddle);
+
+  it("accepts the receipt from its explicit reconstructed total", () => {
+    expect(parsed.is_receipt).toBe(true);
+    expect(parsed.amount).toBe(17.16);
+    expect(parsed.purchased_items).toHaveLength(4);
+  });
+
+  it("does not fill unsupported item totals from the receipt total", () => {
+    expect(parsed.purchased_items?.map((item) => item.total)).toEqual([
+      6.9,
+      3.4,
+      null,
+      null,
+    ]);
+    expect(parsed.low_confidence_fields).toContain("purchased_items");
   });
 });

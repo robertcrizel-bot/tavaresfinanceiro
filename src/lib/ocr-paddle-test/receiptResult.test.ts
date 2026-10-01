@@ -6,6 +6,7 @@ import {
 import { drogalRegions } from "./__fixtures__/drogal.fixture";
 import { fonsecaRegions } from "./__fixtures__/fonseca.fixture";
 import { hortifrutiRegions } from "./__fixtures__/hortifruti.fixture";
+import { padaria1716FragmentedRegions } from "./__fixtures__/padaria-1716-fragmented.fixture";
 
 describe("selectEffectiveValue", () => {
   it("prefers explicitFinalValue over originalTotal", () => {
@@ -298,6 +299,123 @@ describe("buildPaddleReceiptResult real fixture hortifruti", () => {
   it("keeps differenceFromReceiptTotal as sum minus receiptTotal", () => {
     expect(result.differenceFromReceiptTotal).not.toBeNull();
     expect(result.differenceFromReceiptTotal).toBeCloseTo(-2.08, 2);
+  });
+});
+
+describe("buildPaddleReceiptResult fragmented padaria fixture", () => {
+  it("recovers the four printed product blocks after the degraded summary marker", () => {
+    const result = buildPaddleReceiptResult(padaria1716FragmentedRegions);
+
+    expect(result.items).toHaveLength(4);
+    expect(result.items.map((item) => item.description)).toEqual([
+      "SALAME AURORA ITALIAND",
+      "QUEL0 MUSSARELA AVIAS",
+      "RANCES",
+      "QUEIJO",
+    ]);
+    expect(result.items.map((item) => item.quantity)).toEqual([0.06, 0.043, 0.264, null]);
+    expect(result.items.map((item) => item.unitPrice)).toEqual([115, 79, 21.99, 35]);
+    expect(result.items.map((item) => item.originalTotal)).toEqual([6.9, 3.4, null, null]);
+    expect(result.items.map((item) => item.effectiveValue)).toEqual([6.9, 3.4, null, null]);
+  });
+
+  it("recovers 17,16 only from the explicit adjacent OCR fragments", () => {
+    const result = buildPaddleReceiptResult(padaria1716FragmentedRegions);
+
+    expect(result.receiptTotal).toBe(17.16);
+  });
+});
+
+describe("buildPaddleReceiptResult fragmented explicit total", () => {
+  function region(text: string, x: number, y: number, width: number, height = 20) {
+    return {
+      text,
+      confidence: 0.99,
+      bbox: [
+        [x, y],
+        [x + width, y],
+        [x + width, y + height],
+        [x, y + height],
+      ] as [number, number][],
+    };
+  }
+
+  const marker = () => [
+    region("VALOR", 10, 300, 60),
+    region("A PAGAR R$", 75, 300, 110),
+  ];
+
+  it("joins one aligned integer-plus-cents pair after an explicit marker", () => {
+    const result = buildPaddleReceiptResult([
+      ...marker(),
+      region("17", 300, 300, 24),
+      region(",16", 328, 300, 32),
+    ]);
+
+    expect(result.receiptTotal).toBe(17.16);
+  });
+
+  it("does not join the same fragments without an explicit total marker", () => {
+    const result = buildPaddleReceiptResult([
+      region("REFERENCIA", 10, 300, 100),
+      region("17", 300, 300, 24),
+      region(",16", 328, 300, 32),
+    ]);
+
+    expect(result.receiptTotal).toBeNull();
+  });
+
+  it("does not join distant fragments", () => {
+    const result = buildPaddleReceiptResult([
+      ...marker(),
+      region("17", 300, 300, 24),
+      region(",16", 380, 300, 32),
+    ]);
+
+    expect(result.receiptTotal).toBeNull();
+  });
+
+  it("does not join fragments assigned to different spatial lines", () => {
+    const result = buildPaddleReceiptResult([
+      ...marker(),
+      region("17", 300, 300, 24),
+      region(",16", 328, 350, 32),
+    ]);
+
+    expect(result.receiptTotal).toBeNull();
+  });
+
+  it("does not use a fragmented pair on a distant line after the marker", () => {
+    const result = buildPaddleReceiptResult([
+      ...marker(),
+      region("17", 300, 350, 24),
+      region(",16", 328, 350, 32),
+    ]);
+
+    expect(result.receiptTotal).toBeNull();
+  });
+
+  it("does not join fragments with another region between them", () => {
+    const result = buildPaddleReceiptResult([
+      ...marker(),
+      region("17", 300, 300, 24),
+      region("X", 326, 300, 10),
+      region(",16", 338, 300, 32),
+    ]);
+
+    expect(result.receiptTotal).toBeNull();
+  });
+
+  it("abstains when more than one compatible pair follows the marker", () => {
+    const result = buildPaddleReceiptResult([
+      ...marker(),
+      region("17", 300, 300, 24),
+      region(",16", 328, 300, 32),
+      region("20", 370, 300, 24),
+      region(",00", 398, 300, 32),
+    ]);
+
+    expect(result.receiptTotal).toBeNull();
   });
 });
 

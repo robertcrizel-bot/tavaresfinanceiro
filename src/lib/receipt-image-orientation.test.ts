@@ -81,7 +81,7 @@ describe("document orientation classification", () => {
     expect(ortMocks.run).toHaveBeenCalledWith(expect.objectContaining({
       x: expect.objectContaining({ dims: [1, 3, 224, 224] }),
     }));
-    expect(drawImage).toHaveBeenCalledTimes(2);
+    expect(drawImage).toHaveBeenCalledTimes(1);
     expect(close).toHaveBeenCalledTimes(1);
   });
 

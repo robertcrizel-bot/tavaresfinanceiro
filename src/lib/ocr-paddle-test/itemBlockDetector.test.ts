@@ -192,6 +192,43 @@ describe("itemBlockDetector synthetic", () => {
     expect(baseBlock?.signals).toContain("anomalous-height");
     expect(scaledBlock?.signals).toContain("anomalous-height");
   });
+
+  it("L: accepts an ordered fragmented summary with a narrow ITENS OCR error", () => {
+    const { detection } = blockIndicesOf([
+      makeRegion("PRODUTO QTD VALOR", 10, 100, 200, 12),
+      makeRegion("PRODUTO TESTE 1 UN 5,99", 10, 150, 220, 12),
+      makeRegion("QTDE.", 10, 250, 50, 12),
+      makeRegion("TOTAL", 70, 250, 50, 12),
+      makeRegion("1", 130, 250, 10, 12),
+      makeRegion("IIENS", 150, 250, 50, 12),
+    ]);
+
+    expect(detection.areaEnd).toBe(1);
+    expect(detection.blocks.map((block) => block.lineIndices)).toEqual([[1]]);
+  });
+
+  it("M: rejects a summary-like line with unrelated words", () => {
+    const { detection } = blockIndicesOf([
+      makeRegion("PRODUTO QTD VALOR", 10, 100, 200, 12),
+      makeRegion("PRODUTO TESTE 1 UN 5,99", 10, 150, 220, 12),
+      makeRegion("QT TOTAL PRODUTO IIENS", 10, 250, 220, 12),
+    ]);
+
+    expect(detection.areaEnd).toBeNull();
+    expect(detection.blocks).toEqual([]);
+  });
+
+  it("N: rejects summary fragments that are on different spatial lines", () => {
+    const { detection } = blockIndicesOf([
+      makeRegion("PRODUTO QTD VALOR", 10, 100, 200, 12),
+      makeRegion("PRODUTO TESTE 1 UN 5,99", 10, 150, 220, 12),
+      makeRegion("QTDE. TOTAL", 10, 250, 100, 12),
+      makeRegion("1 IIENS", 10, 290, 80, 12),
+    ]);
+
+    expect(detection.areaEnd).toBeNull();
+    expect(detection.blocks).toEqual([]);
+  });
 });
 
 describe("itemBlockDetector real fixtures", () => {

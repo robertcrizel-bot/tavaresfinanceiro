@@ -8,6 +8,7 @@ import { tradicao15914Regions } from "./__fixtures__/tradicao-15914.fixture";
 import { queijo6651Regions } from "./__fixtures__/queijo-6651.fixture";
 import { drogaRaia3239Regions } from "./__fixtures__/droga-raia-3239.fixture";
 import { combustivel22358Regions } from "./__fixtures__/combustivel-22358.fixture";
+import { padaria1716FragmentedRegions } from "./__fixtures__/padaria-1716-fragmented.fixture";
 
 type FixtureCase = {
   name: string;
@@ -509,6 +510,50 @@ const cases: FixtureCase[] = [
           unitPrice: 6.69,
           originalTotal: 223.58,
           effectiveValue: 223.58,
+        },
+      ],
+    },
+  },
+  {
+    name: "padaria-1716-fragmented",
+    regions: padaria1716FragmentedRegions,
+    expected: {
+      itemCount: 4,
+      receiptTotal: 17.16,
+      sumKnown: 10.3,
+      difference: -6.86,
+      items: [
+        {
+          descriptionIncludes: "SALAME AURORA ITALIAND",
+          quantity: 0.06,
+          unit: "KG",
+          unitPrice: 115,
+          originalTotal: 6.9,
+          effectiveValue: 6.9,
+        },
+        {
+          descriptionIncludes: "QUEL0 MUSSARELA AVIAS",
+          quantity: 0.043,
+          unit: "KG",
+          unitPrice: 79,
+          originalTotal: 3.4,
+          effectiveValue: 3.4,
+        },
+        {
+          descriptionIncludes: "RANCES",
+          quantity: 0.264,
+          unit: "KG",
+          unitPrice: 21.99,
+          originalTotal: null,
+          effectiveValue: null,
+        },
+        {
+          descriptionIncludes: "QUEIJO",
+          quantity: null,
+          unit: null,
+          unitPrice: 35,
+          originalTotal: null,
+          effectiveValue: null,
         },
       ],
     },

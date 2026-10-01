@@ -35,6 +35,63 @@ const MEAN = [0.485, 0.456, 0.406];
 const STD = [0.229, 0.224, 0.225];
 const ROTATED_IMAGE_QUALITY = 0.92;
 
+function resizeRgbaBilinear(
+  source: Uint8ClampedArray,
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+): Uint8ClampedArray {
+  const target = new Uint8ClampedArray(targetWidth * targetHeight * 4);
+  const scaleX = sourceWidth / targetWidth;
+  const scaleY = sourceHeight / targetHeight;
+
+  for (let targetY = 0; targetY < targetHeight; targetY++) {
+    const sourceY = Math.max(0, Math.min(sourceHeight - 1, (targetY + 0.5) * scaleY - 0.5));
+    const y0 = Math.floor(sourceY);
+    const y1 = Math.min(sourceHeight - 1, y0 + 1);
+    const weightY = sourceY - y0;
+
+    for (let targetX = 0; targetX < targetWidth; targetX++) {
+      const sourceX = Math.max(0, Math.min(sourceWidth - 1, (targetX + 0.5) * scaleX - 0.5));
+      const x0 = Math.floor(sourceX);
+      const x1 = Math.min(sourceWidth - 1, x0 + 1);
+      const weightX = sourceX - x0;
+      const targetOffset = (targetY * targetWidth + targetX) * 4;
+      const topLeft = (y0 * sourceWidth + x0) * 4;
+      const topRight = (y0 * sourceWidth + x1) * 4;
+      const bottomLeft = (y1 * sourceWidth + x0) * 4;
+      const bottomRight = (y1 * sourceWidth + x1) * 4;
+
+      for (let channel = 0; channel < 4; channel++) {
+        const top = source[topLeft + channel]
+          + (source[topRight + channel] - source[topLeft + channel]) * weightX;
+        const bottom = source[bottomLeft + channel]
+          + (source[bottomRight + channel] - source[bottomLeft + channel]) * weightX;
+        target[targetOffset + channel] = Math.round(top + (bottom - top) * weightY);
+      }
+    }
+  }
+
+  return target;
+}
+
+function cropRgba(
+  source: Uint8ClampedArray,
+  sourceWidth: number,
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+): Uint8ClampedArray {
+  const crop = new Uint8ClampedArray(width * height * 4);
+  for (let row = 0; row < height; row++) {
+    const sourceStart = ((y + row) * sourceWidth + x) * 4;
+    crop.set(source.subarray(sourceStart, sourceStart + width * 4), row * width * 4);
+  }
+  return crop;
+}
+
 export const DOCUMENT_ORIENTATION_AUTO_ROTATION_ENABLED = true;
 export const DOCUMENT_ORIENTATION_CONFIDENCE_THRESHOLD = 0.90;
 export const DOCUMENT_ORIENTATION_MARGIN_THRESHOLD = 0.80;
@@ -91,34 +148,25 @@ function decideOrientationCorrection(
 async function imageToTensor(image: Blob) {
   const bitmap = await createImageBitmap(image);
   const resized = calculateResize(bitmap.width, bitmap.height);
-  const resizedCanvas = document.createElement("canvas");
-  const cropCanvas = document.createElement("canvas");
-  resizedCanvas.width = resized.width;
-  resizedCanvas.height = resized.height;
-  cropCanvas.width = CROP_SIZE;
-  cropCanvas.height = CROP_SIZE;
+  const decodedCanvas = document.createElement("canvas");
+  decodedCanvas.width = bitmap.width;
+  decodedCanvas.height = bitmap.height;
 
   try {
-    const resizedContext = resizedCanvas.getContext("2d", { alpha: false });
-    const cropContext = cropCanvas.getContext("2d", { alpha: false, willReadFrequently: true });
-    if (!resizedContext || !cropContext) throw new Error("canvas unavailable for orientation classification");
-
-    resizedContext.drawImage(bitmap, 0, 0, resized.width, resized.height);
+    const decodedContext = decodedCanvas.getContext("2d", { alpha: false, willReadFrequently: true });
+    if (!decodedContext) throw new Error("canvas unavailable for orientation classification");
+    decodedContext.drawImage(bitmap, 0, 0);
+    const decodedRgba = decodedContext.getImageData(0, 0, decodedCanvas.width, decodedCanvas.height).data;
+    const resizedRgba = resizeRgbaBilinear(
+      decodedRgba,
+      decodedCanvas.width,
+      decodedCanvas.height,
+      resized.width,
+      resized.height,
+    );
     const cropX = Math.floor((resized.width - CROP_SIZE) / 2);
     const cropY = Math.floor((resized.height - CROP_SIZE) / 2);
-    cropContext.drawImage(
-      resizedCanvas,
-      cropX,
-      cropY,
-      CROP_SIZE,
-      CROP_SIZE,
-      0,
-      0,
-      CROP_SIZE,
-      CROP_SIZE,
-    );
-
-    const rgba = cropContext.getImageData(0, 0, CROP_SIZE, CROP_SIZE).data;
+    const rgba = cropRgba(resizedRgba, resized.width, cropX, cropY, CROP_SIZE, CROP_SIZE);
     const planeSize = CROP_SIZE * CROP_SIZE;
     const chw = new Float32Array(planeSize * 3);
     for (let pixel = 0; pixel < planeSize; pixel++) {
@@ -135,10 +183,8 @@ async function imageToTensor(image: Blob) {
     };
   } finally {
     bitmap.close?.();
-    resizedCanvas.width = 0;
-    resizedCanvas.height = 0;
-    cropCanvas.width = 0;
-    cropCanvas.height = 0;
+    decodedCanvas.width = 0;
+    decodedCanvas.height = 0;
   }
 }
 

@@ -76,6 +76,55 @@ function moneyAfterIndex(text: string, fromIndex: number): number | null {
   return parseBrlToken(match[0]);
 }
 
+function fragmentedMoneyInLine(line: GridLine, fromRegion: number): number | null {
+  const candidates: number[] = [];
+  for (let index = fromRegion; index < line.regions.length - 1; index++) {
+    const left = line.regions[index];
+    const right = line.regions[index + 1];
+    if (!/^\d{1,3}$/.test(left.text.trim())) continue;
+    if (!/^[,.]\d{2}$/.test(right.text.trim())) continue;
+
+    const minHeight = Math.min(left.height, right.height);
+    const maxHeight = Math.max(left.height, right.height);
+    if (minHeight <= 0 || maxHeight / minHeight > 1.5) continue;
+    if (Math.abs(left.cy - right.cy) > minHeight * 0.4) continue;
+
+    const gap = right.minX - left.maxX;
+    if (gap < -minHeight * 0.5 || gap > minHeight * 0.5) continue;
+
+    const value = parseBrlToken(`${left.text.trim()}${right.text.trim()}`);
+    if (value !== null) candidates.push(value);
+  }
+
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
+function fragmentedMoneyAfterMarker(
+  line: GridLine,
+  marker: RegExp,
+): number | null {
+  let markerEndRegion = -1;
+  let prefix = "";
+  for (let index = 0; index < line.regions.length; index++) {
+    prefix = prefix ? `${prefix} ${line.regions[index].text}` : line.regions[index].text;
+    if (marker.test(prefix)) {
+      markerEndRegion = index;
+      break;
+    }
+  }
+  return markerEndRegion < 0
+    ? null
+    : fragmentedMoneyInLine(line, markerEndRegion + 1);
+}
+
+function linesAreClose(markerLine: GridLine, valueLine: GridLine): boolean {
+  const maxHeight = Math.max(
+    ...markerLine.regions.map((region) => region.height),
+    ...valueLine.regions.map((region) => region.height),
+  );
+  return Math.abs(valueLine.avgY - markerLine.avgY) <= maxHeight;
+}
+
 function extractReceiptTotal(
   lines: GridLine[],
   areaEnd: number | null,
@@ -92,10 +141,16 @@ function extractReceiptTotal(
         const startIndex = markerMatch ? markerMatch.index : 0;
         const sameLine = moneyAfterIndex(text, startIndex);
         if (sameLine !== null) return sameLine;
+        const fragmentedSameLine = fragmentedMoneyAfterMarker(lines[i], marker);
+        if (fragmentedSameLine !== null) return fragmentedSameLine;
         const nextLine = lineText(lines[i + 1]).trim();
         if (nextLine && !EXCLUDE_TOTAL_LINE_RE.test(nextLine)) {
           const nextValue = moneyAfterIndex(nextLine, 0);
           if (nextValue !== null) return nextValue;
+          if (lines[i + 1] && linesAreClose(lines[i], lines[i + 1])) {
+            const fragmentedNextLine = fragmentedMoneyInLine(lines[i + 1], 0);
+            if (fragmentedNextLine !== null) return fragmentedNextLine;
+          }
         }
       }
     }

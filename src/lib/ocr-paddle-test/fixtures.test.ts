@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { drogalRegions } from "./__fixtures__/drogal.fixture";
 import { fonsecaRegions } from "./__fixtures__/fonseca.fixture";
+import { padaria1716FragmentedRegions } from "./__fixtures__/padaria-1716-fragmented.fixture";
 
 describe("PaddleOCR runtime fixtures", () => {
   it("preserves the Drogal regions", () => {
@@ -38,6 +39,20 @@ describe("PaddleOCR runtime fixtures", () => {
       text: "9995251",
       confidence: 0.79,
       bbox: [[954, 877], [998, 876], [1003, 1096], [960, 1097]],
+    });
+  });
+
+  it("preserves the fragmented padaria runtime regions", () => {
+    expect(padaria1716FragmentedRegions).toHaveLength(80);
+    expect(padaria1716FragmentedRegions).toContainEqual({
+      text: "QTDE.",
+      confidence: 0.99,
+      bbox: [[67, 1038], [185, 1024], [192, 1080], [73, 1094]],
+    });
+    expect(padaria1716FragmentedRegions).toContainEqual({
+      text: ",16",
+      confidence: 0.93,
+      bbox: [[970, 1104], [1047, 1111], [1041, 1169], [964, 1162]],
     });
   });
 });

@@ -24,6 +24,33 @@ export interface ItemBlockDetectionResult {
 const ITEM_COUNT_SUMMARY_RE =
   /(?:qtde|quantidade|qtd)\.?\s*total\s*de\s*itens|total\s*de\s*itens/i;
 
+function isFragmentedItemCountSummary(text: string): boolean {
+  const tokens = text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  const quantityIndex = tokens.findIndex((token) =>
+    token === "qtde" || token === "qtd" || token === "qt"
+  );
+  const totalIndex = tokens.findIndex(
+    (token, index) => index > quantityIndex && token === "total",
+  );
+  const itemsIndex = tokens.findIndex(
+    (token, index) => index > totalIndex && (token === "itens" || token === "iiens"),
+  );
+  if (quantityIndex < 0 || totalIndex < 0 || itemsIndex < 0) return false;
+
+  const betweenQuantityAndTotal = tokens.slice(quantityIndex + 1, totalIndex);
+  const betweenTotalAndItems = tokens.slice(totalIndex + 1, itemsIndex);
+  return betweenQuantityAndTotal.length === 0
+    && betweenTotalAndItems.length <= 2
+    && betweenTotalAndItems.every((token) => token === "de" || /^\d{1,4}$/.test(token));
+}
+
 const COMPLEMENT_PREFIX_RE = /^(?:de|por|desconto)\b/i;
 const DIGIT_RE = /\d/;
 const UNIT_TOKEN_RE =
@@ -54,7 +81,8 @@ function lineText(line: GridLine): string {
 }
 
 function isSummaryLine(line: GridLine): boolean {
-  return ITEM_COUNT_SUMMARY_RE.test(lineText(line));
+  const text = lineText(line);
+  return ITEM_COUNT_SUMMARY_RE.test(text) || isFragmentedItemCountSummary(text);
 }
 
 function isComplementLine(line: GridLine): boolean {
