@@ -3,13 +3,19 @@ import type { PurchasedItem } from "@/lib/receipt";
 const brl = (value: number) =>
   `R$ ${value.toFixed(2).replace(".", ",").replace(/\B(?=(\d{3})+(?!\d),)/g, ".")}`;
 
-export function formatPurchasedItem(item: PurchasedItem, valuesAreFinal?: boolean): string | null {
+export function formatPurchasedItem(
+  item: PurchasedItem,
+  valuesAreFinal?: boolean,
+  showKnownItemValues = false,
+): string | null {
   const name = (item.name ?? "").trim();
   if (!name) return null;
 
   const qty = item.quantity != null && item.quantity > 0 && item.quantity !== 1 ? `${item.quantity}x ` : "";
   if (valuesAreFinal === false) {
-    return `${qty}${name}`;
+    return showKnownItemValues && item.total != null
+      ? `${qty}${name} — ${brl(item.total)}`
+      : `${qty}${name}`;
   }
   const value = item.total ?? (item.quantity != null && item.unit_price != null ? item.quantity * item.unit_price : item.unit_price);
   return value != null ? `${qty}${name} — ${brl(value)}` : `${qty}${name}`;
@@ -23,9 +29,12 @@ interface DescriptionSource {
   receipt_id?: string | null;
 }
 
-export function formatReceiptDescription(parsed: DescriptionSource): string | undefined {
+export function formatReceiptDescription(
+  parsed: DescriptionSource,
+  showKnownItemValues = false,
+): string | undefined {
   const items = (parsed.purchased_items ?? [])
-    .map((item) => formatPurchasedItem(item, parsed.item_values_are_final))
+    .map((item) => formatPurchasedItem(item, parsed.item_values_are_final, showKnownItemValues))
     .filter((line): line is string => Boolean(line));
 
   return (

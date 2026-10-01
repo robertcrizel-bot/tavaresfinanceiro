@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ReceiptImport from "@/pages/ReceiptImport";
+import { fonsecaRegions } from "@/lib/ocr-paddle-test/__fixtures__/fonseca.fixture";
 
 const mocks = vi.hoisted(() => ({
   addTransaction: vi.fn(),
@@ -399,6 +400,24 @@ describe("PaddleOCR main flow (no paid AI)", () => {
       expect.objectContaining({ attachments: [file] }),
     );
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
+  });
+
+  it("saves known Fonseca item values without inventing missing values", async () => {
+    const receiptResultModule = await vi.importActual<typeof import("@/lib/ocr-paddle-test/receiptResult")>(
+      "@/lib/ocr-paddle-test/receiptResult",
+    );
+    stubPaddleSuccess(receiptResultModule.buildPaddleReceiptResult(fonsecaRegions));
+
+    selectFile();
+    fireEvent.click(await screen.findByRole("button", { name: "Ler comprovante" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar importação" }));
+
+    const transaction = mocks.addTransaction.mock.calls[0][0];
+    expect(transaction.amount).toBe(88.38);
+    expect(transaction.description).toContain("1.246x BANANA NANICA Kg — R$ 8,70");
+    expect(transaction.description).toContain("0.464x CEBOLA Kg");
+    expect(transaction.description).not.toContain("0.464x CEBOLA Kg —");
+    expect(transaction.description).not.toContain("R$ 3,15");
   });
 
   it("PaddleOCR failure shows an error and never calls parseReceipt/Lovable (no paid fallback)", async () => {

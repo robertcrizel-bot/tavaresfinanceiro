@@ -58,7 +58,7 @@ export default function ReceiptImport() {
         type: parsed.type === "income" ? "income" : "expense",
         category: (matchCategory(allCategoryNames, parsed.category_hint) as Category) ?? ("Outros" as Category),
         date: parsed.date ?? new Date().toISOString().split("T")[0],
-        description: formatReceiptDescription(parsed),
+        description: formatReceiptDescription(parsed, true),
         paymentMethod: method,
         accountId: isCard ? undefined : account?.id,
         creditCardId: isCard ? card?.id : undefined,
