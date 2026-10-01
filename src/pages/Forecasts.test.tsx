@@ -14,12 +14,7 @@ const mockData = vi.hoisted(() => ({
     { id: "4", name: "Salário", type: "income" as const, monthlyBudget: null },
     { id: "5", name: "Freelance", type: "income" as const, monthlyBudget: null },
   ],
-  transactions: [
-    { id: "tx-1", title: "Supermercado", amount: 250, type: "expense", category: "Alimentação", date: "2026-09-10" },
-    { id: "tx-2", title: "Padaria", amount: 180, type: "expense", category: "Alimentação", date: "2026-09-05" },
-    { id: "tx-3", title: "Uber", amount: 50, type: "expense", category: "Transporte", date: "2026-09-08" },
-    { id: "tx-4", title: "Restaurante", amount: 300, type: "expense", category: "Alimentação", date: "2026-08-15" },
-  ] as Transaction[],
+  transactions: [] as Transaction[],
   bills: [] as RecurringBill[],
   payments: [] as { id: string; recurringBillId: string; referenceMonth: string; paidAt: string; transactionId: string | null }[],
   addBill: vi.fn(),
@@ -159,6 +154,12 @@ describe("Forecasts budget indicator", () => {
     vi.clearAllMocks();
     mockData.bills = [];
     mockData.payments = [];
+    mockData.transactions = [
+      { id: "tx-1", title: "Supermercado", amount: 250, type: "expense", category: "Alimentação", date: "2026-09-10" },
+      { id: "tx-2", title: "Padaria", amount: 180, type: "expense", category: "Alimentação", date: "2026-09-05" },
+      { id: "tx-3", title: "Uber", amount: 50, type: "expense", category: "Transporte", date: "2026-09-08" },
+      { id: "tx-4", title: "Restaurante", amount: 300, type: "expense", category: "Alimentação", date: "2026-08-15" },
+    ] as Transaction[];
   });
 
   afterEach(() => {
@@ -238,6 +239,71 @@ describe("Forecasts budget indicator", () => {
     expect(occurrences.slice(0, 2)).toEqual(["2026-09-10", "2026-10-10"]);
     expect(occurrences).toHaveLength(12);
     expect(occurrences).not.toContain("2027-09-10");
+  });
+
+  it("shows the forecast amount while an expense is still pending", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 15, 12));
+    mockData.bills = [makeBill({ name: "FIES", amount: 362 })];
+
+    render(<Forecasts />);
+
+    const cardText = screen.getByText("FIES").closest('[class*="rounded-lg"]')?.textContent;
+    expect(cardText).toContain("R$ 362,00");
+    expect(cardText).not.toContain("Efetivo:");
+  });
+
+  it.each([
+    { type: "expense" as const, category: "Alimentação", name: "FIES" },
+    { type: "income" as const, category: "Salário", name: "Aluguel recebido" },
+  ])("uses the linked transaction as the effective $type amount", ({ type, category, name }) => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 15, 12));
+    mockData.bills = [makeBill({ name, amount: 362, type, category })];
+    mockData.payments = [
+      { id: "pay-effective", recurringBillId: "bill-1", referenceMonth: "2026-09", paidAt: "2026-09-10", transactionId: "tx-effective" },
+    ];
+    mockData.transactions.push({
+      id: "tx-effective",
+      title: name,
+      amount: 361.43,
+      type,
+      category,
+      date: "2026-09-10",
+    } as Transaction);
+
+    render(<Forecasts />);
+
+    const cardText = screen.getByText(name).closest('[class*="rounded-lg"]')?.textContent;
+    expect(cardText).toContain("Previsto: R$ 362,00");
+    expect(cardText).toContain("Efetivo: R$ 361,43");
+    expect(screen.getByText("Total Previsto").parentElement?.textContent).toContain("R$ 362,00");
+    expect(screen.getByText("Total Pago").parentElement?.textContent).toContain("R$ 361,43");
+    expect(screen.getByText("Total Pendente").parentElement?.textContent).toContain("R$ 0,00");
+  });
+
+  it("does not repeat forecast and effective labels when the amounts match", () => {
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 15, 12));
+    mockData.bills = [makeBill({ name: "FIES", amount: 362 })];
+    mockData.payments = [
+      { id: "pay-same", recurringBillId: "bill-1", referenceMonth: "2026-09", paidAt: "2026-09-10", transactionId: "tx-same" },
+    ];
+    mockData.transactions.push({
+      id: "tx-same",
+      title: "FIES",
+      amount: 362,
+      type: "expense",
+      category: "Alimentação",
+      date: "2026-09-10",
+    } as Transaction);
+
+    render(<Forecasts />);
+
+    const cardText = screen.getByText("FIES").closest('[class*="rounded-lg"]')?.textContent;
+    expect(cardText).toContain("R$ 362,00");
+    expect(cardText).not.toContain("Previsto:");
+    expect(cardText).not.toContain("Efetivo:");
   });
 
   it("shows budget indicator for expense with monthlyBudget", () => {

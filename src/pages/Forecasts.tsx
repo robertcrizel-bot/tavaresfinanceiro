@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react";
-import { useForecast, RecurringBill } from "@/contexts/ForecastContext";
+import { useForecast, BillPayment, RecurringBill } from "@/contexts/ForecastContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { useFinance } from "@/contexts/FinanceContext";
@@ -70,10 +70,17 @@ export default function Forecasts() {
   }, [bills, referenceMonth]);
 
   const getPayment = (billId: string) => getPaymentForCompetence(payments, billId, referenceMonth);
+  const getEffectiveAmount = (bill: RecurringBill, payment: BillPayment) =>
+    transactions.find((transaction) => transaction.id === payment.transactionId)?.amount ?? bill.amount;
 
   const totalPrevisto = activeBills.reduce((sum, b) => sum + b.amount, 0);
-  const totalPago = activeBills.filter((b) => getPayment(b.id)).reduce((sum, b) => sum + b.amount, 0);
-  const totalPendente = totalPrevisto - totalPago;
+  const totalPago = activeBills.reduce((sum, bill) => {
+    const payment = getPayment(bill.id);
+    return payment ? sum + getEffectiveAmount(bill, payment) : sum;
+  }, 0);
+  const totalPendente = activeBills
+    .filter((bill) => !getPayment(bill.id))
+    .reduce((sum, bill) => sum + bill.amount, 0);
 
   const formBudgetProjection = useMemo(() => {
     if (formType !== "expense" || !formCategory) return null;
@@ -286,6 +293,8 @@ export default function Forecasts() {
         <div className="space-y-2">
           {activeBills.map((bill) => {
             const payment = getPayment(bill.id);
+            const effectiveAmount = payment ? getEffectiveAmount(bill, payment) : bill.amount;
+            const effectiveAmountDiffers = Boolean(payment && effectiveAmount !== bill.amount);
             const status = getForecastTemporalStatus({
               referenceMonth,
               dueDay: bill.dueDay,
@@ -352,9 +361,20 @@ export default function Forecasts() {
                   </div>
 
                   <div className="flex items-center justify-between gap-3 sm:justify-end sm:shrink-0 border-t border-border/40 pt-2 sm:border-t-0 sm:pt-0">
-                    <span className="font-semibold text-foreground">
-                      {bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                    </span>
+                    {effectiveAmountDiffers ? (
+                      <div className="text-right text-xs">
+                        <div className="text-muted-foreground">
+                          Previsto: {bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </div>
+                        <div className="font-semibold text-foreground">
+                          Efetivo: {effectiveAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="font-semibold text-foreground">
+                        {effectiveAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                      </span>
+                    )}
 
                     <div className="flex items-center gap-0.5">
                       {status.kind === "paid" && payment ? (
