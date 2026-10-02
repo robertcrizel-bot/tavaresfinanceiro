@@ -227,18 +227,38 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
         <DialogHeader>
           <DialogTitle>{dialogTitle ?? (initial ? "Editar Registro" : "Novo Registro")}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-2">
-            <Label>Título <LowConfidenceHint field="counterparty" /></Label>
-            <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Ex: Supermercado" />
+        <form onSubmit={handleSubmit} className="space-y-2">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-2 min-[360px]:grid-cols-[minmax(0,3fr)_minmax(0,5fr)]">
+            <div className="space-y-1.5">
+              <Label>Data <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="date" /></Label>
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Título <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="counterparty" /></Label>
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Ex: Supermercado" />
+            </div>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Valor (R$) <LowConfidenceHint field="amount" /></Label>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Valor (R$) <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="amount" /></Label>
               <Input type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="0,00" />
             </div>
-            <div className="space-y-2">
-              <Label>Tipo <LowConfidenceHint field="type" /></Label>
+            <div className="space-y-1.5">
+              <Label>Forma de Pagamento <LowConfidenceHint field="payment_method" /></Label>
+              <Select value={paymentMethod || "none"} onValueChange={(v) => setPaymentMethod(v === "none" ? "" : v as PaymentMethod)}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma</SelectItem>
+                  {PAYMENT_METHODS.map((m) => (
+                    <SelectItem key={m} value={m}>{m}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Tipo <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="type" /></Label>
               <Select value={type} onValueChange={(v: TransactionType) => { setType(v); setCategory("Outros"); }}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -247,10 +267,8 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Categoria</Label>
+            <div className="space-y-1.5">
+              <Label>Categoria <span className="text-destructive" aria-hidden="true">*</span></Label>
               <Select value={category} onValueChange={(v: Category) => setCategory(v)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -260,13 +278,9 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Data <LowConfidenceHint field="date" /></Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
-            </div>
           </div>
           {budgetInfo && (
-            <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs space-y-2">
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs space-y-1.5">
               <p className="text-muted-foreground text-[11px]">Orçamento utilizado após este lançamento</p>
               <div>
                 <span className="font-semibold text-sm">
@@ -290,9 +304,9 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
               </p>
             </div>
           )}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-2">
-              <Label>Conta <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Conta</Label>
               <Select value={accountId || "none"} onValueChange={(v) => { setAccountId(v === "none" ? "" : v); if (v !== "none") setCreditCardId(""); }}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
@@ -303,8 +317,8 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-2">
-              <Label>Cartão de Crédito <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+            <div className="space-y-1.5">
+              <Label>Cartão de Crédito</Label>
               <Select value={creditCardId || "none"} onValueChange={(v) => { setCreditCardId(v === "none" ? "" : v); if (v !== "none") setAccountId(""); }}>
                 <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
@@ -317,7 +331,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
             </div>
           </div>
           {showInstallments && (
-            <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-3">
+            <div className="space-y-1.5 rounded-lg border border-border bg-muted/30 p-3">
               <Label>Parcelar em</Label>
               <Select value={installments} onValueChange={setInstallments}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
@@ -336,24 +350,12 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
               )}
             </div>
           )}
-          <div className="space-y-2">
-            <Label>Forma de Pagamento <span className="text-muted-foreground text-xs">(opcional)</span> <LowConfidenceHint field="payment_method" /></Label>
-            <Select value={paymentMethod || "none"} onValueChange={(v) => setPaymentMethod(v === "none" ? "" : v as PaymentMethod)}>
-              <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">Nenhuma</SelectItem>
-                {PAYMENT_METHODS.map((m) => (
-                  <SelectItem key={m} value={m}>{m}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+          <div className="space-y-1.5">
+            <Label>Descrição</Label>
+            <Textarea className="min-h-[120px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
           </div>
-          <div className="space-y-2">
-            <Label>Descrição <span className="text-muted-foreground text-xs">(opcional)</span></Label>
-            <Textarea value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
-          </div>
-          <div className="space-y-2">
-            <Label>Anexos <span className="text-muted-foreground text-xs">(opcional)</span></Label>
+          <div className="space-y-1.5">
+            <Label>Anexos</Label>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
                 <Paperclip className="h-4 w-4 mr-2" /> Arquivo
@@ -371,7 +373,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
               />
             </div>
             {cameraOpen && (
-              <div className="space-y-2 rounded-md border border-border bg-muted/30 p-2">
+              <div className="space-y-1.5 rounded-md border border-border bg-muted/30 p-2">
                 <video ref={videoRef} playsInline muted autoPlay className="aspect-video w-full rounded-md bg-background object-cover" />
                 <div className="flex justify-end gap-2">
                   <Button type="button" variant="ghost" size="sm" onClick={stopCamera}>Cancelar</Button>
@@ -401,7 +403,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
               <p className="text-xs text-muted-foreground">Os anexos selecionados serão adicionados a este registro.</p>
             )}
           </div>
-          <div className="flex justify-end gap-2 pt-2">
+          <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
             <Button type="submit">{submitLabel ?? (initial ? "Salvar" : "Adicionar")}</Button>
           </div>
