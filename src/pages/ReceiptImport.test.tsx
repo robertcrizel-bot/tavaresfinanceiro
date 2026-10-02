@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => ({
   addTransaction: vi.fn(),
   navigate: vi.fn(),
   parseReceipt: vi.fn(),
-  takeSharedReceipt: vi.fn(),
+  takeSharedReceiptWithDiagnostics: vi.fn(),
   duplicateLimit: vi.fn(),
   toast: vi.fn(),
   paddleRecognize: vi.fn(),
@@ -31,7 +31,7 @@ vi.mock("@/contexts/CategoryContext", () => ({
 }));
 vi.mock("@/hooks/use-toast", () => ({ toast: mocks.toast }));
 vi.mock("@/lib/shared-receipt", () => ({
-  takeSharedReceipt: mocks.takeSharedReceipt,
+  takeSharedReceiptWithDiagnostics: mocks.takeSharedReceiptWithDiagnostics,
 }));
 vi.mock("@/lib/receipt", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/receipt")>(),
@@ -137,7 +137,7 @@ describe("ReceiptImport metadata", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.disposePaddleRecognizer.mockReset().mockResolvedValue(undefined);
-    mocks.takeSharedReceipt.mockResolvedValue(null);
+    mocks.takeSharedReceiptWithDiagnostics.mockResolvedValue({ file: null, diag: null });
     mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
     stubPaddleSuccess();
   });
@@ -360,7 +360,7 @@ describe("PaddleOCR main flow (no paid AI)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.disposePaddleRecognizer.mockReset().mockResolvedValue(undefined);
-    mocks.takeSharedReceipt.mockResolvedValue(null);
+    mocks.takeSharedReceiptWithDiagnostics.mockResolvedValue({ file: null, diag: null });
     mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
     stubPaddleSuccess();
   });
@@ -474,11 +474,11 @@ describe("PaddleOCR main flow (no paid AI)", () => {
 
   it("shared receipt is processed automatically through PaddleOCR", async () => {
     const sharedFile = new File(["shared"], "shared.jpg", { type: "image/jpeg" });
-    mocks.takeSharedReceipt.mockResolvedValue(sharedFile);
+    mocks.takeSharedReceiptWithDiagnostics.mockResolvedValue({ file: sharedFile, diag: null });
 
     render(<ReceiptImport />);
 
-    await waitFor(() => expect(mocks.takeSharedReceipt).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.takeSharedReceiptWithDiagnostics).toHaveBeenCalledTimes(1));
     await waitFor(() =>
       expect(mocks.paddleRecognize).toHaveBeenCalledWith(
         "data:image/jpeg;base64,TEST",
