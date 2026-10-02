@@ -1,63 +1,71 @@
 // Minimal service worker: only exists to receive files shared from other apps.
 // It intentionally does NOT cache app assets, so the app never serves stale content.
 
+const SW_VERSION = "share-v3";
 const SHARE_CACHE = "shared-receipt";
 const SHARE_KEY = "/__shared-receipt";
+const DIAG_KEY = "/__shared-receipt-diag";
 
 self.addEventListener("install", () => self.skipWaiting());
 self.addEventListener("activate", (event) => event.waitUntil(self.clients.claim()));
 
+function isFileLike(v) {
+  return typeof v === "object" && v !== null && "size" in v && typeof v.arrayBuffer === "function";
+}
+
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
-  if (event.request.method === "POST" && url.pathname === "/receipt-share") {
-    event.respondWith(
-      (async () => {
-        try {
-          const formData = await event.request.formData();
-          let file = null;
+  if (event.request.method !== "POST" || url.pathname !== "/receipt-share") return;
 
-          const candidateKeys = ["receipt", "file", "files", "image", "media"];
-          for (const key of candidateKeys) {
-            const entries = formData.getAll(key);
-            const found = entries.find(
-              (item) => typeof item === "object" && item !== null && "size" in item && item.size > 0
-            );
-            if (found) {
-              file = found;
-              break;
-            }
-          }
-
-          // Fallback: check all form values for the first Blob/File
-          if (!file) {
-            for (const value of formData.values()) {
-              if (typeof value === "object" && value !== null && "size" in value && value.size > 0) {
-                file = value;
-                break;
-              }
-            }
-          }
-
-          if (file) {
-            const cache = await caches.open(SHARE_CACHE);
-            await cache.put(
-              SHARE_KEY,
-              new Response(file, {
-                headers: {
-                  "Content-Type": file.type || "application/octet-stream",
-                  "X-File-Name": encodeURIComponent(file.name || "comprovante"),
-                },
-              }),
-            );
-          }
-        } catch {
-          // Fall through to the app, which will show the manual picker.
+  event.respondWith(
+    (async () => {
+      const diag = {
+        swVersion: SW_VERSION,
+        at: new Date().toISOString(),
+        contentType: event.request.headers.get("content-type"),
+        fields: [],
+        stored: false,
+        error: null,
+      };
+      try {
+        const formData = await event.request.formData();
+        let file = null;
+        for (const [name, value] of formData.entries()) {
+          const fileLike = isFileLike(value);
+          diag.fields.push(
+            fileLike
+              ? { name, kind: "file", fileName: value.name || "", type: value.type || "", size: value.size }
+              : { name, kind: "text", length: String(value).length },
+          );
+          if (!file && fileLike && value.size > 0) file = value;
         }
-        const redirectUrl = new URL("./receipt", self.registration.scope);
-        redirectUrl.searchParams.set("shared", "1");
-        const redirectTarget = redirectUrl.href;
-        return Response.redirect(redirectTarget, 303);
-      })(),
-    );
-  }
+
+        if (file) {
+          // Copy bytes into memory first: the request body stream is single-use.
+          const bytes = await file.arrayBuffer();
+          const cache = await caches.open(SHARE_CACHE);
+          await cache.put(
+            SHARE_KEY,
+            new Response(bytes, {
+              headers: {
+                "Content-Type": file.type || "image/jpeg",
+                "X-File-Name": encodeURIComponent(file.name || "comprovante.jpg"),
+              },
+            }),
+          );
+          diag.stored = Boolean(await cache.match(SHARE_KEY));
+          diag.storedSize = bytes.byteLength;
+        }
+      } catch (e) {
+        diag.error = e && e.message ? e.message : String(e);
+      }
+      try {
+        const cache = await caches.open(SHARE_CACHE);
+        await cache.put(DIAG_KEY, new Response(JSON.stringify(diag), { headers: { "Content-Type": "application/json" } }));
+      } catch {
+        // ignore
+      }
+      return Response.redirect(new URL("/receipt?shared=1", self.location.origin).href, 303);
+    })(),
+  );
 });

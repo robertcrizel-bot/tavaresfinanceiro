@@ -9,7 +9,7 @@ import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
-import { takeSharedReceipt } from "@/lib/shared-receipt";
+import { takeSharedReceiptWithDiagnostics, type ShareDiagnostics } from "@/lib/shared-receipt";
 import { receiptToImageDataUrl, matchByName, matchCategory, ParsedReceipt } from "@/lib/receipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
 import { paddleRecognize } from "@/lib/ocr-paddle-test/recognize";
@@ -43,6 +43,7 @@ export default function ReceiptImport() {
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const cameraRequestRef = useRef(0);
   const sharedChecked = useRef(false);
+  const [shareDiag, setShareDiag] = useState<ShareDiagnostics | null>(null);
 
   const buildPrefill = useCallback(
     (parsed: ParsedReceipt): Partial<Omit<Transaction, "id">> => {
@@ -221,7 +222,9 @@ export default function ReceiptImport() {
   useEffect(() => {
     if (sharedChecked.current) return;
     sharedChecked.current = true;
-    void takeSharedReceipt().then((file) => {
+    const openedByShare = new URLSearchParams(window.location.search).has("shared");
+    void takeSharedReceiptWithDiagnostics().then(({ file, diag }) => {
+      if (openedByShare) setShareDiag(diag);
       if (file) {
         void processFile(file);
       }
@@ -252,6 +255,15 @@ export default function ReceiptImport() {
           Envie a foto ou o PDF do comprovante e o app preenche o registro para você conferir.
         </p>
       </div>
+
+      {shareDiag && (
+        <details className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground" open={!shareDiag.page.found}>
+          <summary className="cursor-pointer font-medium text-foreground">
+            Diagnóstico do compartilhamento: {shareDiag.page.found ? "foto recebida" : "foto não encontrada"}
+          </summary>
+          <pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(shareDiag, null, 2)}</pre>
+        </details>
+      )}
 
       <Card className="p-6 space-y-4">
         {loading ? (
