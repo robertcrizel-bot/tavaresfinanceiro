@@ -17,17 +17,43 @@ export async function takeSharedReceipt(): Promise<File | null> {
   }
 }
 
+/**
+ * True only for the editor preview (iframe / preview hosts).
+ * The published app (*.lovable.app without "id-preview--") must NOT be blocked,
+ * otherwise the share-target service worker is never registered.
+ */
 export function isLovablePreview(): boolean {
   if (typeof window === "undefined") return false;
   const host = window.location.hostname;
-  return /lovableproject\.com|lovable\.app|gptengineer\.run/.test(host);
+  let inIframe = false;
+  try {
+    inIframe = window.self !== window.top;
+  } catch {
+    inIframe = true;
+  }
+  return (
+    inIframe ||
+    host.startsWith("id-preview--") ||
+    /lovableproject\.com$|gptengineer\.run$/.test(host) ||
+    host === "localhost" ||
+    host === "127.0.0.1"
+  );
 }
 
 export function registerReceiptServiceWorker() {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
-  if (isLovablePreview()) return;
 
-  window.addEventListener("load", () => {
-    navigator.serviceWorker.register("/sw.js").catch(() => undefined);
-  });
+  if (isLovablePreview()) {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((regs) => regs.forEach((r) => void r.unregister()))
+      .catch(() => undefined);
+    return;
+  }
+
+  const register = () => {
+    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
+  };
+  if (document.readyState === "complete") register();
+  else window.addEventListener("load", register, { once: true });
 }
