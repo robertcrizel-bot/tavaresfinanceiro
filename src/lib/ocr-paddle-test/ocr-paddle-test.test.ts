@@ -1,13 +1,13 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 
 const mockPredict = vi.fn();
+const mockDispose = vi.fn();
+const mockCreate = vi.fn();
 const mockFetch = vi.fn();
 
 vi.mock("@paddleocr/paddleocr-js", () => ({
   PaddleOCR: {
-    create: vi.fn().mockResolvedValue({
-      predict: mockPredict,
-    }),
+    create: mockCreate,
   },
 }));
 
@@ -18,6 +18,11 @@ vi.mock("@/lib/receipt", () => ({
 describe("ocr-paddle-test", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockDispose.mockReset().mockResolvedValue(undefined);
+    mockCreate.mockReset().mockResolvedValue({
+      predict: mockPredict,
+      dispose: mockDispose,
+    });
     vi.stubGlobal("fetch", mockFetch);
     mockFetch.mockResolvedValue({
       ok: true,
@@ -25,7 +30,9 @@ describe("ocr-paddle-test", () => {
     });
   });
 
-  afterEach(() => {
+  afterEach(async () => {
+    const { disposePaddleRecognizer } = await import("@/lib/ocr-paddle-test/recognize");
+    await disposePaddleRecognizer();
     vi.restoreAllMocks();
   });
 
@@ -218,6 +225,36 @@ describe("ocr-paddle-test", () => {
       expect(result).not.toHaveProperty("receiptDescription");
       expect(result).not.toHaveProperty("date");
       expect(result).not.toHaveProperty("counterparty");
+    });
+
+    it("awaits disposal and creates a fresh Paddle instance for the next reading", async () => {
+      mockPredict.mockResolvedValue([]);
+      let finishDispose: (() => void) | undefined;
+      mockDispose.mockReturnValueOnce(new Promise<void>((resolve) => {
+        finishDispose = resolve;
+      }));
+      const { disposePaddleRecognizer, paddleRecognize } = await import("@/lib/ocr-paddle-test/recognize");
+      const { PaddleOCR } = await import("@paddleocr/paddleocr-js");
+
+      await paddleRecognize("data:image/jpeg;base64,first");
+      let disposalFinished = false;
+      const disposal = disposePaddleRecognizer().then(() => {
+        disposalFinished = true;
+      });
+
+      await vi.waitFor(() => expect(mockDispose).toHaveBeenCalledTimes(1));
+      expect(disposalFinished).toBe(false);
+      finishDispose!();
+      await disposal;
+
+      await paddleRecognize("data:image/jpeg;base64,second");
+      expect(PaddleOCR.create).toHaveBeenCalledTimes(2);
+    });
+
+    it("is safe when no Paddle instance is loaded", async () => {
+      const { disposePaddleRecognizer } = await import("@/lib/ocr-paddle-test/recognize");
+
+      await expect(disposePaddleRecognizer()).resolves.toBeUndefined();
     });
   });
 

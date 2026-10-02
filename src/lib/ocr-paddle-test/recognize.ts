@@ -7,6 +7,21 @@ let paddleInstance: unknown = null;
 let initializing = false;
 let initError: string | null = null;
 
+export async function disposePaddleRecognizer(): Promise<void> {
+  const instance = paddleInstance;
+  if (!instance) {
+    initError = null;
+    return;
+  }
+
+  try {
+    await (instance as { dispose: () => void | Promise<void> }).dispose();
+  } finally {
+    if (paddleInstance === instance) paddleInstance = null;
+    initError = null;
+  }
+}
+
 async function getOrCreateInstance(): Promise<unknown> {
   if (paddleInstance) return paddleInstance;
   if (initError) throw new Error(initError);

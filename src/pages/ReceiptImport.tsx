@@ -12,7 +12,7 @@ import { toast } from "@/hooks/use-toast";
 import { takeSharedReceiptWithDiagnostics, type ShareDiagnostics } from "@/lib/shared-receipt";
 import { receiptToImageDataUrl, matchByName, matchCategory, ParsedReceipt } from "@/lib/receipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
-import { paddleRecognize } from "@/lib/ocr-paddle-test/recognize";
+import { disposePaddleRecognizer, paddleRecognize } from "@/lib/ocr-paddle-test/recognize";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
 import { supabase } from "@/integrations/supabase/client";
@@ -77,6 +77,7 @@ export default function ReceiptImport() {
 
   const processFile = useCallback(
     async (file: File) => {
+      let shouldOpenForm = false;
       setPendingFile(file);
       setLoading(true);
       setError(null);
@@ -105,13 +106,19 @@ export default function ReceiptImport() {
         setReceiptRef(parsed.receipt_id ?? null);
         setLowConfidence(parsed.low_confidence_fields || []);
         setPrefill(buildPrefill(parsed));
-        setFormOpen(true);
+        shouldOpenForm = true;
       } catch (e) {
         setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante.");
       } finally {
+        try {
+          await disposePaddleRecognizer();
+        } catch (disposeError) {
+          console.warn("[receipt-import] failed to dispose PaddleOCR", disposeError);
+        }
         setLoading(false);
         setReadStatus("");
       }
+      if (shouldOpenForm) setFormOpen(true);
     },
     [accounts, creditCards, allCategoryNames, buildPrefill],
   );

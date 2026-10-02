@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   duplicateLimit: vi.fn(),
   toast: vi.fn(),
   paddleRecognize: vi.fn(),
+  disposePaddleRecognizer: vi.fn(),
   buildPaddleReceiptResult: vi.fn(),
   receiptToImageDataUrl: vi.fn(),
 }));
@@ -39,6 +40,7 @@ vi.mock("@/lib/receipt", async (importOriginal) => ({
 }));
 vi.mock("@/lib/ocr-paddle-test/recognize", () => ({
   paddleRecognize: mocks.paddleRecognize,
+  disposePaddleRecognizer: mocks.disposePaddleRecognizer,
 }));
 vi.mock("@/lib/ocr-paddle-test/receiptResult", () => ({
   buildPaddleReceiptResult: mocks.buildPaddleReceiptResult,
@@ -53,12 +55,13 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 vi.mock("@/components/TransactionForm", () => ({
-  TransactionForm: ({ prefill, prefillAttachments, lowConfidence, onSubmit }: {
+  TransactionForm: ({ open, prefill, prefillAttachments, lowConfidence, onSubmit }: {
+    open: boolean;
     prefill: Record<string, unknown>;
     prefillAttachments?: File[];
     lowConfidence?: string[];
     onSubmit: (data: Record<string, unknown>, options?: { attachments?: File[] }) => void;
-  }) => (
+  }) => open ? (
     <div>
       <button type="button" onClick={() => onSubmit(prefill, { attachments: prefillAttachments })}>
         Confirmar importação
@@ -72,7 +75,7 @@ vi.mock("@/components/TransactionForm", () => ({
       )}
       <input aria-label="Título" defaultValue={String(prefill.title ?? "")} readOnly />
     </div>
-  ),
+  ) : null,
 }));
 
 function makePaddleResult(overrides: Record<string, unknown> = {}) {
@@ -133,6 +136,7 @@ function installCameraCanvas() {
 describe("ReceiptImport metadata", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.disposePaddleRecognizer.mockReset().mockResolvedValue(undefined);
     mocks.takeSharedReceipt.mockResolvedValue(null);
     mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
     stubPaddleSuccess();
@@ -355,6 +359,7 @@ describe("ReceiptImport metadata", () => {
 describe("PaddleOCR main flow (no paid AI)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mocks.disposePaddleRecognizer.mockReset().mockResolvedValue(undefined);
     mocks.takeSharedReceipt.mockResolvedValue(null);
     mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
     stubPaddleSuccess();
@@ -402,6 +407,25 @@ describe("PaddleOCR main flow (no paid AI)", () => {
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
   });
 
+  it("extracts the receipt result and awaits Paddle disposal before opening the form", async () => {
+    let finishDispose: (() => void) | undefined;
+    mocks.disposePaddleRecognizer.mockReturnValueOnce(new Promise<void>((resolve) => {
+      finishDispose = resolve;
+    }));
+    selectFile();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ler comprovante" }));
+
+    await waitFor(() => expect(mocks.buildPaddleReceiptResult).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.disposePaddleRecognizer).toHaveBeenCalledTimes(1));
+    expect(mocks.buildPaddleReceiptResult.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.disposePaddleRecognizer.mock.invocationCallOrder[0]);
+    expect(screen.queryByRole("button", { name: "Confirmar importação" })).not.toBeInTheDocument();
+
+    finishDispose!();
+    expect(await screen.findByRole("button", { name: "Confirmar importação" })).toBeInTheDocument();
+  });
+
   it("saves known Fonseca item values without inventing missing values", async () => {
     const receiptResultModule = await vi.importActual<typeof import("@/lib/ocr-paddle-test/receiptResult")>(
       "@/lib/ocr-paddle-test/receiptResult",
@@ -441,6 +465,7 @@ describe("PaddleOCR main flow (no paid AI)", () => {
       await screen.findByText("Não foi possível ler o comprovante agora. Verifique a foto e tente novamente."),
     ).toBeInTheDocument();
     expect(mocks.paddleRecognize).toHaveBeenCalled();
+    expect(mocks.disposePaddleRecognizer).toHaveBeenCalledTimes(1);
     expect(mocks.buildPaddleReceiptResult).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
     expect(mocks.addTransaction).not.toHaveBeenCalled();
