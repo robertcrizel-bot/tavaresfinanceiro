@@ -18,31 +18,6 @@ import {
 } from "recharts";
 import type { DateRange } from "react-day-picker";
 
-const colorBorder: Record<string, string> = {
-  purple: "border-l-purple-500",
-  orange: "border-l-orange-500",
-  blue: "border-l-blue-500",
-  green: "border-l-green-500",
-  red: "border-l-red-500",
-  pink: "border-l-pink-500",
-};
-const colorBg: Record<string, string> = {
-  purple: "bg-purple-500/5",
-  orange: "bg-orange-500/5",
-  blue: "bg-blue-500/5",
-  green: "bg-green-500/5",
-  red: "bg-red-500/5",
-  pink: "bg-pink-500/5",
-};
-const colorIcon: Record<string, string> = {
-  purple: "text-purple-400",
-  orange: "text-orange-400",
-  blue: "text-blue-400",
-  green: "text-green-400",
-  red: "text-red-400",
-  pink: "text-pink-400",
-};
-
 export default function Dashboard() {
   const { transactions, addTransaction } = useFinance();
   const { accounts, creditCards } = useAccounts();
@@ -130,11 +105,7 @@ export default function Dashboard() {
   }, [filtered]);
 
   // Bar chart data
-  const categoryColors = [
-    "hsl(210 76% 52%)", "hsl(160 84% 39%)", "hsl(340 75% 55%)",
-    "hsl(45 93% 47%)", "hsl(270 60% 55%)", "hsl(25 95% 53%)",
-    "hsl(190 80% 42%)", "hsl(0 72% 51%)", "hsl(120 40% 45%)",
-  ];
+  const categoryColors = ["hsl(160 84% 39%)"];
 
   const barData = useMemo(() => {
     const map: Record<string, number> = {};
@@ -195,10 +166,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
         <KpiCard title="Total de Entradas" value={fmt(totalIncome)} icon={TrendingUp} color="green" />
         <KpiCard title="Total de Saídas" value={fmt(totalExpense)} icon={TrendingDown} color="red" />
-        <KpiCard title="Saldo do Período" value={fmt(balance)} icon={Wallet} color="purple" />
-        <KpiCard title="Gasto Médio Diário" value={fmt(avgDaily)} icon={CalendarDays} color="amber" />
+        <KpiCard title="Saldo do Período" value={fmt(balance)} icon={Wallet} color="neutral" />
+        <KpiCard title="Gasto Médio Diário" value={fmt(avgDaily)} icon={CalendarDays} color="neutral" />
         <div className="col-span-2 md:col-span-1 xl:col-span-1">
-          <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} color="blue" />
+          <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} color="neutral" />
         </div>
       </div>
 
@@ -212,11 +183,11 @@ export default function Dashboard() {
               return (
                 <div
                   key={acc.id}
-                  className={`glass-card rounded-xl p-4 border-l-4 animate-fade-in flex flex-col justify-between min-h-[128px] ${colorBorder[acc.color] || "border-l-primary"} ${colorBg[acc.color] || ""}`}
+                  className="glass-card rounded-xl p-4 border-l-4 border-l-border animate-fade-in flex flex-col justify-between min-h-[128px]"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <Landmark className={`h-4 w-4 shrink-0 ${colorIcon[acc.color] || "text-muted-foreground"}`} />
-                    <span className={`truncate text-sm font-semibold ${colorIcon[acc.color] || "text-primary"}`}>{acc.name}</span>
+                    <Landmark className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="truncate text-sm font-semibold text-foreground">{acc.name}</span>
                   </div>
                   <div>
                     <p className={`text-xl font-bold ${balance >= 0 ? "text-income" : "text-expense"}`}>{fmt(balance)}</p>
@@ -232,12 +203,12 @@ export default function Dashboard() {
               return (
                 <div
                   key={cc.id}
-                  className={`glass-card rounded-xl p-4 border-l-4 animate-fade-in flex flex-col justify-between min-h-[128px] ${colorBorder[cc.color] || "border-l-primary"} ${colorBg[cc.color] || ""}`}
+                  className="glass-card rounded-xl p-4 border-l-4 border-l-border animate-fade-in flex flex-col justify-between min-h-[128px]"
                 >
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <CreditCard className={`h-4 w-4 shrink-0 ${colorIcon[cc.color] || "text-muted-foreground"}`} />
-                      <span className={`truncate text-sm font-semibold ${colorIcon[cc.color] || "text-primary"}`}>{cc.name}</span>
+                      <CreditCard className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="truncate text-sm font-semibold text-foreground">{cc.name}</span>
                     </div>
                     <p className="text-xl font-bold text-expense">{fmt(used)}</p>
                   </div>
