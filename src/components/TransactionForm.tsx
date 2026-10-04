@@ -240,42 +240,38 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-h-[90vh] gap-3 overflow-y-auto p-4 sm:max-w-md sm:gap-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{dialogTitle ?? (initial ? "Editar Registro" : "Novo Registro")}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-2">
-          <div className="grid grid-cols-1 gap-x-4 gap-y-2 min-[360px]:grid-cols-[minmax(0,3fr)_minmax(0,5fr)]">
-            <div className="space-y-1.5">
+        <form onSubmit={handleSubmit} className="space-y-1.5 sm:space-y-2">
+          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 min-[360px]:gap-x-3 sm:grid-cols-8 sm:gap-x-4 sm:gap-y-2">
+            <div className="order-1 min-w-0 space-y-1 sm:col-span-3 sm:space-y-1.5">
               <Label>Data <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="date" /></Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              <Input className="h-9 sm:h-10" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
             </div>
-            <div className="space-y-1.5">
+            <div className="order-3 col-span-2 min-w-0 space-y-1 sm:order-2 sm:col-span-5 sm:space-y-1.5">
               <Label>Título <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="counterparty" /></Label>
-              <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Ex: Supermercado" />
+              <Input className="h-9 sm:h-10" value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Ex: Supermercado" />
             </div>
-          </div>
-          <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-            <div className="space-y-1.5">
+            <div className="order-2 min-w-0 space-y-1 sm:order-3 sm:col-span-4 sm:space-y-1.5">
               <Label>Valor (R$) <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="amount" /></Label>
-              <Input type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="0,00" />
+              <Input className="h-9 sm:h-10" type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="0,00" />
             </div>
-            <div className="space-y-1.5">
+            <div className="order-4 col-span-2 min-w-0 space-y-1 min-[360px]:col-span-1 sm:col-span-4 sm:space-y-1.5">
               <Label>Tipo <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="type" /></Label>
               <Select value={type} onValueChange={(v: TransactionType) => { setType(v); setCategory("Outros"); }}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 sm:h-10"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="expense">Saída</SelectItem>
                   <SelectItem value="income">Entrada</SelectItem>
                 </SelectContent>
               </Select>
             </div>
-          </div>
-          <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-            <div className="space-y-1.5">
+            <div className="order-5 col-span-2 min-w-0 space-y-1 min-[360px]:col-span-1 sm:col-span-4 sm:space-y-1.5">
               <Label>Categoria <span className="text-destructive" aria-hidden="true">*</span></Label>
               <Select value={category} onValueChange={(v: Category) => setCategory(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger className="h-9 sm:h-10"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   {categories.map((c) => (
                     <SelectItem key={c} value={c}>{c}</SelectItem>
@@ -283,10 +279,10 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1.5">
+            <div className="order-6 col-span-2 min-w-0 space-y-1 sm:col-span-4 sm:space-y-1.5">
               <Label>Forma de Pagamento <LowConfidenceHint field="payment_method" /></Label>
               <Select value={paymentMethod || "none"} onValueChange={handlePaymentMethodChange}>
-                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectTrigger className="h-9 sm:h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhuma</SelectItem>
                   {PAYMENT_METHODS.map((m) => (
@@ -297,7 +293,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
             </div>
           </div>
           {budgetInfo && (
-            <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs space-y-1.5">
+            <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-2 text-xs sm:space-y-1.5 sm:p-3">
               <p className="text-muted-foreground text-[11px]">Orçamento utilizado após este lançamento</p>
               <div>
                 <span className="font-semibold text-sm">
@@ -322,10 +318,10 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
             </div>
           )}
           {showAccount && (
-            <div className="space-y-1.5">
+            <div className="space-y-1 sm:space-y-1.5">
               <Label>Conta</Label>
               <Select value={accountId || "none"} onValueChange={(v) => { setAccountId(v === "none" ? "" : v); if (v !== "none") setCreditCardId(""); }}>
-                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectTrigger className="h-9 sm:h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhuma</SelectItem>
                   {accounts.map((a) => (
@@ -336,11 +332,11 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
             </div>
           )}
           {showCreditCard && (
-            <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
-              <div className="space-y-1.5">
+            <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 min-[360px]:grid-cols-2 sm:gap-x-4 sm:gap-y-2">
+              <div className="min-w-0 space-y-1 sm:space-y-1.5">
                 <Label>Cartão de Crédito</Label>
                 <Select value={creditCardId || "none"} onValueChange={(v) => { setCreditCardId(v === "none" ? "" : v); if (v !== "none") setAccountId(""); }}>
-                  <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                  <SelectTrigger className="h-9 sm:h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                   <SelectContent>
                     <SelectItem value="none">Nenhum</SelectItem>
                     {creditCards.map((c) => (
@@ -350,10 +346,10 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
                 </Select>
               </div>
               {showInstallments && (
-                <div className="space-y-1.5">
+                <div className="min-w-0 space-y-1 sm:space-y-1.5">
                   <Label>Parcelar em</Label>
                   <Select value={installments} onValueChange={setInstallments} disabled={!creditCardId || creditCardId === "none"}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger className="h-9 sm:h-10"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       {Array.from({ length: 24 }, (_, i) => i + 1).map((n) => (
                         <SelectItem key={n} value={String(n)}>
@@ -371,11 +367,11 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
               )}
             </div>
           )}
-          <div className="space-y-1.5">
+          <div className="space-y-1 sm:space-y-1.5">
             <Label>Descrição</Label>
-            <Textarea className="min-h-[120px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
+            <Textarea className="min-h-[60px] sm:min-h-[120px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
           </div>
-          <div className="space-y-1.5">
+          <div className="space-y-1 sm:space-y-1.5">
             <Label>Anexos</Label>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
