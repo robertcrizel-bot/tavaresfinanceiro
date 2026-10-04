@@ -16,6 +16,7 @@ import { disposePaddleRecognizer, paddleRecognize } from "@/lib/ocr-paddle-test/
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
 import { fastOcrRecognize } from "@/lib/fast-ocr";
+import { tesseractRecognize } from "@/lib/tesseract-ocr";
 import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientation";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
@@ -78,6 +79,15 @@ interface FastOcrDiagnostics {
   ocrInputDimensions: { width: number; height: number } | null;
 }
 
+interface TesseractOcrDiagnostics {
+  initializationMs: number;
+  languageLoadMs: number | null;
+  ocrMs: number;
+  adapterParserMs: number;
+  totalMs: number;
+  ocrInputDimensions: { width: number; height: number } | null;
+}
+
 const formatSeconds = (ms: number | null) => ms === null ? "—" : `${(ms / 1000).toFixed(1)} s`;
 const formatDimensions = (dimensions: { width: number; height: number } | null) =>
   dimensions ? `${dimensions.width} × ${dimensions.height}` : "indisponível";
@@ -105,6 +115,7 @@ export default function ReceiptImport() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [freeOcrDiagnostics, setFreeOcrDiagnostics] = useState<FreeOcrDiagnostics | null>(null);
   const [fastOcrDiagnostics, setFastOcrDiagnostics] = useState<FastOcrDiagnostics | null>(null);
+  const [tesseractDiagnostics, setTesseractDiagnostics] = useState<TesseractOcrDiagnostics | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -150,6 +161,7 @@ export default function ReceiptImport() {
       setPendingFile(file);
       setFreeOcrDiagnostics(null);
       setFastOcrDiagnostics(null);
+      setTesseractDiagnostics(null);
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -236,6 +248,7 @@ export default function ReceiptImport() {
       setPendingFile(file);
       setFreeOcrDiagnostics(null);
       setFastOcrDiagnostics(null);
+      setTesseractDiagnostics(null);
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -284,6 +297,85 @@ export default function ReceiptImport() {
             initializationMs: Math.round(completedRun.initializationMs),
             ocrMs: Math.round(completedRun.ocrMs),
             parserMs: Math.round(completedRun.parserMs),
+            totalMs: Math.round(performance.now() - totalStart),
+            ocrInputDimensions: completedRun.ocrInputDimensions,
+          });
+        }
+        setLoading(false);
+        setReadStatus("");
+      }
+      if (shouldOpenForm) setFormOpen(true);
+    },
+    [buildPrefill],
+  );
+
+  const processFileTesseract = useCallback(
+    async (file: File) => {
+      const totalStart = performance.now();
+      let shouldOpenForm = false;
+      let completedRun: {
+        initializationMs: number;
+        languageLoadMs: number | null;
+        ocrMs: number;
+        adapterMs: number;
+        parserMs: number;
+        ocrInputDimensions: { width: number; height: number } | null;
+      } | null = null;
+      setPendingFile(file);
+      setFreeOcrDiagnostics(null);
+      setFastOcrDiagnostics(null);
+      setTesseractDiagnostics(null);
+      setLoading(true);
+      setError(null);
+      setDuplicate(false);
+      setReadStatus("Preparando imagem...");
+      try {
+        const localImage = await prepareReceiptForLocalOcr(file);
+        setReadStatus("Carregando Tesseract...");
+        const ocr = await tesseractRecognize(localImage.image, (status) => setReadStatus(status));
+        const parserStart = performance.now();
+        const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
+        const parserMs = performance.now() - parserStart;
+        completedRun = {
+          initializationMs: ocr.initializationMs,
+          languageLoadMs: ocr.languageLoadMs,
+          ocrMs: ocr.ocrMs,
+          adapterMs: ocr.adapterMs,
+          parserMs,
+          ocrInputDimensions: localImage.metrics.outputDimensions,
+        };
+
+        if (!parsed.is_receipt) {
+          setError("Essa imagem não parece ser um comprovante. Tente outra foto mais nítida.");
+          return;
+        }
+        if (parsed.receipt_id) {
+          const { data: existing } = await supabase
+            .from("transactions")
+            .select("id")
+            .eq("receipt_ref", parsed.receipt_id)
+            .limit(1);
+          if (existing && existing.length > 0) setDuplicate(true);
+        }
+        setReceiptFile(file);
+        setReceiptRef(parsed.receipt_id ?? null);
+        setLowConfidence(parsed.low_confidence_fields || []);
+        setPrefill(buildPrefill(parsed));
+        shouldOpenForm = true;
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com o Tesseract.");
+      } finally {
+        try {
+          await releaseDocumentOrientationSession();
+        } catch (releaseError) {
+          console.warn("[receipt-import] failed to release document orientation session", releaseError);
+        }
+        if (completedRun) {
+          setTesseractDiagnostics({
+            initializationMs: Math.round(completedRun.initializationMs),
+            languageLoadMs: completedRun.languageLoadMs,
+            ocrMs: Math.round(completedRun.ocrMs),
+            adapterParserMs: Math.round(completedRun.adapterMs + completedRun.parserMs),
             totalMs: Math.round(performance.now() - totalStart),
             ocrInputDimensions: completedRun.ocrInputDimensions,
           });
@@ -522,6 +614,9 @@ export default function ReceiptImport() {
                   <Button variant="outline" className="gap-2" disabled={loading} onClick={() => void processFileFast(pendingFile)}>
                     ⚡ Testar OCR rápido
                   </Button>
+                  <Button variant="outline" className="gap-2" disabled={loading} onClick={() => void processFileTesseract(pendingFile)}>
+                    🔬 Testar Tesseract
+                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">A leitura gratuita usa o OCR local e tem custo R$ 0,00.</p>
               </div>
@@ -587,6 +682,25 @@ export default function ReceiptImport() {
               <dt className="font-semibold text-foreground">TOTAL:</dt>
               <dd className="font-semibold text-foreground">{formatSeconds(fastOcrDiagnostics.totalMs)}</dd>
               <dt>Imagem OCR:</dt><dd>{formatDimensions(fastOcrDiagnostics.ocrInputDimensions)}</dd>
+            </dl>
+          </div>
+        )}
+
+        {tesseractDiagnostics && !loading && (
+          <div data-testid="tesseract-ocr-diagnostics" className="rounded-md border border-border bg-muted/30 p-3 text-xs">
+            <h3 className="mb-2 text-sm font-semibold text-foreground">DIAGNÓSTICO TESSERACT</h3>
+            <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-muted-foreground">
+              <dt>Inicialização:</dt><dd>{formatSeconds(tesseractDiagnostics.initializationMs)}</dd>
+              {tesseractDiagnostics.languageLoadMs !== null && (
+                <>
+                  <dt>Idioma/modelo:</dt><dd>{formatSeconds(tesseractDiagnostics.languageLoadMs)}</dd>
+                </>
+              )}
+              <dt>OCR:</dt><dd>{formatSeconds(tesseractDiagnostics.ocrMs)}</dd>
+              <dt>Adapter/Parser:</dt><dd>{formatSeconds(tesseractDiagnostics.adapterParserMs)}</dd>
+              <dt className="font-semibold text-foreground">TOTAL:</dt>
+              <dd className="font-semibold text-foreground">{formatSeconds(tesseractDiagnostics.totalMs)}</dd>
+              <dt>Imagem OCR:</dt><dd>{formatDimensions(tesseractDiagnostics.ocrInputDimensions)}</dd>
             </dl>
           </div>
         )}
