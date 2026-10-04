@@ -205,7 +205,7 @@ export default function Dashboard() {
       {/* Accounts & Cards */}
       {(accounts.length > 0 || creditCards.length > 0) && (
         <div>
-          <h2 className="relative mb-2 pl-3 text-base font-semibold text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-muted-foreground sm:before:hidden">Contas & Cartões</h2>
+          <h2 className="relative mb-2 pl-3 text-base font-bold text-primary before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-muted-foreground sm:before:hidden">Contas & Cartões</h2>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {accounts.map((acc) => {
               const balance = accountBalances[acc.id];
@@ -216,12 +216,12 @@ export default function Dashboard() {
                 >
                   <div className="flex items-center gap-2 mb-2">
                     <Landmark className={`h-4 w-4 shrink-0 ${colorIcon[acc.color] || "text-muted-foreground"}`} />
-                    <span className="text-sm font-medium text-foreground truncate">{acc.name}</span>
+                    <span className={`truncate text-sm font-semibold ${colorIcon[acc.color] || "text-primary"}`}>{acc.name}</span>
                   </div>
                   <div>
                     <p className={`text-xl font-bold ${balance >= 0 ? "text-income" : "text-expense"}`}>{fmt(balance)}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">{acc.bank} · {acc.type === "checking" ? "Corrente" : "Poupança"}</p>
+                  <p className="mt-2 text-xs text-muted-foreground/80">{acc.bank} · {acc.type === "checking" ? "Corrente" : "Poupança"}</p>
                 </div>
               );
             })}
@@ -237,7 +237,7 @@ export default function Dashboard() {
                   <div>
                     <div className="flex items-center gap-2 mb-2">
                       <CreditCard className={`h-4 w-4 shrink-0 ${colorIcon[cc.color] || "text-muted-foreground"}`} />
-                      <span className="text-sm font-medium text-foreground truncate">{cc.name}</span>
+                      <span className={`truncate text-sm font-semibold ${colorIcon[cc.color] || "text-primary"}`}>{cc.name}</span>
                     </div>
                     <p className="text-xl font-bold text-expense">{fmt(used)}</p>
                   </div>
@@ -314,7 +314,7 @@ export default function Dashboard() {
 
       {/* Insights */}
       <div>
-        <h2 className="relative mb-2 pl-3 text-base font-semibold text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-muted-foreground sm:before:hidden">Insights</h2>
+        <h2 className="relative mb-2 pl-3 text-base font-bold text-primary before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-muted-foreground sm:before:hidden">Insights</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {insights.map((text, i) => (
             <InsightCard key={i} text={text} />

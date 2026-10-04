@@ -3,12 +3,12 @@ import { cn } from "@/lib/utils";
 
 type KpiColor = "green" | "red" | "amber" | "blue" | "purple";
 
-const colorMap: Record<KpiColor, { border: string; icon: string; bg: string }> = {
-  green: { border: "border-l-income", icon: "text-income", bg: "bg-income/5" },
-  red: { border: "border-l-expense", icon: "text-expense", bg: "bg-expense/5" },
-  amber: { border: "border-l-warning", icon: "text-warning", bg: "bg-warning/5" },
-  blue: { border: "border-l-info", icon: "text-info", bg: "bg-info/5" },
-  purple: { border: "border-l-purple-500", icon: "text-purple-400", bg: "bg-purple-500/5" },
+const colorMap: Record<KpiColor, { border: string; icon: string; title: string; bg: string }> = {
+  green: { border: "border-l-income", icon: "text-income", title: "text-income/80", bg: "bg-income/5" },
+  red: { border: "border-l-expense", icon: "text-expense", title: "text-expense/80", bg: "bg-expense/5" },
+  amber: { border: "border-l-warning", icon: "text-warning", title: "text-warning/80", bg: "bg-warning/5" },
+  blue: { border: "border-l-info", icon: "text-info", title: "text-info/80", bg: "bg-info/5" },
+  purple: { border: "border-l-purple-500", icon: "text-purple-400", title: "text-purple-300/80", bg: "bg-purple-500/5" },
 };
 
 interface KpiCardProps {
@@ -31,7 +31,7 @@ export function KpiCard({ title, value, icon: Icon, trend, trendUp, color }: Kpi
       )}
     >
       <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
-        <span className="text-xs sm:text-sm text-muted-foreground font-medium line-clamp-1">{title}</span>
+        <span className={cn("text-xs sm:text-sm font-semibold line-clamp-1", c ? c.title : "text-muted-foreground")}>{title}</span>
         <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5 shrink-0", c ? c.icon : "text-muted-foreground")} />
       </div>
       <div>
