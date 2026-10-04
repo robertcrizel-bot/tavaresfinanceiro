@@ -20,23 +20,30 @@ import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
 import type { PaddleOcrResult } from "@/lib/ocr-paddle-test/types";
 
+interface FreeOcrDiagnostics {
+  originalDimensions: { width: number; height: number } | null;
+  ocrInputDimensions: { width: number; height: number } | null;
+  preparationMs: number;
+  orientationMs: number;
+  paddleInitializationMs: number | null;
+  paddleInferenceMs: number;
+  detectionMs: number | null;
+  recognitionMs: number | null;
+  parserMs: number;
+  cleanupMs: number;
+  totalMs: number;
+}
+
 function logFreeOcrMetrics(
   preparation: LocalOcrPreparationMetrics,
   ocr: PaddleOcrResult,
   parserMs: number,
+  cleanupMs: number,
   totalMs: number,
-) {
-  if (import.meta.env.MODE === "test") return;
-  const toMiB = (bytes: number | null) => bytes === null ? null : Math.round(bytes / 1024 / 1024 * 10) / 10;
-  console.info("[receipt-import] free OCR metrics", {
+): FreeOcrDiagnostics {
+  const diagnostics: FreeOcrDiagnostics = {
     originalDimensions: preparation.originalDimensions,
     ocrInputDimensions: ocr.inputDimensions ?? preparation.outputDimensions,
-    originalPixels: preparation.originalPixels,
-    ocrInputPixels: preparation.outputPixels,
-    largestRgbaSurfaceMiB: toMiB(preparation.largestRgbaSurfaceBytes),
-    estimatedOrientationPeakRgbaMiB: toMiB(preparation.estimatedOrientationPeakRgbaBytes),
-    inputFileMiB: toMiB(preparation.inputFileBytes),
-    ocrFileMiB: toMiB(preparation.outputFileBytes),
     preparationMs: Math.round(preparation.preparationMs),
     orientationMs: Math.round(preparation.orientationMs),
     paddleInitializationMs: ocr.initializationMs ?? null,
@@ -44,10 +51,27 @@ function logFreeOcrMetrics(
     detectionMs: ocr.detectionMs ?? null,
     recognitionMs: ocr.recognitionMs ?? null,
     parserMs: Math.round(parserMs),
+    cleanupMs: Math.round(cleanupMs),
     totalMs: Math.round(totalMs),
+  };
+  if (import.meta.env.MODE === "test") return diagnostics;
+  const toMiB = (bytes: number | null) => bytes === null ? null : Math.round(bytes / 1024 / 1024 * 10) / 10;
+  console.info("[receipt-import] free OCR metrics", {
+    ...diagnostics,
+    originalPixels: preparation.originalPixels,
+    ocrInputPixels: preparation.outputPixels,
+    largestRgbaSurfaceMiB: toMiB(preparation.largestRgbaSurfaceBytes),
+    estimatedOrientationPeakRgbaMiB: toMiB(preparation.estimatedOrientationPeakRgbaBytes),
+    inputFileMiB: toMiB(preparation.inputFileBytes),
+    ocrFileMiB: toMiB(preparation.outputFileBytes),
     paddleRunsInWorker: true,
   });
+  return diagnostics;
 }
+
+const formatSeconds = (ms: number | null) => ms === null ? "—" : `${(ms / 1000).toFixed(1)} s`;
+const formatDimensions = (dimensions: { width: number; height: number } | null) =>
+  dimensions ? `${dimensions.width} × ${dimensions.height}` : "indisponível";
 
 export default function ReceiptImport() {
   const navigate = useNavigate();
@@ -70,6 +94,7 @@ export default function ReceiptImport() {
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [readStatus, setReadStatus] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [freeOcrDiagnostics, setFreeOcrDiagnostics] = useState<FreeOcrDiagnostics | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -111,7 +136,9 @@ export default function ReceiptImport() {
     async (file: File) => {
       const totalStart = performance.now();
       let shouldOpenForm = false;
+      let completedRun: { preparation: LocalOcrPreparationMetrics; ocr: PaddleOcrResult; parserMs: number } | null = null;
       setPendingFile(file);
+      setFreeOcrDiagnostics(null);
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -121,13 +148,13 @@ export default function ReceiptImport() {
           const localImage = await prepareReceiptForLocalOcr(file);
           const ocr = await paddleRecognize(localImage.image, (status) => setReadStatus(status));
           if (ocr.error) {
-            logFreeOcrMetrics(localImage.metrics, ocr, 0, performance.now() - totalStart);
+            completedRun = { preparation: localImage.metrics, ocr, parserMs: 0 };
             throw new Error("Não foi possível ler o comprovante agora. Verifique a foto e tente novamente.");
           }
           const parserStart = performance.now();
           const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
           const parserMs = performance.now() - parserStart;
-          logFreeOcrMetrics(localImage.metrics, ocr, parserMs, performance.now() - totalStart);
+          completedRun = { preparation: localImage.metrics, ocr, parserMs };
           return {
             isReceipt: parsed.is_receipt,
             receiptRef: parsed.receipt_id ?? null,
@@ -156,6 +183,7 @@ export default function ReceiptImport() {
       } catch (e) {
         setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante.");
       } finally {
+        const cleanupStart = performance.now();
         try {
           await disposePaddleRecognizer();
         } catch (disposeError) {
@@ -165,6 +193,16 @@ export default function ReceiptImport() {
           await releaseDocumentOrientationSession();
         } catch (releaseError) {
           console.warn("[receipt-import] failed to release document orientation session", releaseError);
+        }
+        const cleanupMs = performance.now() - cleanupStart;
+        if (completedRun) {
+          setFreeOcrDiagnostics(logFreeOcrMetrics(
+            completedRun.preparation,
+            completedRun.ocr,
+            completedRun.parserMs,
+            cleanupMs,
+            performance.now() - totalStart,
+          ));
         }
         setLoading(false);
         setReadStatus("");
@@ -426,6 +464,29 @@ export default function ReceiptImport() {
           <div className="rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3 text-sm">
             Confira com atenção:{" "}
             {[...new Set(lowConfidence.map((f) => fieldLabels[f.replace(/\[\d+\].*$/, "")] ?? fieldLabels[f] ?? f))].join(", ")}.
+          </div>
+        )}
+
+        {freeOcrDiagnostics && !loading && (
+          <div data-testid="free-ocr-diagnostics" className="rounded-md border border-border bg-muted/30 p-3 text-xs">
+            <h3 className="mb-2 text-sm font-semibold text-foreground">Diagnóstico OCR</h3>
+            <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-muted-foreground">
+              <dt>Preparação:</dt><dd>{formatSeconds(freeOcrDiagnostics.preparationMs)}</dd>
+              <dt>Orientação:</dt><dd>{formatSeconds(freeOcrDiagnostics.orientationMs)}</dd>
+              <dt>Inicialização Paddle:</dt><dd>{formatSeconds(freeOcrDiagnostics.paddleInitializationMs)}</dd>
+              <dt>Inferência total:</dt><dd>{formatSeconds(freeOcrDiagnostics.paddleInferenceMs)}</dd>
+              <dt>Detecção (SDK):</dt><dd>{formatSeconds(freeOcrDiagnostics.detectionMs)}</dd>
+              <dt>Reconhecimento (SDK):</dt><dd>{formatSeconds(freeOcrDiagnostics.recognitionMs)}</dd>
+              <dt>Parser:</dt><dd>{formatSeconds(freeOcrDiagnostics.parserMs)}</dd>
+              <dt>Liberação de recursos:</dt><dd>{formatSeconds(freeOcrDiagnostics.cleanupMs)}</dd>
+              <dt className="font-semibold text-foreground">TOTAL:</dt>
+              <dd className="font-semibold text-foreground">{formatSeconds(freeOcrDiagnostics.totalMs)}</dd>
+              <dt>Imagem original:</dt><dd>{formatDimensions(freeOcrDiagnostics.originalDimensions)}</dd>
+              <dt>Imagem OCR:</dt><dd>{formatDimensions(freeOcrDiagnostics.ocrInputDimensions)}</dd>
+            </dl>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Detecção e reconhecimento são tempos internos do SDK e fazem parte da inferência.
+            </p>
           </div>
         )}
       </Card>

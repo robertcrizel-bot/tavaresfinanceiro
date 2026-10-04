@@ -105,7 +105,7 @@ function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult())
   mocks.prepareReceiptForLocalOcr.mockImplementation(async (file: File) => ({
     image: file,
     metrics: {
-      originalDimensions: { width: 1200, height: 1600 },
+      originalDimensions: { width: 3000, height: 4000 },
       outputDimensions: { width: 1200, height: 1600 },
       originalPixels: 1_920_000,
       outputPixels: 1_920_000,
@@ -113,9 +113,9 @@ function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult())
       estimatedOrientationPeakRgbaBytes: 23_040_000,
       inputFileBytes: file.size,
       outputFileBytes: file.size,
-      preparationMs: 10,
-      orientationMs: 5,
-      totalMs: 15,
+      preparationMs: 1200,
+      orientationMs: 2300,
+      totalMs: 3500,
     },
   }));
   mocks.paddleRecognize.mockResolvedValue({
@@ -128,6 +128,11 @@ function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult())
     detectedBoxes: 1,
     recognizedCount: 1,
     backend: "wasm",
+    initializationMs: 5000,
+    inferenceMs: 110000,
+    detectionMs: 40000,
+    recognitionMs: 65000,
+    inputDimensions: { width: 1000, height: 1600 },
   });
   mocks.buildPaddleReceiptResult.mockReturnValue(result);
 }
@@ -226,6 +231,20 @@ describe("ReceiptImport metadata", () => {
     );
     expect(mocks.buildPaddleReceiptResult).toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
+
+    const diagnostics = await screen.findByTestId("free-ocr-diagnostics");
+    expect(diagnostics).toHaveTextContent("Diagnóstico OCR");
+    expect(diagnostics).toHaveTextContent("Preparação:1.2 s");
+    expect(diagnostics).toHaveTextContent("Orientação:2.3 s");
+    expect(diagnostics).toHaveTextContent("Inicialização Paddle:5.0 s");
+    expect(diagnostics).toHaveTextContent("Inferência total:110.0 s");
+    expect(diagnostics).toHaveTextContent("Detecção (SDK):40.0 s");
+    expect(diagnostics).toHaveTextContent("Reconhecimento (SDK):65.0 s");
+    expect(diagnostics).toHaveTextContent("Parser:");
+    expect(diagnostics).toHaveTextContent("Liberação de recursos:");
+    expect(diagnostics).toHaveTextContent("TOTAL:");
+    expect(diagnostics).toHaveTextContent("Imagem original:3000 × 4000");
+    expect(diagnostics).toHaveTextContent("Imagem OCR:1000 × 1600");
   });
 
   it("does not show the removed local OCR development controls after file selection", async () => {
@@ -445,6 +464,7 @@ describe("Lovable AI receipt flow", () => {
       accounts: [],
     }));
     expect(mocks.paddleRecognize).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("free-ocr-diagnostics")).not.toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar importação" }));
 
     expect(mocks.addTransaction).toHaveBeenCalledWith(
