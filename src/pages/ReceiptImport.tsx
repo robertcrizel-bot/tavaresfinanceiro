@@ -15,6 +15,7 @@ import { formatReceiptDescription } from "@/lib/receipt-description";
 import { disposePaddleRecognizer, paddleRecognize } from "@/lib/ocr-paddle-test/recognize";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
+import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientation";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
 
@@ -84,28 +85,37 @@ export default function ReceiptImport() {
       setDuplicate(false);
       setReadStatus("Carregando modelo PaddleOCR...");
       try {
-        const imageDataUrl = await receiptToImageDataUrl(file);
-        const ocr = await paddleRecognize(imageDataUrl, (status) => setReadStatus(status));
-        if (ocr.error) {
-          throw new Error("Não foi possível ler o comprovante agora. Verifique a foto e tente novamente.");
-        }
-        const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
-        if (!parsed.is_receipt) {
+        const prepared = await (async () => {
+          const imageDataUrl = await receiptToImageDataUrl(file);
+          const ocr = await paddleRecognize(imageDataUrl, (status) => setReadStatus(status));
+          if (ocr.error) {
+            throw new Error("Não foi possível ler o comprovante agora. Verifique a foto e tente novamente.");
+          }
+          const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
+          return {
+            isReceipt: parsed.is_receipt,
+            receiptRef: parsed.receipt_id ?? null,
+            lowConfidence: parsed.low_confidence_fields || [],
+            prefill: parsed.is_receipt ? buildPrefill(parsed) : null,
+          };
+        })();
+
+        if (!prepared.isReceipt || !prepared.prefill) {
           setError("Essa imagem não parece ser um comprovante. Tente outra foto mais nítida.");
           return;
         }
-        if (parsed.receipt_id) {
+        if (prepared.receiptRef) {
           const { data: existing } = await supabase
             .from("transactions")
             .select("id")
-            .eq("receipt_ref", parsed.receipt_id)
+            .eq("receipt_ref", prepared.receiptRef)
             .limit(1);
           if (existing && existing.length > 0) setDuplicate(true);
         }
         setReceiptFile(file);
-        setReceiptRef(parsed.receipt_id ?? null);
-        setLowConfidence(parsed.low_confidence_fields || []);
-        setPrefill(buildPrefill(parsed));
+        setReceiptRef(prepared.receiptRef);
+        setLowConfidence(prepared.lowConfidence);
+        setPrefill(prepared.prefill);
         shouldOpenForm = true;
       } catch (e) {
         setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante.");
@@ -114,6 +124,11 @@ export default function ReceiptImport() {
           await disposePaddleRecognizer();
         } catch (disposeError) {
           console.warn("[receipt-import] failed to dispose PaddleOCR", disposeError);
+        }
+        try {
+          await releaseDocumentOrientationSession();
+        } catch (releaseError) {
+          console.warn("[receipt-import] failed to release document orientation session", releaseError);
         }
         setLoading(false);
         setReadStatus("");

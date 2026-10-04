@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   toast: vi.fn(),
   paddleRecognize: vi.fn(),
   disposePaddleRecognizer: vi.fn(),
+  releaseDocumentOrientationSession: vi.fn(),
   buildPaddleReceiptResult: vi.fn(),
   receiptToImageDataUrl: vi.fn(),
 }));
@@ -44,6 +45,10 @@ vi.mock("@/lib/ocr-paddle-test/recognize", () => ({
 }));
 vi.mock("@/lib/ocr-paddle-test/receiptResult", () => ({
   buildPaddleReceiptResult: mocks.buildPaddleReceiptResult,
+}));
+vi.mock("@/lib/receipt-image-orientation", () => ({
+  correctDocumentOrientation: vi.fn(async (image: File) => image),
+  releaseDocumentOrientationSession: mocks.releaseDocumentOrientationSession,
 }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -137,6 +142,7 @@ describe("ReceiptImport metadata", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.disposePaddleRecognizer.mockReset().mockResolvedValue(undefined);
+    mocks.releaseDocumentOrientationSession.mockReset().mockResolvedValue(undefined);
     mocks.takeSharedReceiptWithDiagnostics.mockResolvedValue({ file: null, diag: null });
     mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
     stubPaddleSuccess();
@@ -360,6 +366,7 @@ describe("PaddleOCR main flow (no paid AI)", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.disposePaddleRecognizer.mockReset().mockResolvedValue(undefined);
+    mocks.releaseDocumentOrientationSession.mockReset().mockResolvedValue(undefined);
     mocks.takeSharedReceiptWithDiagnostics.mockResolvedValue({ file: null, diag: null });
     mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
     stubPaddleSuccess();
@@ -407,10 +414,14 @@ describe("PaddleOCR main flow (no paid AI)", () => {
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
   });
 
-  it("extracts the receipt result and awaits Paddle disposal before opening the form", async () => {
-    let finishDispose: (() => void) | undefined;
+  it("extracts the receipt result and awaits both runtime cleanups before opening the form", async () => {
+    let finishPaddleDispose: (() => void) | undefined;
+    let finishOrientationRelease: (() => void) | undefined;
     mocks.disposePaddleRecognizer.mockReturnValueOnce(new Promise<void>((resolve) => {
-      finishDispose = resolve;
+      finishPaddleDispose = resolve;
+    }));
+    mocks.releaseDocumentOrientationSession.mockReturnValueOnce(new Promise<void>((resolve) => {
+      finishOrientationRelease = resolve;
     }));
     selectFile();
 
@@ -422,7 +433,11 @@ describe("PaddleOCR main flow (no paid AI)", () => {
       .toBeLessThan(mocks.disposePaddleRecognizer.mock.invocationCallOrder[0]);
     expect(screen.queryByRole("button", { name: "Confirmar importação" })).not.toBeInTheDocument();
 
-    finishDispose!();
+    finishPaddleDispose!();
+    await waitFor(() => expect(mocks.releaseDocumentOrientationSession).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole("button", { name: "Confirmar importação" })).not.toBeInTheDocument();
+
+    finishOrientationRelease!();
     expect(await screen.findByRole("button", { name: "Confirmar importação" })).toBeInTheDocument();
   });
 
@@ -466,10 +481,23 @@ describe("PaddleOCR main flow (no paid AI)", () => {
     ).toBeInTheDocument();
     expect(mocks.paddleRecognize).toHaveBeenCalled();
     expect(mocks.disposePaddleRecognizer).toHaveBeenCalledTimes(1);
+    expect(mocks.releaseDocumentOrientationSession).toHaveBeenCalledTimes(1);
     expect(mocks.buildPaddleReceiptResult).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
     expect(mocks.addTransaction).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Confirmar importação" })).not.toBeInTheDocument();
+  });
+
+  it("cleans both runtimes when image preparation or orientation fails", async () => {
+    mocks.receiptToImageDataUrl.mockRejectedValueOnce(new Error("orientation failed"));
+
+    selectFile();
+    fireEvent.click(screen.getByRole("button", { name: "Ler comprovante" }));
+
+    expect(await screen.findByText("orientation failed")).toBeInTheDocument();
+    expect(mocks.paddleRecognize).not.toHaveBeenCalled();
+    expect(mocks.disposePaddleRecognizer).toHaveBeenCalledTimes(1);
+    expect(mocks.releaseDocumentOrientationSession).toHaveBeenCalledTimes(1);
   });
 
   it("shared receipt is processed automatically through PaddleOCR", async () => {

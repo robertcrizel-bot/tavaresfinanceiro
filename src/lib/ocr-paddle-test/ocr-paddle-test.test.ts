@@ -75,6 +75,7 @@ describe("ocr-paddle-test", () => {
       const { PaddleOCR } = await import("@paddleocr/paddleocr-js");
       expect(PaddleOCR.create).toHaveBeenCalledWith(
         expect.objectContaining({
+          worker: true,
           lang: "pt",
           ocrVersion: "PP-OCRv6",
           ortOptions: expect.objectContaining({

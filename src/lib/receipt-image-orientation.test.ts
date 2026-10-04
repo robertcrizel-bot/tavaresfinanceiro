@@ -2,19 +2,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const ortMocks = vi.hoisted(() => {
   const run = vi.fn();
-  const create = vi.fn(async () => ({
-    inputNames: ["x"],
-    outputNames: ["output"],
-    run,
-  }));
+  const release = vi.fn();
+  const create = vi.fn();
   class Tensor {
     constructor(
       public type: string,
       public data: Float32Array,
       public dims: number[],
     ) {}
+    dispose() {}
   }
-  return { create, run, Tensor, env: { wasm: {} as Record<string, unknown> } };
+  return { create, run, release, Tensor, env: { wasm: {} as Record<string, unknown> } };
 });
 
 vi.mock("onnxruntime-web", () => ({
@@ -43,12 +41,20 @@ function installImageMocks() {
 }
 
 beforeEach(() => {
-  ortMocks.create.mockClear();
+  ortMocks.release.mockReset().mockResolvedValue(undefined);
+  ortMocks.create.mockReset().mockResolvedValue({
+    inputNames: ["x"],
+    outputNames: ["output"],
+    run: ortMocks.run,
+    release: ortMocks.release,
+  });
   ortMocks.run.mockReset();
   ortMocks.run.mockResolvedValue({ output: { data: new Float32Array([0.03, 0.92, 0.01, 0.04]) } });
 });
 
-afterEach(() => {
+afterEach(async () => {
+  const { releaseDocumentOrientationSession } = await import("@/lib/receipt-image-orientation");
+  await releaseDocumentOrientationSession();
   vi.useRealTimers();
   vi.restoreAllMocks();
   vi.unstubAllGlobals();
@@ -80,7 +86,7 @@ describe("document orientation classification", () => {
     expect(ortMocks.create).toHaveBeenCalledTimes(1);
     expect(ortMocks.run).toHaveBeenCalledWith(expect.objectContaining({
       x: expect.objectContaining({ dims: [1, 3, 224, 224] }),
-    }));
+    }), undefined);
     expect(drawImage).toHaveBeenCalledTimes(1);
     expect(close).toHaveBeenCalledTimes(1);
   });
@@ -163,7 +169,14 @@ describe("document orientation classification", () => {
   it("fails open with the current working image when classification times out", async () => {
     vi.useFakeTimers();
     installImageMocks();
-    ortMocks.run.mockImplementationOnce(() => new Promise(() => undefined));
+    ortMocks.run.mockImplementationOnce((_feeds, runOptions) => new Promise((_, reject) => {
+      const intervalId = setInterval(() => {
+        if (runOptions?.terminate) {
+          clearInterval(intervalId);
+          reject(new Error("terminated"));
+        }
+      }, 1);
+    }));
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     const {
       correctDocumentOrientation,
@@ -173,8 +186,54 @@ describe("document orientation classification", () => {
 
     const correction = correctDocumentOrientation(image);
     await vi.advanceTimersByTimeAsync(DOCUMENT_ORIENTATION_TIMEOUT_MS);
+    await vi.advanceTimersByTimeAsync(1);
 
     await expect(correction).resolves.toBe(image);
+    expect(warn).toHaveBeenCalled();
+  });
+
+  it("waits for active inference before releasing and recreates the session", async () => {
+    installImageMocks();
+    let finishRun: ((value: unknown) => void) | undefined;
+    ortMocks.run.mockReturnValueOnce(new Promise((resolve) => {
+      finishRun = resolve;
+    }));
+    const {
+      classifyDocumentOrientation,
+      releaseDocumentOrientationSession,
+    } = await import("@/lib/receipt-image-orientation");
+
+    const classification = classifyDocumentOrientation(new Blob(["first"], { type: "image/jpeg" }));
+    await vi.waitFor(() => expect(ortMocks.run).toHaveBeenCalledTimes(1));
+    const release = releaseDocumentOrientationSession();
+    expect(ortMocks.release).not.toHaveBeenCalled();
+
+    finishRun!({ output: { data: new Float32Array([0.95, 0.02, 0.02, 0.01]) } });
+    await classification;
+    await release;
+    expect(ortMocks.release).toHaveBeenCalledTimes(1);
+
+    await classifyDocumentOrientation(new Blob(["second"], { type: "image/jpeg" }));
+    expect(ortMocks.create).toHaveBeenCalledTimes(2);
+  });
+
+  it("releases a failed inference session and recreates it on the next reading", async () => {
+    installImageMocks();
+    ortMocks.run.mockRejectedValueOnce(new Error("inference failed"));
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    const {
+      correctDocumentOrientation,
+      releaseDocumentOrientationSession,
+    } = await import("@/lib/receipt-image-orientation");
+    const image = new File(["jpeg"], "receipt.jpg", { type: "image/jpeg" });
+
+    await expect(correctDocumentOrientation(image)).resolves.toBe(image);
+    await releaseDocumentOrientationSession();
+    expect(ortMocks.release).toHaveBeenCalledTimes(1);
+
+    ortMocks.run.mockResolvedValueOnce({ output: { data: new Float32Array([0.95, 0.02, 0.02, 0.01]) } });
+    await correctDocumentOrientation(image);
+    expect(ortMocks.create).toHaveBeenCalledTimes(2);
     expect(warn).toHaveBeenCalled();
   });
 });

@@ -38,6 +38,7 @@ async function getOrCreateInstance(): Promise<unknown> {
     configureOrtWasm();
     const { PaddleOCR } = await import("@paddleocr/paddleocr-js");
     const instance = await PaddleOCR.create({
+      worker: true,
       lang: "pt",
       ocrVersion: "PP-OCRv6",
       initialize: true,
