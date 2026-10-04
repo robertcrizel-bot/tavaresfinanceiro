@@ -369,7 +369,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
           )}
           <div className="space-y-1 sm:space-y-1.5">
             <Label>Descrição</Label>
-            <Textarea className="min-h-[60px] sm:min-h-[120px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
+            <Textarea className="min-h-[140px] sm:min-h-[120px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
           </div>
           <div className="space-y-1 sm:space-y-1.5">
             <Label>Anexos</Label>
