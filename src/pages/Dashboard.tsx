@@ -166,7 +166,7 @@ export default function Dashboard() {
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-        <h1 className="whitespace-nowrap text-lg font-bold text-primary sm:text-2xl">Painel de Controle</h1>
+        <h1 className="whitespace-nowrap text-lg font-extrabold tracking-tight text-primary sm:text-2xl sm:font-bold sm:tracking-normal">Painel de Controle</h1>
         <div className="contents sm:flex sm:w-auto sm:flex-row sm:items-center sm:gap-2">
           <DashboardPeriodFilter
             period={period}
@@ -205,7 +205,7 @@ export default function Dashboard() {
       {/* Accounts & Cards */}
       {(accounts.length > 0 || creditCards.length > 0) && (
         <div>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">Contas & Cartões</h2>
+          <h2 className="relative mb-2 pl-3 text-base font-semibold text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-muted-foreground sm:before:hidden">Contas & Cartões</h2>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {accounts.map((acc) => {
               const balance = accountBalances[acc.id];
@@ -314,7 +314,7 @@ export default function Dashboard() {
 
       {/* Insights */}
       <div>
-        <h2 className="text-sm font-medium text-muted-foreground mb-3">Insights</h2>
+        <h2 className="relative mb-2 pl-3 text-base font-semibold text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-muted-foreground sm:before:hidden">Insights</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {insights.map((text, i) => (
             <InsightCard key={i} text={text} />
