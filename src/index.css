@@ -121,3 +121,7 @@
 .recharts-tooltip-item-unit {
   color: #f1f5f9 !important;
 }
+
+#lovable-badge {
+  display: none !important;
+}

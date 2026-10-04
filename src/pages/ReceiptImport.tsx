@@ -16,7 +16,7 @@ import { disposePaddleRecognizer, paddleRecognize } from "@/lib/ocr-paddle-test/
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
 import { fastOcrRecognize } from "@/lib/fast-ocr";
-import { tesseractRecognize } from "@/lib/tesseract-ocr";
+import { hybridOcrRecognize } from "@/lib/hybrid-ocr";
 import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientation";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
@@ -79,11 +79,13 @@ interface FastOcrDiagnostics {
   ocrInputDimensions: { width: number; height: number } | null;
 }
 
-interface TesseractOcrDiagnostics {
+interface HybridOcrDiagnostics {
   initializationMs: number;
-  languageLoadMs: number | null;
-  ocrMs: number;
-  adapterParserMs: number;
+  firstPassMs: number;
+  suspiciousCount: number;
+  secondPassMs: number;
+  cropsProcessed: number;
+  parserMs: number;
   totalMs: number;
   ocrInputDimensions: { width: number; height: number } | null;
 }
@@ -115,7 +117,7 @@ export default function ReceiptImport() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [freeOcrDiagnostics, setFreeOcrDiagnostics] = useState<FreeOcrDiagnostics | null>(null);
   const [fastOcrDiagnostics, setFastOcrDiagnostics] = useState<FastOcrDiagnostics | null>(null);
-  const [tesseractDiagnostics, setTesseractDiagnostics] = useState<TesseractOcrDiagnostics | null>(null);
+  const [hybridOcrDiagnostics, setHybridOcrDiagnostics] = useState<HybridOcrDiagnostics | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -161,7 +163,7 @@ export default function ReceiptImport() {
       setPendingFile(file);
       setFreeOcrDiagnostics(null);
       setFastOcrDiagnostics(null);
-      setTesseractDiagnostics(null);
+      setHybridOcrDiagnostics(null);
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -248,7 +250,7 @@ export default function ReceiptImport() {
       setPendingFile(file);
       setFreeOcrDiagnostics(null);
       setFastOcrDiagnostics(null);
-      setTesseractDiagnostics(null);
+      setHybridOcrDiagnostics(null);
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -309,38 +311,46 @@ export default function ReceiptImport() {
     [buildPrefill],
   );
 
-  const processFileTesseract = useCallback(
+  const processFileHybrid = useCallback(
     async (file: File) => {
       const totalStart = performance.now();
       let shouldOpenForm = false;
       let completedRun: {
         initializationMs: number;
-        languageLoadMs: number | null;
-        ocrMs: number;
-        adapterMs: number;
+        firstPassMs: number;
+        suspiciousCount: number;
+        secondPassMs: number;
+        cropsProcessed: number;
         parserMs: number;
         ocrInputDimensions: { width: number; height: number } | null;
       } | null = null;
       setPendingFile(file);
       setFreeOcrDiagnostics(null);
       setFastOcrDiagnostics(null);
-      setTesseractDiagnostics(null);
+      setHybridOcrDiagnostics(null);
       setLoading(true);
       setError(null);
       setDuplicate(false);
       setReadStatus("Preparando imagem...");
       try {
         const localImage = await prepareReceiptForLocalOcr(file);
-        setReadStatus("Carregando Tesseract...");
-        const ocr = await tesseractRecognize(localImage.image, (status) => setReadStatus(status));
+        const { width, height } = localImage.metrics.outputDimensions;
+        setReadStatus("Carregando modelo de OCR híbrido...");
+        const ocr = await hybridOcrRecognize(
+          localImage.image,
+          width,
+          height,
+          (status) => setReadStatus(status),
+        );
         const parserStart = performance.now();
         const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
         const parserMs = performance.now() - parserStart;
         completedRun = {
           initializationMs: ocr.initializationMs,
-          languageLoadMs: ocr.languageLoadMs,
-          ocrMs: ocr.ocrMs,
-          adapterMs: ocr.adapterMs,
+          firstPassMs: ocr.firstPassMs,
+          suspiciousCount: ocr.suspiciousCount,
+          secondPassMs: ocr.secondPassMs,
+          cropsProcessed: ocr.cropsProcessed,
           parserMs,
           ocrInputDimensions: localImage.metrics.outputDimensions,
         };
@@ -363,7 +373,7 @@ export default function ReceiptImport() {
         setPrefill(buildPrefill(parsed));
         shouldOpenForm = true;
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com o Tesseract.");
+        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com o OCR híbrido.");
       } finally {
         try {
           await releaseDocumentOrientationSession();
@@ -371,11 +381,13 @@ export default function ReceiptImport() {
           console.warn("[receipt-import] failed to release document orientation session", releaseError);
         }
         if (completedRun) {
-          setTesseractDiagnostics({
+          setHybridOcrDiagnostics({
             initializationMs: Math.round(completedRun.initializationMs),
-            languageLoadMs: completedRun.languageLoadMs,
-            ocrMs: Math.round(completedRun.ocrMs),
-            adapterParserMs: Math.round(completedRun.adapterMs + completedRun.parserMs),
+            firstPassMs: Math.round(completedRun.firstPassMs),
+            suspiciousCount: completedRun.suspiciousCount,
+            secondPassMs: Math.round(completedRun.secondPassMs),
+            cropsProcessed: completedRun.cropsProcessed,
+            parserMs: Math.round(completedRun.parserMs),
             totalMs: Math.round(performance.now() - totalStart),
             ocrInputDimensions: completedRun.ocrInputDimensions,
           });
@@ -614,8 +626,8 @@ export default function ReceiptImport() {
                   <Button variant="outline" className="gap-2" disabled={loading} onClick={() => void processFileFast(pendingFile)}>
                     ⚡ Testar OCR rápido
                   </Button>
-                  <Button variant="outline" className="gap-2" disabled={loading} onClick={() => void processFileTesseract(pendingFile)}>
-                    🔬 Testar Tesseract
+                  <Button variant="outline" className="gap-2" disabled={loading} onClick={() => void processFileHybrid(pendingFile)}>
+                    🚀 Testar OCR híbrido
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">A leitura gratuita usa o OCR local e tem custo R$ 0,00.</p>
@@ -686,21 +698,19 @@ export default function ReceiptImport() {
           </div>
         )}
 
-        {tesseractDiagnostics && !loading && (
-          <div data-testid="tesseract-ocr-diagnostics" className="rounded-md border border-border bg-muted/30 p-3 text-xs">
-            <h3 className="mb-2 text-sm font-semibold text-foreground">DIAGNÓSTICO TESSERACT</h3>
+        {hybridOcrDiagnostics && !loading && (
+          <div data-testid="hybrid-ocr-diagnostics" className="rounded-md border border-border bg-muted/30 p-3 text-xs">
+            <h3 className="mb-2 text-sm font-semibold text-foreground">DIAGNÓSTICO OCR HÍBRIDO</h3>
             <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-muted-foreground">
-              <dt>Inicialização:</dt><dd>{formatSeconds(tesseractDiagnostics.initializationMs)}</dd>
-              {tesseractDiagnostics.languageLoadMs !== null && (
-                <>
-                  <dt>Idioma/modelo:</dt><dd>{formatSeconds(tesseractDiagnostics.languageLoadMs)}</dd>
-                </>
-              )}
-              <dt>OCR:</dt><dd>{formatSeconds(tesseractDiagnostics.ocrMs)}</dd>
-              <dt>Adapter/Parser:</dt><dd>{formatSeconds(tesseractDiagnostics.adapterParserMs)}</dd>
+              <dt>Inicialização:</dt><dd>{formatSeconds(hybridOcrDiagnostics.initializationMs)}</dd>
+              <dt>1ª passagem:</dt><dd>{formatSeconds(hybridOcrDiagnostics.firstPassMs)}</dd>
+              <dt>Regiões suspeitas:</dt><dd>{hybridOcrDiagnostics.suspiciousCount}</dd>
+              <dt>2ª passagem:</dt><dd>{formatSeconds(hybridOcrDiagnostics.secondPassMs)}</dd>
+              <dt>Crops processados:</dt><dd>{hybridOcrDiagnostics.cropsProcessed}</dd>
+              <dt>Parser:</dt><dd>{formatSeconds(hybridOcrDiagnostics.parserMs)}</dd>
               <dt className="font-semibold text-foreground">TOTAL:</dt>
-              <dd className="font-semibold text-foreground">{formatSeconds(tesseractDiagnostics.totalMs)}</dd>
-              <dt>Imagem OCR:</dt><dd>{formatDimensions(tesseractDiagnostics.ocrInputDimensions)}</dd>
+              <dd className="font-semibold text-foreground">{formatSeconds(hybridOcrDiagnostics.totalMs)}</dd>
+              <dt>Imagem principal:</dt><dd>{formatDimensions(hybridOcrDiagnostics.ocrInputDimensions)}</dd>
             </dl>
           </div>
         )}

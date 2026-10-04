@@ -1,0 +1,147 @@
+import { PaddleOcrService, V6_TINY_MODEL } from "ppu-paddle-ocr/web";
+import { configureOrtWasm } from "@/lib/ocr-runtime";
+import { adaptPpuLinesToRegions } from "@/lib/fast-ocr-adapter";
+import { spatialGroup } from "@/lib/ocr-paddle-test/spatialGrouper";
+import type { PaddleOcrRegion } from "@/lib/ocr-paddle-test/types";
+import {
+  mergePassRegions,
+  pickCropScale,
+  planSecondPass,
+  type CropLineResult,
+  type Rect,
+} from "@/lib/hybrid-ocr-regions";
+
+interface HybridRecognizeMessage {
+  image: ArrayBuffer;
+  imageWidth: number;
+  imageHeight: number;
+}
+
+const scope = self as unknown as {
+  postMessage(message: unknown): void;
+  close(): void;
+  onmessage: ((event: MessageEvent<HybridRecognizeMessage>) => void) | null;
+};
+
+function toMainImageCoords(
+  regions: PaddleOcrRegion[],
+  crop: Rect,
+  scale: number,
+): PaddleOcrRegion[] {
+  return regions.map((region) => ({
+    ...region,
+    bbox: region.bbox.map(([x, y]) => [x / scale + crop.x, y / scale + crop.y]) as [number, number][],
+  }));
+}
+
+scope.onmessage = async (event: MessageEvent<HybridRecognizeMessage>) => {
+  const { image, imageWidth, imageHeight } = event.data;
+  let service: PaddleOcrService | null = null;
+  try {
+    scope.postMessage({ type: "progress", message: "Carregando modelo de OCR híbrido..." });
+    configureOrtWasm();
+
+    const initializationStart = performance.now();
+    service = new PaddleOcrService({
+      model: V6_TINY_MODEL,
+      recognition: {
+        charactersDictionary: [],
+        strategy: "per-line",
+        minimumConfidence: 0.4,
+      },
+    });
+    await service.initialize();
+    const initializationMs = Math.round(performance.now() - initializationStart);
+
+    scope.postMessage({ type: "progress", message: "Reconhecendo texto..." });
+    const firstPassStart = performance.now();
+    const firstResult = await service.recognize(image);
+    const firstPassRegions = adaptPpuLinesToRegions(firstResult.lines);
+    const { lines: firstPassLines } = spatialGroup(firstPassRegions);
+    const plan = planSecondPass(firstPassLines, imageWidth, imageHeight);
+    const firstPassMs = Math.round(performance.now() - firstPassStart);
+
+    let regions = firstPassRegions;
+    let cropsProcessed = 0;
+    let secondPassMs = 0;
+    if (plan.items.length > 0) {
+      const secondPassStart = performance.now();
+      const bitmap = await createImageBitmap(new Blob([image], { type: "image/jpeg" }));
+      try {
+        const processed: CropLineResult[] = [];
+        for (let i = 0; i < plan.items.length; i++) {
+          const item = plan.items[i];
+          scope.postMessage({
+            type: "progress",
+            message: `Reprocessando região ${i + 1}/${plan.items.length}...`,
+          });
+          const scale = pickCropScale(item.crop.height);
+          const width = Math.max(1, Math.round(item.crop.width * scale));
+          const height = Math.max(1, Math.round(item.crop.height * scale));
+          const canvas = new OffscreenCanvas(width, height);
+          try {
+            const context = canvas.getContext("2d", { alpha: false });
+            if (!context) throw new Error("canvas 2D indisponível no worker");
+            context.imageSmoothingEnabled = true;
+            context.imageSmoothingQuality = "high";
+            context.drawImage(
+              bitmap,
+              item.crop.x,
+              item.crop.y,
+              item.crop.width,
+              item.crop.height,
+              0,
+              0,
+              width,
+              height,
+            );
+            const cropResult = await service.recognize(canvas);
+            const cropRegions = toMainImageCoords(
+              adaptPpuLinesToRegions(cropResult.lines),
+              item.crop,
+              scale,
+            );
+            processed.push({ item, regions: cropRegions });
+            cropsProcessed++;
+          } catch (cropError) {
+            console.warn("[hybrid-ocr-worker] crop pass failed", cropError);
+          } finally {
+            canvas.width = 0;
+            canvas.height = 0;
+          }
+        }
+        if (processed.length > 0) {
+          regions = mergePassRegions(firstPassRegions, firstPassLines, processed);
+        }
+      } finally {
+        bitmap.close();
+      }
+      secondPassMs = Math.round(performance.now() - secondPassStart);
+    }
+
+    await service.destroy();
+    service = null;
+    scope.postMessage({
+      type: "result",
+      regions,
+      initializationMs,
+      firstPassMs,
+      suspiciousCount: plan.suspiciousCount,
+      cropsProcessed,
+      secondPassMs,
+    });
+  } catch (error) {
+    if (service) {
+      try {
+        await service.destroy();
+      } catch (disposeError) {
+        console.warn("[hybrid-ocr-worker] failed to dispose service", disposeError);
+      }
+    }
+    scope.postMessage({
+      type: "error",
+      message: error instanceof Error ? error.message : String(error),
+    });
+  }
+  scope.close();
+};

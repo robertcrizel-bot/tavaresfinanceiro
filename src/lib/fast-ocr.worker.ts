@@ -5,7 +5,7 @@ const FAST_OCR_MODELS: Record<"small" | "tiny", ModelUrls> = {
   small: V6_SMALL_MODEL,
   tiny: V6_TINY_MODEL,
 };
-const FAST_OCR_MODEL_KEY: keyof typeof FAST_OCR_MODELS = "small";
+const FAST_OCR_MODEL_KEY: keyof typeof FAST_OCR_MODELS = "tiny";
 
 interface RecognizeMessage {
   image: ArrayBuffer;

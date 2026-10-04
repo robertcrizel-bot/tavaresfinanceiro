@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   toast: vi.fn(),
   paddleRecognize: vi.fn(),
   fastOcrRecognize: vi.fn(),
+  hybridOcrRecognize: vi.fn(),
   disposePaddleRecognizer: vi.fn(),
   releaseDocumentOrientationSession: vi.fn(),
   buildPaddleReceiptResult: vi.fn(),
@@ -48,6 +49,9 @@ vi.mock("@/lib/ocr-paddle-test/recognize", () => ({
 }));
 vi.mock("@/lib/fast-ocr", () => ({
   fastOcrRecognize: mocks.fastOcrRecognize,
+}));
+vi.mock("@/lib/hybrid-ocr", () => ({
+  hybridOcrRecognize: mocks.hybridOcrRecognize,
 }));
 vi.mock("@/lib/ocr-paddle-test/receiptResult", () => ({
   buildPaddleReceiptResult: mocks.buildPaddleReceiptResult,
@@ -143,6 +147,14 @@ function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult())
     regions: [{ text: "MERCADO CENTRAL", confidence: 0.9, bbox: [[0, 0], [10, 0], [10, 5], [0, 5]] }],
     initializationMs: 1500,
     ocrMs: 8000,
+  });
+  mocks.hybridOcrRecognize.mockResolvedValue({
+    regions: [{ text: "MERCADO CENTRAL", confidence: 0.9, bbox: [[0, 0], [10, 0], [10, 5], [0, 5]] }],
+    initializationMs: 1200,
+    firstPassMs: 21000,
+    suspiciousCount: 2,
+    cropsProcessed: 2,
+    secondPassMs: 4300,
   });
 }
 
@@ -292,6 +304,39 @@ describe("ReceiptImport metadata", () => {
       expect.objectContaining({ amount: 120, title: "Mercado Central" }),
       expect.objectContaining({ attachments: [file] }),
     );
+  });
+
+  it("runs the experimental hybrid OCR on the prepared image and shows its diagnostics", async () => {
+    const { container } = render(<ReceiptImport />);
+    const input = container.querySelector('input[type="file"]');
+    const file = new File(["receipt"], "receipt-hybrid.jpg", { type: "image/jpeg" });
+
+    fireEvent.change(input!, { target: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "🚀 Testar OCR híbrido" })).toBeInTheDocument());
+    expect(mocks.hybridOcrRecognize).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "🚀 Testar OCR híbrido" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+    expect(mocks.prepareReceiptForLocalOcr).toHaveBeenCalledWith(file);
+    expect(mocks.hybridOcrRecognize).toHaveBeenCalledWith(file, 1200, 1600, expect.any(Function));
+    expect(mocks.paddleRecognize).not.toHaveBeenCalled();
+    expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+
+    const diagnostics = await screen.findByTestId("hybrid-ocr-diagnostics");
+    expect(diagnostics).toHaveTextContent("DIAGNÓSTICO OCR HÍBRIDO");
+    expect(diagnostics).toHaveTextContent("Inicialização:1.2 s");
+    expect(diagnostics).toHaveTextContent("1ª passagem:21.0 s");
+    expect(diagnostics).toHaveTextContent("Regiões suspeitas:2");
+    expect(diagnostics).toHaveTextContent("2ª passagem:4.3 s");
+    expect(diagnostics).toHaveTextContent("Crops processados:2");
+    expect(diagnostics).toHaveTextContent("Parser:");
+    expect(diagnostics).toHaveTextContent("TOTAL:");
+    expect(diagnostics).toHaveTextContent("Imagem principal:1200 × 1600");
+    expect(screen.queryByTestId("fast-ocr-diagnostics")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("free-ocr-diagnostics")).not.toBeInTheDocument();
   });
 
   it("does not show the removed local OCR development controls after file selection", async () => {
