@@ -10,7 +10,7 @@ import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
 import { takeSharedReceiptWithDiagnostics, type ShareDiagnostics } from "@/lib/shared-receipt";
-import { receiptToImageDataUrl, matchByName, matchCategory, ParsedReceipt } from "@/lib/receipt";
+import { parseReceipt, receiptToImageDataUrl, matchByName, matchCategory, ParsedReceipt } from "@/lib/receipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
 import { disposePaddleRecognizer, paddleRecognize } from "@/lib/ocr-paddle-test/recognize";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
@@ -34,6 +34,7 @@ export default function ReceiptImport() {
   const [duplicate, setDuplicate] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
+  const [aiConfirmOpen, setAiConfirmOpen] = useState(false);
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -134,6 +135,42 @@ export default function ReceiptImport() {
         setReadStatus("");
       }
       if (shouldOpenForm) setFormOpen(true);
+    },
+    [accounts, creditCards, allCategoryNames, buildPrefill],
+  );
+
+  const processFileWithAi = useCallback(
+    async (file: File) => {
+      setLoading(true);
+      setError(null);
+      setDuplicate(false);
+      try {
+        const parsed = await parseReceipt(file, {
+          categories: allCategoryNames,
+          accounts: [...accounts.map((a) => `${a.name} (${a.bank})`), ...creditCards.map((c) => `${c.name} (${c.bank})`)],
+        });
+        if (!parsed.is_receipt) {
+          setError("Essa imagem não parece ser um comprovante. Tente outra foto mais nítida.");
+          return;
+        }
+        if (parsed.receipt_id) {
+          const { data: existing } = await supabase
+            .from("transactions")
+            .select("id")
+            .eq("receipt_ref", parsed.receipt_id)
+            .limit(1);
+          if (existing && existing.length > 0) setDuplicate(true);
+        }
+        setReceiptFile(file);
+        setReceiptRef(parsed.receipt_id ?? null);
+        setLowConfidence(parsed.low_confidence_fields || []);
+        setPrefill(buildPrefill(parsed));
+        setFormOpen(true);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com IA.");
+      } finally {
+        setLoading(false);
+      }
     },
     [accounts, creditCards, allCategoryNames, buildPrefill],
   );
@@ -303,16 +340,6 @@ export default function ReceiptImport() {
               <Button variant="outline" className="gap-2" onClick={() => void openCamera()}>
                 <Camera className="h-4 w-4" /> Tirar foto
               </Button>
-              {pendingFile && (
-                <Button
-                  className="gap-2"
-                  disabled={loading}
-                  onClick={() => void processFile(pendingFile)}
-                >
-                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanLine className="h-4 w-4" />}
-                  Ler comprovante
-                </Button>
-              )}
             </div>
             <input
               ref={fileInputRef}
@@ -325,6 +352,20 @@ export default function ReceiptImport() {
                 if (f) setPendingFile(f);
               }}
             />
+            {pendingFile && (
+              <div className="space-y-3 rounded-md border border-border p-3">
+                <p className="truncate text-sm font-medium">{pendingFile.name}</p>
+                <div className="flex flex-col gap-2 sm:flex-row">
+                  <Button className="gap-2" disabled={loading} onClick={() => void processFile(pendingFile)}>
+                    <ScanLine className="h-4 w-4" /> Ler gratuitamente
+                  </Button>
+                  <Button variant="outline" disabled={loading} onClick={() => setAiConfirmOpen(true)}>
+                    ✨ Ler com IA
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">A leitura gratuita usa o OCR local e tem custo R$ 0,00.</p>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground flex items-start gap-2">
               <ScanLine className="h-4 w-4 shrink-0 mt-0.5" />
               Funciona com comprovantes de Pix, boletos pagos, compras no cartão e cupons fiscais. Nada é salvo sem a sua
@@ -353,6 +394,29 @@ export default function ReceiptImport() {
           </div>
         )}
       </Card>
+
+      <Dialog open={aiConfirmOpen} onOpenChange={setAiConfirmOpen}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ler com IA</DialogTitle>
+            <DialogDescription>
+              Esta leitura utiliza a IA do Lovable e pode consumir seus créditos. Deseja continuar?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setAiConfirmOpen(false)}>Cancelar</Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setAiConfirmOpen(false);
+                if (pendingFile) void processFileWithAi(pendingFile);
+              }}
+            >
+              Continuar com IA
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={cameraOpen} onOpenChange={(open) => !open && closeCamera()}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-2xl">
