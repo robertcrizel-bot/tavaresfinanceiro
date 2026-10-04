@@ -1,5 +1,11 @@
-import { PaddleOcrService, V6_TINY_MODEL } from "ppu-paddle-ocr/web";
+import { PaddleOcrService, V6_SMALL_MODEL, V6_TINY_MODEL, type ModelUrls } from "ppu-paddle-ocr/web";
 import { configureOrtWasm } from "@/lib/ocr-runtime";
+
+const FAST_OCR_MODELS: Record<"small" | "tiny", ModelUrls> = {
+  small: V6_SMALL_MODEL,
+  tiny: V6_TINY_MODEL,
+};
+const FAST_OCR_MODEL_KEY: keyof typeof FAST_OCR_MODELS = "small";
 
 interface RecognizeMessage {
   image: ArrayBuffer;
@@ -20,7 +26,7 @@ scope.onmessage = async (event: MessageEvent<RecognizeMessage>) => {
 
     const initializationStart = performance.now();
     service = new PaddleOcrService({
-      model: V6_TINY_MODEL,
+      model: FAST_OCR_MODELS[FAST_OCR_MODEL_KEY],
       recognition: {
         charactersDictionary: [],
         strategy: "per-line",
