@@ -165,24 +165,24 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h1 className="text-xl sm:text-2xl font-bold text-primary">Painel de Controle</h1>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <h1 className="whitespace-nowrap text-lg font-bold text-primary sm:text-2xl">Painel de Controle</h1>
+        <div className="contents sm:flex sm:w-auto sm:flex-row sm:items-center sm:gap-2">
           <DashboardPeriodFilter
             period={period}
             dateRange={dateRange}
             onPeriodChange={setPeriod}
             onDateRangeChange={setDateRange}
           />
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button variant="outline" asChild className="gap-2 flex-1 sm:flex-none justify-center">
+          <div className="order-3 col-span-2 flex w-full items-center gap-2 sm:order-none sm:w-auto">
+            <Button variant="outline" asChild className="h-9 flex-1 justify-center gap-1.5 sm:h-10 sm:flex-none sm:gap-2">
               <Link to="/receipt">
                 <ScanLine className="h-4 w-4 shrink-0" />
                 <span className="sm:hidden">Comprovante</span>
                 <span className="hidden sm:inline">Ler comprovante</span>
               </Link>
             </Button>
-            <Button onClick={() => setFormOpen(true)} className="gap-2 flex-1 sm:flex-none justify-center">
+            <Button onClick={() => setFormOpen(true)} className="h-9 flex-1 justify-center gap-1.5 sm:h-10 sm:flex-none sm:gap-2">
               <Plus className="h-4 w-4 shrink-0" />
               <span className="sm:hidden">Novo</span>
               <span className="hidden sm:inline">Novo Registro</span>
