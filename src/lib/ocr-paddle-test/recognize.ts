@@ -76,20 +76,26 @@ function sortRegionsByPosition(regions: PaddleOcrRegion[]) {
 }
 
 export async function paddleRecognize(
-  imageDataUrl: string,
+  image: string | Blob,
   onProgress?: (status: string) => void,
 ): Promise<PaddleOcrResult> {
   const start = performance.now();
+  let initializationMs = 0;
+  let inferenceMs = 0;
 
   try {
     onProgress?.("Carregando modelo PaddleOCR...");
+    const initializationStart = performance.now();
     const instance = await getOrCreateInstance();
+    initializationMs = performance.now() - initializationStart;
 
     onProgress?.("Reconhecendo texto...");
-    const imageBlob = await dataUrlToBlob(imageDataUrl);
+    const imageBlob = typeof image === "string" ? await dataUrlToBlob(image) : image;
     /* eslint-disable @typescript-eslint/no-explicit-any */
     const ocr = instance as any;
+    const inferenceStart = performance.now();
     const results = await ocr.predict(imageBlob);
+    inferenceMs = performance.now() - inferenceStart;
     /* eslint-enable @typescript-eslint/no-explicit-any */
 
     if (!results || results.length === 0) {
@@ -103,6 +109,8 @@ export async function paddleRecognize(
         detectedBoxes: 0,
         recognizedCount: 0,
         backend: "unknown",
+        initializationMs: Math.round(initializationMs),
+        inferenceMs: Math.round(inferenceMs),
       };
     }
 
@@ -137,6 +145,13 @@ export async function paddleRecognize(
       detectedBoxes: firstResult.metrics?.detectedBoxes ?? 0,
       recognizedCount: firstResult.metrics?.recognizedCount ?? 0,
       backend: firstResult.runtime?.requestedBackend ?? "unknown",
+      initializationMs: Math.round(initializationMs),
+      inferenceMs: Math.round(inferenceMs),
+      detectionMs: firstResult.metrics?.detMs,
+      recognitionMs: firstResult.metrics?.recMs,
+      inputDimensions: firstResult.image
+        ? { width: firstResult.image.width, height: firstResult.image.height }
+        : undefined,
     };
   } catch (e: unknown) {
     return {
@@ -149,6 +164,8 @@ export async function paddleRecognize(
       detectedBoxes: 0,
       recognizedCount: 0,
       backend: "unknown",
+      initializationMs: Math.round(initializationMs),
+      inferenceMs: Math.round(inferenceMs),
       error: e instanceof Error ? e.message : String(e),
     };
   }

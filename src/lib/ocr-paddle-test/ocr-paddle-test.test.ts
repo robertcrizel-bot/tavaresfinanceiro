@@ -99,6 +99,17 @@ describe("ocr-paddle-test", () => {
       expect(arg).toBeInstanceOf(Blob);
     });
 
+    it("accepts a prepared Blob without creating a redundant data URL copy", async () => {
+      mockPredict.mockResolvedValue([]);
+      const image = new Blob(["prepared"], { type: "image/jpeg" });
+      const { paddleRecognize } = await import("@/lib/ocr-paddle-test/recognize");
+
+      await paddleRecognize(image);
+
+      expect(mockFetch).not.toHaveBeenCalled();
+      expect(mockPredict).toHaveBeenCalledWith(image);
+    });
+
     it("transforms SDK result to PaddleOcrResult", async () => {
       mockPredict.mockResolvedValue([
         {
@@ -157,6 +168,11 @@ describe("ocr-paddle-test", () => {
       expect(result.detectedBoxes).toBe(2);
       expect(result.recognizedCount).toBe(2);
       expect(result.backend).toBe("wasm");
+      expect(result.inputDimensions).toEqual({ width: 200, height: 150 });
+      expect(result.initializationMs).toBeGreaterThanOrEqual(0);
+      expect(result.inferenceMs).toBeGreaterThanOrEqual(0);
+      expect(result.detectionMs).toBe(500);
+      expect(result.recognitionMs).toBe(300);
     });
 
     it("sorts regions by vertical position then horizontal", async () => {

@@ -69,3 +69,47 @@ describe("receiptToImageDataUrl orientation correction", () => {
     expect(mocks.correctDocumentOrientation).not.toHaveBeenCalled();
   });
 });
+
+describe("prepareReceiptForLocalOcr", () => {
+  it("caps the free OCR image and reports decoded-memory estimates without creating a data URL", async () => {
+    const original = new File(["original"], "receipt.jpg", { type: "image/jpeg" });
+    const compressed = new File(["compressed"], "receipt.jpg", { type: "image/jpeg" });
+    mocks.inspectJpegOrientation
+      .mockResolvedValueOnce({ status: "absent", width: 3000, height: 12000 })
+      .mockResolvedValueOnce({ status: "absent", width: 600, height: 2400 });
+    mocks.compressImageFile.mockResolvedValue(compressed);
+
+    const { prepareReceiptForLocalOcr } = await import("@/lib/receipt");
+    const prepared = await prepareReceiptForLocalOcr(original);
+
+    expect(mocks.compressImageFile).toHaveBeenCalledWith(original, {
+      maxWidth: 1280,
+      maxHeight: 2400,
+      quality: 0.92,
+      requireDecodeResize: true,
+      preferBoundedOutput: true,
+    });
+    expect(mocks.correctDocumentOrientation).toHaveBeenCalledWith(compressed);
+    expect(prepared.image).toBe(compressed);
+    expect(prepared.metrics).toEqual(expect.objectContaining({
+      originalDimensions: { width: 3000, height: 12000 },
+      outputDimensions: { width: 600, height: 2400 },
+      originalPixels: 36_000_000,
+      outputPixels: 1_440_000,
+      largestRgbaSurfaceBytes: 5_760_000,
+      estimatedOrientationPeakRgbaBytes: 17_280_000,
+    }));
+  });
+
+  it("returns the safe-device message when bounded decoding is unavailable", async () => {
+    const original = new File(["original"], "receipt.jpg", { type: "image/jpeg" });
+    mocks.inspectJpegOrientation.mockResolvedValue({ status: "absent", width: 3000, height: 12000 });
+    mocks.compressImageFile.mockRejectedValue(new TypeError("resize options unsupported"));
+    const { prepareReceiptForLocalOcr } = await import("@/lib/receipt");
+
+    await expect(prepareReceiptForLocalOcr(original)).rejects.toThrow(
+      "Não foi possível concluir a leitura gratuita neste aparelho. Você pode tentar novamente ou usar a leitura com IA.",
+    );
+    expect(mocks.correctDocumentOrientation).not.toHaveBeenCalled();
+  });
+});

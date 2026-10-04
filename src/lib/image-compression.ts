@@ -263,7 +263,11 @@ export function calculateImageDimensions(width: number, height: number, opts: Co
 
 export async function compressImageFile(
   file: File,
-  opts: CompressionBounds & { quality?: number } = {},
+  opts: CompressionBounds & {
+    quality?: number;
+    requireDecodeResize?: boolean;
+    preferBoundedOutput?: boolean;
+  } = {},
 ): Promise<File> {
   const quality = opts.quality ?? 0.7;
   const mimeType = file.type.toLowerCase();
@@ -327,6 +331,7 @@ export async function compressImageFile(
         try {
           bitmap = await createImageBitmap(decodeSource, options);
         } catch (error) {
+          if (opts.requireDecodeResize) throw error;
           if (!(error instanceof TypeError)) return file;
         }
       } else if (jpegMetadata) {
@@ -344,6 +349,7 @@ export async function compressImageFile(
               resizeQuality: "high",
             });
           } catch (error) {
+            if (opts.requireDecodeResize) throw error;
             // Retry only when the options themselves are unsupported, not after a decoder failure.
             if (!(error instanceof TypeError)) return file;
           }
@@ -353,6 +359,12 @@ export async function compressImageFile(
       width = bitmap.width;
       height = bitmap.height;
     } else {
+      if (opts.requireDecodeResize && jpegMetadata) {
+        const target = calculateImageDimensions(jpegMetadata.width, jpegMetadata.height, opts);
+        if (target.width !== jpegMetadata.width || target.height !== jpegMetadata.height) {
+          throw new Error("decode-time image resizing is unavailable");
+        }
+      }
       objectUrl = URL.createObjectURL(decodeSource);
       imgEl = await new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image();
@@ -371,6 +383,13 @@ export async function compressImageFile(
     const { width: targetW, height: targetH } = calculateImageDimensions(displayWidth, displayHeight, opts);
     const drawWidth = swapsAxes ? targetH : targetW;
     const drawHeight = swapsAxes ? targetW : targetH;
+    const sourceDisplayWidth = jpegMetadata
+      ? (swapsAxes ? jpegMetadata.height : jpegMetadata.width)
+      : displayWidth;
+    const sourceDisplayHeight = jpegMetadata
+      ? (swapsAxes ? jpegMetadata.width : jpegMetadata.height)
+      : displayHeight;
+    const wasResized = targetW !== sourceDisplayWidth || targetH !== sourceDisplayHeight;
 
     canvas = document.createElement("canvas");
     canvas.width = targetW;
@@ -402,11 +421,12 @@ export async function compressImageFile(
       canvas.toBlob(resolve, "image/jpeg", quality),
     );
     if (!blob) return file;
-    if (!needsOrientationNormalization && blob.size >= file.size) return file;
+    if (!needsOrientationNormalization && blob.size >= file.size && !(opts.preferBoundedOutput && wasResized)) return file;
 
     const newName = file.name.replace(/\.(heic|heif|png|webp|bmp|tiff?|jpe?g)$/i, "") + ".jpg";
     return new File([blob], newName, { type: "image/jpeg", lastModified: Date.now() });
-  } catch {
+  } catch (error) {
+    if (opts.requireDecodeResize) throw error;
     return file;
   } finally {
     if (bitmap) bitmap.close?.();

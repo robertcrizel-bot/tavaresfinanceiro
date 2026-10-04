@@ -10,7 +10,7 @@ import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
 import { takeSharedReceiptWithDiagnostics, type ShareDiagnostics } from "@/lib/shared-receipt";
-import { parseReceipt, receiptToImageDataUrl, matchByName, matchCategory, ParsedReceipt } from "@/lib/receipt";
+import { parseReceipt, prepareReceiptForLocalOcr, matchByName, matchCategory, ParsedReceipt, type LocalOcrPreparationMetrics } from "@/lib/receipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
 import { disposePaddleRecognizer, paddleRecognize } from "@/lib/ocr-paddle-test/recognize";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
@@ -18,6 +18,36 @@ import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedRecei
 import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientation";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
+import type { PaddleOcrResult } from "@/lib/ocr-paddle-test/types";
+
+function logFreeOcrMetrics(
+  preparation: LocalOcrPreparationMetrics,
+  ocr: PaddleOcrResult,
+  parserMs: number,
+  totalMs: number,
+) {
+  if (import.meta.env.MODE === "test") return;
+  const toMiB = (bytes: number | null) => bytes === null ? null : Math.round(bytes / 1024 / 1024 * 10) / 10;
+  console.info("[receipt-import] free OCR metrics", {
+    originalDimensions: preparation.originalDimensions,
+    ocrInputDimensions: ocr.inputDimensions ?? preparation.outputDimensions,
+    originalPixels: preparation.originalPixels,
+    ocrInputPixels: preparation.outputPixels,
+    largestRgbaSurfaceMiB: toMiB(preparation.largestRgbaSurfaceBytes),
+    estimatedOrientationPeakRgbaMiB: toMiB(preparation.estimatedOrientationPeakRgbaBytes),
+    inputFileMiB: toMiB(preparation.inputFileBytes),
+    ocrFileMiB: toMiB(preparation.outputFileBytes),
+    preparationMs: Math.round(preparation.preparationMs),
+    orientationMs: Math.round(preparation.orientationMs),
+    paddleInitializationMs: ocr.initializationMs ?? null,
+    paddleInferenceMs: ocr.inferenceMs ?? ocr.timeMs,
+    detectionMs: ocr.detectionMs ?? null,
+    recognitionMs: ocr.recognitionMs ?? null,
+    parserMs: Math.round(parserMs),
+    totalMs: Math.round(totalMs),
+    paddleRunsInWorker: true,
+  });
+}
 
 export default function ReceiptImport() {
   const navigate = useNavigate();
@@ -79,6 +109,7 @@ export default function ReceiptImport() {
 
   const processFile = useCallback(
     async (file: File) => {
+      const totalStart = performance.now();
       let shouldOpenForm = false;
       setPendingFile(file);
       setLoading(true);
@@ -87,12 +118,16 @@ export default function ReceiptImport() {
       setReadStatus("Carregando modelo PaddleOCR...");
       try {
         const prepared = await (async () => {
-          const imageDataUrl = await receiptToImageDataUrl(file);
-          const ocr = await paddleRecognize(imageDataUrl, (status) => setReadStatus(status));
+          const localImage = await prepareReceiptForLocalOcr(file);
+          const ocr = await paddleRecognize(localImage.image, (status) => setReadStatus(status));
           if (ocr.error) {
+            logFreeOcrMetrics(localImage.metrics, ocr, 0, performance.now() - totalStart);
             throw new Error("Não foi possível ler o comprovante agora. Verifique a foto e tente novamente.");
           }
+          const parserStart = performance.now();
           const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
+          const parserMs = performance.now() - parserStart;
+          logFreeOcrMetrics(localImage.metrics, ocr, parserMs, performance.now() - totalStart);
           return {
             isReceipt: parsed.is_receipt,
             receiptRef: parsed.receipt_id ?? null,

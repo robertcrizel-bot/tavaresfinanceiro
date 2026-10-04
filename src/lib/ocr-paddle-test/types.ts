@@ -35,6 +35,11 @@ export interface PaddleOcrResult {
   detectedBoxes: number;
   recognizedCount: number;
   backend: string;
+  initializationMs?: number;
+  inferenceMs?: number;
+  detectionMs?: number;
+  recognitionMs?: number;
+  inputDimensions?: { width: number; height: number };
   error?: string;
 }
 

@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   releaseDocumentOrientationSession: vi.fn(),
   buildPaddleReceiptResult: vi.fn(),
   receiptToImageDataUrl: vi.fn(),
+  prepareReceiptForLocalOcr: vi.fn(),
 }));
 
 vi.mock("react-router-dom", async (importOriginal) => ({
@@ -38,6 +39,7 @@ vi.mock("@/lib/receipt", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/receipt")>(),
   parseReceipt: mocks.parseReceipt,
   receiptToImageDataUrl: mocks.receiptToImageDataUrl,
+  prepareReceiptForLocalOcr: mocks.prepareReceiptForLocalOcr,
 }));
 vi.mock("@/lib/ocr-paddle-test/recognize", () => ({
   paddleRecognize: mocks.paddleRecognize,
@@ -100,6 +102,22 @@ function makePaddleResult(overrides: Record<string, unknown> = {}) {
 
 function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult()) {
   mocks.receiptToImageDataUrl.mockResolvedValue("data:image/jpeg;base64,TEST");
+  mocks.prepareReceiptForLocalOcr.mockImplementation(async (file: File) => ({
+    image: file,
+    metrics: {
+      originalDimensions: { width: 1200, height: 1600 },
+      outputDimensions: { width: 1200, height: 1600 },
+      originalPixels: 1_920_000,
+      outputPixels: 1_920_000,
+      largestRgbaSurfaceBytes: 7_680_000,
+      estimatedOrientationPeakRgbaBytes: 23_040_000,
+      inputFileBytes: file.size,
+      outputFileBytes: file.size,
+      preparationMs: 10,
+      orientationMs: 5,
+      totalMs: 15,
+    },
+  }));
   mocks.paddleRecognize.mockResolvedValue({
     text: "MERCADO CENTRAL\nTOTAL 120,00",
     confidence: 90,
@@ -204,10 +222,7 @@ describe("ReceiptImport metadata", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
 
     await waitFor(() =>
-      expect(mocks.paddleRecognize).toHaveBeenCalledWith(
-        "data:image/jpeg;base64,TEST",
-        expect.any(Function),
-      ),
+      expect(mocks.paddleRecognize).toHaveBeenCalledWith(file, expect.any(Function)),
     );
     expect(mocks.buildPaddleReceiptResult).toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
@@ -491,10 +506,8 @@ describe("PaddleOCR main flow (no paid AI)", () => {
     fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
-    expect(mocks.paddleRecognize).toHaveBeenCalledWith(
-      "data:image/jpeg;base64,TEST",
-      expect.any(Function),
-    );
+    expect(mocks.prepareReceiptForLocalOcr).toHaveBeenCalledWith(file);
+    expect(mocks.paddleRecognize).toHaveBeenCalledWith(file, expect.any(Function));
     expect(mocks.paddleRecognize).toHaveBeenCalledTimes(1);
     expect(mocks.buildPaddleReceiptResult).toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
@@ -587,7 +600,7 @@ describe("PaddleOCR main flow (no paid AI)", () => {
   });
 
   it("cleans both runtimes when image preparation or orientation fails", async () => {
-    mocks.receiptToImageDataUrl.mockRejectedValueOnce(new Error("orientation failed"));
+    mocks.prepareReceiptForLocalOcr.mockRejectedValueOnce(new Error("orientation failed"));
 
     selectFile();
     fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
@@ -606,10 +619,7 @@ describe("PaddleOCR main flow (no paid AI)", () => {
 
     await waitFor(() => expect(mocks.takeSharedReceiptWithDiagnostics).toHaveBeenCalledTimes(1));
     await waitFor(() =>
-      expect(mocks.paddleRecognize).toHaveBeenCalledWith(
-        "data:image/jpeg;base64,TEST",
-        expect.any(Function),
-      ),
+      expect(mocks.paddleRecognize).toHaveBeenCalledWith(sharedFile, expect.any(Function)),
     );
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument(),
