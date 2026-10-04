@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   duplicateLimit: vi.fn(),
   toast: vi.fn(),
   paddleRecognize: vi.fn(),
+  fastOcrRecognize: vi.fn(),
   disposePaddleRecognizer: vi.fn(),
   releaseDocumentOrientationSession: vi.fn(),
   buildPaddleReceiptResult: vi.fn(),
@@ -44,6 +45,9 @@ vi.mock("@/lib/receipt", async (importOriginal) => ({
 vi.mock("@/lib/ocr-paddle-test/recognize", () => ({
   paddleRecognize: mocks.paddleRecognize,
   disposePaddleRecognizer: mocks.disposePaddleRecognizer,
+}));
+vi.mock("@/lib/fast-ocr", () => ({
+  fastOcrRecognize: mocks.fastOcrRecognize,
 }));
 vi.mock("@/lib/ocr-paddle-test/receiptResult", () => ({
   buildPaddleReceiptResult: mocks.buildPaddleReceiptResult,
@@ -135,6 +139,11 @@ function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult())
     inputDimensions: { width: 1000, height: 1600 },
   });
   mocks.buildPaddleReceiptResult.mockReturnValue(result);
+  mocks.fastOcrRecognize.mockResolvedValue({
+    regions: [{ text: "MERCADO CENTRAL", confidence: 0.9, bbox: [[0, 0], [10, 0], [10, 5], [0, 5]] }],
+    initializationMs: 1500,
+    ocrMs: 8000,
+  });
 }
 
 function installCamera(stream?: MediaStream) {
@@ -245,6 +254,44 @@ describe("ReceiptImport metadata", () => {
     expect(diagnostics).toHaveTextContent("TOTAL:");
     expect(diagnostics).toHaveTextContent("Imagem original:3000 × 4000");
     expect(diagnostics).toHaveTextContent("Imagem OCR:1000 × 1600");
+  });
+
+  it("runs the experimental fast OCR on the same prepared image and shows its diagnostics", async () => {
+    const { container } = render(<ReceiptImport />);
+    const input = container.querySelector('input[type="file"]');
+    const file = new File(["receipt"], "receipt-fast.jpg", { type: "image/jpeg" });
+
+    fireEvent.change(input!, { target: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "⚡ Testar OCR rápido" })).toBeInTheDocument());
+    expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "⚡ Testar OCR rápido" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+    expect(mocks.prepareReceiptForLocalOcr).toHaveBeenCalledWith(file);
+    expect(mocks.fastOcrRecognize).toHaveBeenCalledWith(file, expect.any(Function));
+    expect(mocks.paddleRecognize).not.toHaveBeenCalled();
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+    expect(mocks.disposePaddleRecognizer).not.toHaveBeenCalled();
+    expect(mocks.buildPaddleReceiptResult).toHaveBeenCalledWith([
+      expect.objectContaining({ text: "MERCADO CENTRAL" }),
+    ]);
+
+    const diagnostics = await screen.findByTestId("fast-ocr-diagnostics");
+    expect(diagnostics).toHaveTextContent("DIAGNÓSTICO OCR RÁPIDO");
+    expect(diagnostics).toHaveTextContent("Inicialização:1.5 s");
+    expect(diagnostics).toHaveTextContent("OCR:8.0 s");
+    expect(diagnostics).toHaveTextContent("Parser:");
+    expect(diagnostics).toHaveTextContent("TOTAL:");
+    expect(diagnostics).toHaveTextContent("Imagem OCR:1200 × 1600");
+    expect(screen.queryByTestId("free-ocr-diagnostics")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
+    expect(mocks.addTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 120, title: "Mercado Central" }),
+      expect.objectContaining({ attachments: [file] }),
+    );
   });
 
   it("does not show the removed local OCR development controls after file selection", async () => {
