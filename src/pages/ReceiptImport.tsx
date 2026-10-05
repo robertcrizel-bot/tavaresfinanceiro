@@ -16,7 +16,7 @@ import { disposePaddleRecognizer, paddleRecognize } from "@/lib/ocr-paddle-test/
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
 import { fastOcrRecognize } from "@/lib/fast-ocr";
-import { hybridOcrRecognize } from "@/lib/hybrid-ocr";
+import { hybridOcrRecognize, type HybridCropPreviewData } from "@/lib/hybrid-ocr";
 import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientation";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
@@ -96,6 +96,38 @@ const formatSeconds = (ms: number | null) => ms === null ? "—" : `${(ms / 1000
 const formatDimensions = (dimensions: { width: number; height: number } | null) =>
   dimensions ? `${dimensions.width} × ${dimensions.height}` : "indisponível";
 
+interface HybridCropPreviewView {
+  index: number;
+  reason: string;
+  originalText: string;
+  cropWidth: number;
+  cropHeight: number;
+  sentWidth: number;
+  sentHeight: number;
+  scale: number;
+  recognizedText: string;
+  url: string;
+}
+
+function toHybridCropPreviewViews(crops: HybridCropPreviewData[]): HybridCropPreviewView[] {
+  return crops.map((crop) => {
+    const blob = new Blob([crop.preview], { type: "image/jpeg" });
+    const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : "";
+    return {
+      index: crop.index,
+      reason: crop.reason,
+      originalText: crop.originalText,
+      cropWidth: crop.cropWidth,
+      cropHeight: crop.cropHeight,
+      sentWidth: crop.sentWidth,
+      sentHeight: crop.sentHeight,
+      scale: crop.scale,
+      recognizedText: crop.recognizedText,
+      url,
+    };
+  });
+}
+
 export default function ReceiptImport() {
   const navigate = useNavigate();
   const { addTransaction } = useFinance();
@@ -120,12 +152,20 @@ export default function ReceiptImport() {
   const [freeOcrDiagnostics, setFreeOcrDiagnostics] = useState<FreeOcrDiagnostics | null>(null);
   const [fastOcrDiagnostics, setFastOcrDiagnostics] = useState<FastOcrDiagnostics | null>(null);
   const [hybridOcrDiagnostics, setHybridOcrDiagnostics] = useState<HybridOcrDiagnostics | null>(null);
+  const [hybridCropPreviews, setHybridCropPreviews] = useState<HybridCropPreviewView[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const cameraRequestRef = useRef(0);
   const sharedChecked = useRef(false);
   const [shareDiag, setShareDiag] = useState<ShareDiagnostics | null>(null);
+
+  useEffect(() => () => {
+    if (typeof URL.revokeObjectURL !== "function") return;
+    for (const preview of hybridCropPreviews) {
+      if (preview.url) URL.revokeObjectURL(preview.url);
+    }
+  }, [hybridCropPreviews]);
 
   const buildPrefill = useCallback(
     (parsed: ParsedReceipt): Partial<Omit<Transaction, "id">> => {
@@ -166,6 +206,7 @@ export default function ReceiptImport() {
       setFreeOcrDiagnostics(null);
       setFastOcrDiagnostics(null);
       setHybridOcrDiagnostics(null);
+      setHybridCropPreviews([]);
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -253,6 +294,7 @@ export default function ReceiptImport() {
       setFreeOcrDiagnostics(null);
       setFastOcrDiagnostics(null);
       setHybridOcrDiagnostics(null);
+      setHybridCropPreviews([]);
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -328,10 +370,12 @@ export default function ReceiptImport() {
         parserMs: number;
         ocrInputDimensions: { width: number; height: number } | null;
       } | null = null;
+      let cropViews: HybridCropPreviewView[] = [];
       setPendingFile(file);
       setFreeOcrDiagnostics(null);
       setFastOcrDiagnostics(null);
       setHybridOcrDiagnostics(null);
+      setHybridCropPreviews([]);
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -346,6 +390,7 @@ export default function ReceiptImport() {
           height,
           (status) => setReadStatus(status),
         );
+        cropViews = toHybridCropPreviewViews(ocr.crops ?? []);
         const parserStart = performance.now();
         const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
         const parserMs = performance.now() - parserStart;
@@ -402,6 +447,7 @@ export default function ReceiptImport() {
             ocrInputDimensions: completedRun.ocrInputDimensions,
           });
         }
+        setHybridCropPreviews(cropViews);
         setLoading(false);
         setReadStatus("");
       }
@@ -724,6 +770,42 @@ export default function ReceiptImport() {
               <dd className="font-semibold text-foreground">{formatSeconds(hybridOcrDiagnostics.totalMs)}</dd>
               <dt>Imagem principal:</dt><dd>{formatDimensions(hybridOcrDiagnostics.ocrInputDimensions)}</dd>
             </dl>
+          </div>
+        )}
+
+        {hybridOcrDiagnostics && hybridCropPreviews.length > 0 && !loading && (
+          <div data-testid="hybrid-ocr-crop-previews" className="rounded-md border border-border bg-muted/30 p-3 text-xs">
+            <h3 className="mb-2 text-sm font-semibold text-foreground">CROPS ENVIADOS AO SMALL</h3>
+            <div className="space-y-3">
+              {hybridCropPreviews.map((crop) => (
+                <div key={crop.index} className="rounded border border-border/70 bg-background p-2">
+                  <p className="mb-1 font-semibold text-foreground">Crop {crop.index}</p>
+                  {crop.url ? (
+                    <img
+                      src={crop.url}
+                      alt={`Crop ${crop.index}`}
+                      className="mb-2 max-h-40 w-auto max-w-full rounded border border-border/60"
+                    />
+                  ) : (
+                    <p className="mb-2 text-muted-foreground">Prévia indisponível</p>
+                  )}
+                  <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 text-muted-foreground">
+                    <dt className="whitespace-nowrap text-foreground">Motivo:</dt>
+                    <dd className="break-words">{crop.reason}</dd>
+                    <dt className="whitespace-nowrap text-foreground">Texto/linha original:</dt>
+                    <dd className="break-words">{crop.originalText || "—"}</dd>
+                    <dt className="whitespace-nowrap text-foreground">Dimensão original do crop:</dt>
+                    <dd className="break-words">{crop.cropWidth} × {crop.cropHeight}</dd>
+                    <dt className="whitespace-nowrap text-foreground">Dimensão enviada ao Small:</dt>
+                    <dd className="break-words">{crop.sentWidth} × {crop.sentHeight}</dd>
+                    <dt className="whitespace-nowrap text-foreground">Escala:</dt>
+                    <dd className="break-words">{crop.scale}</dd>
+                    <dt className="whitespace-nowrap text-foreground">Small reconheceu:</dt>
+                    <dd className="break-words">{crop.recognizedText || "—"}</dd>
+                  </dl>
+                </div>
+              ))}
+            </div>
           </div>
         )}
       </Card>

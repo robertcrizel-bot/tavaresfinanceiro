@@ -10,6 +10,7 @@ import {
   type CropLineResult,
   type Rect,
 } from "@/lib/hybrid-ocr-regions";
+import type { HybridCropPreviewData } from "@/lib/hybrid-ocr";
 
 interface HybridRecognizeMessage {
   image: ArrayBuffer;
@@ -18,7 +19,7 @@ interface HybridRecognizeMessage {
 }
 
 const scope = self as unknown as {
-  postMessage(message: unknown): void;
+  postMessage(message: unknown, transfer?: Transferable[]): void;
   close(): void;
   onmessage: ((event: MessageEvent<HybridRecognizeMessage>) => void) | null;
 };
@@ -71,6 +72,7 @@ scope.onmessage = async (event: MessageEvent<HybridRecognizeMessage>) => {
     let smallInitializationMs = 0;
     let smallCropsMs = 0;
     let mergeMs = 0;
+    const previews: HybridCropPreviewData[] = [];
     if (plan.items.length > 0) {
       scope.postMessage({ type: "progress", message: "Carregando modelo Small do OCR híbrido..." });
       const smallInitializationStart = performance.now();
@@ -122,6 +124,22 @@ scope.onmessage = async (event: MessageEvent<HybridRecognizeMessage>) => {
               item.crop,
               scale,
             );
+            const previewBlob = await canvas.convertToBlob({ type: "image/jpeg", quality: 0.72 });
+            const sourceLine = firstPassLines[item.lineIndex];
+            previews.push({
+              index: previews.length + 1,
+              reason: item.reason,
+              originalText: sourceLine
+                ? sourceLine.regions.map((region) => region.text).join(" | ")
+                : "",
+              cropWidth: item.crop.width,
+              cropHeight: item.crop.height,
+              sentWidth: width,
+              sentHeight: height,
+              scale,
+              recognizedText: cropRegions.map((region) => region.text).join(" | "),
+              preview: await previewBlob.arrayBuffer(),
+            });
             processed.push({ item, regions: cropRegions });
             cropsProcessed++;
           } catch (cropError) {
@@ -147,17 +165,21 @@ scope.onmessage = async (event: MessageEvent<HybridRecognizeMessage>) => {
       }
     }
 
-    scope.postMessage({
-      type: "result",
-      regions,
-      initializationMs,
-      firstPassMs,
-      suspiciousCount: plan.suspiciousCount,
-      smallInitializationMs,
-      smallCropsMs: Math.round(smallCropsMs),
-      cropsProcessed,
-      mergeMs,
-    });
+    scope.postMessage(
+      {
+        type: "result",
+        regions,
+        initializationMs,
+        firstPassMs,
+        suspiciousCount: plan.suspiciousCount,
+        smallInitializationMs,
+        smallCropsMs: Math.round(smallCropsMs),
+        cropsProcessed,
+        mergeMs,
+        previews,
+      },
+      previews.map((preview) => preview.preview),
+    );
   } catch (error) {
     for (const service of [smallService, tinyService]) {
       if (!service) continue;

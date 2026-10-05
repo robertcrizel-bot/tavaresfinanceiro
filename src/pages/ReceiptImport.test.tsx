@@ -157,6 +157,32 @@ function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult())
     smallCropsMs: 1600,
     cropsProcessed: 2,
     mergeMs: 120,
+    crops: [
+      {
+        index: 1,
+        reason: "missing-price",
+        originalText: "CREME LEITE UHT ITALAC 200G TP",
+        cropWidth: 1200,
+        cropHeight: 48,
+        sentWidth: 2400,
+        sentHeight: 96,
+        scale: 2,
+        recognizedText: "CREME LEITE UHT ITALAC 200G TP | 2,75",
+        preview: new Uint8Array([0xff, 0xd8, 0xff, 0xd9]).buffer,
+      },
+      {
+        index: 2,
+        reason: "low-confidence",
+        originalText: "CREME LEITE UHT ITALAC 200G TP",
+        cropWidth: 1180,
+        cropHeight: 52,
+        sentWidth: 1770,
+        sentHeight: 78,
+        scale: 1.5,
+        recognizedText: "CREME LEITE UHT ITALAC 200G TP | 2,75",
+        preview: new Uint8Array([0xff, 0xd8, 0xff, 0xd9]).buffer,
+      },
+    ],
   });
 }
 
@@ -341,6 +367,19 @@ describe("ReceiptImport metadata", () => {
     expect(diagnostics).toHaveTextContent("Imagem principal:1200 × 1600");
     expect(screen.queryByTestId("fast-ocr-diagnostics")).not.toBeInTheDocument();
     expect(screen.queryByTestId("free-ocr-diagnostics")).not.toBeInTheDocument();
+
+    const cropPreviews = await screen.findByTestId("hybrid-ocr-crop-previews");
+    expect(cropPreviews).toHaveTextContent("CROPS ENVIADOS AO SMALL");
+    expect(cropPreviews).toHaveTextContent("Crop 1");
+    expect(cropPreviews).toHaveTextContent("Motivo:missing-price");
+    expect(cropPreviews).toHaveTextContent("Texto/linha original:CREME LEITE UHT ITALAC 200G TP");
+    expect(cropPreviews).toHaveTextContent("Dimensão original do crop:1200 × 48");
+    expect(cropPreviews).toHaveTextContent("Dimensão enviada ao Small:2400 × 96");
+    expect(cropPreviews).toHaveTextContent("Escala:2");
+    expect(cropPreviews).toHaveTextContent("Small reconheceu:CREME LEITE UHT ITALAC 200G TP | 2,75");
+    expect(cropPreviews).toHaveTextContent("Crop 2");
+    expect(cropPreviews).toHaveTextContent("Dimensão original do crop:1180 × 52");
+    expect(cropPreviews).toHaveTextContent("Escala:1.5");
   });
 
   it("does not show the removed local OCR development controls after file selection", async () => {

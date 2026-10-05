@@ -1,4 +1,18 @@
 import type { PaddleOcrRegion } from "@/lib/ocr-paddle-test/types";
+import type { SuspiciousReason } from "@/lib/hybrid-ocr-regions";
+
+export interface HybridCropPreviewData {
+  index: number;
+  reason: SuspiciousReason;
+  originalText: string;
+  cropWidth: number;
+  cropHeight: number;
+  sentWidth: number;
+  sentHeight: number;
+  scale: number;
+  recognizedText: string;
+  preview: ArrayBuffer;
+}
 
 export interface HybridOcrOutcome {
   regions: PaddleOcrRegion[];
@@ -9,6 +23,7 @@ export interface HybridOcrOutcome {
   smallCropsMs: number;
   cropsProcessed: number;
   mergeMs: number;
+  crops: HybridCropPreviewData[];
 }
 
 type HybridOcrWorkerMessage =
@@ -23,6 +38,7 @@ type HybridOcrWorkerMessage =
       smallCropsMs: number;
       cropsProcessed: number;
       mergeMs: number;
+      previews: HybridCropPreviewData[];
     }
   | { type: "error"; message: string };
 
@@ -62,6 +78,7 @@ export async function hybridOcrRecognize(
       smallCropsMs: result.smallCropsMs,
       cropsProcessed: result.cropsProcessed,
       mergeMs: result.mergeMs,
+      crops: result.previews,
     };
   } finally {
     // Terminating the worker releases the model sessions and WASM memory on Android.
