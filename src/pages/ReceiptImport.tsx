@@ -17,6 +17,8 @@ import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
 import { fastOcrRecognize } from "@/lib/fast-ocr";
 import type { FastOcrBox } from "@/lib/fast-ocr-adapter";
+import { buildItemPipelineDebugText } from "@/lib/ocr-paddle-test/itemPipelineDebug";
+import { buildStamp } from "@/lib/build-info";
 import {
   summarizeFastOcrGroupedLines,
   summarizeFastOcrRawLines,
@@ -85,6 +87,7 @@ interface FastOcrDiagnostics {
   ocrInputDimensions: { width: number; height: number } | null;
   rawRegions: FastOcrRawRegionDebug[];
   groupedLines: FastOcrGroupedLineDebug[];
+  itemPipelineText: string;
 }
 
 const formatSeconds = (ms: number | null) => ms === null ? "—" : `${(ms / 1000).toFixed(1)} s`;
@@ -96,6 +99,7 @@ const formatBox = (box: FastOcrBox) =>
 function buildFastOcrDiagnosticsText(diagnostics: FastOcrDiagnostics): string {
   const lines: string[] = [];
   lines.push("DIAGNÓSTICO OCR RÁPIDO");
+  lines.push(`BUILD/COMMIT: ${buildStamp()}`);
   lines.push("");
   lines.push("MÉTRICAS");
   lines.push(`Inicialização: ${formatSeconds(diagnostics.initializationMs)}`);
@@ -120,6 +124,8 @@ function buildFastOcrDiagnosticsText(diagnostics: FastOcrDiagnostics): string {
   for (const region of diagnostics.rawRegions) {
     lines.push(`#${region.index} "${region.text}" | conf=${region.confidence} | box=${formatBox(region.box)}`);
   }
+  lines.push("");
+  lines.push(diagnostics.itemPipelineText || "(PIPELINE DOS ITENS indisponível)");
   return lines.join("\n");
 }
 
@@ -301,6 +307,7 @@ export default function ReceiptImport() {
         ocrInputDimensions: { width: number; height: number } | null;
         rawRegions: FastOcrRawRegionDebug[];
         groupedLines: FastOcrGroupedLineDebug[];
+        itemPipelineText: string;
       } | null = null;
       setPendingFile(file);
       setFreeOcrDiagnostics(null);
@@ -317,8 +324,17 @@ export default function ReceiptImport() {
         const rawRegions = summarizeFastOcrRawLines(ocr.rawLines ?? []);
         const groupedLines = summarizeFastOcrGroupedLines(ocr.regions);
         const parserStart = performance.now();
-        const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
+        const receiptResult = buildPaddleReceiptResult(ocr.regions);
+        const parsed = paddleToParsedReceipt(receiptResult);
         const parserMs = performance.now() - parserStart;
+        let itemPipelineText: string;
+        try {
+          itemPipelineText = buildItemPipelineDebugText(ocr.regions, receiptResult.items);
+        } catch (pipelineError) {
+          itemPipelineText = `(falha ao montar PIPELINE DOS ITENS: ${
+            pipelineError instanceof Error ? pipelineError.message : String(pipelineError)
+          })`;
+        }
         completedRun = {
           initializationMs: ocr.initializationMs,
           ocrMs: ocr.ocrMs,
@@ -326,6 +342,7 @@ export default function ReceiptImport() {
           ocrInputDimensions: localImage.metrics.outputDimensions,
           rawRegions,
           groupedLines,
+          itemPipelineText,
         };
 
         if (!parsed.is_receipt) {
@@ -362,6 +379,7 @@ export default function ReceiptImport() {
             ocrInputDimensions: completedRun.ocrInputDimensions,
             rawRegions: completedRun.rawRegions,
             groupedLines: completedRun.groupedLines,
+            itemPipelineText: completedRun.itemPipelineText,
           });
         }
         setLoading(false);
@@ -680,6 +698,7 @@ export default function ReceiptImport() {
               <dt className="font-semibold text-foreground">TOTAL:</dt>
               <dd className="font-semibold text-foreground">{formatSeconds(fastOcrDiagnostics.totalMs)}</dd>
               <dt>Imagem OCR:</dt><dd>{formatDimensions(fastOcrDiagnostics.ocrInputDimensions)}</dd>
+              <dt>BUILD/COMMIT:</dt><dd>{buildStamp()}</dd>
             </dl>
 
             <div data-testid="fast-ocr-raw-output">
@@ -713,6 +732,15 @@ export default function ReceiptImport() {
                   <li className="text-muted-foreground">(nenhuma linha agrupada)</li>
                 )}
               </ol>
+            </div>
+
+            <div data-testid="fast-ocr-item-pipeline">
+              <h4 className="mb-1 mt-3 text-sm font-semibold text-foreground">
+                PIPELINE DOS ITENS / MORANGO DEBUG
+              </h4>
+              <pre className="whitespace-pre-wrap break-all text-muted-foreground">
+                {fastOcrDiagnostics.itemPipelineText || "(indisponível)"}
+              </pre>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">

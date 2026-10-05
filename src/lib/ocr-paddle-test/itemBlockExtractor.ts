@@ -20,6 +20,27 @@ export interface ExtractedItemBlock {
   signals?: string[];
 }
 
+export interface ItemBlockPriceDebug {
+  moneyCandidates: Array<{
+    lineIndex: number;
+    cx: number;
+    cy: number;
+    value: number;
+  }>;
+  discountZoneLineIndices: number[] | null;
+  discountZoneCandidates: number[];
+  discountZoneDiscountValue: number | null;
+}
+
+export function createItemBlockPriceDebug(): ItemBlockPriceDebug {
+  return {
+    moneyCandidates: [],
+    discountZoneLineIndices: null,
+    discountZoneCandidates: [],
+    discountZoneDiscountValue: null,
+  };
+}
+
 const COMPLEMENT_PREFIX_RE = /^(?:de|por|desconto)\b/i;
 const LEADING_CODE_RE = /^\d+\s+/;
 
@@ -412,6 +433,7 @@ function collectMoneyCandidates(
   lines: GridLine[],
   block: ItemLineBlock,
   excludedLines?: ReadonlySet<number>,
+  debug?: ItemBlockPriceDebug,
 ): MoneyCandidate[] {
   const heights: number[] = [];
   const raw: MoneyCandidate[] = [];
@@ -429,6 +451,12 @@ function collectMoneyCandidates(
       const value = extractMoneyValue(region.text);
       if (value === null) continue;
       parsed.add(region);
+      debug?.moneyCandidates.push({
+        lineIndex,
+        cx: region.cx,
+        cy: region.cy,
+        value,
+      });
       raw.push({
         cx: region.cx,
         cy: region.cy,
@@ -448,6 +476,12 @@ function collectMoneyCandidates(
       }
       const joined = tryJoinAdjacentMoney(left, right, line);
       if (joined === null) continue;
+      debug?.moneyCandidates.push({
+        lineIndex,
+        cx: (left.cx + right.cx) / 2,
+        cy: (left.cy + right.cy) / 2,
+        value: joined,
+      });
       raw.push({
         cx: (left.cx + right.cx) / 2,
         cy: (left.cy + right.cy) / 2,
@@ -609,8 +643,9 @@ function deriveMonetaryBands(
   block: ItemLineBlock,
   suffixAnchor: MoneyCandidate | null,
   excludedLines?: ReadonlySet<number>,
+  debug?: ItemBlockPriceDebug,
 ): { unitPrice: number | null; originalTotal: number | null } {
-  const collected = collectMoneyCandidates(lines, block, excludedLines);
+  const collected = collectMoneyCandidates(lines, block, excludedLines, debug);
   const { candidates, droppedDescriptionLineMoney } =
     preferOffDescriptionLine(collected);
   if (candidates.length === 0) {
@@ -868,6 +903,7 @@ function extractMonetary(
   lines: GridLine[],
   block: ItemLineBlock,
   descriptionPick: DescriptionPick,
+  debug?: ItemBlockPriceDebug,
 ): {
   unitPrice: number | null;
   originalTotal: number | null;
@@ -875,6 +911,11 @@ function extractMonetary(
 } {
   const zone = findDiscountZone(lines, block);
   const zoneLines = zone?.lineIndices;
+  if (debug) {
+    debug.discountZoneLineIndices = zone ? [...zone.lineIndices] : null;
+    debug.discountZoneCandidates = zone ? [...zone.candidates] : [];
+    debug.discountZoneDiscountValue = zone?.discountValue ?? null;
+  }
   const suffixAnchor = findSuffixAnchor(
     lines,
     block,
@@ -882,7 +923,13 @@ function extractMonetary(
     zoneLines,
   );
   const suffixUnitPrice = suffixAnchor ? suffixAnchor.value : null;
-  const bands = deriveMonetaryBands(lines, block, suffixAnchor, zoneLines);
+  const bands = deriveMonetaryBands(
+    lines,
+    block,
+    suffixAnchor,
+    zoneLines,
+    debug,
+  );
   const { por, de } = extractMarkers(lines, block);
 
   let suffixTotal: number | null = null;
@@ -927,10 +974,11 @@ function extractMonetary(
 export function extractItemBlock(
   lines: GridLine[],
   block: ItemLineBlock,
+  priceDebug?: ItemBlockPriceDebug,
 ): ExtractedItemBlock {
   const descriptionPick = pickDescription(lines, block);
   const { quantity, unit } = extractQuantityUnit(lines, block, descriptionPick);
-  const monetary = extractMonetary(lines, block, descriptionPick);
+  const monetary = extractMonetary(lines, block, descriptionPick, priceDebug);
 
   return {
     lineIndices: [...block.lineIndices],
