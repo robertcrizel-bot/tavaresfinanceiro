@@ -31,8 +31,8 @@ import {
 
 export default function Forecasts() {
   const { bills, payments, loading, addBill, updateBill, deleteBill, markAsPaid, unmarkAsPaid } = useForecast();
-  const { accounts } = useAccounts();
-  const { categories } = useCategories();
+  const { accounts, creditCards } = useAccounts();
+  const { categories, getCategoriesByType } = useCategories();
   const { transactions } = useFinance();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -48,6 +48,7 @@ export default function Forecasts() {
   const [payDate, setPayDate] = useState("");
   const [payMethod, setPayMethod] = useState<PaymentMethod | "">("Transferência");
   const [payAccountId, setPayAccountId] = useState<string>("");
+  const [payCreditCardId, setPayCreditCardId] = useState<string>("");
   const [payDescription, setPayDescription] = useState("");
 
   // Form state
@@ -84,7 +85,7 @@ export default function Forecasts() {
 
   const formBudgetProjection = useMemo(() => {
     if (formType !== "expense" || !formCategory) return null;
-    const selectedCategory = categories.find((c) => c.name === formCategory && c.type === "expense");
+    const selectedCategory = categories.find((c) => c.name === formCategory && (c.type === "expense" || c.type === "both"));
     if (!selectedCategory || !selectedCategory.monthlyBudget || selectedCategory.monthlyBudget <= 0) return null;
     const persistedProjection = calculateMonthlyCategoryBudgetProjection({
       transactions,
@@ -164,17 +165,32 @@ export default function Forecasts() {
     setPayDate(dueDate.toISOString().split("T")[0]);
     setPayMethod("Transferência");
     setPayAccountId(bill.accountId || "");
+    setPayCreditCardId("");
     setPayDescription(bill.description || "");
     setPayOpen(true);
   };
 
+  const payIsCreditCard = payMethod === "Cartão de Crédito";
+
+  const handlePayMethodChange = (value: string) => {
+    const nextPaymentMethod = value === "none" ? "" : value as PaymentMethod;
+    setPayMethod(nextPaymentMethod);
+    if (nextPaymentMethod === "Cartão de Crédito") {
+      setPayAccountId("");
+      return;
+    }
+    setPayCreditCardId("");
+  };
+
   const handleConfirmPay = async () => {
     if (!payBill) return;
+    if (payIsCreditCard && !payCreditCardId) return;
     await markAsPaid(payBill, referenceMonth, {
       amount: Number(payAmount),
       date: payDate,
       paymentMethod: payMethod || undefined,
-      accountId: payAccountId || null,
+      accountId: payIsCreditCard ? null : payAccountId || null,
+      creditCardId: payIsCreditCard ? payCreditCardId : null,
       description: payDescription || null,
     });
     setPayOpen(false);
@@ -191,7 +207,7 @@ export default function Forecasts() {
     setDeletingBill(null);
   };
 
-  const filteredCategories = categories.filter((c) => c.type === formType);
+  const filteredCategories = getCategoriesByType(formType);
   const protectedMonths = editingBill
     ? [referenceMonth, ...payments.filter((payment) => payment.recurringBillId === editingBill.id).map((payment) => payment.referenceMonth)]
     : [];
@@ -453,8 +469,8 @@ export default function Forecasts() {
               <Select value={formCategory} onValueChange={setFormCategory}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {filteredCategories.map((c) => (
-                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
+                  {filteredCategories.map((categoryName) => (
+                    <SelectItem key={categoryName} value={categoryName}>{categoryName}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -609,7 +625,7 @@ export default function Forecasts() {
             </div>
             <div>
               <Label>{payBill?.type === "income" ? "Forma de recebimento" : "Forma de pagamento"}</Label>
-              <Select value={payMethod || "none"} onValueChange={(v) => setPayMethod(v === "none" ? "" : v as PaymentMethod)}>
+              <Select value={payMethod || "none"} onValueChange={handlePayMethodChange}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhuma</SelectItem>
@@ -619,18 +635,37 @@ export default function Forecasts() {
                 </SelectContent>
               </Select>
             </div>
-            <div>
-              <Label>Conta</Label>
-              <Select value={payAccountId || "none"} onValueChange={(v) => setPayAccountId(v === "none" ? "" : v)}>
-                <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="none">Nenhuma</SelectItem>
-                  {accounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
+            {!payIsCreditCard && (
+              <div>
+                <Label>Conta</Label>
+                <Select value={payAccountId || "none"} onValueChange={(v) => setPayAccountId(v === "none" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Nenhuma</SelectItem>
+                    {accounts.map((a) => (
+                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
+            {payIsCreditCard && (
+              <div>
+                <Label>Cartão de crédito</Label>
+                <Select value={payCreditCardId || "none"} onValueChange={(v) => setPayCreditCardId(v === "none" ? "" : v)}>
+                  <SelectTrigger><SelectValue placeholder="Selecionar cartão" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Selecionar cartão</SelectItem>
+                    {creditCards.map((card) => (
+                      <SelectItem key={card.id} value={card.id}>{card.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {creditCards.length === 0 && (
+                  <p className="mt-1 text-xs text-muted-foreground">Nenhum cartão cadastrado.</p>
+                )}
+              </div>
+            )}
             <div>
               <Label>Observações</Label>
               <Textarea value={payDescription} onChange={(e) => setPayDescription(e.target.value)} rows={2} />
@@ -638,7 +673,7 @@ export default function Forecasts() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPayOpen(false)}>Cancelar</Button>
-            <Button onClick={handleConfirmPay} disabled={!payAmount || !payDate}>{payBill?.type === "income" ? "Confirmar Recebimento" : "Confirmar Pagamento"}</Button>
+            <Button onClick={handleConfirmPay} disabled={!payAmount || !payDate || (payIsCreditCard && !payCreditCardId)}>{payBill?.type === "income" ? "Confirmar Recebimento" : "Confirmar Pagamento"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

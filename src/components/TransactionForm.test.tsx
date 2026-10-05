@@ -397,4 +397,46 @@ describe("TransactionForm budget indicator", () => {
     expect(screen.queryByText("NaN")).not.toBeInTheDocument();
     expect(screen.getByText(/de R\$ 1\.000,00/)).toBeInTheDocument();
   });
+
+  it("keeps budget card after Conta and before Descrição", () => {
+    render(
+      <TransactionForm
+        open
+        onClose={onClose}
+        onSubmit={onSubmit}
+        initial={{ ...initial, category: "Alimentação", date: "2026-09-10" }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("select-item-Pix"));
+
+    const conta = screen.getByText("Conta");
+    const orcamento = screen.getByText("Orçamento utilizado após este lançamento");
+    const descricao = screen.getByText("Descrição");
+
+    expect(conta.compareDocumentPosition(orcamento) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
+    expect(orcamento.compareDocumentPosition(descricao) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
+  });
+
+  it("keeps budget card after Cartão de Crédito and before Descrição", () => {
+    render(
+      <TransactionForm
+        open
+        onClose={onClose}
+        onSubmit={onSubmit}
+        initial={{ ...initial, category: "Alimentação", date: "2026-09-10" }}
+      />,
+    );
+
+    fireEvent.click(screen.getByTestId("select-item-Cartão de Crédito"));
+
+    const cartaoLabel = screen.getAllByText("Cartão de Crédito").find((el) => el.tagName !== "BUTTON");
+    const orcamento = screen.getByText("Orçamento utilizado após este lançamento");
+    const descricao = screen.getByText("Descrição");
+
+    expect(cartaoLabel).toBeDefined();
+    expect(cartaoLabel!.compareDocumentPosition(orcamento) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
+    expect(orcamento.compareDocumentPosition(descricao) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
+    expect(screen.queryByText("Conta")).not.toBeInTheDocument();
+  });
 });

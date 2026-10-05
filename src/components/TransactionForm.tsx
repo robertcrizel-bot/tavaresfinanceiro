@@ -292,31 +292,6 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
               </Select>
             </div>
           </div>
-          {budgetInfo && (
-            <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-2 text-xs sm:space-y-1.5 sm:p-3">
-              <p className="text-muted-foreground text-[11px]">Orçamento utilizado após este lançamento</p>
-              <div>
-                <span className="font-semibold text-sm">
-                  {budgetInfo.projectedSpent.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                </span>
-                <span className="text-muted-foreground"> de {budgetInfo.budget.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
-              </div>
-              <div className="relative">
-                <Progress
-                  value={Math.min(budgetInfo.usage.percentage, 100)}
-                  className={`h-6 ${budgetInfo.usage.exceeded > 0 ? "[&>div]:bg-destructive" : ""}`}
-                />
-                <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold text-white pointer-events-none select-none">
-                  {Math.round(budgetInfo.usage.percentage)}%
-                </span>
-              </div>
-              <p className={budgetInfo.usage.exceeded > 0 ? "font-medium text-destructive" : "text-muted-foreground"}>
-                {budgetInfo.usage.exceeded > 0
-                  ? `${budgetInfo.usage.exceeded.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} acima do orçamento`
-                  : `${budgetInfo.usage.available.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} disponíveis`}
-              </p>
-            </div>
-          )}
           {showAccount && (
             <div className="space-y-1 sm:space-y-1.5">
               <Label>Conta</Label>
@@ -365,6 +340,31 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
                   )}
                 </div>
               )}
+            </div>
+          )}
+          {budgetInfo && (
+            <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-2 text-xs sm:space-y-1.5 sm:p-3">
+              <p className="text-muted-foreground text-[11px]">Orçamento utilizado após este lançamento</p>
+              <div>
+                <span className="font-semibold text-sm">
+                  {budgetInfo.projectedSpent.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                </span>
+                <span className="text-muted-foreground"> de {budgetInfo.budget.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</span>
+              </div>
+              <div className="relative">
+                <Progress
+                  value={Math.min(budgetInfo.usage.percentage, 100)}
+                  className={`h-6 ${budgetInfo.usage.exceeded > 0 ? "[&>div]:bg-destructive" : ""}`}
+                />
+                <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold text-white pointer-events-none select-none">
+                  {Math.round(budgetInfo.usage.percentage)}%
+                </span>
+              </div>
+              <p className={budgetInfo.usage.exceeded > 0 ? "font-medium text-destructive" : "text-muted-foreground"}>
+                {budgetInfo.usage.exceeded > 0
+                  ? `${budgetInfo.usage.exceeded.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} acima do orçamento`
+                  : `${budgetInfo.usage.available.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })} disponíveis`}
+              </p>
             </div>
           )}
           <div className="space-y-1 sm:space-y-1.5">
