@@ -362,6 +362,116 @@ export function selectEffectiveValue(
   return null;
 }
 
+const ITEM_CODE_TOKEN_RE = /^(?:\d{8}|\d{12}|\d{13}|\d{14})(?!\d)/;
+const QUANTITY_EPSILON = 1e-6;
+const MAX_EQUIVALENT_DESCRIPTION_DISTANCE = 2;
+const MIN_EQUIVALENT_DESCRIPTION_LENGTH = 8;
+
+function extractItemCode(
+  lines: GridLine[],
+  lineIndices: number[],
+): string | null {
+  for (const lineIndex of lineIndices) {
+    const line = lines[lineIndex];
+    if (!line) continue;
+    for (const region of line.regions) {
+      const match = region.text.trim().match(ITEM_CODE_TOKEN_RE);
+      if (match) return match[0];
+    }
+  }
+  return null;
+}
+
+function normalizeDescription(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+}
+
+function descriptionsEquivalent(a: string | null, b: string | null): boolean {
+  if (a === null || b === null) return false;
+  const left = normalizeDescription(a);
+  const right = normalizeDescription(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+  if (Math.abs(left.length - right.length) > 2) return false;
+  if (Math.max(left.length, right.length) < MIN_EQUIVALENT_DESCRIPTION_LENGTH) {
+    return false;
+  }
+  return levenshtein(left, right) <= MAX_EQUIVALENT_DESCRIPTION_DISTANCE;
+}
+
+function quantitiesCompatible(a: number | null, b: number | null): boolean {
+  if (a === null || b === null) return true;
+  return Math.abs(a - b) < QUANTITY_EPSILON;
+}
+
+function unitsCompatible(a: string | null, b: string | null): boolean {
+  if (a === null || b === null) return true;
+  return a === b;
+}
+
+function moneyValuesOf(item: PaddleReceiptItem): number[] {
+  const values: number[] = [];
+  for (const value of [
+    item.explicitFinalValue,
+    item.originalTotal,
+    item.unitPrice,
+  ]) {
+    if (value !== null) values.push(roundCents(value));
+  }
+  return values;
+}
+
+function fillRepeatedItemPrice(group: PaddleReceiptItem[]): void {
+  const first = group[0];
+  for (const item of group) {
+    if (!descriptionsEquivalent(first.description, item.description)) return;
+    if (!quantitiesCompatible(first.quantity, item.quantity)) return;
+    if (!unitsCompatible(first.unit, item.unit)) return;
+  }
+
+  const values = new Set<number>();
+  for (const item of group) {
+    for (const value of moneyValuesOf(item)) values.add(value);
+  }
+  if (values.size !== 1) return;
+  if (!group.some((item) => item.effectiveValue !== null)) return;
+
+  const value = [...values][0];
+  for (const item of group) {
+    if (item.effectiveValue !== null) continue;
+    if (item.explicitFinalValue !== null) continue;
+    item.originalTotal = value;
+    item.effectiveValue = value;
+  }
+}
+
+function propagateRepeatedItemPrices(
+  items: PaddleReceiptItem[],
+  codes: (string | null)[],
+): void {
+  let index = 0;
+  while (index < items.length) {
+    const code = codes[index];
+    let end = index;
+    while (
+      code !== null &&
+      end + 1 < items.length &&
+      codes[end + 1] === code
+    ) {
+      end += 1;
+    }
+    if (code !== null && end > index) {
+      fillRepeatedItemPrice(items.slice(index, end + 1));
+    }
+    index = end + 1;
+  }
+}
+
 function buildText(lines: GridLine[]): string {
   return lines.map((line) => lineText(line)).join("\n");
 }
@@ -417,6 +527,11 @@ export function buildPaddleReceiptResult(
       classification: extracted.classification,
     };
   });
+
+  const itemCodes = blocks.map((block) =>
+    extractItemCode(lines, block.lineIndices),
+  );
+  propagateRepeatedItemPrices(items, itemCodes);
 
   const receiptTotal = extractReceiptTotal(lines, areaEnd);
 
