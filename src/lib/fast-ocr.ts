@@ -3,6 +3,7 @@ import { adaptPpuLinesToRegions, type FastOcrLineItem } from "./fast-ocr-adapter
 
 export interface FastOcrOutcome {
   regions: PaddleOcrRegion[];
+  rawLines: FastOcrLineItem[][];
   initializationMs: number;
   ocrMs: number;
 }
@@ -39,6 +40,7 @@ export async function fastOcrRecognize(
     );
     return {
       regions: adaptPpuLinesToRegions(result.lines),
+      rawLines: result.lines,
       initializationMs: result.initializationMs,
       ocrMs: result.ocrMs,
     };

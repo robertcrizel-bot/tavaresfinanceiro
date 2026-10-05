@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => ({
   toast: vi.fn(),
   paddleRecognize: vi.fn(),
   fastOcrRecognize: vi.fn(),
-  hybridOcrRecognize: vi.fn(),
   disposePaddleRecognizer: vi.fn(),
   releaseDocumentOrientationSession: vi.fn(),
   buildPaddleReceiptResult: vi.fn(),
@@ -49,9 +48,6 @@ vi.mock("@/lib/ocr-paddle-test/recognize", () => ({
 }));
 vi.mock("@/lib/fast-ocr", () => ({
   fastOcrRecognize: mocks.fastOcrRecognize,
-}));
-vi.mock("@/lib/hybrid-ocr", () => ({
-  hybridOcrRecognize: mocks.hybridOcrRecognize,
 }));
 vi.mock("@/lib/ocr-paddle-test/receiptResult", () => ({
   buildPaddleReceiptResult: mocks.buildPaddleReceiptResult,
@@ -144,45 +140,20 @@ function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult())
   });
   mocks.buildPaddleReceiptResult.mockReturnValue(result);
   mocks.fastOcrRecognize.mockResolvedValue({
-    regions: [{ text: "MERCADO CENTRAL", confidence: 0.9, bbox: [[0, 0], [10, 0], [10, 5], [0, 5]] }],
+    regions: [
+      { text: "MERCADO CENTRAL", confidence: 0.9, bbox: [[0, 0], [10, 0], [10, 5], [0, 5]] },
+      { text: "CREME LEITE UHT ITALAC 200G TP", confidence: 0.8, bbox: [[0, 10], [60, 10], [60, 15], [0, 15]] },
+      { text: "2,75", confidence: 0.95, bbox: [[80, 10], [90, 10], [90, 15], [80, 15]] },
+    ],
+    rawLines: [
+      [{ text: "MERCADO CENTRAL", box: { x: 0, y: 0, width: 10, height: 5 }, confidence: 0.9123 }],
+      [
+        { text: "CREME LEITE UHT ITALAC 200G TP", box: { x: 0, y: 10, width: 60, height: 5 }, confidence: 0.8123 },
+        { text: "2,75", box: { x: 80, y: 10, width: 10, height: 5 }, confidence: 0.9512 },
+      ],
+    ],
     initializationMs: 1500,
     ocrMs: 8000,
-  });
-  mocks.hybridOcrRecognize.mockResolvedValue({
-    regions: [{ text: "MERCADO CENTRAL", confidence: 0.9, bbox: [[0, 0], [10, 0], [10, 5], [0, 5]] }],
-    initializationMs: 1200,
-    firstPassMs: 21000,
-    suspiciousCount: 2,
-    smallInitializationMs: 3400,
-    smallCropsMs: 1600,
-    cropsProcessed: 2,
-    mergeMs: 120,
-    crops: [
-      {
-        index: 1,
-        reason: "missing-price",
-        originalText: "CREME LEITE UHT ITALAC 200G TP",
-        cropWidth: 1200,
-        cropHeight: 48,
-        sentWidth: 2400,
-        sentHeight: 96,
-        scale: 2,
-        recognizedText: "CREME LEITE UHT ITALAC 200G TP | 2,75",
-        preview: new Uint8Array([0xff, 0xd8, 0xff, 0xd9]).buffer,
-      },
-      {
-        index: 2,
-        reason: "low-confidence",
-        originalText: "CREME LEITE UHT ITALAC 200G TP",
-        cropWidth: 1180,
-        cropHeight: 52,
-        sentWidth: 1770,
-        sentHeight: 78,
-        scale: 1.5,
-        recognizedText: "CREME LEITE UHT ITALAC 200G TP | 2,75",
-        preview: new Uint8Array([0xff, 0xd8, 0xff, 0xd9]).buffer,
-      },
-    ],
   });
 }
 
@@ -316,6 +287,8 @@ describe("ReceiptImport metadata", () => {
     expect(mocks.disposePaddleRecognizer).not.toHaveBeenCalled();
     expect(mocks.buildPaddleReceiptResult).toHaveBeenCalledWith([
       expect.objectContaining({ text: "MERCADO CENTRAL" }),
+      expect.objectContaining({ text: "CREME LEITE UHT ITALAC 200G TP" }),
+      expect.objectContaining({ text: "2,75" }),
     ]);
 
     const diagnostics = await screen.findByTestId("fast-ocr-diagnostics");
@@ -327,59 +300,23 @@ describe("ReceiptImport metadata", () => {
     expect(diagnostics).toHaveTextContent("Imagem OCR:1200 × 1600");
     expect(screen.queryByTestId("free-ocr-diagnostics")).not.toBeInTheDocument();
 
+    const rawOutput = await screen.findByTestId("fast-ocr-raw-output");
+    expect(rawOutput).toHaveTextContent("SAÍDA BRUTA DO V6 TINY");
+    expect(rawOutput).toHaveTextContent('#1 "MERCADO CENTRAL" | conf=0.9123 | box=0,0,10,5');
+    expect(rawOutput).toHaveTextContent('#2 "CREME LEITE UHT ITALAC 200G TP" | conf=0.8123 | box=0,10,60,5');
+    expect(rawOutput).toHaveTextContent('#3 "2,75" | conf=0.9512 | box=80,10,10,5');
+
+    const groupedLines = await screen.findByTestId("fast-ocr-grouped-lines");
+    expect(groupedLines).toHaveTextContent("APÓS AGRUPAMENTO");
+    expect(groupedLines).toHaveTextContent("#1 MERCADO CENTRAL");
+    expect(groupedLines).toHaveTextContent("#2 CREME LEITE UHT ITALAC 200G TP 2,75");
+    expect(groupedLines).toHaveTextContent('regiões: ["CREME LEITE UHT ITALAC 200G TP","2,75"]');
+
     fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
     expect(mocks.addTransaction).toHaveBeenCalledWith(
       expect.objectContaining({ amount: 120, title: "Mercado Central" }),
       expect.objectContaining({ attachments: [file] }),
     );
-  });
-
-  it("runs the experimental hybrid OCR on the prepared image and shows its diagnostics", async () => {
-    const { container } = render(<ReceiptImport />);
-    const input = container.querySelector('input[type="file"]');
-    const file = new File(["receipt"], "receipt-hybrid.jpg", { type: "image/jpeg" });
-
-    fireEvent.change(input!, { target: { files: [file] } });
-
-    await waitFor(() => expect(screen.getByRole("button", { name: "🚀 Testar OCR híbrido" })).toBeInTheDocument());
-    expect(mocks.hybridOcrRecognize).not.toHaveBeenCalled();
-
-    fireEvent.click(screen.getByRole("button", { name: "🚀 Testar OCR híbrido" }));
-
-    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
-    expect(mocks.prepareReceiptForLocalOcr).toHaveBeenCalledWith(file);
-    expect(mocks.hybridOcrRecognize).toHaveBeenCalledWith(file, 1200, 1600, expect.any(Function));
-    expect(mocks.paddleRecognize).not.toHaveBeenCalled();
-    expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
-    expect(mocks.parseReceipt).not.toHaveBeenCalled();
-
-    const diagnostics = await screen.findByTestId("hybrid-ocr-diagnostics");
-    expect(diagnostics).toHaveTextContent("DIAGNÓSTICO OCR HÍBRIDO");
-    expect(diagnostics).toHaveTextContent("Tiny - inicialização:1.2 s");
-    expect(diagnostics).toHaveTextContent("Tiny - primeira passagem:21.0 s");
-    expect(diagnostics).toHaveTextContent("Regiões suspeitas:2");
-    expect(diagnostics).toHaveTextContent("Small - inicialização:3.4 s");
-    expect(diagnostics).toHaveTextContent("Small - OCR dos crops:1.6 s");
-    expect(diagnostics).toHaveTextContent("Crops processados:2");
-    expect(diagnostics).toHaveTextContent("Média por crop (Small):0.8 s");
-    expect(diagnostics).toHaveTextContent("Parser/merge:");
-    expect(diagnostics).toHaveTextContent("TOTAL:");
-    expect(diagnostics).toHaveTextContent("Imagem principal:1200 × 1600");
-    expect(screen.queryByTestId("fast-ocr-diagnostics")).not.toBeInTheDocument();
-    expect(screen.queryByTestId("free-ocr-diagnostics")).not.toBeInTheDocument();
-
-    const cropPreviews = await screen.findByTestId("hybrid-ocr-crop-previews");
-    expect(cropPreviews).toHaveTextContent("CROPS ENVIADOS AO SMALL");
-    expect(cropPreviews).toHaveTextContent("Crop 1");
-    expect(cropPreviews).toHaveTextContent("Motivo:missing-price");
-    expect(cropPreviews).toHaveTextContent("Texto/linha original:CREME LEITE UHT ITALAC 200G TP");
-    expect(cropPreviews).toHaveTextContent("Dimensão original do crop:1200 × 48");
-    expect(cropPreviews).toHaveTextContent("Dimensão enviada ao Small:2400 × 96");
-    expect(cropPreviews).toHaveTextContent("Escala:2");
-    expect(cropPreviews).toHaveTextContent("Small reconheceu:CREME LEITE UHT ITALAC 200G TP | 2,75");
-    expect(cropPreviews).toHaveTextContent("Crop 2");
-    expect(cropPreviews).toHaveTextContent("Dimensão original do crop:1180 × 52");
-    expect(cropPreviews).toHaveTextContent("Escala:1.5");
   });
 
   it("does not show the removed local OCR development controls after file selection", async () => {
@@ -392,6 +329,9 @@ describe("ReceiptImport metadata", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "Testar OCR local" })).not.toBeInTheDocument();
     expect(screen.queryByText("Resultado do OCR Local")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "🚀 Testar OCR híbrido" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("hybrid-ocr-diagnostics")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("hybrid-ocr-crop-previews")).not.toBeInTheDocument();
   });
 
   it("opens the internal rear camera without a capture input", async () => {

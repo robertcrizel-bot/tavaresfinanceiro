@@ -16,7 +16,13 @@ import { disposePaddleRecognizer, paddleRecognize } from "@/lib/ocr-paddle-test/
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
 import { fastOcrRecognize } from "@/lib/fast-ocr";
-import { hybridOcrRecognize, type HybridCropPreviewData } from "@/lib/hybrid-ocr";
+import type { FastOcrBox } from "@/lib/fast-ocr-adapter";
+import {
+  summarizeFastOcrGroupedLines,
+  summarizeFastOcrRawLines,
+  type FastOcrGroupedLineDebug,
+  type FastOcrRawRegionDebug,
+} from "@/lib/fast-ocr-debug";
 import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientation";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
@@ -77,56 +83,15 @@ interface FastOcrDiagnostics {
   parserMs: number;
   totalMs: number;
   ocrInputDimensions: { width: number; height: number } | null;
-}
-
-interface HybridOcrDiagnostics {
-  initializationMs: number;
-  firstPassMs: number;
-  suspiciousCount: number;
-  smallInitializationMs: number;
-  smallCropsMs: number;
-  cropsProcessed: number;
-  averageCropMs: number | null;
-  parserMergeMs: number;
-  totalMs: number;
-  ocrInputDimensions: { width: number; height: number } | null;
+  rawRegions: FastOcrRawRegionDebug[];
+  groupedLines: FastOcrGroupedLineDebug[];
 }
 
 const formatSeconds = (ms: number | null) => ms === null ? "—" : `${(ms / 1000).toFixed(1)} s`;
 const formatDimensions = (dimensions: { width: number; height: number } | null) =>
   dimensions ? `${dimensions.width} × ${dimensions.height}` : "indisponível";
-
-interface HybridCropPreviewView {
-  index: number;
-  reason: string;
-  originalText: string;
-  cropWidth: number;
-  cropHeight: number;
-  sentWidth: number;
-  sentHeight: number;
-  scale: number;
-  recognizedText: string;
-  url: string;
-}
-
-function toHybridCropPreviewViews(crops: HybridCropPreviewData[]): HybridCropPreviewView[] {
-  return crops.map((crop) => {
-    const blob = new Blob([crop.preview], { type: "image/jpeg" });
-    const url = typeof URL.createObjectURL === "function" ? URL.createObjectURL(blob) : "";
-    return {
-      index: crop.index,
-      reason: crop.reason,
-      originalText: crop.originalText,
-      cropWidth: crop.cropWidth,
-      cropHeight: crop.cropHeight,
-      sentWidth: crop.sentWidth,
-      sentHeight: crop.sentHeight,
-      scale: crop.scale,
-      recognizedText: crop.recognizedText,
-      url,
-    };
-  });
-}
+const formatBox = (box: FastOcrBox) =>
+  `${Math.round(box.x)},${Math.round(box.y)},${Math.round(box.width)},${Math.round(box.height)}`;
 
 export default function ReceiptImport() {
   const navigate = useNavigate();
@@ -151,21 +116,12 @@ export default function ReceiptImport() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [freeOcrDiagnostics, setFreeOcrDiagnostics] = useState<FreeOcrDiagnostics | null>(null);
   const [fastOcrDiagnostics, setFastOcrDiagnostics] = useState<FastOcrDiagnostics | null>(null);
-  const [hybridOcrDiagnostics, setHybridOcrDiagnostics] = useState<HybridOcrDiagnostics | null>(null);
-  const [hybridCropPreviews, setHybridCropPreviews] = useState<HybridCropPreviewView[]>([]);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const cameraRequestRef = useRef(0);
   const sharedChecked = useRef(false);
   const [shareDiag, setShareDiag] = useState<ShareDiagnostics | null>(null);
-
-  useEffect(() => () => {
-    if (typeof URL.revokeObjectURL !== "function") return;
-    for (const preview of hybridCropPreviews) {
-      if (preview.url) URL.revokeObjectURL(preview.url);
-    }
-  }, [hybridCropPreviews]);
 
   const buildPrefill = useCallback(
     (parsed: ParsedReceipt): Partial<Omit<Transaction, "id">> => {
@@ -205,8 +161,6 @@ export default function ReceiptImport() {
       setPendingFile(file);
       setFreeOcrDiagnostics(null);
       setFastOcrDiagnostics(null);
-      setHybridOcrDiagnostics(null);
-      setHybridCropPreviews([]);
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -289,12 +243,12 @@ export default function ReceiptImport() {
         ocrMs: number;
         parserMs: number;
         ocrInputDimensions: { width: number; height: number } | null;
+        rawRegions: FastOcrRawRegionDebug[];
+        groupedLines: FastOcrGroupedLineDebug[];
       } | null = null;
       setPendingFile(file);
       setFreeOcrDiagnostics(null);
       setFastOcrDiagnostics(null);
-      setHybridOcrDiagnostics(null);
-      setHybridCropPreviews([]);
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -303,6 +257,8 @@ export default function ReceiptImport() {
         const localImage = await prepareReceiptForLocalOcr(file);
         setReadStatus("Carregando modelo de OCR rápido...");
         const ocr = await fastOcrRecognize(localImage.image, (status) => setReadStatus(status));
+        const rawRegions = summarizeFastOcrRawLines(ocr.rawLines ?? []);
+        const groupedLines = summarizeFastOcrGroupedLines(ocr.regions);
         const parserStart = performance.now();
         const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
         const parserMs = performance.now() - parserStart;
@@ -311,6 +267,8 @@ export default function ReceiptImport() {
           ocrMs: ocr.ocrMs,
           parserMs,
           ocrInputDimensions: localImage.metrics.outputDimensions,
+          rawRegions,
+          groupedLines,
         };
 
         if (!parsed.is_receipt) {
@@ -345,109 +303,10 @@ export default function ReceiptImport() {
             parserMs: Math.round(completedRun.parserMs),
             totalMs: Math.round(performance.now() - totalStart),
             ocrInputDimensions: completedRun.ocrInputDimensions,
+            rawRegions: completedRun.rawRegions,
+            groupedLines: completedRun.groupedLines,
           });
         }
-        setLoading(false);
-        setReadStatus("");
-      }
-      if (shouldOpenForm) setFormOpen(true);
-    },
-    [buildPrefill],
-  );
-
-  const processFileHybrid = useCallback(
-    async (file: File) => {
-      const totalStart = performance.now();
-      let shouldOpenForm = false;
-      let completedRun: {
-        initializationMs: number;
-        firstPassMs: number;
-        suspiciousCount: number;
-        smallInitializationMs: number;
-        smallCropsMs: number;
-        cropsProcessed: number;
-        mergeMs: number;
-        parserMs: number;
-        ocrInputDimensions: { width: number; height: number } | null;
-      } | null = null;
-      let cropViews: HybridCropPreviewView[] = [];
-      setPendingFile(file);
-      setFreeOcrDiagnostics(null);
-      setFastOcrDiagnostics(null);
-      setHybridOcrDiagnostics(null);
-      setHybridCropPreviews([]);
-      setLoading(true);
-      setError(null);
-      setDuplicate(false);
-      setReadStatus("Preparando imagem...");
-      try {
-        const localImage = await prepareReceiptForLocalOcr(file);
-        const { width, height } = localImage.metrics.outputDimensions;
-        setReadStatus("Carregando modelo de OCR híbrido...");
-        const ocr = await hybridOcrRecognize(
-          localImage.image,
-          width,
-          height,
-          (status) => setReadStatus(status),
-        );
-        cropViews = toHybridCropPreviewViews(ocr.crops ?? []);
-        const parserStart = performance.now();
-        const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
-        const parserMs = performance.now() - parserStart;
-        completedRun = {
-          initializationMs: ocr.initializationMs,
-          firstPassMs: ocr.firstPassMs,
-          suspiciousCount: ocr.suspiciousCount,
-          smallInitializationMs: ocr.smallInitializationMs,
-          smallCropsMs: ocr.smallCropsMs,
-          cropsProcessed: ocr.cropsProcessed,
-          mergeMs: ocr.mergeMs,
-          parserMs,
-          ocrInputDimensions: localImage.metrics.outputDimensions,
-        };
-
-        if (!parsed.is_receipt) {
-          setError("Essa imagem não parece ser um comprovante. Tente outra foto mais nítida.");
-          return;
-        }
-        if (parsed.receipt_id) {
-          const { data: existing } = await supabase
-            .from("transactions")
-            .select("id")
-            .eq("receipt_ref", parsed.receipt_id)
-            .limit(1);
-          if (existing && existing.length > 0) setDuplicate(true);
-        }
-        setReceiptFile(file);
-        setReceiptRef(parsed.receipt_id ?? null);
-        setLowConfidence(parsed.low_confidence_fields || []);
-        setPrefill(buildPrefill(parsed));
-        shouldOpenForm = true;
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com o OCR híbrido.");
-      } finally {
-        try {
-          await releaseDocumentOrientationSession();
-        } catch (releaseError) {
-          console.warn("[receipt-import] failed to release document orientation session", releaseError);
-        }
-        if (completedRun) {
-          setHybridOcrDiagnostics({
-            initializationMs: Math.round(completedRun.initializationMs),
-            firstPassMs: Math.round(completedRun.firstPassMs),
-            suspiciousCount: completedRun.suspiciousCount,
-            smallInitializationMs: Math.round(completedRun.smallInitializationMs),
-            smallCropsMs: Math.round(completedRun.smallCropsMs),
-            cropsProcessed: completedRun.cropsProcessed,
-            averageCropMs: completedRun.cropsProcessed > 0
-              ? Math.round(completedRun.smallCropsMs / completedRun.cropsProcessed)
-              : null,
-            parserMergeMs: Math.round(completedRun.mergeMs + completedRun.parserMs),
-            totalMs: Math.round(performance.now() - totalStart),
-            ocrInputDimensions: completedRun.ocrInputDimensions,
-          });
-        }
-        setHybridCropPreviews(cropViews);
         setLoading(false);
         setReadStatus("");
       }
@@ -682,9 +541,6 @@ export default function ReceiptImport() {
                   <Button variant="outline" className="gap-2" disabled={loading} onClick={() => void processFileFast(pendingFile)}>
                     ⚡ Testar OCR rápido
                   </Button>
-                  <Button variant="outline" className="gap-2" disabled={loading} onClick={() => void processFileHybrid(pendingFile)}>
-                    🚀 Testar OCR híbrido
-                  </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">A leitura gratuita usa o OCR local e tem custo R$ 0,00.</p>
               </div>
@@ -751,60 +607,38 @@ export default function ReceiptImport() {
               <dd className="font-semibold text-foreground">{formatSeconds(fastOcrDiagnostics.totalMs)}</dd>
               <dt>Imagem OCR:</dt><dd>{formatDimensions(fastOcrDiagnostics.ocrInputDimensions)}</dd>
             </dl>
-          </div>
-        )}
 
-        {hybridOcrDiagnostics && !loading && (
-          <div data-testid="hybrid-ocr-diagnostics" className="rounded-md border border-border bg-muted/30 p-3 text-xs">
-            <h3 className="mb-2 text-sm font-semibold text-foreground">DIAGNÓSTICO OCR HÍBRIDO</h3>
-            <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-muted-foreground">
-              <dt>Tiny - inicialização:</dt><dd>{formatSeconds(hybridOcrDiagnostics.initializationMs)}</dd>
-              <dt>Tiny - primeira passagem:</dt><dd>{formatSeconds(hybridOcrDiagnostics.firstPassMs)}</dd>
-              <dt>Regiões suspeitas:</dt><dd>{hybridOcrDiagnostics.suspiciousCount}</dd>
-              <dt>Small - inicialização:</dt><dd>{formatSeconds(hybridOcrDiagnostics.smallInitializationMs)}</dd>
-              <dt>Small - OCR dos crops:</dt><dd>{formatSeconds(hybridOcrDiagnostics.smallCropsMs)}</dd>
-              <dt>Crops processados:</dt><dd>{hybridOcrDiagnostics.cropsProcessed}</dd>
-              <dt>Média por crop (Small):</dt><dd>{formatSeconds(hybridOcrDiagnostics.averageCropMs)}</dd>
-              <dt>Parser/merge:</dt><dd>{formatSeconds(hybridOcrDiagnostics.parserMergeMs)}</dd>
-              <dt className="font-semibold text-foreground">TOTAL:</dt>
-              <dd className="font-semibold text-foreground">{formatSeconds(hybridOcrDiagnostics.totalMs)}</dd>
-              <dt>Imagem principal:</dt><dd>{formatDimensions(hybridOcrDiagnostics.ocrInputDimensions)}</dd>
-            </dl>
-          </div>
-        )}
+            <div data-testid="fast-ocr-raw-output">
+              <h4 className="mb-1 mt-3 text-sm font-semibold text-foreground">
+                SAÍDA BRUTA DO V6 TINY
+              </h4>
+              <ol className="space-y-0.5 text-muted-foreground">
+                {fastOcrDiagnostics.rawRegions.map((region) => (
+                  <li key={region.index} className="whitespace-pre-wrap break-all">
+                    #{region.index} "{region.text}" | conf={region.confidence} | box={formatBox(region.box)}
+                  </li>
+                ))}
+                {fastOcrDiagnostics.rawRegions.length === 0 && (
+                  <li className="text-muted-foreground">(nenhuma região retornada)</li>
+                )}
+              </ol>
+            </div>
 
-        {hybridOcrDiagnostics && hybridCropPreviews.length > 0 && !loading && (
-          <div data-testid="hybrid-ocr-crop-previews" className="rounded-md border border-border bg-muted/30 p-3 text-xs">
-            <h3 className="mb-2 text-sm font-semibold text-foreground">CROPS ENVIADOS AO SMALL</h3>
-            <div className="space-y-3">
-              {hybridCropPreviews.map((crop) => (
-                <div key={crop.index} className="rounded border border-border/70 bg-background p-2">
-                  <p className="mb-1 font-semibold text-foreground">Crop {crop.index}</p>
-                  {crop.url ? (
-                    <img
-                      src={crop.url}
-                      alt={`Crop ${crop.index}`}
-                      className="mb-2 max-h-40 w-auto max-w-full rounded border border-border/60"
-                    />
-                  ) : (
-                    <p className="mb-2 text-muted-foreground">Prévia indisponível</p>
-                  )}
-                  <dl className="grid grid-cols-[auto_minmax(0,1fr)] gap-x-2 gap-y-1 text-muted-foreground">
-                    <dt className="whitespace-nowrap text-foreground">Motivo:</dt>
-                    <dd className="break-words">{crop.reason}</dd>
-                    <dt className="whitespace-nowrap text-foreground">Texto/linha original:</dt>
-                    <dd className="break-words">{crop.originalText || "—"}</dd>
-                    <dt className="whitespace-nowrap text-foreground">Dimensão original do crop:</dt>
-                    <dd className="break-words">{crop.cropWidth} × {crop.cropHeight}</dd>
-                    <dt className="whitespace-nowrap text-foreground">Dimensão enviada ao Small:</dt>
-                    <dd className="break-words">{crop.sentWidth} × {crop.sentHeight}</dd>
-                    <dt className="whitespace-nowrap text-foreground">Escala:</dt>
-                    <dd className="break-words">{crop.scale}</dd>
-                    <dt className="whitespace-nowrap text-foreground">Small reconheceu:</dt>
-                    <dd className="break-words">{crop.recognizedText || "—"}</dd>
-                  </dl>
-                </div>
-              ))}
+            <div data-testid="fast-ocr-grouped-lines">
+              <h4 className="mb-1 mt-3 text-sm font-semibold text-foreground">
+                APÓS AGRUPAMENTO
+              </h4>
+              <ol className="space-y-0.5 text-muted-foreground">
+                {fastOcrDiagnostics.groupedLines.map((line) => (
+                  <li key={line.index} className="whitespace-pre-wrap break-all">
+                    #{line.index} {line.text}
+                    {line.parts.length > 1 ? `\n  regiões: ${JSON.stringify(line.parts)}` : null}
+                  </li>
+                ))}
+                {fastOcrDiagnostics.groupedLines.length === 0 && (
+                  <li className="text-muted-foreground">(nenhuma linha agrupada)</li>
+                )}
+              </ol>
             </div>
           </div>
         )}
