@@ -35,9 +35,78 @@ const TOTAL_MARKER_PATTERNS: RegExp[] = [
   /total\s*geral/i,
 ];
 
+const TOTAL_LABEL_WORD_SETS: readonly (readonly string[])[] = [
+  ["valor", "a", "pagar"],
+  ["valor", "pago"],
+  ["valor", "total"],
+  ["total", "geral"],
+];
+const TOTAL_LABEL_MAX_EDIT_DISTANCE = 2;
+
 const EXCLUDE_TOTAL_LINE_RE =
   /(?:descont|troco|subtotal|sub\s*total|incidentes|unit[aá]rio|pre[çc]o\s*unit|vlr?\s*unit)/i;
 const MONEY_TOKEN_RE = /(?:\d{1,3}(?:\.\d{3})+,\d{2}|\d+[.,]\d{2})/;
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  let previous = Array.from({ length: cols }, (_, index) => index);
+  for (let i = 1; i < rows; i++) {
+    const current = [i];
+    for (let j = 1; j < cols; j++) {
+      current[j] = Math.min(
+        previous[j] + 1,
+        current[j - 1] + 1,
+        previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    previous = current;
+  }
+  return previous[cols - 1];
+}
+
+function maxWordDistance(target: string): number {
+  if (target.length >= 5) return 2;
+  if (target.length === 4) return 1;
+  return 0;
+}
+
+/**
+ * Tolerant end index (into the original text) of a known total label degraded by
+ * common OCR character errors, e.g. "UALOR TOTAL" -> "valor total".
+ * Requires a word-level match of one known label with at most
+ * TOTAL_LABEL_MAX_EDIT_DISTANCE corrections in total, so unrelated fiscal lines
+ * (payment methods, unit prices, PIX rows) never qualify.
+ */
+function fuzzyTotalLabelEnd(text: string): number | null {
+  const matches = [...text.matchAll(/[a-z0-9]+/gi)];
+  const words = matches.map((match) => ({
+    word: match[0].toLowerCase(),
+    end: (match.index ?? 0) + match[0].length,
+  }));
+  for (const label of TOTAL_LABEL_WORD_SETS) {
+    if (words.length < label.length) continue;
+    for (let start = 0; start + label.length <= words.length; start++) {
+      let total = 0;
+      let matched = true;
+      for (let offset = 0; offset < label.length; offset++) {
+        const target = label[offset];
+        const candidate = words[start + offset].word;
+        const distance = candidate === target ? 0 : levenshtein(candidate, target);
+        if (distance > maxWordDistance(target)) {
+          matched = false;
+          break;
+        }
+        total += distance;
+      }
+      if (matched && total <= TOTAL_LABEL_MAX_EDIT_DISTANCE) {
+        return words[start + label.length - 1].end;
+      }
+    }
+  }
+  return null;
+}
 
 function roundCents(value: number): number {
   return Math.round(value * 100) / 100;
@@ -151,6 +220,23 @@ function extractReceiptTotal(
             const fragmentedNextLine = fragmentedMoneyInLine(lines[i + 1], 0);
             if (fragmentedNextLine !== null) return fragmentedNextLine;
           }
+        }
+      }
+    }
+    for (let i = from; i < lines.length; i++) {
+      const text = lineText(lines[i]);
+      const labelEnd = fuzzyTotalLabelEnd(text);
+      if (labelEnd === null) continue;
+      if (EXCLUDE_TOTAL_LINE_RE.test(text)) continue;
+      const sameLine = moneyAfterIndex(text, labelEnd);
+      if (sameLine !== null) return sameLine;
+      const nextLine = lineText(lines[i + 1]).trim();
+      if (nextLine && !EXCLUDE_TOTAL_LINE_RE.test(nextLine)) {
+        const nextValue = moneyAfterIndex(nextLine, 0);
+        if (nextValue !== null) return nextValue;
+        if (lines[i + 1] && linesAreClose(lines[i], lines[i + 1])) {
+          const fragmentedNextLine = fragmentedMoneyInLine(lines[i + 1], 0);
+          if (fragmentedNextLine !== null) return fragmentedNextLine;
         }
       }
     }

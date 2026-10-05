@@ -3,6 +3,7 @@ import {
   buildPaddleReceiptResult,
   selectEffectiveValue,
 } from "./receiptResult";
+import { paddleToParsedReceipt } from "./paddleToParsedReceipt";
 import { drogalRegions } from "./__fixtures__/drogal.fixture";
 import { fonsecaRegions } from "./__fixtures__/fonseca.fixture";
 import { hortifrutiRegions } from "./__fixtures__/hortifruti.fixture";
@@ -580,5 +581,84 @@ describe("buildPaddleReceiptResult rules", () => {
     ]);
 
     expect(result.receiptTotal).toBe(40);
+  });
+});
+
+describe("buildPaddleReceiptResult OCR-degraded total labels", () => {
+  function region(text: string, x: number, y: number, width: number, height = 30) {
+    return {
+      text,
+      confidence: 0.95,
+      bbox: [
+        [x, y],
+        [x + width, y],
+        [x + width, y + height],
+        [x, y + height],
+      ] as [number, number][],
+    };
+  }
+
+  it('reads "VALOR TOTAL R$ 65,67" with comma decimals', () => {
+    const result = buildPaddleReceiptResult([
+      region("FONSECA SUPERMERCADOS LTDA", 120, 300, 300),
+      region("VALOR TOTAL R$ 65,67", 151, 1239, 300),
+    ]);
+
+    expect(result.receiptTotal).toBeCloseTo(65.67, 2);
+  });
+
+  it('reads "VALOR TOTAL R$ 65.67" with dot decimals', () => {
+    const result = buildPaddleReceiptResult([
+      region("FONSECA SUPERMERCADOS LTDA", 120, 300, 300),
+      region("VALOR TOTAL R$ 65.67", 151, 1239, 300),
+    ]);
+
+    expect(result.receiptTotal).toBeCloseTo(65.67, 2);
+  });
+
+  it('reads the OCR-degraded "UALOR TOTAL R$ 65.67" into amount 65.67', () => {
+    const result = buildPaddleReceiptResult([
+      region("FONSECA SUPERMERCADOS LTDA", 120, 300, 300),
+      region("UALOR TOTAL R$ 65.67", 151, 1239, 300),
+    ]);
+
+    expect(result.receiptTotal).toBeCloseTo(65.67, 2);
+
+    const parsed = paddleToParsedReceipt(result);
+    expect(parsed.amount).toBeCloseTo(65.67, 2);
+    expect(parsed.low_confidence_fields).not.toContain("amount");
+  });
+
+  it("reads label and value from separate regions of the same line", () => {
+    const result = buildPaddleReceiptResult([
+      region("FONSECA SUPERMERCADOS LTDA", 120, 300, 300),
+      region("CARTEIRA DIGITAL", 151, 964, 200),
+      region("65,67", 784, 977, 68),
+      region("UALOR TOTAL", 151, 1239, 125),
+      region("R$ 65.67", 467, 1257, 97, 23),
+    ]);
+
+    expect(result.receiptTotal).toBeCloseTo(65.67, 2);
+  });
+
+  it("never picks the PIX payment row as the total", () => {
+    const withPix = buildPaddleReceiptResult([
+      region("FONSECA SUPERMERCADOS LTDA", 120, 300, 300),
+      region("CARTEIRA DIGITAL", 151, 964, 200),
+      region("65,67", 784, 977, 68),
+      region("UALOR TOTAL", 151, 1239, 125),
+      region("R$ 65.67", 467, 1257, 97, 23),
+      region("VENDA PIX COMPRA", 127, 1386, 226),
+      region("12,05", 784, 1390, 68, 26),
+    ]);
+    expect(withPix.receiptTotal).toBeCloseTo(65.67, 2);
+    expect(withPix.receiptTotal).not.toBeCloseTo(12.05, 2);
+
+    const pixOnly = buildPaddleReceiptResult([
+      region("FONSECA SUPERMERCADOS LTDA", 120, 300, 300),
+      region("VENDA PIX COMPRA", 127, 1386, 226),
+      region("12,05", 784, 1390, 68, 26),
+    ]);
+    expect(pixOnly.receiptTotal).toBeNull();
   });
 });
