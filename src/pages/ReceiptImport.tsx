@@ -93,6 +93,60 @@ const formatDimensions = (dimensions: { width: number; height: number } | null) 
 const formatBox = (box: FastOcrBox) =>
   `${Math.round(box.x)},${Math.round(box.y)},${Math.round(box.width)},${Math.round(box.height)}`;
 
+function buildFastOcrDiagnosticsText(diagnostics: FastOcrDiagnostics): string {
+  const lines: string[] = [];
+  lines.push("DIAGNÓSTICO OCR RÁPIDO");
+  lines.push("");
+  lines.push("MÉTRICAS");
+  lines.push(`Inicialização: ${formatSeconds(diagnostics.initializationMs)}`);
+  lines.push(`OCR: ${formatSeconds(diagnostics.ocrMs)}`);
+  lines.push(`Parser: ${formatSeconds(diagnostics.parserMs)}`);
+  lines.push(`TOTAL: ${formatSeconds(diagnostics.totalMs)}`);
+  lines.push("");
+  lines.push("IMAGEM");
+  lines.push(`Imagem OCR: ${formatDimensions(diagnostics.ocrInputDimensions)}`);
+  lines.push(`Regiões (V6 Tiny): ${diagnostics.rawRegions.length}`);
+  lines.push(`Linhas agrupadas: ${diagnostics.groupedLines.length}`);
+  lines.push("");
+  lines.push("SAÍDA BRUTA DO V6 TINY");
+  if (diagnostics.rawRegions.length === 0) lines.push("(nenhuma região retornada)");
+  for (const region of diagnostics.rawRegions) {
+    lines.push(`#${region.index} "${region.text}" | conf=${region.confidence} | box=${formatBox(region.box)}`);
+  }
+  lines.push("");
+  lines.push("APÓS AGRUPAMENTO");
+  if (diagnostics.groupedLines.length === 0) lines.push("(nenhuma linha agrupada)");
+  for (const line of diagnostics.groupedLines) {
+    lines.push(`#${line.index} ${line.text}`);
+    lines.push(`  regiões: ${JSON.stringify(line.parts)}`);
+  }
+  return lines.join("\n");
+}
+
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  const clipboardWrite =
+    typeof navigator !== "undefined" && navigator.clipboard?.writeText
+      ? navigator.clipboard.writeText(text).then(() => true, () => false)
+      : Promise.resolve(false);
+  if (await clipboardWrite) return true;
+  try {
+    const textarea = document.createElement("textarea");
+    textarea.value = text;
+    textarea.setAttribute("readonly", "");
+    textarea.style.position = "fixed";
+    textarea.style.top = "0";
+    textarea.style.opacity = "0";
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+    const copied = typeof document.execCommand === "function" ? document.execCommand("copy") : false;
+    document.body.removeChild(textarea);
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
 export default function ReceiptImport() {
   const navigate = useNavigate();
   const { addTransaction } = useFinance();
@@ -116,11 +170,13 @@ export default function ReceiptImport() {
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [freeOcrDiagnostics, setFreeOcrDiagnostics] = useState<FreeOcrDiagnostics | null>(null);
   const [fastOcrDiagnostics, setFastOcrDiagnostics] = useState<FastOcrDiagnostics | null>(null);
+  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const cameraRequestRef = useRef(0);
   const sharedChecked = useRef(false);
+  const copyFeedbackTimerRef = useRef<number | null>(null);
   const [shareDiag, setShareDiag] = useState<ShareDiagnostics | null>(null);
 
   const buildPrefill = useCallback(
@@ -249,6 +305,7 @@ export default function ReceiptImport() {
       setPendingFile(file);
       setFreeOcrDiagnostics(null);
       setFastOcrDiagnostics(null);
+      setCopyFeedback(null);
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -314,6 +371,23 @@ export default function ReceiptImport() {
     },
     [buildPrefill],
   );
+
+  useEffect(() => {
+    return () => {
+      if (copyFeedbackTimerRef.current !== null) window.clearTimeout(copyFeedbackTimerRef.current);
+    };
+  }, []);
+
+  const copyFastOcrDiagnostics = useCallback(async () => {
+    if (!fastOcrDiagnostics) return;
+    const copied = await copyTextToClipboard(buildFastOcrDiagnosticsText(fastOcrDiagnostics));
+    if (copyFeedbackTimerRef.current !== null) window.clearTimeout(copyFeedbackTimerRef.current);
+    setCopyFeedback(copied ? "Diagnóstico copiado" : "Não foi possível copiar");
+    copyFeedbackTimerRef.current = window.setTimeout(() => {
+      setCopyFeedback(null);
+      copyFeedbackTimerRef.current = null;
+    }, 2500);
+  }, [fastOcrDiagnostics]);
 
   const processFileWithAi = useCallback(
     async (file: File) => {
@@ -639,6 +713,23 @@ export default function ReceiptImport() {
                   <li className="text-muted-foreground">(nenhuma linha agrupada)</li>
                 )}
               </ol>
+            </div>
+
+            <div className="mt-3 flex flex-wrap items-center gap-2">
+              <Button
+                type="button"
+                variant="outline"
+                size="sm"
+                data-testid="fast-ocr-copy-button"
+                onClick={() => void copyFastOcrDiagnostics()}
+              >
+                📋 Copiar diagnóstico
+              </Button>
+              {copyFeedback && (
+                <span data-testid="fast-ocr-copy-feedback" className="text-muted-foreground">
+                  {copyFeedback}
+                </span>
+              )}
             </div>
           </div>
         )}

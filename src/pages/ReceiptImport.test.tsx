@@ -319,6 +319,64 @@ describe("ReceiptImport metadata", () => {
     );
   });
 
+  it("copies the whole fast OCR diagnostics with one button and without re-running the OCR", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    const { container } = render(<ReceiptImport />);
+    const input = container.querySelector('input[type="file"]');
+    const file = new File(["receipt"], "receipt-copy.jpg", { type: "image/jpeg" });
+    fireEvent.change(input!, { target: { files: [file] } });
+
+    fireEvent.click(await screen.findByRole("button", { name: "⚡ Testar OCR rápido" }));
+    await screen.findByTestId("fast-ocr-diagnostics");
+    expect(mocks.fastOcrRecognize).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(screen.getByRole("button", { name: "📋 Copiar diagnóstico" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+    const copied = writeText.mock.calls[0][0] as string;
+    expect(copied).toContain("DIAGNÓSTICO OCR RÁPIDO");
+    expect(copied).toContain("Inicialização: 1.5 s");
+    expect(copied).toContain("OCR: 8.0 s");
+    expect(copied).toContain("Imagem OCR: 1200 × 1600");
+    expect(copied).toContain("Regiões (V6 Tiny): 3");
+    expect(copied).toContain("Linhas agrupadas: 2");
+    expect(copied).toContain("SAÍDA BRUTA DO V6 TINY");
+    expect(copied).toContain('#1 "MERCADO CENTRAL" | conf=0.9123 | box=0,0,10,5');
+    expect(copied).toContain('#2 "CREME LEITE UHT ITALAC 200G TP" | conf=0.8123 | box=0,10,60,5');
+    expect(copied).toContain('#3 "2,75" | conf=0.9512 | box=80,10,10,5');
+    expect(copied).toContain("APÓS AGRUPAMENTO");
+    expect(copied).toContain('#1 MERCADO CENTRAL\n  regiões: ["MERCADO CENTRAL"]');
+    expect(copied).toContain('#2 CREME LEITE UHT ITALAC 200G TP 2,75\n  regiões: ["CREME LEITE UHT ITALAC 200G TP","2,75"]');
+
+    expect(await screen.findByTestId("fast-ocr-copy-feedback")).toHaveTextContent("Diagnóstico copiado");
+    expect(mocks.fastOcrRecognize).toHaveBeenCalledTimes(1);
+    expect(mocks.prepareReceiptForLocalOcr).toHaveBeenCalledTimes(1);
+  });
+
+  it("falls back to a hidden textarea copy when navigator.clipboard is unavailable", async () => {
+    Object.defineProperty(window.navigator, "clipboard", { value: undefined, configurable: true });
+    const execCommand = vi.fn(() => true);
+    Object.defineProperty(document, "execCommand", { value: execCommand, configurable: true });
+
+    const { container } = render(<ReceiptImport />);
+    const input = container.querySelector('input[type="file"]');
+    const file = new File(["receipt"], "receipt-copy-fallback.jpg", { type: "image/jpeg" });
+    fireEvent.change(input!, { target: { files: [file] } });
+
+    fireEvent.click(await screen.findByRole("button", { name: "⚡ Testar OCR rápido" }));
+    await screen.findByTestId("fast-ocr-diagnostics");
+
+    fireEvent.click(screen.getByRole("button", { name: "📋 Copiar diagnóstico" }));
+
+    await waitFor(() => expect(execCommand).toHaveBeenCalledWith("copy"));
+    expect(await screen.findByTestId("fast-ocr-copy-feedback")).toHaveTextContent("Diagnóstico copiado");
+    expect(document.querySelector("textarea")).toBeNull();
+    expect(mocks.fastOcrRecognize).toHaveBeenCalledTimes(1);
+    delete (document as unknown as Record<string, unknown>).execCommand;
+  });
+
   it("does not show the removed local OCR development controls after file selection", async () => {
     const { container } = render(<ReceiptImport />);
     const input = container.querySelector('input[type="file"]');
