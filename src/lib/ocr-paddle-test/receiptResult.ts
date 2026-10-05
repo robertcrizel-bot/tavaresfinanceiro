@@ -414,18 +414,6 @@ function unitsCompatible(a: string | null, b: string | null): boolean {
   return a === b;
 }
 
-function moneyValuesOf(item: PaddleReceiptItem): number[] {
-  const values: number[] = [];
-  for (const value of [
-    item.explicitFinalValue,
-    item.originalTotal,
-    item.unitPrice,
-  ]) {
-    if (value !== null) values.push(roundCents(value));
-  }
-  return values;
-}
-
 function fillRepeatedItemPrice(group: PaddleReceiptItem[]): void {
   const first = group[0];
   for (const item of group) {
@@ -436,10 +424,9 @@ function fillRepeatedItemPrice(group: PaddleReceiptItem[]): void {
 
   const values = new Set<number>();
   for (const item of group) {
-    for (const value of moneyValuesOf(item)) values.add(value);
+    if (item.effectiveValue !== null) values.add(roundCents(item.effectiveValue));
   }
   if (values.size !== 1) return;
-  if (!group.some((item) => item.effectiveValue !== null)) return;
 
   const value = [...values][0];
   for (const item of group) {
