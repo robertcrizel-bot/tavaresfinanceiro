@@ -153,8 +153,10 @@ function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult())
     initializationMs: 1200,
     firstPassMs: 21000,
     suspiciousCount: 2,
+    smallInitializationMs: 3400,
+    smallCropsMs: 1600,
     cropsProcessed: 2,
-    secondPassMs: 4300,
+    mergeMs: 120,
   });
 }
 
@@ -327,12 +329,14 @@ describe("ReceiptImport metadata", () => {
 
     const diagnostics = await screen.findByTestId("hybrid-ocr-diagnostics");
     expect(diagnostics).toHaveTextContent("DIAGNÓSTICO OCR HÍBRIDO");
-    expect(diagnostics).toHaveTextContent("Inicialização:1.2 s");
-    expect(diagnostics).toHaveTextContent("1ª passagem:21.0 s");
+    expect(diagnostics).toHaveTextContent("Tiny - inicialização:1.2 s");
+    expect(diagnostics).toHaveTextContent("Tiny - primeira passagem:21.0 s");
     expect(diagnostics).toHaveTextContent("Regiões suspeitas:2");
-    expect(diagnostics).toHaveTextContent("2ª passagem:4.3 s");
+    expect(diagnostics).toHaveTextContent("Small - inicialização:3.4 s");
+    expect(diagnostics).toHaveTextContent("Small - OCR dos crops:1.6 s");
     expect(diagnostics).toHaveTextContent("Crops processados:2");
-    expect(diagnostics).toHaveTextContent("Parser:");
+    expect(diagnostics).toHaveTextContent("Média por crop (Small):0.8 s");
+    expect(diagnostics).toHaveTextContent("Parser/merge:");
     expect(diagnostics).toHaveTextContent("TOTAL:");
     expect(diagnostics).toHaveTextContent("Imagem principal:1200 × 1600");
     expect(screen.queryByTestId("fast-ocr-diagnostics")).not.toBeInTheDocument();

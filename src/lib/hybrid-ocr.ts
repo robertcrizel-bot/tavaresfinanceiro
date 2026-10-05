@@ -5,8 +5,10 @@ export interface HybridOcrOutcome {
   initializationMs: number;
   firstPassMs: number;
   suspiciousCount: number;
+  smallInitializationMs: number;
+  smallCropsMs: number;
   cropsProcessed: number;
-  secondPassMs: number;
+  mergeMs: number;
 }
 
 type HybridOcrWorkerMessage =
@@ -17,8 +19,10 @@ type HybridOcrWorkerMessage =
       initializationMs: number;
       firstPassMs: number;
       suspiciousCount: number;
+      smallInitializationMs: number;
+      smallCropsMs: number;
       cropsProcessed: number;
-      secondPassMs: number;
+      mergeMs: number;
     }
   | { type: "error"; message: string };
 
@@ -54,8 +58,10 @@ export async function hybridOcrRecognize(
       initializationMs: result.initializationMs,
       firstPassMs: result.firstPassMs,
       suspiciousCount: result.suspiciousCount,
+      smallInitializationMs: result.smallInitializationMs,
+      smallCropsMs: result.smallCropsMs,
       cropsProcessed: result.cropsProcessed,
-      secondPassMs: result.secondPassMs,
+      mergeMs: result.mergeMs,
     };
   } finally {
     // Terminating the worker releases the model sessions and WASM memory on Android.

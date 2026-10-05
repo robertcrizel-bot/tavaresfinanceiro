@@ -83,9 +83,11 @@ interface HybridOcrDiagnostics {
   initializationMs: number;
   firstPassMs: number;
   suspiciousCount: number;
-  secondPassMs: number;
+  smallInitializationMs: number;
+  smallCropsMs: number;
   cropsProcessed: number;
-  parserMs: number;
+  averageCropMs: number | null;
+  parserMergeMs: number;
   totalMs: number;
   ocrInputDimensions: { width: number; height: number } | null;
 }
@@ -319,8 +321,10 @@ export default function ReceiptImport() {
         initializationMs: number;
         firstPassMs: number;
         suspiciousCount: number;
-        secondPassMs: number;
+        smallInitializationMs: number;
+        smallCropsMs: number;
         cropsProcessed: number;
+        mergeMs: number;
         parserMs: number;
         ocrInputDimensions: { width: number; height: number } | null;
       } | null = null;
@@ -349,8 +353,10 @@ export default function ReceiptImport() {
           initializationMs: ocr.initializationMs,
           firstPassMs: ocr.firstPassMs,
           suspiciousCount: ocr.suspiciousCount,
-          secondPassMs: ocr.secondPassMs,
+          smallInitializationMs: ocr.smallInitializationMs,
+          smallCropsMs: ocr.smallCropsMs,
           cropsProcessed: ocr.cropsProcessed,
+          mergeMs: ocr.mergeMs,
           parserMs,
           ocrInputDimensions: localImage.metrics.outputDimensions,
         };
@@ -385,9 +391,13 @@ export default function ReceiptImport() {
             initializationMs: Math.round(completedRun.initializationMs),
             firstPassMs: Math.round(completedRun.firstPassMs),
             suspiciousCount: completedRun.suspiciousCount,
-            secondPassMs: Math.round(completedRun.secondPassMs),
+            smallInitializationMs: Math.round(completedRun.smallInitializationMs),
+            smallCropsMs: Math.round(completedRun.smallCropsMs),
             cropsProcessed: completedRun.cropsProcessed,
-            parserMs: Math.round(completedRun.parserMs),
+            averageCropMs: completedRun.cropsProcessed > 0
+              ? Math.round(completedRun.smallCropsMs / completedRun.cropsProcessed)
+              : null,
+            parserMergeMs: Math.round(completedRun.mergeMs + completedRun.parserMs),
             totalMs: Math.round(performance.now() - totalStart),
             ocrInputDimensions: completedRun.ocrInputDimensions,
           });
@@ -702,12 +712,14 @@ export default function ReceiptImport() {
           <div data-testid="hybrid-ocr-diagnostics" className="rounded-md border border-border bg-muted/30 p-3 text-xs">
             <h3 className="mb-2 text-sm font-semibold text-foreground">DIAGNÓSTICO OCR HÍBRIDO</h3>
             <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-muted-foreground">
-              <dt>Inicialização:</dt><dd>{formatSeconds(hybridOcrDiagnostics.initializationMs)}</dd>
-              <dt>1ª passagem:</dt><dd>{formatSeconds(hybridOcrDiagnostics.firstPassMs)}</dd>
+              <dt>Tiny - inicialização:</dt><dd>{formatSeconds(hybridOcrDiagnostics.initializationMs)}</dd>
+              <dt>Tiny - primeira passagem:</dt><dd>{formatSeconds(hybridOcrDiagnostics.firstPassMs)}</dd>
               <dt>Regiões suspeitas:</dt><dd>{hybridOcrDiagnostics.suspiciousCount}</dd>
-              <dt>2ª passagem:</dt><dd>{formatSeconds(hybridOcrDiagnostics.secondPassMs)}</dd>
+              <dt>Small - inicialização:</dt><dd>{formatSeconds(hybridOcrDiagnostics.smallInitializationMs)}</dd>
+              <dt>Small - OCR dos crops:</dt><dd>{formatSeconds(hybridOcrDiagnostics.smallCropsMs)}</dd>
               <dt>Crops processados:</dt><dd>{hybridOcrDiagnostics.cropsProcessed}</dd>
-              <dt>Parser:</dt><dd>{formatSeconds(hybridOcrDiagnostics.parserMs)}</dd>
+              <dt>Média por crop (Small):</dt><dd>{formatSeconds(hybridOcrDiagnostics.averageCropMs)}</dd>
+              <dt>Parser/merge:</dt><dd>{formatSeconds(hybridOcrDiagnostics.parserMergeMs)}</dd>
               <dt className="font-semibold text-foreground">TOTAL:</dt>
               <dd className="font-semibold text-foreground">{formatSeconds(hybridOcrDiagnostics.totalMs)}</dd>
               <dt>Imagem principal:</dt><dd>{formatDimensions(hybridOcrDiagnostics.ocrInputDimensions)}</dd>

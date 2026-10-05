@@ -1,4 +1,4 @@
-import { PaddleOcrService, V6_TINY_MODEL } from "ppu-paddle-ocr/web";
+import { PaddleOcrService, V6_SMALL_MODEL, V6_TINY_MODEL } from "ppu-paddle-ocr/web";
 import { configureOrtWasm } from "@/lib/ocr-runtime";
 import { adaptPpuLinesToRegions } from "@/lib/fast-ocr-adapter";
 import { spatialGroup } from "@/lib/ocr-paddle-test/spatialGrouper";
@@ -36,13 +36,14 @@ function toMainImageCoords(
 
 scope.onmessage = async (event: MessageEvent<HybridRecognizeMessage>) => {
   const { image, imageWidth, imageHeight } = event.data;
-  let service: PaddleOcrService | null = null;
+  let tinyService: PaddleOcrService | null = null;
+  let smallService: PaddleOcrService | null = null;
   try {
     scope.postMessage({ type: "progress", message: "Carregando modelo de OCR híbrido..." });
     configureOrtWasm();
 
     const initializationStart = performance.now();
-    service = new PaddleOcrService({
+    tinyService = new PaddleOcrService({
       model: V6_TINY_MODEL,
       recognition: {
         charactersDictionary: [],
@@ -50,22 +51,40 @@ scope.onmessage = async (event: MessageEvent<HybridRecognizeMessage>) => {
         minimumConfidence: 0.4,
       },
     });
-    await service.initialize();
+    await tinyService.initialize();
     const initializationMs = Math.round(performance.now() - initializationStart);
 
     scope.postMessage({ type: "progress", message: "Reconhecendo texto..." });
     const firstPassStart = performance.now();
-    const firstResult = await service.recognize(image);
+    const firstResult = await tinyService.recognize(image);
     const firstPassRegions = adaptPpuLinesToRegions(firstResult.lines);
     const { lines: firstPassLines } = spatialGroup(firstPassRegions);
     const plan = planSecondPass(firstPassLines, imageWidth, imageHeight);
     const firstPassMs = Math.round(performance.now() - firstPassStart);
 
+    // Free the Tiny session before the Small one is created so both models are never resident together.
+    await tinyService.destroy();
+    tinyService = null;
+
     let regions = firstPassRegions;
     let cropsProcessed = 0;
-    let secondPassMs = 0;
+    let smallInitializationMs = 0;
+    let smallCropsMs = 0;
+    let mergeMs = 0;
     if (plan.items.length > 0) {
-      const secondPassStart = performance.now();
+      scope.postMessage({ type: "progress", message: "Carregando modelo Small do OCR híbrido..." });
+      const smallInitializationStart = performance.now();
+      smallService = new PaddleOcrService({
+        model: V6_SMALL_MODEL,
+        recognition: {
+          charactersDictionary: [],
+          strategy: "per-line",
+          minimumConfidence: 0.4,
+        },
+      });
+      await smallService.initialize();
+      smallInitializationMs = Math.round(performance.now() - smallInitializationStart);
+
       const bitmap = await createImageBitmap(new Blob([image], { type: "image/jpeg" }));
       try {
         const processed: CropLineResult[] = [];
@@ -95,7 +114,9 @@ scope.onmessage = async (event: MessageEvent<HybridRecognizeMessage>) => {
               width,
               height,
             );
-            const cropResult = await service.recognize(canvas);
+            const cropStart = performance.now();
+            const cropResult = await smallService.recognize(canvas);
+            smallCropsMs += performance.now() - cropStart;
             const cropRegions = toMainImageCoords(
               adaptPpuLinesToRegions(cropResult.lines),
               item.crop,
@@ -111,27 +132,35 @@ scope.onmessage = async (event: MessageEvent<HybridRecognizeMessage>) => {
           }
         }
         if (processed.length > 0) {
+          const mergeStart = performance.now();
           regions = mergePassRegions(firstPassRegions, firstPassLines, processed);
+          mergeMs = Math.round(performance.now() - mergeStart);
         }
       } finally {
         bitmap.close();
+        try {
+          await smallService.destroy();
+        } catch (disposeError) {
+          console.warn("[hybrid-ocr-worker] failed to dispose small service", disposeError);
+        }
+        smallService = null;
       }
-      secondPassMs = Math.round(performance.now() - secondPassStart);
     }
 
-    await service.destroy();
-    service = null;
     scope.postMessage({
       type: "result",
       regions,
       initializationMs,
       firstPassMs,
       suspiciousCount: plan.suspiciousCount,
+      smallInitializationMs,
+      smallCropsMs: Math.round(smallCropsMs),
       cropsProcessed,
-      secondPassMs,
+      mergeMs,
     });
   } catch (error) {
-    if (service) {
+    for (const service of [smallService, tinyService]) {
+      if (!service) continue;
       try {
         await service.destroy();
       } catch (disposeError) {
