@@ -32,6 +32,8 @@ const DESCRIPTION_TRAILING_QTY_RE =
   /(?:^|\s)(\d+)(?:\s*[Xx]\s*|\s*)(UN)$/i;
 
 const MONEY_FULL_RE = /^\d+[.,]\d{2}$/;
+const COLON_MONEY_FULL_RE = /^\d{1,3}:\d{2}(?!\d)$/;
+const MONEY_TOKEN_G_RE = /\d+[.,]\d{2}|\d{1,3}:\d{2}(?!\d)/g;
 const POR_RE = /\bpor\s+(\d+[.,]\d{2})\b/i;
 const DE_RE = /\bde\s+(\d+[.,]\d{2})\b/gi;
 const HEIGHT_GUARD_FACTOR = 2;
@@ -45,7 +47,7 @@ function hasSignificantAlphabetic(text: string): boolean {
 }
 
 function hasMoneyText(text: string): boolean {
-  return /\d+[.,]\d{2}(?!\d)/.test(text);
+  return /\d+[.,]\d{2}(?!\d)|\d{1,3}:\d{2}(?!\d)/.test(text);
 }
 
 function isComplementText(text: string): boolean {
@@ -109,6 +111,10 @@ function parseQuantity(raw: string): number | null {
 
 function parseMoney(raw: string): number | null {
   const text = raw.trim();
+  if (COLON_MONEY_FULL_RE.test(text)) {
+    const value = Number(text.replace(":", "."));
+    return Number.isFinite(value) ? value : null;
+  }
   if (!MONEY_FULL_RE.test(text)) return null;
   const value = Number(text.replace(",", "."));
   return Number.isFinite(value) ? value : null;
@@ -116,6 +122,7 @@ function parseMoney(raw: string): number | null {
 
 function extractMoneyValue(text: string): number | null {
   const trimmed = text.trim();
+  if (COLON_MONEY_FULL_RE.test(trimmed)) return parseMoney(trimmed);
   if (MONEY_FULL_RE.test(trimmed)) return parseMoney(trimmed);
   const ocr = trimmed.match(/^(\d+[.,]\d{2})\d$/);
   if (ocr) return parseMoney(ocr[1]);
@@ -347,7 +354,7 @@ function extractSuffixUnitPrice(text: string): number | null {
 
   for (const match of matches) {
     const remainder = text.slice((match.index ?? 0) + match[0].length);
-    const moneyMatch = remainder.match(/\d+[.,]\d{2}/);
+    const moneyMatch = remainder.match(/\d+[.,]\d{2}|\d{1,3}:\d{2}(?!\d)/);
     if (!moneyMatch) continue;
     const value = parseMoney(moneyMatch[0]);
     if (value !== null) best = value;
@@ -469,7 +476,7 @@ function extractMoniesAfterQty(text: string): {
 
   for (const match of matches) {
     const remainder = text.slice((match.index ?? 0) + match[0].length);
-    const tokens = remainder.match(/\d+[.,]\d{2}/g) ?? [];
+    const tokens = remainder.match(MONEY_TOKEN_G_RE) ?? [];
     const values: number[] = [];
     for (const token of tokens) {
       const value = parseMoney(token);
