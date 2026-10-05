@@ -355,6 +355,61 @@ describe("ReceiptImport metadata", () => {
     expect(mocks.prepareReceiptForLocalOcr).toHaveBeenCalledTimes(1);
   });
 
+  it("copies a large diagnostics text completely with 124 raw regions and 51 grouped lines, grouped section first", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, "clipboard", { value: { writeText }, configurable: true });
+
+    const rawLines = Array.from({ length: 62 }, (_, lineIndex) =>
+      Array.from({ length: 2 }, (_, itemIndex) => {
+        const index = lineIndex * 2 + itemIndex + 1;
+        return {
+          text: `PRODUTO ${index}`,
+          box: { x: 10, y: index * 3, width: 120, height: 12 },
+          confidence: 0.9,
+        };
+      }),
+    );
+    const regions = Array.from({ length: 51 }, (_, index) => ({
+      text: `LINHA AGRUPADA ${index + 1}`,
+      confidence: 0.9,
+      bbox: [
+        [0, index * 30],
+        [100, index * 30],
+        [100, index * 30 + 12],
+        [0, index * 30 + 12],
+      ],
+    }));
+    mocks.fastOcrRecognize.mockResolvedValue({
+      regions,
+      rawLines,
+      initializationMs: 1500,
+      ocrMs: 8000,
+    });
+
+    const { container } = render(<ReceiptImport />);
+    const input = container.querySelector('input[type="file"]');
+    const file = new File(["receipt"], "receipt-large.jpg", { type: "image/jpeg" });
+    fireEvent.change(input!, { target: { files: [file] } });
+
+    fireEvent.click(await screen.findByRole("button", { name: "⚡ Testar OCR rápido" }));
+    await screen.findByTestId("fast-ocr-diagnostics");
+
+    fireEvent.click(screen.getByRole("button", { name: "📋 Copiar diagnóstico" }));
+    await waitFor(() => expect(writeText).toHaveBeenCalledTimes(1));
+
+    const copied = writeText.mock.calls[0][0] as string;
+    expect(copied).toContain("DIAGNÓSTICO OCR RÁPIDO");
+    expect(copied).toContain("Regiões (V6 Tiny): 124");
+    expect(copied).toContain("Linhas agrupadas: 51");
+    expect(copied).toContain("APÓS AGRUPAMENTO");
+    expect(copied).toContain("SAÍDA BRUTA DO V6 TINY");
+    expect(copied).toContain('#124 "PRODUTO 124"');
+    expect(copied).toContain("#51 LINHA AGRUPADA 51");
+    expect(copied).toContain('#51 LINHA AGRUPADA 51\n  regiões: ["LINHA AGRUPADA 51"]');
+    expect(copied.indexOf("APÓS AGRUPAMENTO")).toBeLessThan(copied.indexOf("SAÍDA BRUTA DO V6 TINY"));
+    expect(copied.length).toBeGreaterThan(7000);
+  });
+
   it("falls back to a hidden textarea copy when navigator.clipboard is unavailable", async () => {
     Object.defineProperty(window.navigator, "clipboard", { value: undefined, configurable: true });
     const execCommand = vi.fn(() => true);

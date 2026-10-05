@@ -108,17 +108,17 @@ function buildFastOcrDiagnosticsText(diagnostics: FastOcrDiagnostics): string {
   lines.push(`Regiões (V6 Tiny): ${diagnostics.rawRegions.length}`);
   lines.push(`Linhas agrupadas: ${diagnostics.groupedLines.length}`);
   lines.push("");
-  lines.push("SAÍDA BRUTA DO V6 TINY");
-  if (diagnostics.rawRegions.length === 0) lines.push("(nenhuma região retornada)");
-  for (const region of diagnostics.rawRegions) {
-    lines.push(`#${region.index} "${region.text}" | conf=${region.confidence} | box=${formatBox(region.box)}`);
-  }
-  lines.push("");
   lines.push("APÓS AGRUPAMENTO");
   if (diagnostics.groupedLines.length === 0) lines.push("(nenhuma linha agrupada)");
   for (const line of diagnostics.groupedLines) {
     lines.push(`#${line.index} ${line.text}`);
     lines.push(`  regiões: ${JSON.stringify(line.parts)}`);
+  }
+  lines.push("");
+  lines.push("SAÍDA BRUTA DO V6 TINY");
+  if (diagnostics.rawRegions.length === 0) lines.push("(nenhuma região retornada)");
+  for (const region of diagnostics.rawRegions) {
+    lines.push(`#${region.index} "${region.text}" | conf=${region.confidence} | box=${formatBox(region.box)}`);
   }
   return lines.join("\n");
 }
