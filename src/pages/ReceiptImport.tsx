@@ -33,6 +33,7 @@ import type { PaddleOcrResult } from "@/lib/ocr-paddle-test/types";
 interface FreeOcrDiagnostics {
   originalDimensions: { width: number; height: number } | null;
   ocrInputDimensions: { width: number; height: number } | null;
+  normalization: LocalOcrPreparationMetrics["normalization"];
   preparationMs: number;
   orientationMs: number;
   paddleInitializationMs: number | null;
@@ -54,6 +55,7 @@ function logFreeOcrMetrics(
   const diagnostics: FreeOcrDiagnostics = {
     originalDimensions: preparation.originalDimensions,
     ocrInputDimensions: ocr.inputDimensions ?? preparation.outputDimensions,
+    normalization: preparation.normalization,
     preparationMs: Math.round(preparation.preparationMs),
     orientationMs: Math.round(preparation.orientationMs),
     paddleInitializationMs: ocr.initializationMs ?? null,
@@ -70,6 +72,9 @@ function logFreeOcrMetrics(
     ...diagnostics,
     originalPixels: preparation.originalPixels,
     ocrInputPixels: preparation.outputPixels,
+    normalizationStrategy: preparation.normalization?.strategy ?? "unknown",
+    normalizationSteps: preparation.normalization?.downscaleSteps ?? 0,
+    normalizationDecodeMode: preparation.normalization?.decodeMode ?? "unknown",
     largestRgbaSurfaceMiB: toMiB(preparation.largestRgbaSurfaceBytes),
     estimatedOrientationPeakRgbaMiB: toMiB(preparation.estimatedOrientationPeakRgbaBytes),
     inputFileMiB: toMiB(preparation.inputFileBytes),
@@ -84,7 +89,9 @@ interface FastOcrDiagnostics {
   ocrMs: number;
   parserMs: number;
   totalMs: number;
+  originalDimensions: { width: number; height: number } | null;
   ocrInputDimensions: { width: number; height: number } | null;
+  normalization: LocalOcrPreparationMetrics["normalization"];
   rawRegions: FastOcrRawRegionDebug[];
   groupedLines: FastOcrGroupedLineDebug[];
   itemPipelineText: string;
@@ -95,6 +102,20 @@ const formatDimensions = (dimensions: { width: number; height: number } | null) 
   dimensions ? `${dimensions.width} × ${dimensions.height}` : "indisponível";
 const formatBox = (box: FastOcrBox) =>
   `${Math.round(box.x)},${Math.round(box.y)},${Math.round(box.width)},${Math.round(box.height)}`;
+
+const NORMALIZATION_STRATEGY_LABELS: Record<string, string> = {
+  "original": "original (sem redução)",
+  "single-downscale": "redução única",
+  "progressive-downscale": "redução progressiva",
+  "unknown": "desconhecida",
+};
+
+function formatNormalization(normalization: LocalOcrPreparationMetrics["normalization"]): string {
+  if (!normalization) return "desconhecida";
+  const label = NORMALIZATION_STRATEGY_LABELS[normalization.strategy] ?? normalization.strategy;
+  return `${label} | passos=${normalization.downscaleSteps} | decode=${normalization.decodeMode}`
+    + ` | ${formatDimensions(normalization.sourceDimensions)} → ${formatDimensions(normalization.targetDimensions)}`;
+}
 
 function buildFastOcrDiagnosticsText(diagnostics: FastOcrDiagnostics): string {
   const lines: string[] = [];
@@ -108,7 +129,9 @@ function buildFastOcrDiagnosticsText(diagnostics: FastOcrDiagnostics): string {
   lines.push(`TOTAL: ${formatSeconds(diagnostics.totalMs)}`);
   lines.push("");
   lines.push("IMAGEM");
+  lines.push(`Imagem original: ${formatDimensions(diagnostics.originalDimensions)}`);
   lines.push(`Imagem OCR: ${formatDimensions(diagnostics.ocrInputDimensions)}`);
+  lines.push(`Normalização: ${formatNormalization(diagnostics.normalization)}`);
   lines.push(`Regiões (V6 Tiny): ${diagnostics.rawRegions.length}`);
   lines.push(`Linhas agrupadas: ${diagnostics.groupedLines.length}`);
   lines.push("");
@@ -304,7 +327,9 @@ export default function ReceiptImport() {
         initializationMs: number;
         ocrMs: number;
         parserMs: number;
+        originalDimensions: { width: number; height: number } | null;
         ocrInputDimensions: { width: number; height: number } | null;
+        normalization: LocalOcrPreparationMetrics["normalization"];
         rawRegions: FastOcrRawRegionDebug[];
         groupedLines: FastOcrGroupedLineDebug[];
         itemPipelineText: string;
@@ -339,7 +364,9 @@ export default function ReceiptImport() {
           initializationMs: ocr.initializationMs,
           ocrMs: ocr.ocrMs,
           parserMs,
+          originalDimensions: localImage.metrics.originalDimensions,
           ocrInputDimensions: localImage.metrics.outputDimensions,
+          normalization: localImage.metrics.normalization,
           rawRegions,
           groupedLines,
           itemPipelineText,
@@ -376,7 +403,9 @@ export default function ReceiptImport() {
             ocrMs: Math.round(completedRun.ocrMs),
             parserMs: Math.round(completedRun.parserMs),
             totalMs: Math.round(performance.now() - totalStart),
+            originalDimensions: completedRun.originalDimensions,
             ocrInputDimensions: completedRun.ocrInputDimensions,
+            normalization: completedRun.normalization,
             rawRegions: completedRun.rawRegions,
             groupedLines: completedRun.groupedLines,
             itemPipelineText: completedRun.itemPipelineText,
@@ -681,6 +710,7 @@ export default function ReceiptImport() {
               <dd className="font-semibold text-foreground">{formatSeconds(freeOcrDiagnostics.totalMs)}</dd>
               <dt>Imagem original:</dt><dd>{formatDimensions(freeOcrDiagnostics.originalDimensions)}</dd>
               <dt>Imagem OCR:</dt><dd>{formatDimensions(freeOcrDiagnostics.ocrInputDimensions)}</dd>
+              <dt>Normalização:</dt><dd>{formatNormalization(freeOcrDiagnostics.normalization)}</dd>
             </dl>
             <p className="mt-2 text-[11px] text-muted-foreground">
               Detecção e reconhecimento são tempos internos do SDK e fazem parte da inferência.
@@ -697,7 +727,9 @@ export default function ReceiptImport() {
               <dt>Parser:</dt><dd>{formatSeconds(fastOcrDiagnostics.parserMs)}</dd>
               <dt className="font-semibold text-foreground">TOTAL:</dt>
               <dd className="font-semibold text-foreground">{formatSeconds(fastOcrDiagnostics.totalMs)}</dd>
+              <dt>Imagem original:</dt><dd>{formatDimensions(fastOcrDiagnostics.originalDimensions)}</dd>
               <dt>Imagem OCR:</dt><dd>{formatDimensions(fastOcrDiagnostics.ocrInputDimensions)}</dd>
+              <dt>Normalização:</dt><dd>{formatNormalization(fastOcrDiagnostics.normalization)}</dd>
               <dt>BUILD/COMMIT:</dt><dd>{buildStamp()}</dd>
             </dl>
 

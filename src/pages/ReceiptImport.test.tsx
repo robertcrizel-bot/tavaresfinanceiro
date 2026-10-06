@@ -120,6 +120,13 @@ function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult())
       preparationMs: 1200,
       orientationMs: 2300,
       totalMs: 3500,
+      normalization: {
+        strategy: "progressive-downscale",
+        downscaleSteps: 2,
+        decodeMode: "full-decode",
+        sourceDimensions: { width: 3000, height: 4000 },
+        targetDimensions: { width: 1200, height: 1600 },
+      },
     },
   }));
   mocks.paddleRecognize.mockResolvedValue({
@@ -297,7 +304,11 @@ describe("ReceiptImport metadata", () => {
     expect(diagnostics).toHaveTextContent("OCR:8.0 s");
     expect(diagnostics).toHaveTextContent("Parser:");
     expect(diagnostics).toHaveTextContent("TOTAL:");
+    expect(diagnostics).toHaveTextContent("Imagem original:3000 × 4000");
     expect(diagnostics).toHaveTextContent("Imagem OCR:1200 × 1600");
+    expect(diagnostics).toHaveTextContent(
+      "Normalização:redução progressiva | passos=2 | decode=full-decode | 3000 × 4000 → 1200 × 1600",
+    );
     expect(screen.queryByTestId("free-ocr-diagnostics")).not.toBeInTheDocument();
 
     const rawOutput = await screen.findByTestId("fast-ocr-raw-output");
@@ -339,7 +350,11 @@ describe("ReceiptImport metadata", () => {
     expect(copied).toContain("DIAGNÓSTICO OCR RÁPIDO");
     expect(copied).toContain("Inicialização: 1.5 s");
     expect(copied).toContain("OCR: 8.0 s");
+    expect(copied).toContain("Imagem original: 3000 × 4000");
     expect(copied).toContain("Imagem OCR: 1200 × 1600");
+    expect(copied).toContain(
+      "Normalização: redução progressiva | passos=2 | decode=full-decode | 3000 × 4000 → 1200 × 1600",
+    );
     expect(copied).toContain("Regiões (V6 Tiny): 3");
     expect(copied).toContain("Linhas agrupadas: 2");
     expect(copied).toContain("SAÍDA BRUTA DO V6 TINY");

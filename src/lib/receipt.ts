@@ -2,6 +2,7 @@ import {
   compressImageFile,
   inspectJpegOrientation,
   isDocumentOrientationClassificationEligible,
+  type ImageNormalizationReport,
 } from "@/lib/image-compression";
 import { correctDocumentOrientation } from "@/lib/receipt-image-orientation";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,6 +48,7 @@ export interface LocalOcrPreparationMetrics {
   preparationMs: number;
   orientationMs: number;
   totalMs: number;
+  normalization: ImageNormalizationReport | null;
 }
 
 export interface LocalOcrPreparedImage {
@@ -104,6 +106,7 @@ export async function prepareReceiptForLocalOcr(file: File): Promise<LocalOcrPre
   const imageFile = isPdf ? await pdfFirstPageToJpeg(file) : file;
   const orientationInspection = await inspectJpegOrientation(imageFile);
   const originalDimensions = inspectionDimensions(orientationInspection);
+  const normalizationReports: ImageNormalizationReport[] = [];
   let workingImage: File;
   try {
     workingImage = await compressImageFile(imageFile, {
@@ -112,6 +115,10 @@ export async function prepareReceiptForLocalOcr(file: File): Promise<LocalOcrPre
       quality: 0.92,
       requireDecodeResize: true,
       preferBoundedOutput: true,
+      progressiveDownscale: true,
+      onNormalization: (report) => {
+        normalizationReports.push(report);
+      },
     });
   } catch {
     throw new Error("Não foi possível concluir a leitura gratuita neste aparelho. Você pode tentar novamente ou usar a leitura com IA.");
@@ -140,6 +147,7 @@ export async function prepareReceiptForLocalOcr(file: File): Promise<LocalOcrPre
       preparationMs,
       orientationMs,
       totalMs: performance.now() - totalStart,
+      normalization: normalizationReports[0] ?? null,
     },
   };
 }
