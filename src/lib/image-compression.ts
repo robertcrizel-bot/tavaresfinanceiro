@@ -32,13 +32,14 @@ export type ImageNormalizationStrategy =
   | "single-downscale"
   | "progressive-downscale";
 
-export type ImageDecodeMode = "skipped" | "decode-time-resize" | "full-decode";
+export type ImageDecodeMode = "skipped" | "decode-time-resize" | "decode-time-resize+canvas" | "full-decode";
 
 export interface ImageNormalizationReport {
   strategy: ImageNormalizationStrategy;
   downscaleSteps: number;
   decodeMode: ImageDecodeMode;
   sourceDimensions: { width: number; height: number } | null;
+  intermediateDimensions: { width: number; height: number } | null;
   targetDimensions: { width: number; height: number } | null;
 }
 
@@ -286,6 +287,34 @@ export function calculateImageDimensions(width: number, height: number, opts: Co
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 
+// Caps the RGBA surface of the decode-time intermediate (≈16 MiB) so a single
+// decode never allocates a bigger bitmap than the progressive canvas chain.
+const MAX_INTERMEDIATE_PIXELS = 4_000_000;
+
+export function calculateIntermediateDimensions(
+  sourceWidth: number,
+  sourceHeight: number,
+  targetWidth: number,
+  targetHeight: number,
+): { width: number; height: number } | null {
+  if (sourceWidth <= targetWidth || sourceHeight <= targetHeight) return null;
+
+  // Half size aligns with the JPEG IDCT 1/2 tier and avoids upscaled detail.
+  let width = Math.round(sourceWidth / 2);
+  let height = Math.round(sourceHeight / 2);
+  if (width < targetWidth || height < targetHeight) return null;
+
+  if (width * height > MAX_INTERMEDIATE_PIXELS) {
+    const scale = Math.sqrt(MAX_INTERMEDIATE_PIXELS / (width * height));
+    width = Math.floor(width * scale);
+    height = Math.floor(height * scale);
+    if (width < targetWidth || height < targetHeight) return null;
+  }
+
+  if (width === targetWidth && height === targetHeight) return null;
+  return { width, height };
+}
+
 export async function compressImageFile(
   file: File,
   opts: CompressionOptions = {},
@@ -297,6 +326,7 @@ export async function compressImageFile(
     downscaleSteps: 0,
     decodeMode: "skipped",
     sourceDimensions: null,
+    intermediateDimensions: null,
     targetDimensions: null,
   };
   const keepOriginal = () => {
@@ -371,8 +401,15 @@ export async function compressImageFile(
         const displayWidth = swapsAxes ? jpegMetadata.height : jpegMetadata.width;
         const displayHeight = swapsAxes ? jpegMetadata.width : jpegMetadata.height;
         const target = calculateImageDimensions(displayWidth, displayHeight, opts);
-        const decodeWidth = swapsAxes ? target.height : target.width;
-        const decodeHeight = swapsAxes ? target.width : target.height;
+        const intermediate = opts.progressiveDownscale
+          ? calculateIntermediateDimensions(displayWidth, displayHeight, target.width, target.height)
+          : null;
+        const decodeWidth = intermediate
+          ? (swapsAxes ? intermediate.height : intermediate.width)
+          : swapsAxes ? target.height : target.width;
+        const decodeHeight = intermediate
+          ? (swapsAxes ? intermediate.width : intermediate.height)
+          : swapsAxes ? target.width : target.height;
         const options: ImageBitmapOptions = { imageOrientation: "none" };
         if (decodeWidth !== jpegMetadata.width || decodeHeight !== jpegMetadata.height) {
           options.resizeWidth = decodeWidth;
@@ -381,7 +418,12 @@ export async function compressImageFile(
         }
         try {
           bitmap = await createImageBitmap(decodeSource, options);
-          report.decodeMode = options.resizeWidth === undefined ? "full-decode" : "decode-time-resize";
+          report.decodeMode = options.resizeWidth === undefined
+            ? "full-decode"
+            : intermediate ? "decode-time-resize+canvas" : "decode-time-resize";
+          if (options.resizeWidth !== undefined && intermediate) {
+            report.intermediateDimensions = intermediate;
+          }
         } catch (error) {
           if (opts.requireDecodeResize) throw error;
           if (!(error instanceof TypeError)) {
@@ -394,16 +436,21 @@ export async function compressImageFile(
         const displayWidth = swapsAxes ? jpegMetadata.height : jpegMetadata.width;
         const displayHeight = swapsAxes ? jpegMetadata.width : jpegMetadata.height;
         const target = calculateImageDimensions(displayWidth, displayHeight, opts);
-        const needsResize = target.width !== displayWidth || target.height !== displayHeight;
+        const intermediate = opts.progressiveDownscale
+          ? calculateIntermediateDimensions(displayWidth, displayHeight, target.width, target.height)
+          : null;
+        const resizeTo = intermediate ?? target;
+        const needsResize = resizeTo.width !== displayWidth || resizeTo.height !== displayHeight;
         if (needsResize) {
           try {
             bitmap = await createImageBitmap(decodeSource, {
               imageOrientation: "from-image",
-              resizeWidth: target.width,
-              resizeHeight: target.height,
+              resizeWidth: resizeTo.width,
+              resizeHeight: resizeTo.height,
               resizeQuality: "high",
             });
-            report.decodeMode = "decode-time-resize";
+            report.decodeMode = intermediate ? "decode-time-resize+canvas" : "decode-time-resize";
+            if (intermediate) report.intermediateDimensions = intermediate;
           } catch (error) {
             if (opts.requireDecodeResize) throw error;
             // Retry only when the options themselves are unsupported, not after a decoder failure.
@@ -473,11 +520,12 @@ export async function compressImageFile(
       }
     }
 
-    const downscaleSteps = !wasResized
-      ? 0
-      : report.decodeMode === "decode-time-resize"
-        ? 1
-        : needsCanvasScale ? progressiveSizes.length + 1 : 1;
+    const decodeStep = report.decodeMode === "decode-time-resize"
+      || report.decodeMode === "decode-time-resize+canvas"
+      ? 1
+      : 0;
+    const canvasSteps = needsCanvasScale ? progressiveSizes.length + 1 : 0;
+    const downscaleSteps = !wasResized ? 0 : Math.max(1, decodeStep + canvasSteps);
     report.downscaleSteps = downscaleSteps;
     report.strategy = downscaleSteps === 0
       ? "original"

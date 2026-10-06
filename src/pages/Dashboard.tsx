@@ -23,16 +23,20 @@ export default function Dashboard() {
   const { accounts, creditCards } = useAccounts();
   const { transfers } = useTransfers();
   const [formOpen, setFormOpen] = useState(false);
-  const [period, setPeriod] = useState<Period>("30");
+  const [period, setPeriod] = useState<Period>("month");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const filtered = useMemo(() => {
     if (period === "all") return transactions;
     if (period === "month") {
       const now = new Date();
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-      const today = now.toISOString().split("T")[0];
-      return transactions.filter((t) => t.date >= firstDay && t.date <= today);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const toLocalDateStr = (date: Date) =>
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      const firstDay = toLocalDateStr(monthStart);
+      const lastDay = toLocalDateStr(monthEnd);
+      return transactions.filter((t) => t.date >= firstDay && t.date <= lastDay);
     }
     if (period === "custom") {
       if (!dateRange?.from) return transactions;

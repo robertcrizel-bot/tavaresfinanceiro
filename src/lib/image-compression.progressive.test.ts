@@ -1,5 +1,9 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { compressImageFile, type ImageNormalizationReport } from "@/lib/image-compression";
+import {
+  calculateIntermediateDimensions,
+  compressImageFile,
+  type ImageNormalizationReport,
+} from "@/lib/image-compression";
 
 const ocrOptions = { maxWidth: 1280, maxHeight: 2400, quality: 0.92 };
 
@@ -137,6 +141,7 @@ describe("progressive OCR normalization", () => {
       downscaleSteps: 2,
       decodeMode: "full-decode",
       sourceDimensions: { width: 3024, height: 4032 },
+      intermediateDimensions: null,
       targetDimensions: { width: 1280, height: 1707 },
     });
     expect(contexts.every((context) => context.imageSmoothingEnabled)).toBe(true);
@@ -163,6 +168,7 @@ describe("progressive OCR normalization", () => {
       downscaleSteps: 1,
       decodeMode: "full-decode",
       sourceDimensions: { width: 1500, height: 2000 },
+      intermediateDimensions: null,
       targetDimensions: { width: 1280, height: 1707 },
     });
     expect(contexts.every((context) => context.imageSmoothingQuality === "high")).toBe(true);
@@ -184,6 +190,7 @@ describe("progressive OCR normalization", () => {
       downscaleSteps: 0,
       decodeMode: "full-decode",
       sourceDimensions: { width: 1000, height: 1400 },
+      intermediateDimensions: null,
       targetDimensions: { width: 1000, height: 1400 },
     });
   });
@@ -205,6 +212,7 @@ describe("progressive OCR normalization", () => {
       downscaleSteps: 1,
       decodeMode: "full-decode",
       sourceDimensions: { width: 3024, height: 4032 },
+      intermediateDimensions: null,
       targetDimensions: { width: 1280, height: 1707 },
     });
   });
@@ -224,6 +232,7 @@ describe("progressive OCR normalization", () => {
       downscaleSteps: 0,
       decodeMode: "skipped",
       sourceDimensions: { width: 1000, height: 1400 },
+      intermediateDimensions: null,
       targetDimensions: { width: 1000, height: 1400 },
     });
   });
@@ -251,6 +260,7 @@ describe("progressive OCR normalization", () => {
       downscaleSteps: 2,
       decodeMode: "full-decode",
       sourceDimensions: { width: 3024, height: 4032 },
+      intermediateDimensions: null,
       targetDimensions: { width: 1280, height: 1707 },
     });
     expect(close).toHaveBeenCalledTimes(1);
@@ -287,5 +297,114 @@ describe("progressive OCR normalization", () => {
 
     expect(first.report).toEqual(second.report);
     expect(first.output.size).toBe(second.output.size);
+  });
+
+  it("decodes a large camera JPEG to an intermediate size before the final canvas step", async () => {
+    const file = makeJpeg(3072, 4080, 500 * 1024);
+    const { create, close } = installBitmapMock(3072, 4080);
+    const { draws, contexts, encodedSizes, canvases } = installRecordingCanvasMock();
+
+    const { output, report, reportCount } = await compressAndReport(file, { progressiveDownscale: true });
+
+    expect(create).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledWith(file, {
+      imageOrientation: "from-image",
+      resizeWidth: 1536,
+      resizeHeight: 2040,
+      resizeQuality: "high",
+    });
+    expect(draws).toEqual([
+      { sourceWidth: 1536, sourceHeight: 2040, drawWidth: 1280, drawHeight: 1700 },
+    ]);
+    expect(encodedSizes).toEqual([{ width: 1280, height: 1700, quality: 0.92 }]);
+    expect(reportCount).toBe(1);
+    expect(report).toEqual({
+      strategy: "progressive-downscale",
+      downscaleSteps: 2,
+      decodeMode: "decode-time-resize+canvas",
+      sourceDimensions: { width: 3072, height: 4080 },
+      intermediateDimensions: { width: 1536, height: 2040 },
+      targetDimensions: { width: 1280, height: 1700 },
+    });
+    expect(contexts.every((context) => context.imageSmoothingEnabled)).toBe(true);
+    expect(contexts.every((context) => context.imageSmoothingQuality === "high")).toBe(true);
+    expect(close).toHaveBeenCalledTimes(1);
+    expect(canvases.map((canvas) => canvas.width)).toEqual([0]);
+    expect(output.type).toBe("image/jpeg");
+    expect(output).not.toBe(file);
+  });
+
+  it("keeps a single direct decode for large JPEGs when progressive downscale is off", async () => {
+    const file = makeJpeg(3072, 4080, 500 * 1024);
+    const { create } = installBitmapMock(3072, 4080);
+    installRecordingCanvasMock();
+
+    const { report } = await compressAndReport(file);
+
+    expect(create).toHaveBeenCalledWith(file, {
+      imageOrientation: "from-image",
+      resizeWidth: 1280,
+      resizeHeight: 1700,
+      resizeQuality: "high",
+    });
+    expect(report).toEqual({
+      strategy: "single-downscale",
+      downscaleSteps: 1,
+      decodeMode: "decode-time-resize",
+      sourceDimensions: { width: 3072, height: 4080 },
+      intermediateDimensions: null,
+      targetDimensions: { width: 1280, height: 1700 },
+    });
+  });
+
+  it("skips the intermediate when halving would land below the OCR bounds", async () => {
+    const file = makeJpeg(1400, 1800, 500 * 1024);
+    const { create } = installBitmapMock(1400, 1800);
+    installRecordingCanvasMock();
+
+    const { report } = await compressAndReport(file, { progressiveDownscale: true });
+
+    expect(create).toHaveBeenCalledWith(file, {
+      imageOrientation: "from-image",
+      resizeWidth: 1280,
+      resizeHeight: 1646,
+      resizeQuality: "high",
+    });
+    expect(report).toEqual({
+      strategy: "single-downscale",
+      downscaleSteps: 1,
+      decodeMode: "decode-time-resize",
+      sourceDimensions: { width: 1400, height: 1800 },
+      intermediateDimensions: null,
+      targetDimensions: { width: 1280, height: 1646 },
+    });
+  });
+});
+
+describe("calculateIntermediateDimensions", () => {
+  it("uses half size for a tall camera photo that lands above the OCR bounds", () => {
+    expect(calculateIntermediateDimensions(3072, 4080, 1280, 1700)).toEqual({ width: 1536, height: 2040 });
+  });
+
+  it("returns null when the source already fits the bounds", () => {
+    expect(calculateIntermediateDimensions(1280, 1700, 1280, 1700)).toBeNull();
+    expect(calculateIntermediateDimensions(1000, 1400, 1280, 1700)).toBeNull();
+  });
+
+  it("returns null when halving would fall below the bounds", () => {
+    expect(calculateIntermediateDimensions(1400, 1800, 1280, 1646)).toBeNull();
+  });
+
+  it("returns null when half size already equals the bounds", () => {
+    expect(calculateIntermediateDimensions(2560, 3400, 1280, 1700)).toBeNull();
+  });
+
+  it("caps the intermediate at four million pixels for very large photos", () => {
+    const intermediate = calculateIntermediateDimensions(15000, 20000, 1280, 1707);
+    expect(intermediate).not.toBeNull();
+    expect(intermediate!.width).toBeGreaterThanOrEqual(1280);
+    expect(intermediate!.height).toBeGreaterThanOrEqual(1707);
+    expect(intermediate!.width).toBeLessThan(7500);
+    expect(intermediate!.width * intermediate!.height).toBeLessThanOrEqual(4_000_000);
   });
 });

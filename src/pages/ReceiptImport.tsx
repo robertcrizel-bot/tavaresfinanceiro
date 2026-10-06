@@ -113,8 +113,12 @@ const NORMALIZATION_STRATEGY_LABELS: Record<string, string> = {
 function formatNormalization(normalization: LocalOcrPreparationMetrics["normalization"]): string {
   if (!normalization) return "desconhecida";
   const label = NORMALIZATION_STRATEGY_LABELS[normalization.strategy] ?? normalization.strategy;
-  return `${label} | passos=${normalization.downscaleSteps} | decode=${normalization.decodeMode}`
-    + ` | ${formatDimensions(normalization.sourceDimensions)} → ${formatDimensions(normalization.targetDimensions)}`;
+  const dimensions = [
+    formatDimensions(normalization.sourceDimensions),
+    ...(normalization.intermediateDimensions ? [formatDimensions(normalization.intermediateDimensions)] : []),
+    formatDimensions(normalization.targetDimensions),
+  ].join(" → ");
+  return `${label} | passos=${normalization.downscaleSteps} | decode=${normalization.decodeMode} | ${dimensions}`;
 }
 
 function buildFastOcrDiagnosticsText(diagnostics: FastOcrDiagnostics): string {

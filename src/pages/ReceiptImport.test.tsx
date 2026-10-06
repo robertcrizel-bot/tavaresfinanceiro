@@ -123,8 +123,9 @@ function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult())
       normalization: {
         strategy: "progressive-downscale",
         downscaleSteps: 2,
-        decodeMode: "full-decode",
+        decodeMode: "decode-time-resize+canvas",
         sourceDimensions: { width: 3000, height: 4000 },
+        intermediateDimensions: { width: 1500, height: 2000 },
         targetDimensions: { width: 1200, height: 1600 },
       },
     },
@@ -307,7 +308,7 @@ describe("ReceiptImport metadata", () => {
     expect(diagnostics).toHaveTextContent("Imagem original:3000 × 4000");
     expect(diagnostics).toHaveTextContent("Imagem OCR:1200 × 1600");
     expect(diagnostics).toHaveTextContent(
-      "Normalização:redução progressiva | passos=2 | decode=full-decode | 3000 × 4000 → 1200 × 1600",
+      "Normalização:redução progressiva | passos=2 | decode=decode-time-resize+canvas | 3000 × 4000 → 1500 × 2000 → 1200 × 1600",
     );
     expect(screen.queryByTestId("free-ocr-diagnostics")).not.toBeInTheDocument();
 
@@ -353,7 +354,7 @@ describe("ReceiptImport metadata", () => {
     expect(copied).toContain("Imagem original: 3000 × 4000");
     expect(copied).toContain("Imagem OCR: 1200 × 1600");
     expect(copied).toContain(
-      "Normalização: redução progressiva | passos=2 | decode=full-decode | 3000 × 4000 → 1200 × 1600",
+      "Normalização: redução progressiva | passos=2 | decode=decode-time-resize+canvas | 3000 × 4000 → 1500 × 2000 → 1200 × 1600",
     );
     expect(copied).toContain("Regiões (V6 Tiny): 3");
     expect(copied).toContain("Linhas agrupadas: 2");
