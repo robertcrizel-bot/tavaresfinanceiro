@@ -270,6 +270,58 @@ describe("discounted (promotional) item prices", () => {
     ]);
   });
 
+  it("L: reads the percentage when it is fragmented across regions of the discount line", () => {
+    const result = buildPaddleReceiptResult([
+      makeRegion("PRODUTO QTD VALOR", 10, 100, 300, 12),
+      makeRegion("7896004009995 BISC WAFER MINUETO 81GR MORANGO 1UN", 111, 150, 480, 16),
+      makeRegion("DESCONTO", 236, 186, 90, 12),
+      makeRegion("-30,18", 640, 200, 60, 12),
+      makeRegion("%", 702, 200, 12, 12),
+      makeRegion("R$-0,86", 640, 214, 70, 12),
+      makeRegion("Qtde. Total de Itens", 10, 300, 240, 12),
+    ]);
+
+    const item = result.items[0];
+    expect(item.unitPrice).toBeNull();
+    expect(item.originalTotal).toBe(2.85);
+    expect(item.explicitFinalValue).toBe(1.99);
+    expect(item.effectiveValue).toBe(1.99);
+  });
+
+  it("M: reads the percentage printed on the item line instead of the discount line", () => {
+    const result = buildPaddleReceiptResult([
+      makeRegion("PRODUTO QTD VALOR", 10, 100, 300, 12),
+      makeRegion("7896004009995 BISC WAFER MINUETO 81GR MORANGO 1UN", 111, 150, 480, 16),
+      makeRegion("-30,18%", 640, 168, 70, 12),
+      makeRegion("DESCONTO", 236, 186, 90, 12),
+      makeRegion("R$-0,86", 640, 214, 70, 12),
+      makeRegion("Qtde. Total de Itens", 10, 300, 240, 12),
+    ]);
+
+    const item = result.items[0];
+    expect(item.unitPrice).toBeNull();
+    expect(item.originalTotal).toBe(2.85);
+    expect(item.explicitFinalValue).toBe(1.99);
+    expect(item.effectiveValue).toBe(1.99);
+  });
+
+  it("N: never treats a percentage fragment without its sign as the absolute discount", () => {
+    const result = buildPaddleReceiptResult([
+      makeRegion("PRODUTO QTD VALOR", 10, 100, 300, 12),
+      makeRegion("7896004009995 BISC WAFER MINUETO 81GR MORANGO 1UN", 111, 150, 480, 16),
+      makeRegion("DESCONTO", 236, 186, 90, 12),
+      makeRegion("-30,18", 640, 200, 60, 12),
+      makeRegion("%", 702, 200, 12, 12),
+      makeRegion("Qtde. Total de Itens", 10, 300, 240, 12),
+    ]);
+
+    const item = result.items[0];
+    expect(item.effectiveValue).not.toBe(69.82);
+    expect(item.effectiveValue).not.toBe(30.18);
+    expect(item.originalTotal).not.toBe(100);
+    expect(item.effectiveValue).toBeNull();
+  });
+
   it("H: payment, subtotal, change and receipt total never become item prices", () => {
     const result = buildPaddleReceiptResult([
       makeRegion("PRODUTO QTD VALOR", 10, 100, 300, 12),

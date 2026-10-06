@@ -771,6 +771,20 @@ interface DiscountZone {
   percentValue: number | null;
 }
 
+function joinLinesText(lines: GridLine[], lineIndices: number[]): string {
+  return lineIndices
+    .map((lineIndex) => {
+      const line = lines[lineIndex];
+      if (!line) return "";
+      return [...line.regions]
+        .sort((a, b) => a.minX - b.minX)
+        .map((region) => region.text)
+        .join(" ");
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+
 function findDiscountZone(
   lines: GridLine[],
   block: ItemLineBlock,
@@ -879,6 +893,33 @@ function findDiscountZone(
       order += 1;
       i++;
     }
+  }
+
+  // The percentage is often fragmented across regions ("-30,18" plus "%") or
+  // printed on the product line instead of the discount line, which no single
+  // region can express. Read the joined text of the zone so both numbers of the
+  // discount math come from the same, complete string. The negative amount is
+  // re-read from the zone text *without* its percentage tokens, otherwise a
+  // "%"-less fragment like "-30,18" would be taken for the absolute discount.
+  const zoneText = joinLinesText(lines, zoneIds);
+  const joinedZonePercent = extractPercentValue(zoneText);
+  if (joinedZonePercent !== null) percentValue = joinedZonePercent;
+  if (percentValue === null) {
+    const blockIds = [
+      ...new Set([...block.lineIndices, ...zoneIds]),
+    ].sort((a, b) => a - b);
+    percentValue = extractPercentValue(joinLinesText(lines, blockIds));
+  }
+  const zoneTextWithoutPercent = zoneText.replace(
+    /\d+(?:[.,]\d{1,2})?\s*%/g,
+    " ",
+  );
+  const joinedZoneDiscount = extractNegativeMoneyValue(zoneTextWithoutPercent);
+  if (joinedZoneDiscount !== null) {
+    discountValue = joinedZoneDiscount;
+  } else if (percentValue !== null) {
+    // Everything negative left in the zone is the percentage itself.
+    discountValue = null;
   }
 
   const afterMarker = candidates.filter(

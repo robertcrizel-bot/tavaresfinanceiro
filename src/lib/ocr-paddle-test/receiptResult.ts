@@ -397,11 +397,28 @@ function descriptionsEquivalent(a: string | null, b: string | null): boolean {
   const right = normalizeDescription(b);
   if (!left || !right) return false;
   if (left === right) return true;
-  if (Math.abs(left.length - right.length) > 2) return false;
   if (Math.max(left.length, right.length) < MIN_EQUIVALENT_DESCRIPTION_LENGTH) {
     return false;
   }
-  return levenshtein(left, right) <= MAX_EQUIVALENT_DESCRIPTION_DISTANCE;
+  return levenshtein(left, right) <= allowedDescriptionDistance(left, right);
+}
+
+/**
+ * The same product line printed three times comes back from the OCR with
+ * confusions like "OHT" / "UHT" or "IIALAC" / "ITALAC", so the strict distance
+ * alone drops the sibling lines of a repeated EAN. Allow up to 10% of the
+ * longer description to differ (never more than 2 extra characters) while the
+ * items are already known to carry the exact same barcode.
+ */
+function allowedDescriptionDistance(left: string, right: string): number {
+  const longest = Math.max(left.length, right.length);
+  return Math.max(
+    MAX_EQUIVALENT_DESCRIPTION_DISTANCE,
+    Math.min(
+      MAX_EQUIVALENT_DESCRIPTION_DISTANCE + 2,
+      Math.floor(longest * 0.1),
+    ),
+  );
 }
 
 function quantitiesCompatible(a: number | null, b: number | null): boolean {
@@ -415,23 +432,27 @@ function unitsCompatible(a: string | null, b: string | null): boolean {
 }
 
 function fillRepeatedItemPrice(group: PaddleReceiptItem[]): void {
-  const first = group[0];
-  for (const item of group) {
-    if (!descriptionsEquivalent(first.description, item.description)) return;
-    if (!quantitiesCompatible(first.quantity, item.quantity)) return;
-    if (!unitsCompatible(first.unit, item.unit)) return;
-  }
-
   const values = new Set<number>();
   for (const item of group) {
     if (item.effectiveValue !== null) values.add(roundCents(item.effectiveValue));
   }
   if (values.size !== 1) return;
 
+  const carriers = group.filter((item) => item.effectiveValue !== null);
   const value = [...values][0];
   for (const item of group) {
     if (item.effectiveValue !== null) continue;
     if (item.explicitFinalValue !== null) continue;
+    // Every sibling that carries the price has to agree on description,
+    // quantity and unit before the value is copied to this line. A single
+    // unreadable sibling never blanks the readable ones.
+    const compatible = carriers.every(
+      (carrier) =>
+        descriptionsEquivalent(carrier.description, item.description) &&
+        quantitiesCompatible(carrier.quantity, item.quantity) &&
+        unitsCompatible(carrier.unit, item.unit),
+    );
+    if (!compatible) continue;
     item.originalTotal = value;
     item.effectiveValue = value;
   }

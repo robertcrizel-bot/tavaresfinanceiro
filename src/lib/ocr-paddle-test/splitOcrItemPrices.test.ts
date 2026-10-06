@@ -124,4 +124,34 @@ describe("split OCR item prices reach the final description", () => {
     ]);
     expect(creamPriceLineCount(description)).toBe(3);
   });
+
+  it("propagates 2,75 to the three creams when the OCR only read the price on the first line", () => {
+    const regions: PaddleOcrRegion[] = [...fonsecaRegions];
+    regions.push(makeRegion("2,75", 923, 891, 70, 30));
+
+    const { result, description } = toDescription(regions);
+    const creams = result.items.filter((item) =>
+      (item.description ?? "").includes("CREME LEITE"),
+    );
+
+    expect(creams).toHaveLength(3);
+    expect(creams.map((item) => item.effectiveValue)).toEqual([
+      2.75, 2.75, 2.75,
+    ]);
+    expect(creamPriceLineCount(description)).toBe(3);
+  });
+
+  it("does not push the cream price onto an unrelated item of the same receipt", () => {
+    const regions: PaddleOcrRegion[] = [...fonsecaRegions];
+    regions.push(makeRegion("2,75", 923, 891, 70, 30));
+
+    const { result } = toDescription(regions);
+    const others = result.items.filter(
+      (item) =>
+        !(item.description ?? "").includes("CREME LEITE") &&
+        item.effectiveValue === 2.75,
+    );
+
+    expect(others).toHaveLength(0);
+  });
 });
