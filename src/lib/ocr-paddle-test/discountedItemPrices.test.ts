@@ -104,6 +104,63 @@ describe("discounted (promotional) item prices", () => {
     expect(item.effectiveValue).toBe(1.99);
   });
 
+  it("I: rebuilds the final price from percentage + absolute discount when every price is missing", () => {
+    const result = buildPaddleReceiptResult([
+      makeRegion("PRODUTO QTD VALOR", 10, 100, 300, 12),
+      makeRegion("7896004009995 BISC WAFER MINUETO 81GR MORANGO 1UN", 111, 150, 480, 16),
+      makeRegion("1UN", 600, 170, 40, 12),
+      makeRegion("DESCONTO", 236, 186, 90, 12),
+      makeRegion("-30,18%", 640, 200, 70, 12),
+      makeRegion("R$-0,86", 640, 214, 70, 12),
+      makeRegion("Qtde. Total de Itens", 10, 300, 240, 12),
+    ]);
+
+    const item = result.items[0];
+    expect(item.unitPrice).toBeNull();
+    expect(item.originalTotal).toBe(2.85);
+    expect(item.explicitFinalValue).toBe(1.99);
+    expect(item.effectiveValue).toBe(1.99);
+    expect(item.effectiveValue).not.toBe(0.86);
+    expect(item.effectiveValue).not.toBe(30.18);
+  });
+
+  it("J: does not infer from an implausible discount percentage", () => {
+    for (const percent of ["0%", "0,00%", "100%", "150%", "-30,18% 100%"]) {
+      const result = buildPaddleReceiptResult([
+        makeRegion("PRODUTO QTD VALOR", 10, 100, 300, 12),
+        makeRegion("PRODUTO PERCENTUAL IMPOSSIVEL", 111, 150, 300, 16),
+        makeRegion("1UN", 600, 170, 40, 12),
+        makeRegion("DESCONTO", 236, 186, 90, 12),
+        makeRegion(percent, 640, 200, 90, 12),
+        makeRegion("R$-0,86", 640, 214, 70, 12),
+        makeRegion("Qtde. Total de Itens", 10, 300, 240, 12),
+      ]);
+
+      const item = result.items[0];
+      expect(item.effectiveValue, percent).toBeNull();
+      expect(item.explicitFinalValue, percent).toBeNull();
+      expect(item.originalTotal, percent).toBeNull();
+    }
+  });
+
+  it("K: a recognized original total that contradicts the math is never overwritten", () => {
+    const result = buildPaddleReceiptResult([
+      makeRegion("PRODUTO QTD VALOR", 10, 100, 300, 12),
+      makeRegion("7896004009995 PRODUTO PRECO CONHECIDO", 111, 150, 400, 16),
+      makeRegion("1UN", 600, 170, 40, 12),
+      makeRegion("5,00", 700, 170, 50, 12),
+      makeRegion("DESCONTO", 236, 186, 90, 12),
+      makeRegion("-30,18%", 640, 200, 70, 12),
+      makeRegion("R$-0,86", 640, 214, 70, 12),
+      makeRegion("Qtde. Total de Itens", 10, 300, 240, 12),
+    ]);
+
+    const item = result.items[0];
+    expect(item.originalTotal).toBe(5);
+    expect(item.explicitFinalValue).toBeNull();
+    expect(item.effectiveValue).toBe(5);
+  });
+
   it("B: a negative discount amount is never used as a price", () => {
     const result = buildPaddleReceiptResult([
       makeRegion("PRODUTO QTD VALOR", 10, 100, 300, 12),

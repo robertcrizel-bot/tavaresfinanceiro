@@ -155,7 +155,7 @@ export function buildItemPipelineDebugText(
     }
     out.push(`  money candidates: ${formatMoneyCandidates(debug)}`);
     out.push(
-      `  discount zone: lines=${formatZoneLineIndices(debug.discountZoneLineIndices)} candidates=${formatZoneCandidates(debug.discountZoneCandidates)} desconto=${fmtValue(debug.discountZoneDiscountValue)}`,
+      `  discount zone: lines=${formatZoneLineIndices(debug.discountZoneLineIndices)} candidates=${formatZoneCandidates(debug.discountZoneCandidates)} desconto=${fmtValue(debug.discountZoneDiscountValue)} percentual=${fmtValue(debug.discountZonePercentValue)}`,
     );
     out.push(`  unitPrice: ${fmtValue(extracted.unitPrice)}`);
     out.push(`  originalTotal: ${fmtValue(extracted.originalTotal)}`);
@@ -194,7 +194,7 @@ export function buildItemPipelineDebugText(
     printWindow(out, lines, from, to, labels, areaStart, areaEnd);
     out.push(`money candidates: ${formatMoneyCandidates(debug)}`);
     out.push(
-      `discount zone: lines=${formatZoneLineIndices(debug.discountZoneLineIndices)} candidates=${formatZoneCandidates(debug.discountZoneCandidates)} desconto=${fmtValue(debug.discountZoneDiscountValue)}`,
+      `discount zone: lines=${formatZoneLineIndices(debug.discountZoneLineIndices)} candidates=${formatZoneCandidates(debug.discountZoneCandidates)} desconto=${fmtValue(debug.discountZoneDiscountValue)} percentual=${fmtValue(debug.discountZonePercentValue)}`,
     );
     out.push(`unitPrice: ${fmtValue(extracted.unitPrice)}`);
     out.push(`originalTotal: ${fmtValue(extracted.originalTotal)}`);

@@ -30,6 +30,7 @@ export interface ItemBlockPriceDebug {
   discountZoneLineIndices: number[] | null;
   discountZoneCandidates: number[];
   discountZoneDiscountValue: number | null;
+  discountZonePercentValue: number | null;
 }
 
 export function createItemBlockPriceDebug(): ItemBlockPriceDebug {
@@ -38,6 +39,7 @@ export function createItemBlockPriceDebug(): ItemBlockPriceDebug {
     discountZoneLineIndices: null,
     discountZoneCandidates: [],
     discountZoneDiscountValue: null,
+    discountZonePercentValue: null,
   };
 }
 
@@ -83,16 +85,31 @@ function isPercentText(text: string): boolean {
   return text.includes("%");
 }
 
+function extractPercentValue(text: string): number | null {
+  const matches = [...text.matchAll(/(\d+(?:[.,]\d{1,2})?)\s*%/g)];
+  if (matches.length !== 1) return null;
+  const value = Number(matches[0][1].replace(",", "."));
+  return Number.isFinite(value) ? value : null;
+}
+
 function isNegativeMoneyText(text: string): boolean {
   const trimmed = text.trim();
   return /^[-−]/.test(trimmed) || /^r\s*\$\s*[-−]/i.test(trimmed);
 }
 
+/**
+ * Absolute monetary discount of a promotional line (never a percentage).
+ * "R$-0,86" wins over a percentage written in the same text, so a token like
+ * "-30,18%" is treated as a percentage only, never as R$ 30,18.
+ */
 function extractNegativeMoneyValue(text: string): number | null {
   const trimmed = text.trim();
-  const match =
-    trimmed.match(/[-−]\s*(?:r\s*\$\s*)?(\d+[.,]\d{2})(?!\d)/i) ??
-    trimmed.match(/r\s*\$\s*[-−]\s*(\d+[.,]\d{2})(?!\d)/i);
+  const withPrefix = trimmed.match(
+    /r\s*\$\s*[-−]\s*(\d+[.,]\d{2})(?!\d)/i,
+  );
+  if (withPrefix) return parseMoney(withPrefix[1]);
+  if (isPercentText(trimmed)) return null;
+  const match = trimmed.match(/[-−]\s*(?:r\s*\$\s*)?(\d+[.,]\d{2})(?!\d)/i);
   return match ? parseMoney(match[1]) : null;
 }
 
@@ -751,6 +768,7 @@ interface DiscountZone {
   lineIndices: Set<number>;
   candidates: number[];
   discountValue: number | null;
+  percentValue: number | null;
 }
 
 function findDiscountZone(
@@ -785,16 +803,47 @@ function findDiscountZone(
     zone.push(k);
   }
 
-  const lineIndices = new Set<number>();
-  for (const k of zone) lineIndices.add(indices[k]);
+  const zoneIds: number[] = zone.map((k) => indices[k]);
+  // The block detector can close the block right before the absolute discount
+  // amount when the item has no recognized price at all. Pull those trailing
+  // discount/final lines back into the zone, stopping at the first line that
+  // looks like another product or a summary/payment label.
+  if (zone[zone.length - 1] === indices.length - 1) {
+    const lastBlockIndex = indices[indices.length - 1];
+    let tail = 0;
+    for (
+      let lineIndex = lastBlockIndex + 1;
+      lineIndex < lines.length && tail < 3;
+      lineIndex++
+    ) {
+      const line = lines[lineIndex];
+      if (!line) break;
+      if (isComplementLine(line)) {
+        zoneIds.push(lineIndex);
+        tail += 1;
+        continue;
+      }
+      const looksLikeProduct = line.regions.some((region) => {
+        const text = region.text;
+        if (isComplementText(text)) return false;
+        return text.replace(/[^a-zA-Z\u00C0-\u024F]/g, "").length >= 4;
+      });
+      if (looksLikeProduct) break;
+      zoneIds.push(lineIndex);
+      tail += 1;
+    }
+  }
+
+  const lineIndices = new Set<number>(zoneIds);
 
   let order = 0;
   let lastMarkerOrder = -1;
   let discountValue: number | null = null;
+  let percentValue: number | null = null;
   const candidates: { order: number; value: number }[] = [];
 
-  for (const k of zone) {
-    const line = lines[indices[k]];
+  for (const lineIndex of zoneIds) {
+    const line = lines[lineIndex];
     if (!line) continue;
     const regions = [...line.regions].sort((a, b) => a.minX - b.minX);
     const kinds: Array<"marker" | "money" | "other"> = [];
@@ -804,6 +853,10 @@ function findDiscountZone(
       let kind: "marker" | "money" | "other" = "other";
       if (isPercentText(text) || isNegativeMoneyText(text)) {
         kind = "marker";
+        if (isPercentText(text)) {
+          const percent = extractPercentValue(text);
+          if (percent !== null) percentValue = percent;
+        }
         const negative = extractNegativeMoneyValue(text);
         if (negative !== null) discountValue = negative;
       } else if (!isComplementText(text)) {
@@ -836,6 +889,7 @@ function findDiscountZone(
     lineIndices,
     candidates: afterMarker.map((candidate) => candidate.value),
     discountValue,
+    percentValue,
   };
 }
 
@@ -853,6 +907,60 @@ function resolveDiscountFinalValue(
     if (consistent !== undefined) return consistent;
   }
   return zone.candidates[zone.candidates.length - 1];
+}
+
+const MAX_INFERRED_ORIGINAL_PRICE = 10000;
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+interface InferredDiscountPrices {
+  original: number;
+  final: number;
+}
+
+/**
+ * Rebuilds the promotional prices when the OCR lost every price of the item
+ * but captured both the discount percentage and the absolute discount:
+ *
+ *   original ≈ desconto / (percentual / 100)
+ *   final    ≈ original - desconto
+ *
+ * e.g. 0,86 / 30,18% ≈ 2,85 -> 2,85 - 0,86 = 1,99.
+ *
+ * Only reads values from the item's own discount zone, requires both numbers,
+ * never contradicts an already recognized original total and rejects results
+ * that are not plausible item prices.
+ */
+function inferPricesFromDiscountMath(
+  zone: DiscountZone | null,
+  originalTotal: number | null,
+): InferredDiscountPrices | null {
+  if (!zone) return null;
+  const percent = zone.percentValue;
+  const discount = zone.discountValue;
+  if (percent === null || discount === null) return null;
+  if (!(percent > 0 && percent < 100)) return null;
+  if (!(discount > 0)) return null;
+
+  const derivedOriginal = roundMoney(discount / (percent / 100));
+  if (!Number.isFinite(derivedOriginal)) return null;
+  if (derivedOriginal < 0.01 || derivedOriginal > MAX_INFERRED_ORIGINAL_PRICE) {
+    return null;
+  }
+
+  let original = derivedOriginal;
+  if (originalTotal !== null) {
+    const tolerance = Math.max(0.02, derivedOriginal * 0.005);
+    if (Math.abs(originalTotal - derivedOriginal) > tolerance) return null;
+    original = originalTotal;
+  }
+
+  const final = roundMoney(original - discount);
+  if (!Number.isFinite(final) || final < 0.01) return null;
+  if (final >= original) return null;
+  return { original, final };
 }
 
 function tryJoinAdjacentMoney(
@@ -915,6 +1023,7 @@ function extractMonetary(
     debug.discountZoneLineIndices = zone ? [...zone.lineIndices] : null;
     debug.discountZoneCandidates = zone ? [...zone.candidates] : [];
     debug.discountZoneDiscountValue = zone?.discountValue ?? null;
+    debug.discountZonePercentValue = zone?.percentValue ?? null;
   }
   const suffixAnchor = findSuffixAnchor(
     lines,
@@ -961,8 +1070,20 @@ function extractMonetary(
     originalTotal = suffixTotal;
   }
 
-  const descontoFinal =
+  let descontoFinal =
     por === null ? resolveDiscountFinalValue(zone, originalTotal) : null;
+
+  let inferredOriginal: number | null = null;
+  if (por === null && descontoFinal === null) {
+    const inferred = inferPricesFromDiscountMath(zone, originalTotal);
+    if (inferred !== null) {
+      descontoFinal = inferred.final;
+      inferredOriginal = inferred.original;
+    }
+  }
+  if (inferredOriginal !== null && originalTotal === null) {
+    originalTotal = inferredOriginal;
+  }
 
   return {
     unitPrice: resolvedUnitPrice,
