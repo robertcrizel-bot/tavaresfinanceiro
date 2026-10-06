@@ -214,6 +214,8 @@ describe("Forecasts budget indicator", () => {
     return parent?.textContent || "";
   };
 
+  const normalizeMoney = (text?: string | null) => (text ?? "").replace(/\u00A0/g, " ");
+
   it.each([
     { type: "income" as const, category: "Salário" },
     { type: "expense" as const, category: "Alimentação" },
@@ -262,7 +264,7 @@ describe("Forecasts budget indicator", () => {
     render(<Forecasts />);
 
     const cardText = screen.getByText("FIES").closest('[class*="rounded-lg"]')?.textContent;
-    expect(cardText).toContain("R$ 362,00");
+    expect(normalizeMoney(cardText)).toContain("R$ 362,00");
     expect(cardText).not.toContain("Efetivo:");
   });
 
@@ -288,19 +290,19 @@ describe("Forecasts budget indicator", () => {
     render(<Forecasts />);
 
     const cardText = screen.getByText(name).closest('[class*="rounded-lg"]')?.textContent;
-    expect(cardText).toContain("Previsto: R$ 362,00");
-    expect(cardText).toContain("Efetivo: R$ 361,43");
-    const pagar = screen.getByText("Previsto a pagar").parentElement?.textContent ?? "";
-    const receber = screen.getByText("Previsto a receber").parentElement?.textContent ?? "";
-    const saldo = screen.getByText("Saldo projetado").parentElement?.textContent ?? "";
+    expect(normalizeMoney(cardText)).toContain("Previsto: R$ 362,00");
+    expect(normalizeMoney(cardText)).toContain("Efetivo: R$ 361,43");
+    const pagar = normalizeMoney(screen.getByText("Previsto a pagar").parentElement?.textContent);
+    const receber = normalizeMoney(screen.getByText("Previsto a receber").parentElement?.textContent);
+    const saldo = normalizeMoney(screen.getByText("Saldo projetado").parentElement?.textContent);
     if (type === "expense") {
-      expect(pagar).toContain("R$ 362,00");
-      expect(receber).toContain("R$ 0,00");
-      expect(saldo).toContain("-R$ 362,00");
+      expect(pagar).toContain("R$ 362,00");
+      expect(receber).toContain("R$ 0,00");
+      expect(saldo).toContain("-R$ 362,00");
     } else {
-      expect(pagar).toContain("R$ 0,00");
-      expect(receber).toContain("R$ 362,00");
-      expect(saldo).toContain("R$ 362,00");
+      expect(pagar).toContain("R$ 0,00");
+      expect(receber).toContain("R$ 362,00");
+      expect(saldo).toContain("R$ 362,00");
       expect(saldo).not.toContain("-R$");
     }
   });
@@ -324,7 +326,7 @@ describe("Forecasts budget indicator", () => {
     render(<Forecasts />);
 
     const cardText = screen.getByText("FIES").closest('[class*="rounded-lg"]')?.textContent;
-    expect(cardText).toContain("R$ 362,00");
+    expect(normalizeMoney(cardText)).toContain("R$ 362,00");
     expect(cardText).not.toContain("Previsto:");
     expect(cardText).not.toContain("Efetivo:");
   });
