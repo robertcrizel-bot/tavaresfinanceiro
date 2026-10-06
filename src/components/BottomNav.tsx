@@ -1,8 +1,9 @@
-import { LayoutDashboard, List, Wallet, Tag, CalendarClock, ArrowLeftRight, User } from "lucide-react";
+import { LayoutDashboard, List, Wallet, Tag, CalendarClock, ArrowLeftRight, User, PieChart } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 
 const items = [
   { title: "Painel", url: "/", icon: LayoutDashboard },
+  { title: "Análises", url: "/analises-despesas", icon: PieChart },
   { title: "Registros", url: "/records", icon: List },
   { title: "Contas", url: "/accounts", icon: Wallet },
   { title: "Transf.", url: "/transfers", icon: ArrowLeftRight },
@@ -14,7 +15,7 @@ const items = [
 export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md safe-area-bottom md:hidden">
-      <div className="grid grid-cols-7 items-center h-14 px-1">
+      <div className="grid grid-cols-8 items-center h-14 px-1">
         {items.map((item) => (
           <NavLink
             key={item.title}
@@ -24,7 +25,7 @@ export function BottomNav() {
             activeClassName="text-primary font-medium"
           >
             <item.icon className="h-4 w-4 shrink-0" />
-            <span className="text-[9px] font-medium leading-tight truncate max-w-full text-center px-0.5">
+            <span className="text-[8px] font-medium leading-tight truncate max-w-full text-center px-0.5">
               {item.title}
             </span>
           </NavLink>

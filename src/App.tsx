@@ -10,6 +10,7 @@ import { ForecastProvider } from "@/contexts/ForecastContext";
 import { TransferProvider } from "@/contexts/TransferContext";
 import AppLayout from "@/components/AppLayout";
 import Dashboard from "@/pages/Dashboard";
+import ExpenseAnalytics from "@/pages/ExpenseAnalytics";
 import Records from "@/pages/Records";
 import Accounts from "@/pages/Accounts";
 import Categories from "@/pages/Categories";
@@ -46,6 +47,7 @@ function ProtectedRoutes() {
               <Routes>
                 <Route element={<AppLayout />}>
                   <Route path="/" element={<Dashboard />} />
+                  <Route path="/analises-despesas" element={<ExpenseAnalytics />} />
                   <Route path="/records" element={<Records />} />
                   <Route path="/accounts" element={<Accounts />} />
                   <Route path="/categories" element={<Categories />} />
