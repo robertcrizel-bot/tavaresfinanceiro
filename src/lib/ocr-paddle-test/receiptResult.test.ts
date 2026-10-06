@@ -797,3 +797,218 @@ describe("propagate repeated item prices by exact EAN", () => {
     expect(result.sumKnownItemValues).toBeCloseTo(67.54, 2);
   });
 });
+
+describe("unit price fallback for single UN items", () => {
+  it("uses unitPrice when a 1 UN item has no recognized total", () => {
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 2.75,
+        quantity: 1,
+        unit: "UN",
+        hasDiscountZone: false,
+      }),
+    ).toBe(2.75);
+  });
+
+  it("never assumes a total for quantity greater than 1", () => {
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 5,
+        quantity: 2,
+        unit: "UN",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 5,
+        quantity: 1.5,
+        unit: "UN",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("never assumes a total for KG or weight units", () => {
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 10,
+        quantity: 1,
+        unit: "KG",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 10,
+        quantity: 0.5,
+        unit: "KG",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("never assumes a total for liters or other units", () => {
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 6.69,
+        quantity: 1,
+        unit: "L",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 6.69,
+        quantity: 1,
+        unit: "ML",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("never assumes a total for an unknown quantity", () => {
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 5,
+        quantity: null,
+        unit: "UN",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("never uses the fallback for an item with a discount zone", () => {
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 2.85,
+        quantity: 1,
+        unit: "UN",
+        hasDiscountZone: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps explicit final values and original totals above the fallback", () => {
+    expect(
+      selectEffectiveValue(1.99, null, {
+        unitPrice: 2.85,
+        quantity: 1,
+        unit: "UN",
+        hasDiscountZone: true,
+      }),
+    ).toBe(1.99);
+    expect(
+      selectEffectiveValue(null, 8.7, {
+        unitPrice: 6.79,
+        quantity: 1,
+        unit: "UN",
+        hasDiscountZone: false,
+      }),
+    ).toBe(8.7);
+  });
+});
+
+describe("real receipt regression: repeated EAN and discounted wafer", () => {
+  function region(text: string, x: number, y: number, w: number, h: number) {
+    return {
+      text,
+      confidence: 0.95,
+      bbox: [
+        [x, y],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+      ] as [number, number][],
+    };
+  }
+
+  it("reads 3 x CREME LEITE UHT ITALAC 200G TP at R$ 2,75 each (OCR 2.75 / 2:25 / 2:75)", () => {
+    const rows = [
+      { y: 150, name: "CREME LEITE UHT ITALAC 200G TP", price: "2.75" },
+      { y: 195, name: "CREME LEITE UHT ITALAC 2006 tP", price: "2:25" },
+      { y: 240, name: "CREME LEITE UHT ITALAC 200G TP", price: "2:75" },
+    ];
+    const regions = [region("PRODUTO QTD VALOR", 10, 60, 240, 12)];
+    for (const row of rows) {
+      regions.push(
+        region(`7898080640222 ${row.name}`, 10, row.y, 340, 16),
+        region("1UN", 400, row.y + 2, 40, 12),
+        region(row.price, 460, row.y + 2, 50, 12),
+      );
+    }
+    regions.push(region("Qtde. Total de Itens", 10, 300, 240, 12));
+
+    const result = buildPaddleReceiptResult(regions);
+
+    expect(result.items).toHaveLength(3);
+    expect(result.items.every((item) => item.quantity === 1)).toBe(true);
+    expect(result.items.every((item) => item.unit === "UN")).toBe(true);
+    expect(result.items.map((item) => item.effectiveValue)).toEqual([
+      2.75, 2.75, 2.75,
+    ]);
+    expect(result.sumKnownItemValues).toBeCloseTo(8.25, 2);
+  });
+
+  it("reads Wafer Morango R$ 1,99 from its own DESCONTO block", () => {
+    const result = buildPaddleReceiptResult([
+      region("PRODUTO QTD VALOR", 10, 60, 240, 12),
+      region("7896004009995 BISC WAFER MINUETO 81GR MORANGO", 10, 150, 340, 16),
+      region("2,85", 460, 152, 50, 12),
+      region("DESCONTO -30,18%", 10, 175, 240, 12),
+      region("R$-0,86", 10, 190, 100, 12),
+      region("1,99", 460, 205, 50, 12),
+      region("Qtde. Total de Itens", 10, 300, 240, 12),
+    ]);
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].description).toContain("WAFER MINUETO");
+    expect(result.items[0].explicitFinalValue).toBe(1.99);
+    expect(result.items[0].effectiveValue).toBe(1.99);
+  });
+
+  it("does not reconcile a repeated EAN group without a strict majority", () => {
+    const prices = ["2,75", "2:25", "3:50"];
+    const regions = [region("PRODUTO QTD VALOR", 10, 60, 240, 12)];
+    prices.forEach((price, index) => {
+      const y = 150 + index * 45;
+      regions.push(
+        region("7898080640222 CREME LEITE UHT ITALAC 200G TP", 10, y, 340, 16),
+        region("1UN", 400, y + 2, 40, 12),
+        region(price, 460, y + 2, 50, 12),
+      );
+    });
+    regions.push(region("Qtde. Total de Itens", 10, 300, 240, 12));
+
+    const result = buildPaddleReceiptResult(regions);
+
+    expect(result.items.map((item) => item.effectiveValue)).toEqual([
+      2.75, 2.25, 3.5,
+    ]);
+  });
+
+  it("does not reconcile rows of the same EAN with different quantities", () => {
+    const rows = [
+      { price: "2,75", qty: "1UN" },
+      { price: "2:25", qty: "2UN" },
+      { price: "2:75", qty: "1UN" },
+    ];
+    const regions = [region("PRODUTO QTD VALOR", 10, 60, 240, 12)];
+    rows.forEach((row, index) => {
+      const y = 150 + index * 45;
+      regions.push(
+        region("7898080640222 CREME LEITE UHT ITALAC 200G TP", 10, y, 340, 16),
+        region(row.qty, 400, y + 2, 40, 12),
+        region(row.price, 460, y + 2, 50, 12),
+      );
+    });
+    regions.push(region("Qtde. Total de Itens", 10, 300, 240, 12));
+
+    const result = buildPaddleReceiptResult(regions);
+
+    expect(result.items.map((item) => item.quantity)).toEqual([1, 2, 1]);
+    expect(result.items.map((item) => item.effectiveValue)).toEqual([
+      2.75, 2.25, 2.75,
+    ]);
+  });
+});

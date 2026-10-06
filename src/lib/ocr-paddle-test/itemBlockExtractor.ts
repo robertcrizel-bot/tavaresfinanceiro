@@ -16,6 +16,7 @@ export interface ExtractedItemBlock {
   unitPrice: number | null;
   originalTotal: number | null;
   explicitFinalValue: number | null;
+  hasDiscountZone: boolean;
   classification: ItemBlockClassification;
   signals?: string[];
 }
@@ -1057,6 +1058,7 @@ function extractMonetary(
   unitPrice: number | null;
   originalTotal: number | null;
   explicitFinalValue: number | null;
+  hasDiscountZone: boolean;
 } {
   const zone = findDiscountZone(lines, block);
   const zoneLines = zone?.lineIndices;
@@ -1130,6 +1132,7 @@ function extractMonetary(
     unitPrice: resolvedUnitPrice,
     originalTotal,
     explicitFinalValue: por ?? descontoFinal,
+    hasDiscountZone: zone !== null,
   };
 }
 
@@ -1150,6 +1153,7 @@ export function extractItemBlock(
     unitPrice: monetary.unitPrice,
     originalTotal: monetary.originalTotal,
     explicitFinalValue: monetary.explicitFinalValue,
+    hasDiscountZone: monetary.hasDiscountZone,
     classification: block.classification ?? "fragment",
     signals: block.signals ? [...block.signals] : undefined,
   };

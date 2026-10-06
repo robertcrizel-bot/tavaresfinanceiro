@@ -353,13 +353,37 @@ function extractTime(text: string): string | null {
   return null;
 }
 
+export interface UnitPriceFallbackContext {
+  unitPrice: number | null;
+  quantity: number | null;
+  unit: string | null;
+  hasDiscountZone: boolean;
+}
+
+/**
+ * Picks what the customer actually paid for the item.
+ *
+ * When neither an explicit final price nor an original total was recognized,
+ * a single unit of "UN" can still fall back to its printed unit price: with
+ * quantity 1 and unit UN the unit price *is* the item total. The fallback is
+ * deliberately narrow and never applies to weighed goods (KG), liquids, packed
+ * quantities different from 1, unknown quantities, discounted items or any
+ * ambiguous block.
+ */
 export function selectEffectiveValue(
   explicitFinalValue: number | null,
   originalTotal: number | null,
+  fallback?: UnitPriceFallbackContext,
 ): number | null {
   if (explicitFinalValue !== null) return explicitFinalValue;
   if (originalTotal !== null) return originalTotal;
-  return null;
+  if (!fallback || fallback.hasDiscountZone) return null;
+  const { unitPrice, quantity, unit } = fallback;
+  if (unitPrice === null || !(unitPrice > 0)) return null;
+  if (unit !== "UN") return null;
+  if (quantity === null) return null;
+  if (Math.abs(quantity - 1) > QUANTITY_EPSILON) return null;
+  return roundCents(unitPrice);
 }
 
 const ITEM_CODE_TOKEN_RE = /^(?:\d{8}|\d{12}|\d{13}|\d{14})(?!\d)/;
@@ -461,6 +485,7 @@ function fillRepeatedItemPrice(group: PaddleReceiptItem[]): void {
 function propagateRepeatedItemPrices(
   items: PaddleReceiptItem[],
   codes: (string | null)[],
+  hasDiscountZone: boolean[],
 ): void {
   let index = 0;
   while (index < items.length) {
@@ -474,9 +499,73 @@ function propagateRepeatedItemPrices(
       end += 1;
     }
     if (code !== null && end > index) {
-      fillRepeatedItemPrice(items.slice(index, end + 1));
+      const group = items.slice(index, end + 1);
+      fillRepeatedItemPrice(group);
+      reconcileRepeatedItemPrices(group, hasDiscountZone.slice(index, end + 1));
     }
     index = end + 1;
+  }
+}
+
+/**
+ * Conservative reconciliation of the same repeated product when the OCR read
+ * the same EAN three or more consecutive times but returned slightly different
+ * values for each row (e.g. 2.75 / 2.25 / 2.75 from "2:25" noise).
+ *
+ * Only runs when every row of the group carries the exact same EAN, quantity
+ * and unit, none of them has an explicit final price or a discount zone, and a
+ * strict majority of the recognized values is identical. Groups without a
+ * clear majority are never touched.
+ */
+function reconcileRepeatedItemPrices(
+  group: PaddleReceiptItem[],
+  hasDiscountZone: boolean[],
+): void {
+  if (group.length < 3) return;
+  if (hasDiscountZone.some(Boolean)) return;
+  if (group.some((item) => item.explicitFinalValue !== null)) return;
+
+  const quantity = group[0].quantity;
+  const unit = group[0].unit;
+  if (quantity === null || unit === null) return;
+  const sameShape = group.every(
+    (item) =>
+      item.quantity !== null &&
+      item.unit !== null &&
+      Math.abs(item.quantity - quantity) < QUANTITY_EPSILON &&
+      item.unit === unit,
+  );
+  if (!sameShape) return;
+
+  const counts = new Map<number, number>();
+  let pricedCount = 0;
+  for (const item of group) {
+    if (item.effectiveValue === null) continue;
+    pricedCount += 1;
+    const value = roundCents(item.effectiveValue);
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  if (pricedCount < 2) return;
+
+  let bestValue: number | null = null;
+  let bestCount = 0;
+  let tied = false;
+  for (const [value, count] of counts) {
+    if (count > bestCount) {
+      bestValue = value;
+      bestCount = count;
+      tied = false;
+    } else if (count === bestCount) {
+      tied = true;
+    }
+  }
+  if (bestValue === null || tied) return;
+  if (bestCount * 2 <= pricedCount) return;
+
+  for (const item of group) {
+    if (item.effectiveValue === null) continue;
+    item.originalTotal = bestValue;
+    item.effectiveValue = bestValue;
   }
 }
 
@@ -519,8 +608,10 @@ export function buildPaddleReceiptResult(
   const text = buildText(lines);
   const { blocks, areaEnd } = detectItemBlocks(lines);
 
+  const discountZones: boolean[] = [];
   const items: PaddleReceiptItem[] = blocks.map((block) => {
     const extracted = extractItemBlock(lines, block);
+    discountZones.push(extracted.hasDiscountZone);
     return {
       description: extracted.description,
       quantity: extracted.quantity,
@@ -531,6 +622,12 @@ export function buildPaddleReceiptResult(
       effectiveValue: selectEffectiveValue(
         extracted.explicitFinalValue,
         extracted.originalTotal,
+        {
+          unitPrice: extracted.unitPrice,
+          quantity: extracted.quantity,
+          unit: extracted.unit,
+          hasDiscountZone: extracted.hasDiscountZone,
+        },
       ),
       classification: extracted.classification,
     };
@@ -539,7 +636,7 @@ export function buildPaddleReceiptResult(
   const itemCodes = blocks.map((block) =>
     extractItemCode(lines, block.lineIndices),
   );
-  propagateRepeatedItemPrices(items, itemCodes);
+  propagateRepeatedItemPrices(items, itemCodes, discountZones);
 
   const receiptTotal = extractReceiptTotal(lines, areaEnd);
 
