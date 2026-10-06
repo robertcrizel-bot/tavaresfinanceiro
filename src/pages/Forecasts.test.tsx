@@ -140,6 +140,8 @@ vi.mock("lucide-react", () => ({
   CircleDollarSign: (p: any) => <svg {...p} />,
   Clock: (p: any) => <svg {...p} />,
   AlertTriangle: (p: any) => <svg {...p} />,
+  ArrowUpRight: (p: any) => <svg {...p} />,
+  ArrowDownLeft: (p: any) => <svg {...p} />,
   Loader2: (p: any) => <svg {...p} />,
 }));
 
@@ -288,9 +290,19 @@ describe("Forecasts budget indicator", () => {
     const cardText = screen.getByText(name).closest('[class*="rounded-lg"]')?.textContent;
     expect(cardText).toContain("Previsto: R$ 362,00");
     expect(cardText).toContain("Efetivo: R$ 361,43");
-    expect(screen.getByText("Total Previsto").parentElement?.textContent).toContain("R$ 362,00");
-    expect(screen.getByText("Total Pago").parentElement?.textContent).toContain("R$ 361,43");
-    expect(screen.getByText("Total Pendente").parentElement?.textContent).toContain("R$ 0,00");
+    const pagar = screen.getByText("Previsto a pagar").parentElement?.textContent ?? "";
+    const receber = screen.getByText("Previsto a receber").parentElement?.textContent ?? "";
+    const saldo = screen.getByText("Saldo projetado").parentElement?.textContent ?? "";
+    if (type === "expense") {
+      expect(pagar).toContain("R$ 362,00");
+      expect(receber).toContain("R$ 0,00");
+      expect(saldo).toContain("-R$ 362,00");
+    } else {
+      expect(pagar).toContain("R$ 0,00");
+      expect(receber).toContain("R$ 362,00");
+      expect(saldo).toContain("R$ 362,00");
+      expect(saldo).not.toContain("-R$");
+    }
   });
 
   it("does not repeat forecast and effective labels when the amounts match", () => {
