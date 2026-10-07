@@ -21,7 +21,6 @@ DECLARE
   v_obligation_id UUID;
   v_next_invoice_id UUID;
   v_actual_closed_at TIMESTAMP WITH TIME ZONE;
-  v_new_cycle_end DATE;
 BEGIN
   PERFORM set_config('app.invoice_operation', 'close', true);
   SELECT * INTO v_invoice FROM public.credit_card_invoices WHERE id = p_invoice_id FOR UPDATE;
@@ -46,22 +45,45 @@ BEGIN
   SELECT name INTO v_card_name FROM public.credit_cards WHERE id = v_invoice.credit_card_id;
 
   -- Redistribute transactions based on actual closing date
-  -- Move transactions after actual_closed_date to the next invoice
-  IF p_actual_closed_date IS NOT NULL AND p_actual_closed_date < v_invoice.cycle_end THEN
-    -- Find or create the next invoice for transactions after the actual closing date
-    v_new_cycle_end := v_invoice.cycle_end;
-    v_next_invoice_id := public.ensure_credit_card_invoice(v_invoice.credit_card_id, v_new_cycle_end + 1);
+  IF p_actual_closed_date IS NOT NULL THEN
+    -- Case 1: Actual closing date is BEFORE predicted cycle_end
+    -- Move transactions after actual_closed_date to the next invoice
+    IF p_actual_closed_date < v_invoice.cycle_end THEN
+      v_next_invoice_id := public.ensure_credit_card_invoice(v_invoice.credit_card_id, v_invoice.cycle_end + 1);
 
-    -- Move transactions that are after the actual closing date but before or on the predicted cycle_end
-    -- to the next invoice (only if they belong to this invoice currently)
-    UPDATE public.transactions t
-    SET credit_card_invoice_id = v_next_invoice_id
-    WHERE t.credit_card_invoice_id = v_invoice.id
-      AND t.date > p_actual_closed_date
-      AND t.date <= v_invoice.cycle_end
-      AND t.financial_kind IN ('card_purchase', 'card_refund', 'manual_adjustment')
-      AND t.user_id = v_invoice.user_id
-      AND t.credit_card_id = v_invoice.credit_card_id;
+      UPDATE public.transactions t
+      SET credit_card_invoice_id = v_next_invoice_id
+      WHERE t.credit_card_invoice_id = v_invoice.id
+        AND t.date > p_actual_closed_date
+        AND t.date <= v_invoice.cycle_end
+        AND t.financial_kind IN ('card_purchase', 'card_refund', 'manual_adjustment')
+        AND t.user_id = v_invoice.user_id
+        AND t.credit_card_id = v_invoice.credit_card_id;
+    END IF;
+
+    -- Case 2: Actual closing date is AFTER predicted cycle_end
+    -- Pull eligible transactions from the next OPEN invoice
+    IF p_actual_closed_date > v_invoice.cycle_end THEN
+      -- Find the next OPEN invoice for this card
+      SELECT id INTO v_next_invoice_id
+      FROM public.credit_card_invoices
+      WHERE credit_card_id = v_invoice.credit_card_id
+        AND status = 'OPEN'
+        AND cycle_start = v_invoice.cycle_end + 1
+      FOR SHARE;
+
+      IF FOUND THEN
+        -- Pull transactions from next invoice that fall within the extended period
+        UPDATE public.transactions t
+        SET credit_card_invoice_id = v_invoice.id
+        WHERE t.credit_card_invoice_id = v_next_invoice_id
+          AND t.date > v_invoice.cycle_end
+          AND t.date <= p_actual_closed_date
+          AND t.financial_kind IN ('card_purchase', 'card_refund', 'manual_adjustment')
+          AND t.user_id = v_invoice.user_id
+          AND t.credit_card_id = v_invoice.credit_card_id;
+      END IF;
+    END IF;
   END IF;
 
   -- Recalculate total based on transactions that remain in this invoice
