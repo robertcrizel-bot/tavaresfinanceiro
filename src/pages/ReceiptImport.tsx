@@ -9,176 +9,15 @@ import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
-import { takeSharedReceiptWithDiagnostics, type ShareDiagnostics } from "@/lib/shared-receipt";
+import { takeSharedReceiptWithDiagnostics } from "@/lib/shared-receipt";
 import { parseReceipt, prepareReceiptForLocalOcr, matchByName, matchCategory, ParsedReceipt, type LocalOcrPreparationMetrics } from "@/lib/receipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
-import { disposePaddleRecognizer, paddleRecognize } from "@/lib/ocr-paddle-test/recognize";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
 import { fastOcrRecognize } from "@/lib/fast-ocr";
-import type { FastOcrBox } from "@/lib/fast-ocr-adapter";
-import { buildItemPipelineDebugText } from "@/lib/ocr-paddle-test/itemPipelineDebug";
-import { buildStamp } from "@/lib/build-info";
-import {
-  summarizeFastOcrGroupedLines,
-  summarizeFastOcrRawLines,
-  type FastOcrGroupedLineDebug,
-  type FastOcrRawRegionDebug,
-} from "@/lib/fast-ocr-debug";
 import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientation";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
-import type { PaddleOcrResult } from "@/lib/ocr-paddle-test/types";
-
-interface FreeOcrDiagnostics {
-  originalDimensions: { width: number; height: number } | null;
-  ocrInputDimensions: { width: number; height: number } | null;
-  normalization: LocalOcrPreparationMetrics["normalization"];
-  preparationMs: number;
-  orientationMs: number;
-  paddleInitializationMs: number | null;
-  paddleInferenceMs: number;
-  detectionMs: number | null;
-  recognitionMs: number | null;
-  parserMs: number;
-  cleanupMs: number;
-  totalMs: number;
-}
-
-function logFreeOcrMetrics(
-  preparation: LocalOcrPreparationMetrics,
-  ocr: PaddleOcrResult,
-  parserMs: number,
-  cleanupMs: number,
-  totalMs: number,
-): FreeOcrDiagnostics {
-  const diagnostics: FreeOcrDiagnostics = {
-    originalDimensions: preparation.originalDimensions,
-    ocrInputDimensions: ocr.inputDimensions ?? preparation.outputDimensions,
-    normalization: preparation.normalization,
-    preparationMs: Math.round(preparation.preparationMs),
-    orientationMs: Math.round(preparation.orientationMs),
-    paddleInitializationMs: ocr.initializationMs ?? null,
-    paddleInferenceMs: ocr.inferenceMs ?? ocr.timeMs,
-    detectionMs: ocr.detectionMs ?? null,
-    recognitionMs: ocr.recognitionMs ?? null,
-    parserMs: Math.round(parserMs),
-    cleanupMs: Math.round(cleanupMs),
-    totalMs: Math.round(totalMs),
-  };
-  if (import.meta.env.MODE === "test") return diagnostics;
-  const toMiB = (bytes: number | null) => bytes === null ? null : Math.round(bytes / 1024 / 1024 * 10) / 10;
-  console.info("[receipt-import] free OCR metrics", {
-    ...diagnostics,
-    originalPixels: preparation.originalPixels,
-    ocrInputPixels: preparation.outputPixels,
-    normalizationStrategy: preparation.normalization?.strategy ?? "unknown",
-    normalizationSteps: preparation.normalization?.downscaleSteps ?? 0,
-    normalizationDecodeMode: preparation.normalization?.decodeMode ?? "unknown",
-    largestRgbaSurfaceMiB: toMiB(preparation.largestRgbaSurfaceBytes),
-    estimatedOrientationPeakRgbaMiB: toMiB(preparation.estimatedOrientationPeakRgbaBytes),
-    inputFileMiB: toMiB(preparation.inputFileBytes),
-    ocrFileMiB: toMiB(preparation.outputFileBytes),
-    paddleRunsInWorker: true,
-  });
-  return diagnostics;
-}
-
-interface FastOcrDiagnostics {
-  initializationMs: number;
-  ocrMs: number;
-  parserMs: number;
-  totalMs: number;
-  originalDimensions: { width: number; height: number } | null;
-  ocrInputDimensions: { width: number; height: number } | null;
-  normalization: LocalOcrPreparationMetrics["normalization"];
-  rawRegions: FastOcrRawRegionDebug[];
-  groupedLines: FastOcrGroupedLineDebug[];
-  itemPipelineText: string;
-}
-
-const formatSeconds = (ms: number | null) => ms === null ? "—" : `${(ms / 1000).toFixed(1)} s`;
-const formatDimensions = (dimensions: { width: number; height: number } | null) =>
-  dimensions ? `${dimensions.width} × ${dimensions.height}` : "indisponível";
-const formatBox = (box: FastOcrBox) =>
-  `${Math.round(box.x)},${Math.round(box.y)},${Math.round(box.width)},${Math.round(box.height)}`;
-
-const NORMALIZATION_STRATEGY_LABELS: Record<string, string> = {
-  "original": "original (sem redução)",
-  "single-downscale": "redução única",
-  "progressive-downscale": "redução progressiva",
-  "unknown": "desconhecida",
-};
-
-function formatNormalization(normalization: LocalOcrPreparationMetrics["normalization"]): string {
-  if (!normalization) return "desconhecida";
-  const label = NORMALIZATION_STRATEGY_LABELS[normalization.strategy] ?? normalization.strategy;
-  const dimensions = [
-    formatDimensions(normalization.sourceDimensions),
-    ...(normalization.intermediateDimensions ? [formatDimensions(normalization.intermediateDimensions)] : []),
-    formatDimensions(normalization.targetDimensions),
-  ].join(" → ");
-  return `${label} | passos=${normalization.downscaleSteps} | decode=${normalization.decodeMode} | ${dimensions}`;
-}
-
-function buildFastOcrDiagnosticsText(diagnostics: FastOcrDiagnostics): string {
-  const lines: string[] = [];
-  lines.push("DIAGNÓSTICO OCR RÁPIDO");
-  lines.push(`BUILD/COMMIT: ${buildStamp()}`);
-  lines.push("");
-  lines.push("MÉTRICAS");
-  lines.push(`Inicialização: ${formatSeconds(diagnostics.initializationMs)}`);
-  lines.push(`OCR: ${formatSeconds(diagnostics.ocrMs)}`);
-  lines.push(`Parser: ${formatSeconds(diagnostics.parserMs)}`);
-  lines.push(`TOTAL: ${formatSeconds(diagnostics.totalMs)}`);
-  lines.push("");
-  lines.push("IMAGEM");
-  lines.push(`Imagem original: ${formatDimensions(diagnostics.originalDimensions)}`);
-  lines.push(`Imagem OCR: ${formatDimensions(diagnostics.ocrInputDimensions)}`);
-  lines.push(`Normalização: ${formatNormalization(diagnostics.normalization)}`);
-  lines.push(`Regiões (V6 Tiny): ${diagnostics.rawRegions.length}`);
-  lines.push(`Linhas agrupadas: ${diagnostics.groupedLines.length}`);
-  lines.push("");
-  lines.push("APÓS AGRUPAMENTO");
-  if (diagnostics.groupedLines.length === 0) lines.push("(nenhuma linha agrupada)");
-  for (const line of diagnostics.groupedLines) {
-    lines.push(`#${line.index} ${line.text}`);
-    lines.push(`  regiões: ${JSON.stringify(line.parts)}`);
-  }
-  lines.push("");
-  lines.push("SAÍDA BRUTA DO V6 TINY");
-  if (diagnostics.rawRegions.length === 0) lines.push("(nenhuma região retornada)");
-  for (const region of diagnostics.rawRegions) {
-    lines.push(`#${region.index} "${region.text}" | conf=${region.confidence} | box=${formatBox(region.box)}`);
-  }
-  lines.push("");
-  lines.push(diagnostics.itemPipelineText || "(PIPELINE DOS ITENS indisponível)");
-  return lines.join("\n");
-}
-
-async function copyTextToClipboard(text: string): Promise<boolean> {
-  const clipboardWrite =
-    typeof navigator !== "undefined" && navigator.clipboard?.writeText
-      ? navigator.clipboard.writeText(text).then(() => true, () => false)
-      : Promise.resolve(false);
-  if (await clipboardWrite) return true;
-  try {
-    const textarea = document.createElement("textarea");
-    textarea.value = text;
-    textarea.setAttribute("readonly", "");
-    textarea.style.position = "fixed";
-    textarea.style.top = "0";
-    textarea.style.opacity = "0";
-    document.body.appendChild(textarea);
-    textarea.focus();
-    textarea.select();
-    const copied = typeof document.execCommand === "function" ? document.execCommand("copy") : false;
-    document.body.removeChild(textarea);
-    return copied;
-  } catch {
-    return false;
-  }
-}
 
 export default function ReceiptImport() {
   const navigate = useNavigate();
@@ -201,16 +40,11 @@ export default function ReceiptImport() {
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [readStatus, setReadStatus] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [freeOcrDiagnostics, setFreeOcrDiagnostics] = useState<FreeOcrDiagnostics | null>(null);
-  const [fastOcrDiagnostics, setFastOcrDiagnostics] = useState<FastOcrDiagnostics | null>(null);
-  const [copyFeedback, setCopyFeedback] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const cameraRequestRef = useRef(0);
   const sharedChecked = useRef(false);
-  const copyFeedbackTimerRef = useRef<number | null>(null);
-  const [shareDiag, setShareDiag] = useState<ShareDiagnostics | null>(null);
 
   const buildPrefill = useCallback(
     (parsed: ParsedReceipt): Partial<Omit<Transaction, "id">> => {
@@ -242,87 +76,6 @@ export default function ReceiptImport() {
     [accounts, creditCards, allCategoryNames],
   );
 
-  const processFile = useCallback(
-    async (file: File) => {
-      const totalStart = performance.now();
-      let shouldOpenForm = false;
-      let completedRun: { preparation: LocalOcrPreparationMetrics; ocr: PaddleOcrResult; parserMs: number } | null = null;
-      setPendingFile(file);
-      setFreeOcrDiagnostics(null);
-      setFastOcrDiagnostics(null);
-      setLoading(true);
-      setError(null);
-      setDuplicate(false);
-      setReadStatus("Carregando modelo PaddleOCR...");
-      try {
-        const prepared = await (async () => {
-          const localImage = await prepareReceiptForLocalOcr(file);
-          const ocr = await paddleRecognize(localImage.image, (status) => setReadStatus(status));
-          if (ocr.error) {
-            completedRun = { preparation: localImage.metrics, ocr, parserMs: 0 };
-            throw new Error("Não foi possível ler o comprovante agora. Verifique a foto e tente novamente.");
-          }
-          const parserStart = performance.now();
-          const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
-          const parserMs = performance.now() - parserStart;
-          completedRun = { preparation: localImage.metrics, ocr, parserMs };
-          return {
-            isReceipt: parsed.is_receipt,
-            receiptRef: parsed.receipt_id ?? null,
-            lowConfidence: parsed.low_confidence_fields || [],
-            prefill: parsed.is_receipt ? buildPrefill(parsed) : null,
-          };
-        })();
-
-        if (!prepared.isReceipt || !prepared.prefill) {
-          setError("Essa imagem não parece ser um comprovante. Tente outra foto mais nítida.");
-          return;
-        }
-        if (prepared.receiptRef) {
-          const { data: existing } = await supabase
-            .from("transactions")
-            .select("id")
-            .eq("receipt_ref", prepared.receiptRef)
-            .limit(1);
-          if (existing && existing.length > 0) setDuplicate(true);
-        }
-        setReceiptFile(file);
-        setReceiptRef(prepared.receiptRef);
-        setLowConfidence(prepared.lowConfidence);
-        setPrefill(prepared.prefill);
-        shouldOpenForm = true;
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante.");
-      } finally {
-        const cleanupStart = performance.now();
-        try {
-          await disposePaddleRecognizer();
-        } catch (disposeError) {
-          console.warn("[receipt-import] failed to dispose PaddleOCR", disposeError);
-        }
-        try {
-          await releaseDocumentOrientationSession();
-        } catch (releaseError) {
-          console.warn("[receipt-import] failed to release document orientation session", releaseError);
-        }
-        const cleanupMs = performance.now() - cleanupStart;
-        if (completedRun) {
-          setFreeOcrDiagnostics(logFreeOcrMetrics(
-            completedRun.preparation,
-            completedRun.ocr,
-            completedRun.parserMs,
-            cleanupMs,
-            performance.now() - totalStart,
-          ));
-        }
-        setLoading(false);
-        setReadStatus("");
-      }
-      if (shouldOpenForm) setFormOpen(true);
-    },
-    [accounts, creditCards, allCategoryNames, buildPrefill],
-  );
-
   const processFileFast = useCallback(
     async (file: File) => {
       const totalStart = performance.now();
@@ -331,17 +84,9 @@ export default function ReceiptImport() {
         initializationMs: number;
         ocrMs: number;
         parserMs: number;
-        originalDimensions: { width: number; height: number } | null;
-        ocrInputDimensions: { width: number; height: number } | null;
-        normalization: LocalOcrPreparationMetrics["normalization"];
-        rawRegions: FastOcrRawRegionDebug[];
-        groupedLines: FastOcrGroupedLineDebug[];
-        itemPipelineText: string;
+        preparation: LocalOcrPreparationMetrics;
       } | null = null;
       setPendingFile(file);
-      setFreeOcrDiagnostics(null);
-      setFastOcrDiagnostics(null);
-      setCopyFeedback(null);
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -350,30 +95,15 @@ export default function ReceiptImport() {
         const localImage = await prepareReceiptForLocalOcr(file);
         setReadStatus("Carregando modelo de OCR rápido...");
         const ocr = await fastOcrRecognize(localImage.image, (status) => setReadStatus(status));
-        const rawRegions = summarizeFastOcrRawLines(ocr.rawLines ?? []);
-        const groupedLines = summarizeFastOcrGroupedLines(ocr.regions);
         const parserStart = performance.now();
         const receiptResult = buildPaddleReceiptResult(ocr.regions);
         const parsed = paddleToParsedReceipt(receiptResult);
         const parserMs = performance.now() - parserStart;
-        let itemPipelineText: string;
-        try {
-          itemPipelineText = buildItemPipelineDebugText(ocr.regions, receiptResult.items);
-        } catch (pipelineError) {
-          itemPipelineText = `(falha ao montar PIPELINE DOS ITENS: ${
-            pipelineError instanceof Error ? pipelineError.message : String(pipelineError)
-          })`;
-        }
         completedRun = {
           initializationMs: ocr.initializationMs,
           ocrMs: ocr.ocrMs,
           parserMs,
-          originalDimensions: localImage.metrics.originalDimensions,
-          ocrInputDimensions: localImage.metrics.outputDimensions,
-          normalization: localImage.metrics.normalization,
-          rawRegions,
-          groupedLines,
-          itemPipelineText,
+          preparation: localImage.metrics,
         };
 
         if (!parsed.is_receipt) {
@@ -401,18 +131,15 @@ export default function ReceiptImport() {
         } catch (releaseError) {
           console.warn("[receipt-import] failed to release document orientation session", releaseError);
         }
-        if (completedRun) {
-          setFastOcrDiagnostics({
+        if (completedRun && import.meta.env.MODE !== "test") {
+          console.info("[receipt-import] fast OCR metrics", {
             initializationMs: Math.round(completedRun.initializationMs),
             ocrMs: Math.round(completedRun.ocrMs),
             parserMs: Math.round(completedRun.parserMs),
             totalMs: Math.round(performance.now() - totalStart),
-            originalDimensions: completedRun.originalDimensions,
-            ocrInputDimensions: completedRun.ocrInputDimensions,
-            normalization: completedRun.normalization,
-            rawRegions: completedRun.rawRegions,
-            groupedLines: completedRun.groupedLines,
-            itemPipelineText: completedRun.itemPipelineText,
+            originalDimensions: completedRun.preparation.originalDimensions,
+            ocrInputDimensions: completedRun.preparation.outputDimensions,
+            normalization: completedRun.preparation.normalization,
           });
         }
         setLoading(false);
@@ -422,23 +149,6 @@ export default function ReceiptImport() {
     },
     [buildPrefill],
   );
-
-  useEffect(() => {
-    return () => {
-      if (copyFeedbackTimerRef.current !== null) window.clearTimeout(copyFeedbackTimerRef.current);
-    };
-  }, []);
-
-  const copyFastOcrDiagnostics = useCallback(async () => {
-    if (!fastOcrDiagnostics) return;
-    const copied = await copyTextToClipboard(buildFastOcrDiagnosticsText(fastOcrDiagnostics));
-    if (copyFeedbackTimerRef.current !== null) window.clearTimeout(copyFeedbackTimerRef.current);
-    setCopyFeedback(copied ? "Diagnóstico copiado" : "Não foi possível copiar");
-    copyFeedbackTimerRef.current = window.setTimeout(() => {
-      setCopyFeedback(null);
-      copyFeedbackTimerRef.current = null;
-    }, 2500);
-  }, [fastOcrDiagnostics]);
 
   const processFileWithAi = useCallback(
     async (file: File) => {
@@ -582,14 +292,12 @@ export default function ReceiptImport() {
   useEffect(() => {
     if (sharedChecked.current) return;
     sharedChecked.current = true;
-    const openedByShare = new URLSearchParams(window.location.search).has("shared");
-    void takeSharedReceiptWithDiagnostics().then(({ file, diag }) => {
-      if (openedByShare) setShareDiag(diag);
+    void takeSharedReceiptWithDiagnostics().then(({ file }) => {
       if (file) {
-        void processFile(file);
+        void processFileFast(file);
       }
     });
-  }, [processFile]);
+  }, [processFileFast]);
 
   const fieldLabels: Record<string, string> = {
     amount: "valor",
@@ -615,15 +323,6 @@ export default function ReceiptImport() {
           Envie a foto ou o PDF do comprovante e o app preenche o registro para você conferir.
         </p>
       </div>
-
-      {shareDiag && (
-        <details className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground" open={!shareDiag.page.found}>
-          <summary className="cursor-pointer font-medium text-foreground">
-            Diagnóstico do compartilhamento: {shareDiag.page.found ? "foto recebida" : "foto não encontrada"}
-          </summary>
-          <pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(shareDiag, null, 2)}</pre>
-        </details>
-      )}
 
       <Card className="p-6 space-y-4">
         {loading ? (
@@ -657,14 +356,11 @@ export default function ReceiptImport() {
               <div className="space-y-3 rounded-md border border-border p-3">
                 <p className="truncate text-sm font-medium">{pendingFile.name}</p>
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button className="gap-2" disabled={loading} onClick={() => void processFile(pendingFile)}>
+                  <Button className="gap-2 sm:flex-1" disabled={loading} onClick={() => void processFileFast(pendingFile)}>
                     <ScanLine className="h-4 w-4" /> Ler gratuitamente
                   </Button>
                   <Button variant="outline" disabled={loading} onClick={() => setAiConfirmOpen(true)}>
                     ✨ Ler com IA
-                  </Button>
-                  <Button variant="outline" className="gap-2" disabled={loading} onClick={() => void processFileFast(pendingFile)}>
-                    ⚡ Testar OCR rápido
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">A leitura gratuita usa o OCR local e tem custo R$ 0,00.</p>
@@ -698,105 +394,6 @@ export default function ReceiptImport() {
           </div>
         )}
 
-        {freeOcrDiagnostics && !loading && (
-          <div data-testid="free-ocr-diagnostics" className="rounded-md border border-border bg-muted/30 p-3 text-xs">
-            <h3 className="mb-2 text-sm font-semibold text-foreground">Diagnóstico OCR</h3>
-            <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-muted-foreground">
-              <dt>Preparação:</dt><dd>{formatSeconds(freeOcrDiagnostics.preparationMs)}</dd>
-              <dt>Orientação:</dt><dd>{formatSeconds(freeOcrDiagnostics.orientationMs)}</dd>
-              <dt>Inicialização Paddle:</dt><dd>{formatSeconds(freeOcrDiagnostics.paddleInitializationMs)}</dd>
-              <dt>Inferência total:</dt><dd>{formatSeconds(freeOcrDiagnostics.paddleInferenceMs)}</dd>
-              <dt>Detecção (SDK):</dt><dd>{formatSeconds(freeOcrDiagnostics.detectionMs)}</dd>
-              <dt>Reconhecimento (SDK):</dt><dd>{formatSeconds(freeOcrDiagnostics.recognitionMs)}</dd>
-              <dt>Parser:</dt><dd>{formatSeconds(freeOcrDiagnostics.parserMs)}</dd>
-              <dt>Liberação de recursos:</dt><dd>{formatSeconds(freeOcrDiagnostics.cleanupMs)}</dd>
-              <dt className="font-semibold text-foreground">TOTAL:</dt>
-              <dd className="font-semibold text-foreground">{formatSeconds(freeOcrDiagnostics.totalMs)}</dd>
-              <dt>Imagem original:</dt><dd>{formatDimensions(freeOcrDiagnostics.originalDimensions)}</dd>
-              <dt>Imagem OCR:</dt><dd>{formatDimensions(freeOcrDiagnostics.ocrInputDimensions)}</dd>
-              <dt>Normalização:</dt><dd>{formatNormalization(freeOcrDiagnostics.normalization)}</dd>
-            </dl>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              Detecção e reconhecimento são tempos internos do SDK e fazem parte da inferência.
-            </p>
-          </div>
-        )}
-
-        {fastOcrDiagnostics && !loading && (
-          <div data-testid="fast-ocr-diagnostics" className="rounded-md border border-border bg-muted/30 p-3 text-xs">
-            <h3 className="mb-2 text-sm font-semibold text-foreground">DIAGNÓSTICO OCR RÁPIDO</h3>
-            <dl className="grid grid-cols-[1fr_auto] gap-x-3 gap-y-1 text-muted-foreground">
-              <dt>Inicialização:</dt><dd>{formatSeconds(fastOcrDiagnostics.initializationMs)}</dd>
-              <dt>OCR:</dt><dd>{formatSeconds(fastOcrDiagnostics.ocrMs)}</dd>
-              <dt>Parser:</dt><dd>{formatSeconds(fastOcrDiagnostics.parserMs)}</dd>
-              <dt className="font-semibold text-foreground">TOTAL:</dt>
-              <dd className="font-semibold text-foreground">{formatSeconds(fastOcrDiagnostics.totalMs)}</dd>
-              <dt>Imagem original:</dt><dd>{formatDimensions(fastOcrDiagnostics.originalDimensions)}</dd>
-              <dt>Imagem OCR:</dt><dd>{formatDimensions(fastOcrDiagnostics.ocrInputDimensions)}</dd>
-              <dt>Normalização:</dt><dd>{formatNormalization(fastOcrDiagnostics.normalization)}</dd>
-              <dt>BUILD/COMMIT:</dt><dd>{buildStamp()}</dd>
-            </dl>
-
-            <div data-testid="fast-ocr-raw-output">
-              <h4 className="mb-1 mt-3 text-sm font-semibold text-foreground">
-                SAÍDA BRUTA DO V6 TINY
-              </h4>
-              <ol className="space-y-0.5 text-muted-foreground">
-                {fastOcrDiagnostics.rawRegions.map((region) => (
-                  <li key={region.index} className="whitespace-pre-wrap break-all">
-                    #{region.index} "{region.text}" | conf={region.confidence} | box={formatBox(region.box)}
-                  </li>
-                ))}
-                {fastOcrDiagnostics.rawRegions.length === 0 && (
-                  <li className="text-muted-foreground">(nenhuma região retornada)</li>
-                )}
-              </ol>
-            </div>
-
-            <div data-testid="fast-ocr-grouped-lines">
-              <h4 className="mb-1 mt-3 text-sm font-semibold text-foreground">
-                APÓS AGRUPAMENTO
-              </h4>
-              <ol className="space-y-0.5 text-muted-foreground">
-                {fastOcrDiagnostics.groupedLines.map((line) => (
-                  <li key={line.index} className="whitespace-pre-wrap break-all">
-                    #{line.index} {line.text}
-                    {line.parts.length > 1 ? `\n  regiões: ${JSON.stringify(line.parts)}` : null}
-                  </li>
-                ))}
-                {fastOcrDiagnostics.groupedLines.length === 0 && (
-                  <li className="text-muted-foreground">(nenhuma linha agrupada)</li>
-                )}
-              </ol>
-            </div>
-
-            <div data-testid="fast-ocr-item-pipeline">
-              <h4 className="mb-1 mt-3 text-sm font-semibold text-foreground">
-                PIPELINE DOS ITENS / MORANGO DEBUG
-              </h4>
-              <pre className="whitespace-pre-wrap break-all text-muted-foreground">
-                {fastOcrDiagnostics.itemPipelineText || "(indisponível)"}
-              </pre>
-            </div>
-
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                data-testid="fast-ocr-copy-button"
-                onClick={() => void copyFastOcrDiagnostics()}
-              >
-                📋 Copiar diagnóstico
-              </Button>
-              {copyFeedback && (
-                <span data-testid="fast-ocr-copy-feedback" className="text-muted-foreground">
-                  {copyFeedback}
-                </span>
-              )}
-            </div>
-          </div>
-        )}
       </Card>
 
       <Dialog open={aiConfirmOpen} onOpenChange={setAiConfirmOpen}>

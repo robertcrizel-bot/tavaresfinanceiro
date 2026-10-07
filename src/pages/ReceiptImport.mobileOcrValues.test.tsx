@@ -247,13 +247,13 @@ describe("mobile OCR values reach the TransactionForm", () => {
     expect(description).toContain("BISC WAFER MINUETO 81GR CHOCOLATE 1UN — R$ 1,99");
   });
 
-  it("shows every item value in the form opened by '⚡ Testar OCR rápido'", async () => {
+  it("shows every item value in the form opened by 'Ler gratuitamente'", async () => {
     const { container } = render(<ReceiptImport />);
     const input = container.querySelector<HTMLInputElement>('input[type="file"]');
     const file = new File(["receipt"], "android-fonseca.jpg", { type: "image/jpeg" });
 
     fireEvent.change(input!, { target: { files: [file] } });
-    fireEvent.click(await screen.findByRole("button", { name: "⚡ Testar OCR rápido" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ler gratuitamente" }));
 
     await waitFor(() =>
       expect(mocks.fastOcrRecognize).toHaveBeenCalledWith(file, expect.any(Function)),
