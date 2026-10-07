@@ -60,6 +60,7 @@ export default function Accounts() {
   const [deleting, setDeleting] = useState<{ type: "account" | "card"; id: string } | null>(null);
   const [closingInvoice, setClosingInvoice] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
   const [closingInvoiceActualDate, setClosingInvoiceActualDate] = useState("");
+  const [closingInvoiceExcludedIds, setClosingInvoiceExcludedIds] = useState<string[]>([]);
   const [payingCard, setPayingCard] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
   const [payAccountId, setPayAccountId] = useState("");
   const [payDate, setPayDate] = useState("");
@@ -73,9 +74,54 @@ export default function Accounts() {
   const [statementCard, setStatementCard] = useState<{ id: string; name: string; limit: number; closingDay: number; dueDay: number; invoice?: CreditCardInvoice } | null>(null);
 
   const accountBalances = calculateAccountBalances(accounts, transactions, transfers);
-  const getOpenInvoice = (cardId: string) => creditCardInvoices
+const getOpenInvoice = (cardId: string) => creditCardInvoices
     .filter((invoice) => invoice.creditCardId === cardId && invoice.status === "OPEN")
     .sort((a, b) => a.cycleEnd.localeCompare(b.cycleEnd))[0];
+
+  const getInvoiceTransactions = (invoice: CreditCardInvoice, actualClosedDate: string) => {
+    return transactions.filter((t) => {
+      if (t.creditCardId !== invoice.creditCardId) return false;
+      if (t.creditCardInvoiceId !== invoice.id) return false;
+      if (!["card_purchase", "card_refund", "manual_adjustment"].includes(t.financialKind || "")) return false;
+      const actualDate = actualClosedDate || invoice.cycleEnd;
+      return t.date <= actualDate;
+    });
+  };
+
+  const getNextInvoiceTransactions = (invoice: CreditCardInvoice, actualClosedDate: string) => {
+    if (!actualClosedDate || actualClosedDate <= invoice.cycleEnd) return [];
+    const nextInvoice = creditCardInvoices.find(
+      (inv) => inv.creditCardId === invoice.creditCardId && inv.status === "OPEN" && inv.cycleStart === invoice.cycleEnd + 1
+    );
+    if (!nextInvoice) return [];
+    return transactions.filter((t) => {
+      if (t.creditCardId !== invoice.creditCardId) return false;
+      if (t.creditCardInvoiceId !== nextInvoice.id) return false;
+      if (!["card_purchase", "card_refund", "manual_adjustment"].includes(t.financialKind || "")) return false;
+      return t.date > invoice.cycleEnd && t.date <= actualClosedDate;
+    });
+  };
+
+  const handleExcludeToggle = (transactionId: string) => {
+    setClosingInvoiceExcludedIds((prev) =>
+      prev.includes(transactionId)
+        ? prev.filter((id) => id !== transactionId)
+        : [...prev, transactionId]
+    );
+  };
+
+  const getPreviewAmount = () => {
+    if (!closingInvoice) return 0;
+    const actualDate = closingInvoiceActualDate || closingInvoice.invoice.cycleEnd;
+    const currentTx = getInvoiceTransactions(closingInvoice.invoice, actualDate);
+    const nextTx = getNextInvoiceTransactions(closingInvoice.invoice, actualDate);
+    const allTx = [...currentTx, ...nextTx];
+    const filtered = allTx.filter((t) => !closingInvoiceExcludedIds.includes(t.id));
+    return filtered.reduce((sum, t) => {
+      const amount = t.type === "income" ? -t.amount : t.amount;
+      return sum + amount;
+    }, 0);
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
@@ -348,8 +394,8 @@ export default function Accounts() {
       </AlertDialog>
 
 {/* Close Invoice Confirmation */}
-      <Dialog open={!!closingInvoice} onOpenChange={(open) => { if (!open) { setClosingInvoice(null); setClosingInvoiceActualDate(""); } }}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={!!closingInvoice} onOpenChange={(open) => { if (!open) { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceExcludedIds([]); } }}>
+        <DialogContent className="sm:max-w-md max-h-[80vh]">
           <DialogHeader>
             <DialogTitle>Fechar fatura?</DialogTitle>
           </DialogHeader>
@@ -374,14 +420,7 @@ export default function Accounts() {
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Valor da fatura</span>
                 <span className="font-semibold text-foreground">
-                  {closingInvoice ? fmt(
-                    getInvoicePreviewAmount(
-                      transactions,
-                      closingInvoice.invoice,
-                      creditCardInvoices,
-                      closingInvoiceActualDate || closingInvoice.invoice.cycleEnd
-                    )
-                  ) : fmt(0)}
+                  {closingInvoice ? fmt(getPreviewAmount()) : fmt(0)}
                 </span>
               </div>
             </div>
@@ -390,7 +429,7 @@ export default function Accounts() {
               <Input
                 type="date"
                 value={closingInvoiceActualDate}
-                onChange={(e) => setClosingInvoiceActualDate(e.target.value)}
+                onChange={(e) => { setClosingInvoiceActualDate(e.target.value); setClosingInvoiceExcludedIds([]); }}
                 defaultValue={closingInvoice?.invoice.cycleEnd}
                 min={closingInvoice?.invoice.cycleStart}
               />
@@ -399,16 +438,58 @@ export default function Accounts() {
                 Compras até esta data entram na fatura; posteriores vão para a próxima.
               </p>
             </div>
+            {closingInvoice && (
+              <div className="border-t pt-4">
+                <p className="text-sm font-medium mb-2">Compras incluídas nesta fatura</p>
+                <div className="max-h-60 overflow-y-auto space-y-2">
+                  {(() => {
+                    const actualDate = closingInvoiceActualDate || closingInvoice.invoice.cycleEnd;
+                    const currentTx = getInvoiceTransactions(closingInvoice.invoice, actualDate);
+                    const nextTx = getNextInvoiceTransactions(closingInvoice.invoice, actualDate);
+                    const allTx = [...currentTx, ...nextTx];
+                    if (allTx.length === 0) {
+                      return <p className="text-xs text-muted-foreground text-center py-4">Nenhuma compra elegível neste período.</p>;
+                    }
+                    return allTx.map((tx) => {
+                      const isExcluded = closingInvoiceExcludedIds.includes(tx.id);
+                      const isNextInvoiceTx = tx.creditCardInvoiceId !== closingInvoice.invoice.id;
+                      return (
+                        <div key={tx.id} className={`flex items-center gap-2 py-2 px-2 border-b border-border last:border-0 ${isExcluded ? "opacity-50 bg-muted/50" : ""}`}>
+                          <input
+                            type="checkbox"
+                            checked={isExcluded}
+                            onChange={() => handleExcludeToggle(tx.id)}
+                            className="h-4 w-4 rounded border-input"
+                          />
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-foreground truncate">{tx.title}</p>
+                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                              <span>{fmtDate(tx.date)}</span>
+                              {tx.category && <span>· {tx.category}</span>}
+                              {isNextInvoiceTx && <span className="text-primary">· Próxima fatura (automático)</span>}
+                              {isExcluded && <span className="text-orange">· Movida para próxima</span>}
+                            </div>
+                          </div>
+                          <span className={`text-sm font-semibold whitespace-nowrap ${tx.type === "income" ? "text-income" : "text-expense"}`}>
+                            {tx.type === "income" ? "-R$ " : "R$ "} {fmt(tx.amount)}
+                          </span>
+                        </div>
+                      );
+                    });
+                  })()}
+                </div>
+              </div>
+            )}
             <p className="text-xs text-muted-foreground pt-2 border-t">
               O valor será congelado e uma obrigação neutra será criada em Meus Registros.
             </p>
           </div>
           <DialogFooter className="flex justify-end gap-2">
-            <Button variant="outline" onClick={() => { setClosingInvoice(null); setClosingInvoiceActualDate(""); }}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceExcludedIds([]); }}>Cancelar</Button>
             <Button onClick={async () => {
               if (!closingInvoice) return;
-              const closed = await closeCardInvoice(closingInvoice.invoice.id, closingInvoiceActualDate || undefined);
-              if (closed) { setClosingInvoice(null); setClosingInvoiceActualDate(""); }
+              const closed = await closeCardInvoice(closingInvoice.invoice.id, closingInvoiceActualDate || undefined, closingInvoiceExcludedIds);
+              if (closed) { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceExcludedIds([]); }
             }}>Fechar fatura</Button>
           </DialogFooter>
         </DialogContent>
