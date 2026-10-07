@@ -1,3 +1,5 @@
+BEGIN;
+
 CREATE TABLE public.credit_card_invoices (
   id UUID NOT NULL DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
@@ -159,39 +161,40 @@ ALTER TABLE public.transactions DISABLE TRIGGER update_transactions_updated_at;
 UPDATE public.transactions
 SET financial_kind = CASE
   WHEN credit_card_id IS NOT NULL AND account_id IS NULL
-    AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = transactions.id))
+    AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = transactions.id)
+         OR (is_paid AND credit_card_id IS NOT NULL AND account_id IS NULL))
     AND (lower(title) LIKE '%ajuste de fatura%' OR lower(COALESCE(description, '')) LIKE '%ajuste manual%') THEN 'manual_adjustment'
   WHEN credit_card_id IS NOT NULL AND account_id IS NULL AND type = 'income'
-    AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = transactions.id)) THEN 'card_refund'
+    AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = transactions.id)
+         OR (is_paid AND credit_card_id IS NOT NULL AND account_id IS NULL)) THEN 'card_refund'
   WHEN credit_card_id IS NOT NULL AND account_id IS NULL
-    AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = transactions.id)) THEN 'card_purchase'
+    AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = transactions.id)
+         OR (is_paid AND credit_card_id IS NOT NULL AND account_id IS NULL)) THEN 'card_purchase'
   ELSE 'regular'
 END
 WHERE financial_kind IS DISTINCT FROM CASE
   WHEN credit_card_id IS NOT NULL AND account_id IS NULL
-    AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = transactions.id))
+    AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = transactions.id)
+         OR (is_paid AND credit_card_id IS NOT NULL AND account_id IS NULL))
     AND (lower(title) LIKE '%ajuste de fatura%' OR lower(COALESCE(description, '')) LIKE '%ajuste manual%') THEN 'manual_adjustment'
   WHEN credit_card_id IS NOT NULL AND account_id IS NULL AND type = 'income'
-    AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = transactions.id)) THEN 'card_refund'
+    AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = transactions.id)
+         OR (is_paid AND credit_card_id IS NOT NULL AND account_id IS NULL)) THEN 'card_refund'
   WHEN credit_card_id IS NOT NULL AND account_id IS NULL
-    AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = transactions.id)) THEN 'card_purchase'
+    AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = transactions.id)
+         OR (is_paid AND credit_card_id IS NOT NULL AND account_id IS NULL)) THEN 'card_purchase'
   ELSE 'regular'
 END;
 
 ALTER TABLE public.transactions ENABLE TRIGGER update_transactions_updated_at;
 
 INSERT INTO public.credit_card_invoices (user_id, credit_card_id, competence, cycle_start, cycle_end, due_date)
-SELECT c.user_id, c.id, cycle.competence, cycle.cycle_start, cycle.cycle_end, cycle.due_date
+SELECT DISTINCT c.user_id, c.id, cycle.competence, cycle.cycle_start, cycle.cycle_end, cycle.due_date
 FROM public.credit_cards c
-CROSS JOIN LATERAL public.credit_card_cycle_dates(c.closing_day, c.due_day, CURRENT_DATE) cycle
-WHERE EXISTS (
-  SELECT 1
-  FROM public.transactions t
-  WHERE t.credit_card_id = c.id
-    AND t.user_id = c.user_id
-    AND t.financial_kind IN ('card_purchase', 'card_refund', 'manual_adjustment')
-    AND (NOT t.is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = t.id))
-)
+JOIN public.transactions t ON t.credit_card_id = c.id AND t.user_id = c.user_id
+CROSS JOIN LATERAL public.credit_card_cycle_dates(c.closing_day, c.due_day, t.date) cycle
+WHERE t.financial_kind IN ('card_purchase', 'card_refund', 'manual_adjustment')
+  AND (NOT t.is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = t.id))
 ON CONFLICT (credit_card_id, cycle_end) DO NOTHING;
 
 UPDATE public.transactions t
@@ -200,10 +203,9 @@ FROM public.credit_card_invoices invoice
 WHERE t.credit_card_id = invoice.credit_card_id
   AND t.user_id = invoice.user_id
   AND invoice.status = 'OPEN'
-  AND CURRENT_DATE BETWEEN invoice.cycle_start AND invoice.cycle_end
+  AND t.date BETWEEN invoice.cycle_start AND invoice.cycle_end
   AND t.financial_kind IN ('card_purchase', 'card_refund', 'manual_adjustment')
   AND t.credit_card_invoice_id IS NULL
-  AND t.date <= invoice.cycle_end
   AND (NOT t.is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = t.id));
 
 DO $$
@@ -218,7 +220,8 @@ BEGIN
     WHERE t.credit_card_id IS NOT NULL
       AND credit_card_invoice_id IS NULL
       AND financial_kind IN ('card_purchase', 'card_refund', 'manual_adjustment')
-      AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = t.id))
+      AND (NOT is_paid OR EXISTS (SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = t.id)
+           OR (is_paid AND t.credit_card_id IS NOT NULL AND t.account_id IS NULL))
     ORDER BY t.date ASC
   LOOP
     v_invoice_id := public.ensure_credit_card_invoice(v_transaction.credit_card_id, v_transaction.date);
@@ -286,7 +289,7 @@ BEGIN
       AND OLD.account_id IS NOT NULL AND NEW.account_id IS NULL)
     AND (NOT NEW.is_paid OR EXISTS (
       SELECT 1 FROM public.bill_payments bp WHERE bp.transaction_id = NEW.id
-    )) THEN
+    ) OR (NEW.is_paid AND NEW.credit_card_id IS NOT NULL AND NEW.account_id IS NULL)) THEN
     IF NEW.credit_card_id IS NOT NULL AND NEW.account_id IS NULL AND NEW.type = 'income' THEN NEW.financial_kind := 'card_refund';
     ELSIF NEW.credit_card_id IS NOT NULL AND NEW.account_id IS NULL THEN NEW.financial_kind := 'card_purchase';
     END IF;
@@ -422,6 +425,51 @@ CREATE TRIGGER cleanup_empty_open_invoice_after_update
   WHEN (OLD.credit_card_invoice_id IS DISTINCT FROM NEW.credit_card_invoice_id)
   EXECUTE FUNCTION public.cleanup_empty_open_invoice();
 
+CREATE OR REPLACE FUNCTION public.reconcile_bill_payment_transaction()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_transaction public.transactions%ROWTYPE;
+  v_invoice_id UUID;
+BEGIN
+  IF NEW.transaction_id IS NULL THEN
+    RETURN NEW;
+  END IF;
+
+  SELECT * INTO v_transaction
+  FROM public.transactions
+  WHERE id = NEW.transaction_id
+    AND credit_card_id IS NOT NULL
+    AND financial_kind IN ('card_purchase', 'card_refund', 'manual_adjustment')
+  FOR SHARE;
+
+  IF NOT FOUND THEN
+    RETURN NEW;
+  END IF;
+
+  IF v_transaction.credit_card_invoice_id IS NOT NULL THEN
+    RETURN NEW;
+  END IF;
+
+  IF v_transaction.financial_kind IN ('card_purchase', 'card_refund', 'manual_adjustment') THEN
+    v_invoice_id := public.ensure_credit_card_invoice(v_transaction.credit_card_id, v_transaction.date);
+    UPDATE public.transactions
+    SET credit_card_invoice_id = v_invoice_id
+    WHERE id = v_transaction.id
+      AND credit_card_invoice_id IS NULL;
+  END IF;
+
+  RETURN NEW;
+END;
+$$;
+
+CREATE TRIGGER reconcile_bill_payment_transaction_after_write
+  AFTER INSERT OR UPDATE ON public.bill_payments
+  FOR EACH ROW EXECUTE FUNCTION public.reconcile_bill_payment_transaction();
+
 CREATE OR REPLACE FUNCTION public.close_credit_card_invoice(p_invoice_id UUID)
 RETURNS UUID
 LANGUAGE plpgsql
@@ -542,3 +590,5 @@ REVOKE ALL ON FUNCTION public.pay_credit_card_invoice(UUID, UUID, DATE, TEXT) FR
 GRANT EXECUTE ON FUNCTION public.ensure_credit_card_invoice(UUID, DATE) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.close_credit_card_invoice(UUID) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.pay_credit_card_invoice(UUID, UUID, DATE, TEXT) TO authenticated;
+
+COMMIT;
