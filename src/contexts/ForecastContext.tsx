@@ -147,7 +147,10 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
       dateStr = dueDate.toISOString().split("T")[0];
     }
 
-    const accountId = overrides?.accountId !== undefined ? overrides.accountId : bill.accountId;
+    // When paying with a credit card, the transaction should not have an account_id
+    // because the payment is made via credit card (the account will be debited when the invoice is paid)
+    const isCreditCardPayment = overrides?.creditCardId !== undefined && overrides.creditCardId !== null;
+    const accountId = isCreditCardPayment ? null : (overrides?.accountId !== undefined ? overrides.accountId : bill.accountId);
 
     // Create a real transaction
     const { data: txData, error: txError } = await supabase.from("transactions").insert({
