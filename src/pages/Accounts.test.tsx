@@ -65,6 +65,7 @@ vi.mock("@/components/ui/dialog", () => {
     DialogContent: Wrapper,
     DialogHeader: Wrapper,
     DialogTitle: Wrapper,
+    DialogFooter: Wrapper,
   };
 });
 

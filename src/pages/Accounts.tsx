@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight, FileText } from "lucide-react";
@@ -59,6 +59,7 @@ export default function Accounts() {
   const [editingCc, setEditingCc] = useState<CreditCard | undefined>();
   const [deleting, setDeleting] = useState<{ type: "account" | "card"; id: string } | null>(null);
   const [closingInvoice, setClosingInvoice] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
+  const [closingInvoiceActualDate, setClosingInvoiceActualDate] = useState("");
   const [payingCard, setPayingCard] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
   const [payAccountId, setPayAccountId] = useState("");
   const [payDate, setPayDate] = useState("");
@@ -215,13 +216,15 @@ export default function Accounts() {
                           {status === "PAID" ? "Paga" : status === "CLOSED" ? "Fechada" : "Aberta"}
                         </Badge>
                       </div>
-                      {invoice && <p className="text-xs capitalize text-muted-foreground">Competência: {formatInvoiceCompetence(invoice.competence)}</p>}
+{invoice && <p className="text-xs capitalize text-muted-foreground">Competência: {formatInvoiceCompetence(invoice.competence)}</p>}
                       <p className="text-xs text-muted-foreground">
                         {status === "PAID" && invoice?.paidAt
                           ? `Paga em ${fmtDateTime(invoice.paidAt)}`
                           : status === "CLOSED"
-                            ? `Vencimento ${fmtDate(dueDate)}`
-                            : `Fecha em ${fmtDate(cycleEnd)} · Vence em ${fmtDate(dueDate)}`}
+                            ? (invoice?.actualClosedAt
+                                ? `Fechada em ${fmtDateTime(invoice.actualClosedAt)} · Vencimento ${fmtDate(dueDate)}`
+                                : `Fechada em ${fmtDateTime(invoice.closedAt)} · Vencimento ${fmtDate(dueDate)}`)
+                            : `Fechamento previsto: ${fmtDate(cycleEnd)} · Vence em ${fmtDate(dueDate)}`}
                       </p>
                       {status === "PAID" && paymentAccount && (
                         <p className="text-xs text-muted-foreground">Conta: {paymentAccount.name}</p>
@@ -236,8 +239,8 @@ export default function Accounts() {
                       >
                         <FileText className="h-3.5 w-3.5" /> Ver compras
                       </Button>
-                      {status === "OPEN" && invoice && invoice.cycleStart <= today && hasMovements(invoice) && (
-                        <Button size="sm" variant="outline" onClick={() => setClosingInvoice({ card: cc, invoice, amount: currentInvoice })}>
+{status === "OPEN" && invoice && invoice.cycleStart <= today && hasMovements(invoice) && (
+                        <Button size="sm" variant="outline" onClick={() => { setClosingInvoice({ card: cc, invoice, amount: currentInvoice }); setClosingInvoiceActualDate(invoice.cycleEnd); }}>
                           Fechar fatura
                         </Button>
                       )}
@@ -259,8 +262,8 @@ export default function Accounts() {
                           <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setStatementCard({ id: cc.id, name: cc.name, limit: cc.limit, closingDay: cc.closingDay, dueDay: cc.dueDay, invoice: nextOpenInvoice })}>
                             Ver compras
                           </Button>
-                          {nextOpenInvoice.cycleStart <= today && (
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setClosingInvoice({ card: cc, invoice: nextOpenInvoice, amount: getInvoiceAmount(transactions, nextOpenInvoice) })}>
+{nextOpenInvoice.cycleStart <= today && (
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setClosingInvoice({ card: cc, invoice: nextOpenInvoice, amount: getInvoiceAmount(transactions, nextOpenInvoice) }); setClosingInvoiceActualDate(nextOpenInvoice.cycleEnd); }}>
                               Fechar próxima
                             </Button>
                           )}
@@ -344,29 +347,63 @@ export default function Accounts() {
         </AlertDialogContent>
       </AlertDialog>
 
-      {/* Close Invoice Confirmation */}
-      <AlertDialog open={!!closingInvoice} onOpenChange={(open) => { if (!open) setClosingInvoice(null); }}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Fechar fatura?</AlertDialogTitle>
-            <AlertDialogDescription className="space-y-1">
-              <span className="block">Cartão: <strong className="text-foreground">{closingInvoice?.card.name}</strong></span>
-              <span className="block capitalize">Competência: <strong className="text-foreground">{closingInvoice ? formatInvoiceCompetence(closingInvoice.invoice.competence) : ""}</strong></span>
-              <span className="block">Valor: <strong className="text-foreground">{fmt(closingInvoice?.amount ?? 0)}</strong></span>
-              <span className="block">Vencimento: <strong className="text-foreground">{closingInvoice ? fmtDate(closingInvoice.invoice.dueDate) : ""}</strong></span>
-              <span className="block pt-2">O valor será congelado e uma obrigação neutra será criada em Meus Registros.</span>
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+{/* Close Invoice Confirmation */}
+      <Dialog open={!!closingInvoice} onOpenChange={(open) => { if (!open) { setClosingInvoice(null); setClosingInvoiceActualDate(""); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Fechar fatura?</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Cartão</span>
+                <span className="font-medium text-foreground">{closingInvoice?.card.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Competência</span>
+                <span className="font-medium text-foreground">{closingInvoice ? formatInvoiceCompetence(closingInvoice.invoice.competence) : ""}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Fechamento previsto</span>
+                <span className="font-medium text-foreground">{closingInvoice ? fmtDate(closingInvoice.invoice.cycleEnd) : ""}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Vencimento</span>
+                <span className="font-medium text-foreground">{closingInvoice ? fmtDate(closingInvoice.invoice.dueDate) : ""}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Valor atual</span>
+                <span className="font-semibold text-foreground">{fmt(closingInvoice?.amount ?? 0)}</span>
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label className="block text-sm font-medium">Data real de fechamento</Label>
+              <Input
+                type="date"
+                value={closingInvoiceActualDate}
+                onChange={(e) => setClosingInvoiceActualDate(e.target.value)}
+                defaultValue={closingInvoice?.invoice.cycleEnd}
+                min={closingInvoice?.invoice.cycleStart}
+              />
+              <p className="text-xs text-muted-foreground">
+                Preenchido com a data prevista. Altere se o fechamento real foi em outra data.
+                Compras até esta data entram na fatura; posteriores vão para a próxima.
+              </p>
+            </div>
+            <p className="text-xs text-muted-foreground pt-2 border-t">
+              O valor será congelado e uma obrigação neutra será criada em Meus Registros.
+            </p>
+          </div>
+          <DialogFooter className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => { setClosingInvoice(null); setClosingInvoiceActualDate(""); }}>Cancelar</Button>
             <Button onClick={async () => {
               if (!closingInvoice) return;
-              const closed = await closeCardInvoice(closingInvoice.invoice.id);
-              if (closed) setClosingInvoice(null);
+              const closed = await closeCardInvoice(closingInvoice.invoice.id, closingInvoiceActualDate || undefined);
+              if (closed) { setClosingInvoice(null); setClosingInvoiceActualDate(""); }
             }}>Fechar fatura</Button>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Pay Card Bill Dialog */}
       <AlertDialog open={!!payingCard} onOpenChange={(o) => { if (!o) setPayingCard(null); }}>

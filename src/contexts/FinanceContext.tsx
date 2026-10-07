@@ -272,8 +272,11 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, [transactions, fetchTransactions]);
 
-  const closeCardInvoice = useCallback(async (invoiceId: string) => {
-    const { error } = await supabase.rpc("close_credit_card_invoice", { p_invoice_id: invoiceId });
+const closeCardInvoice = useCallback(async (invoiceId: string, actualClosedDate?: string) => {
+    const { error } = await supabase.rpc("close_credit_card_invoice", {
+      p_invoice_id: invoiceId,
+      p_actual_closed_date: actualClosedDate || null
+    });
     if (error) {
       toast({ title: "Erro ao fechar fatura", description: error.message, variant: "destructive" });
       return false;
