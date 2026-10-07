@@ -92,6 +92,7 @@ export const buildCreditCardPeriodStatement = ({
     if (!belongsToPeriod(tx.date, startDate, endDate)) continue;
     if (tx.financialKind === "card_invoice_obligation" || tx.financialKind === "card_invoice_payment") continue;
     if (isAdjustmentTransaction(tx)) continue;
+    if (isPartialRecord(tx)) continue;
 
     if (isBillPaymentTransaction(tx)) {
       entries.push({
