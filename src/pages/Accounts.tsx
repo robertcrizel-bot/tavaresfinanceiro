@@ -408,7 +408,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Competência</span>
-                  <span className="font-medium text-foreground">{closingInvoice ? formatInvoiceCompetence(closingInvoice.invoice.competence) : ""}</span>
+                  <span className="font-medium capitalize text-foreground">{closingInvoice ? formatInvoiceCompetence(closingInvoice.invoice.competence) : ""}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Fechamento previsto</span>
@@ -444,8 +444,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
               <div className="flex min-h-0 flex-1 flex-col border-t border-border pt-4">
                 <div className="shrink-0">
                   <p className="mb-1 text-sm font-medium">Compras incluídas nesta fatura</p>
-                  <p className="mb-1 text-xs text-muted-foreground">Marque as compras que devem ir para a próxima fatura.</p>
-                  <p className="mb-2 text-xs text-muted-foreground">As compras não marcadas permanecerão nesta fatura.</p>
+                  <p className="mb-2 text-xs text-muted-foreground">Selecione as compras que devem ir para a próxima fatura.</p>
                 </div>
                 <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
                   {(() => {
