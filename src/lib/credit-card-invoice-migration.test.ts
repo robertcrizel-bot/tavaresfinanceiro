@@ -6,6 +6,10 @@ const migration = readFileSync(
   join(process.cwd(), "supabase/migrations/20261007120000_add_credit_card_invoice_lifecycle.sql"),
   "utf8",
 );
+const dueDateMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261007150000_add_due_date_to_close_invoice.sql"),
+  "utf8",
+);
 
 describe("credit card invoice database contract", () => {
   it("creates a persisted invoice model and safely backfills existing data", () => {
@@ -47,5 +51,12 @@ describe("credit card invoice database contract", () => {
     expect(migration).toContain("IF FOUND AND v_invoice.status = 'OPEN' THEN RETURN v_invoice.id");
     expect(migration).toContain("v_reference_date := v_cycle.cycle_end + 1");
     expect(migration).toContain("assign_credit_card_invoice_before_write");
+  });
+
+  it("persists an invoice-specific due date when closing", () => {
+    expect(dueDateMigration).toContain("p_due_date DATE DEFAULT NULL");
+    expect(dueDateMigration).toContain("due_date = v_due_date");
+    expect(dueDateMigration).toContain("'Fatura Cartão', v_due_date");
+    expect(dueDateMigration).not.toMatch(/UPDATE public\.credit_cards/);
   });
 });

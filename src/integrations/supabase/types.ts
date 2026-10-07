@@ -502,7 +502,12 @@ export type Database = {
     }
     Functions: {
       close_credit_card_invoice: {
-        Args: { p_invoice_id: string }
+        Args: {
+          p_actual_closed_date?: string
+          p_due_date?: string
+          p_exclude_transaction_ids?: string[]
+          p_invoice_id: string
+        }
         Returns: string
       }
       credit_card_cycle_dates: {

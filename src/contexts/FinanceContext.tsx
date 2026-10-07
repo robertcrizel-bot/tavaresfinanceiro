@@ -12,7 +12,7 @@ interface FinanceContextType {
   addTransaction: (t: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[]; receiptRef?: string }) => Promise<boolean>;
   updateTransaction: (t: Transaction, options?: { attachments?: File[] }) => Promise<boolean>;
   deleteTransaction: (id: string) => Promise<void>;
-  closeCardInvoice: (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[]) => Promise<boolean>;
+  closeCardInvoice: (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[], dueDate?: string) => Promise<boolean>;
   payCardInvoice: (invoiceId: string, accountId: string, date?: string, paymentMethod?: string) => Promise<boolean>;
   refetch: () => void;
 }
@@ -272,11 +272,12 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, [transactions, fetchTransactions]);
 
-const closeCardInvoice = useCallback(async (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[]) => {
+const closeCardInvoice = useCallback(async (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[], dueDate?: string) => {
     const { error } = await supabase.rpc("close_credit_card_invoice", {
       p_invoice_id: invoiceId,
       p_actual_closed_date: actualClosedDate || null,
-      p_exclude_transaction_ids: excludeTransactionIds || null
+      p_exclude_transaction_ids: excludeTransactionIds || null,
+      p_due_date: dueDate || null,
     });
     if (error) {
       toast({ title: "Erro ao fechar fatura", description: error.message, variant: "destructive" });

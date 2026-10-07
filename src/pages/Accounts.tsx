@@ -60,6 +60,7 @@ export default function Accounts() {
   const [deleting, setDeleting] = useState<{ type: "account" | "card"; id: string } | null>(null);
   const [closingInvoice, setClosingInvoice] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
   const [closingInvoiceActualDate, setClosingInvoiceActualDate] = useState("");
+  const [closingInvoiceDueDate, setClosingInvoiceDueDate] = useState("");
   const [closingInvoiceExcludedIds, setClosingInvoiceExcludedIds] = useState<string[]>([]);
   const [payingCard, setPayingCard] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
   const [payAccountId, setPayAccountId] = useState("");
@@ -286,7 +287,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                         <FileText className="h-3.5 w-3.5" /> Ver compras
                       </Button>
 {status === "OPEN" && invoice && invoice.cycleStart <= today && hasMovements(invoice) && (
-                        <Button size="sm" variant="outline" onClick={() => { setClosingInvoice({ card: cc, invoice, amount: currentInvoice }); setClosingInvoiceActualDate(invoice.cycleEnd); }}>
+                        <Button size="sm" variant="outline" onClick={() => { setClosingInvoice({ card: cc, invoice, amount: currentInvoice }); setClosingInvoiceActualDate(invoice.cycleEnd); setClosingInvoiceDueDate(invoice.dueDate); }}>
                           Fechar fatura
                         </Button>
                       )}
@@ -309,7 +310,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                             Ver compras
                           </Button>
 {nextOpenInvoice.cycleStart <= today && (
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setClosingInvoice({ card: cc, invoice: nextOpenInvoice, amount: getInvoiceAmount(transactions, nextOpenInvoice) }); setClosingInvoiceActualDate(nextOpenInvoice.cycleEnd); }}>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setClosingInvoice({ card: cc, invoice: nextOpenInvoice, amount: getInvoiceAmount(transactions, nextOpenInvoice) }); setClosingInvoiceActualDate(nextOpenInvoice.cycleEnd); setClosingInvoiceDueDate(nextOpenInvoice.dueDate); }}>
                               Fechar próxima
                             </Button>
                           )}
@@ -394,7 +395,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
       </AlertDialog>
 
       {/* Close Invoice Confirmation */}
-      <Dialog open={!!closingInvoice} onOpenChange={(open) => { if (!open) { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceExcludedIds([]); } }}>
+      <Dialog open={!!closingInvoice} onOpenChange={(open) => { if (!open) { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceDueDate(""); setClosingInvoiceExcludedIds([]); } }}>
         <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)] sm:w-full">
           <DialogHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
             <DialogTitle>Fechar fatura?</DialogTitle>
@@ -410,13 +411,26 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                   <span className="text-muted-foreground">Competência</span>
                   <span className="font-medium capitalize text-foreground">{closingInvoice ? formatInvoiceCompetence(closingInvoice.invoice.competence) : ""}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Fechamento previsto</span>
-                  <span className="font-medium text-foreground">{closingInvoice ? fmtDate(closingInvoice.invoice.cycleEnd) : ""}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="invoice-closing-date" className="text-sm font-normal text-muted-foreground">Fechamento</Label>
+                  <Input
+                    id="invoice-closing-date"
+                    type="date"
+                    value={closingInvoiceActualDate}
+                    onChange={(e) => { setClosingInvoiceActualDate(e.target.value); setClosingInvoiceExcludedIds([]); }}
+                    min={closingInvoice?.invoice.cycleStart}
+                    className="h-8 min-w-0 w-40 max-w-[60%] text-sm"
+                  />
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-muted-foreground">Vencimento</span>
-                  <span className="font-medium text-foreground">{closingInvoice ? fmtDate(closingInvoice.invoice.dueDate) : ""}</span>
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="invoice-due-date" className="text-sm font-normal text-muted-foreground">Vencimento</Label>
+                  <Input
+                    id="invoice-due-date"
+                    type="date"
+                    value={closingInvoiceDueDate}
+                    onChange={(e) => setClosingInvoiceDueDate(e.target.value)}
+                    className="h-8 min-w-0 w-40 max-w-[60%] text-sm"
+                  />
                 </div>
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Valor da fatura</span>
@@ -424,20 +438,6 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                     {closingInvoice ? fmt(getPreviewAmount()) : fmt(0)}
                   </span>
                 </div>
-              </div>
-              <div className="space-y-2">
-                <Label className="block text-sm font-medium">Data real de fechamento</Label>
-                <Input
-                  type="date"
-                  value={closingInvoiceActualDate}
-                  onChange={(e) => { setClosingInvoiceActualDate(e.target.value); setClosingInvoiceExcludedIds([]); }}
-                  defaultValue={closingInvoice?.invoice.cycleEnd}
-                  min={closingInvoice?.invoice.cycleStart}
-                />
-                <p className="text-xs text-muted-foreground">
-                  Preenchido com a data prevista. Altere se o fechamento real foi em outra data.
-                  Compras até esta data entram na fatura; posteriores vão para a próxima.
-                </p>
               </div>
             </div>
             {closingInvoice && (
@@ -495,11 +495,11 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
             </p>
           </div>
           <DialogFooter className="shrink-0 gap-2 border-t border-border px-4 py-4 sm:px-6">
-            <Button variant="outline" onClick={() => { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceExcludedIds([]); }}>Cancelar</Button>
+            <Button variant="outline" onClick={() => { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceDueDate(""); setClosingInvoiceExcludedIds([]); }}>Cancelar</Button>
             <Button onClick={async () => {
               if (!closingInvoice) return;
-              const closed = await closeCardInvoice(closingInvoice.invoice.id, closingInvoiceActualDate || undefined, closingInvoiceExcludedIds);
-              if (closed) { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceExcludedIds([]); }
+              const closed = await closeCardInvoice(closingInvoice.invoice.id, closingInvoiceActualDate || undefined, closingInvoiceExcludedIds, closingInvoiceDueDate || undefined);
+              if (closed) { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceDueDate(""); setClosingInvoiceExcludedIds([]); }
             }}>Fechar fatura</Button>
           </DialogFooter>
         </DialogContent>

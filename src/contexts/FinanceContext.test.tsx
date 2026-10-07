@@ -204,10 +204,15 @@ describe("FinanceContext receipt details", () => {
     await renderProvider();
 
     let result = false;
-    await act(async () => { result = await context!.closeCardInvoice("invoice-1"); });
+    await act(async () => { result = await context!.closeCardInvoice("invoice-1", "2026-10-25", ["tx-1"], "2026-11-08"); });
 
     expect(result).toBe(true);
-    expect(mocks.rpc).toHaveBeenCalledWith("close_credit_card_invoice", { p_invoice_id: "invoice-1", p_actual_closed_date: null, p_exclude_transaction_ids: null });
+    expect(mocks.rpc).toHaveBeenCalledWith("close_credit_card_invoice", {
+      p_invoice_id: "invoice-1",
+      p_actual_closed_date: "2026-10-25",
+      p_exclude_transaction_ids: ["tx-1"],
+      p_due_date: "2026-11-08",
+    });
   });
 
   it("pays the exact closed invoice from the selected account", async () => {
