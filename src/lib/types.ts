@@ -50,6 +50,32 @@ export interface CreditCard {
   color: string;
 }
 
+export type CreditCardInvoiceStatus = "OPEN" | "CLOSED" | "PAID";
+
+export interface CreditCardInvoice {
+  id: string;
+  creditCardId: string;
+  competence: string;
+  cycleStart: string;
+  cycleEnd: string;
+  dueDate: string;
+  status: CreditCardInvoiceStatus;
+  closedTotal?: number;
+  closedAt?: string;
+  paidAt?: string;
+  paymentAccountId?: string;
+  obligationTransactionId?: string;
+  paymentTransactionId?: string;
+}
+
+export type FinancialKind =
+  | "regular"
+  | "card_purchase"
+  | "card_refund"
+  | "card_invoice_obligation"
+  | "card_invoice_payment"
+  | "manual_adjustment";
+
 export type ReceiptDetails = {
   merchantName?: string;
   taxId?: string;
@@ -69,6 +95,8 @@ export interface Transaction {
   paymentMethod?: PaymentMethod;
   accountId?: string;
   creditCardId?: string;
+  creditCardInvoiceId?: string;
+  financialKind?: FinancialKind;
   isPaid?: boolean;
   hasAttachment?: boolean;
   receiptRef?: string;

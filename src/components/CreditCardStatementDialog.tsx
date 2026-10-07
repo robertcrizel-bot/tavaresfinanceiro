@@ -1,5 +1,5 @@
 // @ts-nocheck -- pre-existing type mismatches; runtime behavior intentionally untouched
-import { useState, useMemo, useCallback } from "react";
+import { useState, useMemo, useCallback, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,7 +12,8 @@ import { ChevronLeft, ChevronRight, ArrowUpRight, ArrowDownLeft, RotateCcw, Down
 import { format, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { buildCreditCardStatement, type CardStatementTransaction } from "@/lib/credit-card-statement";
-import { getCardCommittedAmount, getCardCurrentInvoiceAmount } from "@/lib/credit-card-billing";
+import { formatInvoiceCompetence, getCardCommittedAmount, getCardCurrentInvoiceAmount, getInvoiceAmount } from "@/lib/credit-card-billing";
+import type { CreditCardInvoice } from "@/lib/types";
 import { exportCreditCardStatementToExcel, exportCreditCardStatementToPdf, type CreditCardExportContext } from "@/lib/credit-card-statement-export";
 
 interface CreditCardStatementDialogProps {
@@ -20,6 +21,8 @@ interface CreditCardStatementDialogProps {
   onClose: () => void;
   card: { id: string; name: string; limit: number; closingDay: number; dueDay: number };
   transactions: CardStatementTransaction[];
+  invoice?: CreditCardInvoice;
+  invoices?: CreditCardInvoice[];
 }
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -29,10 +32,24 @@ export default function CreditCardStatementDialog({
   onClose,
   card,
   transactions,
+  invoice,
+  invoices = [],
 }: CreditCardStatementDialogProps) {
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [selectedInvoiceId, setSelectedInvoiceId] = useState(invoice?.id);
 
-  const referenceMonth = format(currentMonth, "yyyy-MM");
+  useEffect(() => {
+    if (open) setSelectedInvoiceId(invoice?.id);
+  }, [open, card.id, invoice?.id]);
+
+  const cardInvoices = useMemo(
+    () => invoices.filter((candidate) => candidate.creditCardId === card.id).sort((a, b) => a.cycleEnd.localeCompare(b.cycleEnd)),
+    [invoices, card.id],
+  );
+  const activeInvoice = cardInvoices.find((candidate) => candidate.id === selectedInvoiceId) || invoice;
+  const activeInvoiceIndex = activeInvoice ? cardInvoices.findIndex((candidate) => candidate.id === activeInvoice.id) : -1;
+
+  const referenceMonth = activeInvoice?.competence.slice(0, 7) || format(currentMonth, "yyyy-MM");
 
   const statement = useMemo(
     () =>
@@ -40,8 +57,9 @@ export default function CreditCardStatementDialog({
         creditCardId: card.id,
         transactions,
         referenceMonth,
+        invoiceId: activeInvoice?.id,
       }),
-    [card.id, transactions, referenceMonth]
+    [card.id, transactions, referenceMonth, activeInvoice?.id]
   );
 
   const visibleEntries = useMemo(
@@ -51,8 +69,8 @@ export default function CreditCardStatementDialog({
 
   const hasEntries = visibleEntries.length > 0;
 
-  const used = getCardCommittedAmount(transactions, card.id);
-  const currentInvoice = getCardCurrentInvoiceAmount(transactions, card.id);
+  const used = getCardCommittedAmount(transactions, card.id, invoices);
+  const currentInvoice = activeInvoice ? getInvoiceAmount(transactions, activeInvoice) : getCardCurrentInvoiceAmount(transactions, card.id);
   const available = card.limit - used;
   const pct = card.limit > 0 ? Math.min((used / card.limit) * 100, 100) : 0;
 
@@ -60,13 +78,16 @@ export default function CreditCardStatementDialog({
     () => ({
       cardName: card.name,
       referenceMonth,
+      periodLabel: activeInvoice
+        ? `${new Date(`${activeInvoice.cycleStart}T12:00:00`).toLocaleDateString("pt-BR")} a ${new Date(`${activeInvoice.cycleEnd}T12:00:00`).toLocaleDateString("pt-BR")}`
+        : undefined,
       currentInvoice,
       committedAmount: used,
       availableAmount: available,
       limit: card.limit,
       statement,
     }),
-    [card.name, referenceMonth, currentInvoice, used, available, card.limit, statement]
+    [card.name, referenceMonth, activeInvoice, currentInvoice, used, available, card.limit, statement]
   );
 
   const handleExportExcel = useCallback(() => {
@@ -83,7 +104,7 @@ export default function CreditCardStatementDialog({
         <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
           <div className="flex items-center justify-between">
             <DialogTitle className="text-base">
-              Extrato — {card.name}
+              {activeInvoice ? `Compras · ${formatInvoiceCompetence(activeInvoice.competence)}` : "Extrato"} — {card.name}
             </DialogTitle>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
@@ -129,23 +150,36 @@ export default function CreditCardStatementDialog({
           </div>
         </div>
 
-        {/* ── NAVEGAÇÃO MENSAL ── */}
-        <div className="flex items-center justify-center gap-2 px-6 py-3 border-b border-border">
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <span className="text-sm font-semibold text-foreground capitalize min-w-[140px] text-center">
-            {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
-          </span>
-          <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth((m) => addMonths(m, 1))}>
-            <ChevronRight className="h-4 w-4" />
-          </Button>
-        </div>
+        {activeInvoice ? (
+          <div className="flex items-center justify-center gap-2 px-6 py-3 border-b border-border">
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={activeInvoiceIndex <= 0} onClick={() => setSelectedInvoiceId(cardInvoices[activeInvoiceIndex - 1]?.id)}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="min-w-[190px] text-center text-sm font-semibold text-foreground">
+              {new Date(`${activeInvoice.cycleStart}T12:00:00`).toLocaleDateString("pt-BR")} a {new Date(`${activeInvoice.cycleEnd}T12:00:00`).toLocaleDateString("pt-BR")}
+            </span>
+            <Button variant="outline" size="icon" className="h-8 w-8" disabled={activeInvoiceIndex < 0 || activeInvoiceIndex >= cardInvoices.length - 1} onClick={() => setSelectedInvoiceId(cardInvoices[activeInvoiceIndex + 1]?.id)}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        ) : (
+          <div className="flex items-center justify-center gap-2 px-6 py-3 border-b border-border">
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <span className="text-sm font-semibold text-foreground capitalize min-w-[140px] text-center">
+              {format(currentMonth, "MMMM yyyy", { locale: ptBR })}
+            </span>
+            <Button variant="outline" size="icon" className="h-8 w-8" onClick={() => setCurrentMonth((m) => addMonths(m, 1))}>
+              <ChevronRight className="h-4 w-4" />
+            </Button>
+          </div>
+        )}
 
         {/* ── RESUMO DO PERÍODO ── */}
         <div className="px-6 py-4 border-b border-border">
           <p className="text-xs text-muted-foreground mb-3">
-            Movimentações de {format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}
+            {activeInvoice ? "Compras incluídas nesta fatura" : `Movimentações de ${format(currentMonth, "MMMM 'de' yyyy", { locale: ptBR })}`}
           </p>
           <div className="grid grid-cols-3 gap-4">
             <div>

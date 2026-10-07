@@ -1,12 +1,16 @@
 import { Transaction } from "@/lib/types";
 
+type ClassifiableTransaction = Pick<Transaction, "title" | "category" | "accountId" | "creditCardId"> &
+  Partial<Pick<Transaction, "description" | "financialKind">>;
+
 const normalize = (value?: string) =>
   (value || "")
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
 
-export const isBillPaymentTransaction = (transaction: Pick<Transaction, "title" | "category" | "accountId" | "creditCardId">) => {
+export const isBillPaymentTransaction = (transaction: ClassifiableTransaction) => {
+  if (transaction.financialKind === "card_invoice_payment") return true;
   const title = normalize(transaction.title);
   const category = normalize(transaction.category);
 
@@ -19,7 +23,8 @@ export const isBillPaymentTransaction = (transaction: Pick<Transaction, "title" 
   );
 };
 
-export const isAdjustmentTransaction = (transaction: Pick<Transaction, "title" | "category" | "description">) => {
+export const isAdjustmentTransaction = (transaction: ClassifiableTransaction) => {
+  if (transaction.financialKind === "manual_adjustment") return true;
   const title = normalize(transaction.title);
   const category = normalize(transaction.category);
   const description = normalize(transaction.description);
@@ -33,5 +38,14 @@ export const isAdjustmentTransaction = (transaction: Pick<Transaction, "title" |
 };
 
 export const isFinancialNeutralTransaction = (
-  transaction: Pick<Transaction, "title" | "category" | "description" | "accountId" | "creditCardId">,
-) => isBillPaymentTransaction(transaction) || isAdjustmentTransaction(transaction);
+  transaction: ClassifiableTransaction,
+) => transaction.financialKind === "card_invoice_obligation" ||
+  isBillPaymentTransaction(transaction) ||
+  isAdjustmentTransaction(transaction);
+
+export const isCardInvoiceObligation = (transaction: Pick<Transaction, "financialKind">) =>
+  transaction.financialKind === "card_invoice_obligation";
+
+export const isSystemInvoiceTransaction = (transaction: Pick<Transaction, "financialKind">) =>
+  transaction.financialKind === "card_invoice_obligation" ||
+  transaction.financialKind === "card_invoice_payment";

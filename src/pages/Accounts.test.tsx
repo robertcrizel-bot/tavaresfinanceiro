@@ -24,11 +24,13 @@ vi.mock("@/contexts/AccountContext", () => ({
 vi.mock("@/contexts/FinanceContext", () => ({
   useFinance: () => ({
     transactions: [],
+    creditCardInvoices: [],
     loading: false,
     addTransaction: vi.fn(),
     updateTransaction: vi.fn(),
     deleteTransaction: vi.fn(),
-    payCardBill: vi.fn(),
+    closeCardInvoice: vi.fn(),
+    payCardInvoice: vi.fn(),
     refetch: vi.fn(),
   }),
 }));
@@ -42,11 +44,6 @@ vi.mock("@/contexts/TransferContext", () => ({
     deleteTransfer: vi.fn(),
     refetch: vi.fn(),
   }),
-}));
-
-vi.mock("@/lib/credit-card-billing", () => ({
-  getCardCommittedAmount: () => 0,
-  getCardCurrentInvoiceAmount: () => 0,
 }));
 
 vi.mock("@/lib/financial-calculations", () => ({

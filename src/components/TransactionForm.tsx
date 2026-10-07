@@ -20,7 +20,7 @@ const ACCOUNT_PAYMENT_METHODS = new Set<PaymentMethod>(["Cartão de Débito", "P
 interface TransactionFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => void;
+  onSubmit: (data: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => boolean | void | Promise<boolean | void>;
   initial?: Transaction;
   /** Pre-filled values for a brand new record (e.g. read from a receipt). */
   prefill?: Partial<Omit<Transaction, "id">>;
@@ -208,14 +208,14 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
     if (!nextPaymentMethod || !ACCOUNT_PAYMENT_METHODS.has(nextPaymentMethod)) setAccountId("");
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const installmentsNum = parseInt(installments) || 1;
     const isInstallment = !initial && type === "expense" && creditCardId && creditCardId !== "none" && installmentsNum > 1;
     const opts: { installments?: number; attachments?: File[] } = {};
     if (isInstallment) opts.installments = installmentsNum;
     if (attachments.length > 0) opts.attachments = attachments;
-    onSubmit(
+    const saved = await onSubmit(
       {
         title,
         amount: parseFloat(amount),
@@ -231,7 +231,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
       },
       Object.keys(opts).length > 0 ? opts : undefined,
     );
-    onClose();
+    if (saved !== false) onClose();
   };
 
   const showAccount = Boolean(paymentMethod && ACCOUNT_PAYMENT_METHODS.has(paymentMethod));

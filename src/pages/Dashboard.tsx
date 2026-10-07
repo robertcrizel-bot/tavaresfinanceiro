@@ -11,15 +11,16 @@ import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriod
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet, ScanLine } from "lucide-react";
 import { Link } from "react-router-dom";
-import { isFinancialNeutralTransaction, isBillPaymentTransaction } from "@/lib/transaction-classification";
+import { isFinancialNeutralTransaction } from "@/lib/transaction-classification";
 import { calculateAccountBalances, calculateFinancialTotals } from "@/lib/financial-calculations";
+import { getCardCommittedAmount } from "@/lib/credit-card-billing";
 import {
   LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import type { DateRange } from "react-day-picker";
 
 export default function Dashboard() {
-  const { transactions, addTransaction } = useFinance();
+  const { transactions, creditCardInvoices, addTransaction } = useFinance();
   const { accounts, creditCards } = useAccounts();
   const { transfers } = useTransfers();
   const [formOpen, setFormOpen] = useState(false);
@@ -86,13 +87,7 @@ export default function Dashboard() {
 
   const accountBalances = calculateAccountBalances(accounts, transactions, transfers);
 
-  const getCardUsed = (ccId: string) => {
-    return transactions.reduce((total, t) => {
-      if (t.creditCardId !== ccId || t.isPaid) return total;
-      if (isBillPaymentTransaction(t)) return total;
-      return total + (t.type === "income" ? -t.amount : t.amount);
-    }, 0);
-  };
+  const getCardUsed = (ccId: string) => getCardCommittedAmount(transactions, ccId, creditCardInvoices);
 
   // Line chart data
   const lineData = useMemo(() => {

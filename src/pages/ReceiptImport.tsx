@@ -459,10 +459,12 @@ export default function ReceiptImport() {
           lowConfidence={lowConfidence}
           title="Confira o registro"
           submitLabel="Salvar registro"
-          onSubmit={(data, options) => {
-            addTransaction(data, { ...options, receiptRef: receiptRef ?? undefined });
+          onSubmit={async (data, options) => {
+            const created = await addTransaction(data, { ...options, receiptRef: receiptRef ?? undefined });
+            if (!created) return false;
             toast({ title: "Registro criado a partir do comprovante" });
             navigate("/records");
+            return true;
           }}
         />
       )}

@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useTransfers } from "@/contexts/TransferContext";
-import { Account, CreditCard } from "@/lib/types";
+import { Account, CreditCard, CreditCardInvoice } from "@/lib/types";
 import { useFinance } from "@/contexts/FinanceContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCardCommittedAmount, getCardCurrentInvoiceAmount } from "@/lib/credit-card-billing";
+import { formatInvoiceCompetence, getCardCommittedAmount, getCreditCardCycle, getInvoiceAmount, selectCardInvoice } from "@/lib/credit-card-billing";
 import { calculateAccountBalances } from "@/lib/financial-calculations";
 import AccountStatementDialog from "@/components/AccountStatementDialog";
 import CreditCardStatementDialog from "@/components/CreditCardStatementDialog";
@@ -45,10 +45,12 @@ const colorDot: Record<string, string> = {
 };
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+const fmtDateTime = (date: string) => new Date(date).toLocaleDateString("pt-BR");
 
 export default function Accounts() {
   const { accounts, creditCards, addAccount, updateAccount, deleteAccount, addCreditCard, updateCreditCard, deleteCreditCard } = useAccounts();
-  const { transactions, addTransaction, payCardBill } = useFinance();
+  const { transactions, creditCardInvoices, addTransaction, closeCardInvoice, payCardInvoice } = useFinance();
   const { transfers, addTransfer } = useTransfers();
 
   const [accFormOpen, setAccFormOpen] = useState(false);
@@ -56,9 +58,9 @@ export default function Accounts() {
   const [ccFormOpen, setCcFormOpen] = useState(false);
   const [editingCc, setEditingCc] = useState<CreditCard | undefined>();
   const [deleting, setDeleting] = useState<{ type: "account" | "card"; id: string } | null>(null);
-  const [payingCard, setPayingCard] = useState<{ card: CreditCard; amount: number } | null>(null);
+  const [closingInvoice, setClosingInvoice] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
+  const [payingCard, setPayingCard] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
   const [payAccountId, setPayAccountId] = useState("");
-  const [payAmount, setPayAmount] = useState("");
   const [payDate, setPayDate] = useState("");
   const [payMethod, setPayMethod] = useState("Transferência");
   const [transferOpen, setTransferOpen] = useState(false);
@@ -67,9 +69,12 @@ export default function Accounts() {
   const [transferAmount, setTransferAmount] = useState("");
   const [transferDesc, setTransferDesc] = useState("");
   const [statementAccount, setStatementAccount] = useState<{ id: string; name: string; initialBalance: number } | null>(null);
-  const [statementCard, setStatementCard] = useState<{ id: string; name: string; limit: number; closingDay: number; dueDay: number } | null>(null);
+  const [statementCard, setStatementCard] = useState<{ id: string; name: string; limit: number; closingDay: number; dueDay: number; invoice?: CreditCardInvoice } | null>(null);
 
   const accountBalances = calculateAccountBalances(accounts, transactions, transfers);
+  const getOpenInvoice = (cardId: string) => creditCardInvoices
+    .filter((invoice) => invoice.creditCardId === cardId && invoice.status === "OPEN")
+    .sort((a, b) => a.cycleEnd.localeCompare(b.cycleEnd))[0];
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
@@ -149,10 +154,29 @@ export default function Accounts() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {creditCards.map((cc) => {
-                const used = getCardCommittedAmount(transactions, cc.id);
-                const currentInvoice = getCardCurrentInvoiceAmount(transactions, cc.id);
+                const used = getCardCommittedAmount(transactions, cc.id, creditCardInvoices);
+                const invoice = selectCardInvoice(creditCardInvoices, transactions, cc.id);
+                const hasMovements = (candidate: CreditCardInvoice) => transactions.some((transaction) =>
+                  transaction.creditCardInvoiceId === candidate.id &&
+                  transaction.financialKind !== "card_invoice_obligation" &&
+                  transaction.financialKind !== "card_invoice_payment");
+                const nextOpenInvoice = invoice?.status === "CLOSED"
+                  ? creditCardInvoices
+                    .filter((candidate) => candidate.creditCardId === cc.id && candidate.status === "OPEN" && candidate.id !== invoice.id)
+                    .sort((a, b) => a.cycleEnd.localeCompare(b.cycleEnd))
+                    .find(hasMovements)
+                  : undefined;
+                const fallbackCycle = getCreditCardCycle(cc.closingDay, cc.dueDay);
+                const today = new Date().toISOString().split("T")[0];
+                const currentInvoice = invoice ? getInvoiceAmount(transactions, invoice) : 0;
                 const available = cc.limit - used;
                 const pct = cc.limit > 0 ? Math.min((used / cc.limit) * 100, 100) : 0;
+                const status = invoice?.status || "OPEN";
+                const cycleEnd = invoice?.cycleEnd || fallbackCycle.cycleEnd;
+                const dueDate = invoice?.dueDate || fallbackCycle.dueDate;
+                const paymentAccount = invoice?.paymentAccountId
+                  ? accounts.find((account) => account.id === invoice.paymentAccountId)
+                  : undefined;
                 return (
                   <div key={cc.id} className={`glass-card rounded-xl p-5 border-l-4 animate-fade-in ${colorClasses[cc.color] || "border-primary"}`}>
                     <div className="flex items-start justify-between mb-3">
@@ -181,28 +205,68 @@ export default function Accounts() {
                       <span>Disponível: {fmt(available)}</span>
                       <span>Limite: {fmt(cc.limit)}</span>
                     </div>
-                    <div className="mt-3 flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Fatura atual</span>
-                      <strong className="text-foreground">{fmt(currentInvoice)}</strong>
+                    <div className="mt-4 rounded-lg border border-border/70 bg-background/30 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Fatura atual</p>
+                          <p className="text-xl font-bold text-foreground">{fmt(currentInvoice)}</p>
+                        </div>
+                        <Badge variant={status === "PAID" ? "default" : status === "CLOSED" ? "destructive" : "secondary"}>
+                          {status === "PAID" ? "Paga" : status === "CLOSED" ? "Fechada" : "Aberta"}
+                        </Badge>
+                      </div>
+                      {invoice && <p className="text-xs capitalize text-muted-foreground">Competência: {formatInvoiceCompetence(invoice.competence)}</p>}
+                      <p className="text-xs text-muted-foreground">
+                        {status === "PAID" && invoice?.paidAt
+                          ? `Paga em ${fmtDateTime(invoice.paidAt)}`
+                          : status === "CLOSED"
+                            ? `Vencimento ${fmtDate(dueDate)}`
+                            : `Fecha em ${fmtDate(cycleEnd)} · Vence em ${fmtDate(dueDate)}`}
+                      </p>
+                      {status === "PAID" && paymentAccount && (
+                        <p className="text-xs text-muted-foreground">Conta: {paymentAccount.name}</p>
+                      )}
                     </div>
-                    {currentInvoice > 0 && (
+                    <div className="mt-3 grid grid-cols-2 gap-2">
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="w-full mt-3 gap-2"
-                        onClick={() => { setPayingCard({ card: cc, amount: currentInvoice }); setPayAccountId(""); setPayAmount(currentInvoice.toFixed(2)); setPayDate(new Date().toISOString().split("T")[0]); setPayMethod("Transferência"); }}
+                        className="gap-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setStatementCard({ id: cc.id, name: cc.name, limit: cc.limit, closingDay: cc.closingDay, dueDay: cc.dueDay, invoice })}
                       >
-                        <Receipt className="h-3.5 w-3.5" /> Pagar Fatura
+                        <FileText className="h-3.5 w-3.5" /> Ver compras
                       </Button>
+                      {status === "OPEN" && invoice && invoice.cycleStart <= today && hasMovements(invoice) && (
+                        <Button size="sm" variant="outline" onClick={() => setClosingInvoice({ card: cc, invoice, amount: currentInvoice })}>
+                          Fechar fatura
+                        </Button>
+                      )}
+                      {status === "CLOSED" && invoice && (
+                        <Button size="sm" variant="outline" className="gap-2" onClick={() => {
+                          setPayingCard({ card: cc, invoice, amount: currentInvoice });
+                          setPayAccountId("");
+                          setPayDate(new Date().toISOString().split("T")[0]);
+                          setPayMethod("Transferência");
+                        }}>
+                          <Receipt className="h-3.5 w-3.5" /> Pagar fatura
+                        </Button>
+                      )}
+                    </div>
+                    {nextOpenInvoice && (
+                      <div className="mt-3 rounded-lg border border-dashed border-border p-2 text-xs text-muted-foreground">
+                        <p>Próxima fatura aberta: <strong>{fmt(getInvoiceAmount(transactions, nextOpenInvoice))}</strong></p>
+                        <div className="mt-2 flex gap-2">
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setStatementCard({ id: cc.id, name: cc.name, limit: cc.limit, closingDay: cc.closingDay, dueDay: cc.dueDay, invoice: nextOpenInvoice })}>
+                            Ver compras
+                          </Button>
+                          {nextOpenInvoice.cycleStart <= today && (
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setClosingInvoice({ card: cc, invoice: nextOpenInvoice, amount: getInvoiceAmount(transactions, nextOpenInvoice) })}>
+                              Fechar próxima
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-3 gap-2 text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => setStatementCard({ id: cc.id, name: cc.name, limit: cc.limit, closingDay: cc.closingDay, dueDay: cc.dueDay })}
-                    >
-                      <FileText className="h-3.5 w-3.5" /> Ver extrato
-                    </Button>
                   </div>
                 );
               })}
@@ -228,6 +292,7 @@ export default function Accounts() {
             description: "Ajuste manual de saldo da conta",
             paymentMethod: "Outro",
             accountId: accId,
+            financialKind: "manual_adjustment",
             isPaid: true,
           });
         }}
@@ -239,11 +304,12 @@ export default function Accounts() {
         onClose={() => { setCcFormOpen(false); setEditingCc(undefined); }}
         onSubmit={(data) => editingCc ? updateCreditCard({ ...data, id: editingCc.id }) : addCreditCard(data)}
         initial={editingCc}
-        currentUsed={editingCc ? getCardCurrentInvoiceAmount(transactions, editingCc.id) : 0}
+        currentUsed={editingCc && getOpenInvoice(editingCc.id) ? getInvoiceAmount(transactions, getOpenInvoice(editingCc.id)!) : 0}
+        canAdjustUsed={!editingCc || Boolean(getOpenInvoice(editingCc.id))}
         onAdjustUsed={async (cardId, diff) => {
           // diff > 0 means we need to INCREASE the bill -> add expense on card
           // diff < 0 means we need to DECREASE the bill -> add income (refund) on card
-          await addTransaction({
+          return addTransaction({
             title: "Ajuste de Fatura",
             amount: Math.abs(diff),
             type: diff > 0 ? "expense" : "income",
@@ -252,6 +318,7 @@ export default function Accounts() {
             description: "Ajuste manual da fatura do cartão",
             paymentMethod: "Outro",
             creditCardId: cardId,
+            financialKind: "manual_adjustment",
             isPaid: false,
           });
         }}
@@ -262,7 +329,9 @@ export default function Accounts() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir {deleting?.type === "account" ? "conta" : "cartão"}?</AlertDialogTitle>
-            <AlertDialogDescription>Esta ação não pode ser desfeita. Registros vinculados perderão a associação.</AlertDialogDescription>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Cartões com histórico de faturas são preservados e não podem ser excluídos.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -275,6 +344,30 @@ export default function Accounts() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Close Invoice Confirmation */}
+      <AlertDialog open={!!closingInvoice} onOpenChange={(open) => { if (!open) setClosingInvoice(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Fechar fatura?</AlertDialogTitle>
+            <AlertDialogDescription className="space-y-1">
+              <span className="block">Cartão: <strong className="text-foreground">{closingInvoice?.card.name}</strong></span>
+              <span className="block capitalize">Competência: <strong className="text-foreground">{closingInvoice ? formatInvoiceCompetence(closingInvoice.invoice.competence) : ""}</strong></span>
+              <span className="block">Valor: <strong className="text-foreground">{fmt(closingInvoice?.amount ?? 0)}</strong></span>
+              <span className="block">Vencimento: <strong className="text-foreground">{closingInvoice ? fmtDate(closingInvoice.invoice.dueDate) : ""}</strong></span>
+              <span className="block pt-2">O valor será congelado e uma obrigação neutra será criada em Meus Registros.</span>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button onClick={async () => {
+              if (!closingInvoice) return;
+              const closed = await closeCardInvoice(closingInvoice.invoice.id);
+              if (closed) setClosingInvoice(null);
+            }}>Fechar fatura</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Pay Card Bill Dialog */}
       <AlertDialog open={!!payingCard} onOpenChange={(o) => { if (!o) setPayingCard(null); }}>
         <AlertDialogContent>
@@ -282,7 +375,8 @@ export default function Accounts() {
             <AlertDialogTitle>Pagar Fatura — {payingCard?.card.name}</AlertDialogTitle>
             <AlertDialogDescription>
               Valor total da fatura: <strong className="text-foreground">{fmt(payingCard?.amount ?? 0)}</strong>.
-              Você pode editar o valor pago, a data e a forma de pagamento. Pagamentos parciais abatem somente o que foi pago.
+              {payingCard && <> Vencimento: <strong className="text-foreground">{fmtDate(payingCard.invoice.dueDate)}</strong>.</>}
+              O pagamento debita a conta escolhida sem registrar uma segunda despesa.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-2 space-y-3">
@@ -299,10 +393,10 @@ export default function Accounts() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="mb-2 block">Valor Pago</Label>
-                <Input type="number" step="0.01" min="0" max={payingCard?.amount} value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-md border border-border px-3 py-2">
+                <p className="text-xs text-muted-foreground">Valor do pagamento</p>
+                <p className="font-semibold text-foreground">{fmt(payingCard?.amount ?? 0)}</p>
               </div>
               <div>
                 <Label className="mb-2 block">Data</Label>
@@ -326,18 +420,17 @@ export default function Accounts() {
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={!payAccountId || !payAmount || parseFloat(payAmount) <= 0 || parseFloat(payAmount) > (payingCard?.amount ?? 0)}
+            <Button
+              disabled={!payAccountId || !payDate}
               onClick={async () => {
                 if (payingCard && payAccountId) {
-                  const amt = parseFloat(payAmount);
-                  await payCardBill(payingCard.card.id, payAccountId, amt, payDate, payMethod);
-                  setPayingCard(null);
+                  const paid = await payCardInvoice(payingCard.invoice.id, payAccountId, payDate, payMethod);
+                  if (paid) setPayingCard(null);
                 }
               }}
             >
               Confirmar Pagamento
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -423,6 +516,8 @@ export default function Accounts() {
           onClose={() => setStatementCard(null)}
           card={statementCard}
           transactions={transactions}
+          invoice={statementCard.invoice}
+          invoices={creditCardInvoices}
         />
       )}
     </div>
@@ -564,13 +659,14 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
 }
 
 // --- Credit Card Form ---
-function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, onAdjustUsed }: {
+function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, canAdjustUsed, onAdjustUsed }: {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<CreditCard, "id">) => void;
+  onSubmit: (data: Omit<CreditCard, "id">) => Promise<boolean | void>;
   initial?: CreditCard;
   currentUsed?: number;
-  onAdjustUsed?: (cardId: string, diff: number) => Promise<void>;
+  canAdjustUsed?: boolean;
+  onAdjustUsed?: (cardId: string, diff: number) => Promise<boolean | void>;
 }) {
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
@@ -602,13 +698,15 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, o
         </DialogHeader>
         <form onSubmit={async (e) => {
           e.preventDefault();
-          await onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color });
-          if (initial && onAdjustUsed && typeof currentUsed === "number") {
+          const saved = await onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color });
+          if (saved === false) return;
+          if (initial && canAdjustUsed && onAdjustUsed && typeof currentUsed === "number") {
             const target = parseFloat(adjustTo);
             if (!isNaN(target) && target >= 0) {
               const diff = +(target - currentUsed).toFixed(2);
               if (Math.abs(diff) >= 0.01) {
-                await onAdjustUsed(initial.id, diff);
+                const adjusted = await onAdjustUsed(initial.id, diff);
+                if (adjusted === false) return;
               }
             }
           }
@@ -659,7 +757,7 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, o
               </Select>
             </div>
           </div>
-          {initial && typeof currentUsed === "number" && (
+          {initial && canAdjustUsed && typeof currentUsed === "number" && (
             <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
               <Label className="text-foreground">Ajustar fatura atual</Label>
               <p className="text-xs text-muted-foreground">

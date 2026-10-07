@@ -198,7 +198,7 @@ export function countMonthsInRange(range: AnalyticsRange | null, today: Date): n
  * internal movements and card bill payments are never double counted.
  */
 export function isAnalyticsExpense(
-  transaction: Pick<Transaction, "type" | "title" | "category" | "description" | "accountId" | "creditCardId">,
+  transaction: Pick<Transaction, "type" | "title" | "category" | "description" | "accountId" | "creditCardId" | "financialKind">,
 ): boolean {
   return transaction.type === "expense" && !isFinancialNeutralTransaction(transaction);
 }

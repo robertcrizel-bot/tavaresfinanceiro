@@ -12,7 +12,7 @@ export interface TransferBalanceEntry {
 
 type CategorySpendTransaction = Pick<
   Transaction,
-  "amount" | "type" | "category" | "date" | "title" | "description" | "accountId" | "creditCardId"
+  "amount" | "type" | "category" | "date" | "title" | "description" | "accountId" | "creditCardId" | "financialKind"
 >;
 
 export interface CategoryBudgetUsage {

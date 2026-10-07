@@ -12,7 +12,7 @@ interface AccountContextType {
   updateAccount: (a: Account) => Promise<void>;
   deleteAccount: (id: string) => Promise<void>;
   addCreditCard: (c: Omit<CreditCard, "id">) => Promise<void>;
-  updateCreditCard: (c: CreditCard) => Promise<void>;
+  updateCreditCard: (c: CreditCard) => Promise<boolean>;
   deleteCreditCard: (id: string) => Promise<void>;
 }
 
@@ -103,8 +103,13 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
       name: c.name, bank: c.bank, credit_limit: c.limit,
       closing_day: c.closingDay, due_day: c.dueDay, color: c.color,
     }).eq("id", c.id);
-    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else { toast({ title: "Cartão atualizado", description: c.name }); fetchAccounts(); }
+    if (error) {
+      toast({ title: "Erro", description: error.message, variant: "destructive" });
+      return false;
+    }
+    toast({ title: "Cartão atualizado", description: c.name });
+    await fetchAccounts();
+    return true;
   }, [fetchAccounts]);
 
   const deleteCreditCard = useCallback(async (id: string) => {

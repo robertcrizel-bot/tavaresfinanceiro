@@ -10,6 +10,8 @@ export interface CardStatementTransaction {
   date: string;
   accountId?: string;
   creditCardId?: string;
+  creditCardInvoiceId?: string;
+  financialKind?: "regular" | "card_purchase" | "card_refund" | "card_invoice_obligation" | "card_invoice_payment" | "manual_adjustment";
   isPaid?: boolean;
   createdAt?: string;
 }
@@ -73,17 +75,20 @@ export const buildCreditCardStatement = ({
   creditCardId,
   transactions,
   referenceMonth,
+  invoiceId,
 }: {
   creditCardId: string;
   transactions: CardStatementTransaction[];
   referenceMonth: string;
+  invoiceId?: string;
 }): CreditCardStatement => {
   const entries: CreditCardStatementEntry[] = [];
 
   for (const tx of transactions) {
     if (tx.creditCardId !== creditCardId) continue;
-    if (!belongsToMonth(tx.date, referenceMonth)) continue;
-    if (isAdjustmentTransaction(tx)) continue;
+    if (invoiceId ? tx.creditCardInvoiceId !== invoiceId : !belongsToMonth(tx.date, referenceMonth)) continue;
+    if (invoiceId && tx.financialKind === "card_invoice_obligation") continue;
+    if (isAdjustmentTransaction(tx) && !invoiceId) continue;
 
     if (isBillPaymentTransaction(tx)) {
       entries.push({
