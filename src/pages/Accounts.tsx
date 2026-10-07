@@ -450,7 +450,12 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                     if (allTx.length === 0) {
                       return <p className="text-xs text-muted-foreground text-center py-4">Nenhuma compra elegível neste período.</p>;
                     }
-                    return allTx.map((tx) => {
+                    return [...allTx]
+        .sort((a, b) => {
+          if (a.date !== b.date) return b.date.localeCompare(a.date);
+          return a.id.localeCompare(b.id);
+        })
+        .map((tx) => {
                       const isExcluded = closingInvoiceExcludedIds.includes(tx.id);
                       const isNextInvoiceTx = tx.creditCardInvoiceId !== closingInvoice.invoice.id;
                       return (
@@ -471,7 +476,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                             </div>
                           </div>
                           <span className={`text-sm font-semibold whitespace-nowrap ${tx.type === "income" ? "text-income" : "text-expense"}`}>
-                            {tx.type === "income" ? "-R$ " : "R$ "} {fmt(tx.amount)}
+                            {tx.type === "income" ? "-" : ""} {fmt(tx.amount)}
                           </span>
                         </div>
                       );
