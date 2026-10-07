@@ -393,57 +393,61 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
         </AlertDialogContent>
       </AlertDialog>
 
-{/* Close Invoice Confirmation */}
+      {/* Close Invoice Confirmation */}
       <Dialog open={!!closingInvoice} onOpenChange={(open) => { if (!open) { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceExcludedIds([]); } }}>
-        <DialogContent className="sm:max-w-md max-h-[80vh]">
-          <DialogHeader>
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)] sm:w-full">
+          <DialogHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
             <DialogTitle>Fechar fatura?</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Cartão</span>
-                <span className="font-medium text-foreground">{closingInvoice?.card.name}</span>
+          <div className="flex min-h-0 flex-1 flex-col px-4 sm:px-6">
+            <div className="shrink-0 space-y-4 py-4">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Cartão</span>
+                  <span className="font-medium text-foreground">{closingInvoice?.card.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Competência</span>
+                  <span className="font-medium text-foreground">{closingInvoice ? formatInvoiceCompetence(closingInvoice.invoice.competence) : ""}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Fechamento previsto</span>
+                  <span className="font-medium text-foreground">{closingInvoice ? fmtDate(closingInvoice.invoice.cycleEnd) : ""}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Vencimento</span>
+                  <span className="font-medium text-foreground">{closingInvoice ? fmtDate(closingInvoice.invoice.dueDate) : ""}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Valor da fatura</span>
+                  <span className="font-semibold text-foreground">
+                    {closingInvoice ? fmt(getPreviewAmount()) : fmt(0)}
+                  </span>
+                </div>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Competência</span>
-                <span className="font-medium text-foreground">{closingInvoice ? formatInvoiceCompetence(closingInvoice.invoice.competence) : ""}</span>
+              <div className="space-y-2">
+                <Label className="block text-sm font-medium">Data real de fechamento</Label>
+                <Input
+                  type="date"
+                  value={closingInvoiceActualDate}
+                  onChange={(e) => { setClosingInvoiceActualDate(e.target.value); setClosingInvoiceExcludedIds([]); }}
+                  defaultValue={closingInvoice?.invoice.cycleEnd}
+                  min={closingInvoice?.invoice.cycleStart}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Preenchido com a data prevista. Altere se o fechamento real foi em outra data.
+                  Compras até esta data entram na fatura; posteriores vão para a próxima.
+                </p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Fechamento previsto</span>
-                <span className="font-medium text-foreground">{closingInvoice ? fmtDate(closingInvoice.invoice.cycleEnd) : ""}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Vencimento</span>
-                <span className="font-medium text-foreground">{closingInvoice ? fmtDate(closingInvoice.invoice.dueDate) : ""}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Valor da fatura</span>
-                <span className="font-semibold text-foreground">
-                  {closingInvoice ? fmt(getPreviewAmount()) : fmt(0)}
-                </span>
-              </div>
-            </div>
-            <div className="space-y-2">
-              <Label className="block text-sm font-medium">Data real de fechamento</Label>
-              <Input
-                type="date"
-                value={closingInvoiceActualDate}
-                onChange={(e) => { setClosingInvoiceActualDate(e.target.value); setClosingInvoiceExcludedIds([]); }}
-                defaultValue={closingInvoice?.invoice.cycleEnd}
-                min={closingInvoice?.invoice.cycleStart}
-              />
-              <p className="text-xs text-muted-foreground">
-                Preenchido com a data prevista. Altere se o fechamento real foi em outra data.
-                Compras até esta data entram na fatura; posteriores vão para a próxima.
-              </p>
             </div>
             {closingInvoice && (
-              <div className="border-t pt-4">
-                <p className="text-sm font-medium mb-1">Compras incluídas nesta fatura</p>
-                <p className="text-xs text-muted-foreground mb-1">Marque as compras que devem ir para a próxima fatura.</p>
-                <p className="text-xs text-muted-foreground mb-2">As compras não marcadas permanecerão nesta fatura.</p>
-                <div className="max-h-60 overflow-y-auto space-y-2">
+              <div className="flex min-h-0 flex-1 flex-col border-t border-border pt-4">
+                <div className="shrink-0">
+                  <p className="mb-1 text-sm font-medium">Compras incluídas nesta fatura</p>
+                  <p className="mb-1 text-xs text-muted-foreground">Marque as compras que devem ir para a próxima fatura.</p>
+                  <p className="mb-2 text-xs text-muted-foreground">As compras não marcadas permanecerão nesta fatura.</p>
+                </div>
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
                   {(() => {
                     const actualDate = closingInvoiceActualDate || closingInvoice.invoice.cycleEnd;
                     const currentTx = getInvoiceTransactions(closingInvoice.invoice, actualDate);
@@ -453,45 +457,45 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                       return <p className="text-xs text-muted-foreground text-center py-4">Nenhuma compra elegível neste período.</p>;
                     }
                     return [...allTx]
-        .sort((a, b) => {
-          if (a.date !== b.date) return b.date.localeCompare(a.date);
-          return a.id.localeCompare(b.id);
-        })
-        .map((tx) => {
-                      const isExcluded = closingInvoiceExcludedIds.includes(tx.id);
-                      const isNextInvoiceTx = tx.creditCardInvoiceId !== closingInvoice.invoice.id;
-                      return (
-                        <div key={tx.id} className={`flex items-center gap-2 py-2 px-2 border-b border-border last:border-0 ${isExcluded ? "opacity-50 bg-muted/50" : ""}`}>
-                          <input
-                            type="checkbox"
-                            checked={isExcluded}
-                            onChange={() => handleExcludeToggle(tx.id)}
-                            className="h-4 w-4 rounded border-input"
-                          />
-                          <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-foreground truncate">{tx.title}</p>
-                            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                              <span>{fmtDate(tx.date)}</span>
-                              {tx.category && <span>· {tx.category}</span>}
-                              {isNextInvoiceTx && <span className="text-primary">· Próxima fatura (automático)</span>}
-                              {isExcluded && <span className="text-orange">· Movida para próxima</span>}
+                      .sort((a, b) => {
+                        if (a.date !== b.date) return b.date.localeCompare(a.date);
+                        return a.id.localeCompare(b.id);
+                      })
+                      .map((tx) => {
+                        const isExcluded = closingInvoiceExcludedIds.includes(tx.id);
+                        const isNextInvoiceTx = tx.creditCardInvoiceId !== closingInvoice.invoice.id;
+                        return (
+                          <div key={tx.id} className={`flex items-center gap-2 py-2 px-2 border-b border-border last:border-0 ${isExcluded ? "opacity-50 bg-muted/50" : ""}`}>
+                            <input
+                              type="checkbox"
+                              checked={isExcluded}
+                              onChange={() => handleExcludeToggle(tx.id)}
+                              className="h-4 w-4 rounded border-input"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{tx.title}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>{fmtDate(tx.date)}</span>
+                                {tx.category && <span>· {tx.category}</span>}
+                                {isNextInvoiceTx && <span className="text-primary">· Próxima fatura (automático)</span>}
+                                {isExcluded && <span className="text-orange">· Movida para próxima</span>}
+                              </div>
                             </div>
+                            <span className={`text-sm font-semibold whitespace-nowrap ${tx.type === "income" ? "text-income" : "text-expense"}`}>
+                              {tx.type === "income" ? "-" : ""} {fmt(tx.amount)}
+                            </span>
                           </div>
-                          <span className={`text-sm font-semibold whitespace-nowrap ${tx.type === "income" ? "text-income" : "text-expense"}`}>
-                            {tx.type === "income" ? "-" : ""} {fmt(tx.amount)}
-                          </span>
-                        </div>
-                      );
-                    });
+                        );
+                      });
                   })()}
                 </div>
               </div>
             )}
-            <p className="text-xs text-muted-foreground pt-2 border-t">
+            <p className="shrink-0 border-t border-border py-3 text-xs text-muted-foreground">
               O valor será congelado e uma obrigação neutra será criada em Meus Registros.
             </p>
           </div>
-          <DialogFooter className="flex justify-end gap-2">
+          <DialogFooter className="shrink-0 gap-2 border-t border-border px-4 py-4 sm:px-6">
             <Button variant="outline" onClick={() => { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceExcludedIds([]); }}>Cancelar</Button>
             <Button onClick={async () => {
               if (!closingInvoice) return;
