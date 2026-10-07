@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight, FileText } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatInvoiceCompetence, getCardCommittedAmount, getCreditCardCycle, getInvoiceAmount, selectCardInvoice } from "@/lib/credit-card-billing";
+import { formatInvoiceCompetence, getCardCommittedAmount, getCreditCardCycle, getInvoiceAmount, getInvoicePreviewAmount, selectCardInvoice } from "@/lib/credit-card-billing";
 import { calculateAccountBalances } from "@/lib/financial-calculations";
 import AccountStatementDialog from "@/components/AccountStatementDialog";
 import CreditCardStatementDialog from "@/components/CreditCardStatementDialog";
@@ -372,8 +372,17 @@ export default function Accounts() {
                 <span className="font-medium text-foreground">{closingInvoice ? fmtDate(closingInvoice.invoice.dueDate) : ""}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-muted-foreground">Valor atual</span>
-                <span className="font-semibold text-foreground">{fmt(closingInvoice?.amount ?? 0)}</span>
+                <span className="text-muted-foreground">Valor da fatura</span>
+                <span className="font-semibold text-foreground">
+                  {closingInvoice ? fmt(
+                    getInvoicePreviewAmount(
+                      transactions,
+                      closingInvoice.invoice,
+                      creditCardInvoices,
+                      closingInvoiceActualDate || closingInvoice.invoice.cycleEnd
+                    )
+                  ) : fmt(0)}
+                </span>
               </div>
             </div>
             <div className="space-y-2">

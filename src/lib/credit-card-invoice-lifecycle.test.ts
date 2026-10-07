@@ -3,6 +3,7 @@ import {
   getCardCommittedAmount,
   getCreditCardCycle,
   getInvoiceAmount,
+  getInvoicePreviewAmount,
   selectCardInvoice,
 } from "@/lib/credit-card-billing";
 import { calculateAccountBalances, calculateCurrentMonthCategorySpending, calculateFinancialTotals } from "@/lib/financial-calculations";
@@ -214,5 +215,83 @@ describe("credit card invoice lifecycle", () => {
 
     expect(getCardCommittedAmount([purchase()], "card-1", [closed])).toBe(500);
     expect(getCardCommittedAmount([purchase()], "card-1", [paid])).toBe(0);
+  });
+
+  describe("getInvoicePreviewAmount", () => {
+    const baseInvoice = invoice();
+    const nextInvoice = invoice({
+      id: "invoice-november",
+      competence: "2026-11-01",
+      cycleStart: "2026-10-21",
+      cycleEnd: "2026-11-20",
+      dueDate: "2026-11-27",
+      status: "OPEN",
+    });
+
+    it("returns current amount when actual date equals predicted cycle end", () => {
+      const p = purchase({ date: "2026-10-10", amount: 500 });
+      const preview = getInvoicePreviewAmount([p], baseInvoice, [baseInvoice, nextInvoice], "2026-10-20");
+      expect(preview).toBe(500);
+    });
+
+    it("includes eligible movements from next OPEN invoice when actual date is after predicted cycle end", () => {
+      const p1 = purchase({ id: "p1", date: "2026-10-10", amount: 500 });
+      const p2 = purchase({ id: "p2", date: "2026-10-25", amount: 200, creditCardInvoiceId: nextInvoice.id });
+      const p3 = purchase({ id: "p3", date: "2026-10-30", amount: 300, creditCardInvoiceId: nextInvoice.id });
+      const preview = getInvoicePreviewAmount([p1, p2, p3], baseInvoice, [baseInvoice, nextInvoice], "2026-10-30");
+      expect(preview).toBe(1000);
+    });
+
+    it("excludes movements after actual date when actual date is before predicted cycle end", () => {
+      const p1 = purchase({ id: "p1", date: "2026-10-10", amount: 500 });
+      const p2 = purchase({ id: "p2", date: "2026-10-25", amount: 200 });
+      const preview = getInvoicePreviewAmount([p1, p2], baseInvoice, [baseInvoice, nextInvoice], "2026-10-15");
+      expect(preview).toBe(500);
+    });
+
+    it("excludes movements after actual date from next invoice", () => {
+      const p1 = purchase({ id: "p1", date: "2026-10-10", amount: 500 });
+      const p2 = purchase({ id: "p2", date: "2026-10-25", amount: 200, creditCardInvoiceId: nextInvoice.id });
+      const p3 = purchase({ id: "p3", date: "2026-11-05", amount: 300, creditCardInvoiceId: nextInvoice.id });
+      const preview = getInvoicePreviewAmount([p1, p2, p3], baseInvoice, [baseInvoice, nextInvoice], "2026-10-30");
+      expect(preview).toBe(700);
+    });
+
+    it("excludes CLOSED and PAID invoices from preview", () => {
+      const closedInvoice = invoice({ id: "invoice-september", status: "CLOSED", closedTotal: 500, cycleEnd: "2026-09-20" });
+      const paidInvoice = invoice({ id: "invoice-august", status: "PAID", closedTotal: 300, cycleEnd: "2026-08-20" });
+      const p1 = purchase({ id: "p1", date: "2026-10-10", amount: 500 });
+      const p2 = purchase({ id: "p2", date: "2026-09-15", amount: 200, creditCardInvoiceId: closedInvoice.id });
+      const p3 = purchase({ id: "p3", date: "2026-08-15", amount: 300, creditCardInvoiceId: paidInvoice.id });
+      const preview = getInvoicePreviewAmount([p1, p2, p3], baseInvoice, [baseInvoice, nextInvoice, closedInvoice, paidInvoice], "2026-10-30");
+      expect(preview).toBe(500);
+    });
+
+    it("reduces total correctly for refunds (income)", () => {
+      const p1 = purchase({ id: "p1", date: "2026-10-10", amount: 500 });
+      const refund = purchase({ id: "r1", date: "2026-10-15", amount: 100, type: "income", financialKind: "card_refund" });
+      const preview = getInvoicePreviewAmount([p1, refund], baseInvoice, [baseInvoice, nextInvoice], "2026-10-20");
+      expect(preview).toBe(400);
+    });
+
+    it("changing the date does not modify any transaction", () => {
+      const p1 = purchase({ id: "p1", date: "2026-10-10", amount: 500 });
+      const p2 = purchase({ id: "p2", date: "2026-10-25", amount: 200, creditCardInvoiceId: nextInvoice.id });
+      const transactions = [p1, p2];
+      const preview1 = getInvoicePreviewAmount(transactions, baseInvoice, [baseInvoice, nextInvoice], "2026-10-20");
+      const preview2 = getInvoicePreviewAmount(transactions, baseInvoice, [baseInvoice, nextInvoice], "2026-10-30");
+      expect(preview1).toBe(500);
+      expect(preview2).toBe(700);
+      expect(transactions[0].creditCardInvoiceId).toBe("invoice-october");
+      expect(transactions[1].creditCardInvoiceId).toBe("invoice-november");
+    });
+
+    it("preview matches the closing rule for postponed closing", () => {
+      const p1 = purchase({ id: "p1", date: "2026-10-10", amount: 500 });
+      const p2 = purchase({ id: "p2", date: "2026-10-25", amount: 200, creditCardInvoiceId: nextInvoice.id });
+      const p3 = purchase({ id: "p3", date: "2026-10-30", amount: 300, creditCardInvoiceId: nextInvoice.id });
+      const preview = getInvoicePreviewAmount([p1, p2, p3], baseInvoice, [baseInvoice, nextInvoice], "2026-10-30");
+      expect(preview).toBe(1000);
+    });
   });
 });

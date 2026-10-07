@@ -60,6 +60,12 @@ export const getCreditCardCycle = (
 const signedAmount = (transaction: CardTransaction) =>
   transaction.type === "income" ? -transaction.amount : transaction.amount;
 
+const addDays = (dateStr: string, days: number): string => {
+  const date = new Date(`${dateStr}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + days);
+  return date.toISOString().split("T")[0];
+};
+
 const isCardMovement = (transaction: CardTransaction, creditCardId: string) =>
   transaction.creditCardId === creditCardId &&
   transaction.financialKind !== "card_invoice_obligation" &&
@@ -141,3 +147,57 @@ export const getCardCurrentInvoiceAmount = (
 export const formatInvoiceCompetence = (competence: string) =>
   new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })
     .format(new Date(`${competence}T12:00:00Z`));
+
+export const getInvoicePreviewAmount = (
+  transactions: CardTransaction[],
+  invoice: CreditCardInvoice,
+  creditCardInvoices: CreditCardInvoice[],
+  actualClosedDate: string,
+): number => {
+  if (invoice.status !== "OPEN") return invoice.closedTotal ?? 0;
+
+  const predictedCycleEnd = invoice.cycleEnd;
+  const isPostponed = actualClosedDate > predictedCycleEnd;
+  const isAdvanced = actualClosedDate < predictedCycleEnd;
+
+  let total = 0;
+
+  // 1. Transactions currently in this invoice that fall within the actual closing date
+  for (const transaction of transactions) {
+    if (
+      transaction.creditCardInvoiceId === invoice.id &&
+      isCardMovement(transaction, invoice.creditCardId) &&
+      transaction.date <= actualClosedDate
+    ) {
+      total += signedAmount(transaction);
+    }
+  }
+
+  // 2. If postponed, pull eligible transactions from the next OPEN invoice
+  if (isPostponed) {
+    const nextCycleStart = addDays(predictedCycleEnd, 1);
+    const nextInvoice = creditCardInvoices.find(
+      (inv) =>
+        inv.creditCardId === invoice.creditCardId &&
+        inv.status === "OPEN" &&
+        inv.cycleStart === nextCycleStart
+    );
+
+    if (nextInvoice) {
+      for (const transaction of transactions) {
+        if (
+          transaction.creditCardInvoiceId === nextInvoice.id &&
+          isCardMovement(transaction, invoice.creditCardId) &&
+          transaction.date > predictedCycleEnd &&
+          transaction.date <= actualClosedDate
+        ) {
+          total += signedAmount(transaction);
+        }
+      }
+    }
+  }
+
+  // 3. If advanced, transactions after actualClosedDate are already excluded by the date check in step 1
+
+  return total;
+};
