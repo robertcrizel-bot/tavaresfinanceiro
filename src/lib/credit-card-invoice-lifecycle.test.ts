@@ -66,6 +66,18 @@ describe("credit card invoice lifecycle", () => {
     expect(getInvoiceAmount(changedTransactions, closed)).toBe(500);
   });
 
+  it("keeps the exact preview total after closing even with extra linked purchases", () => {
+    const open = invoice();
+    const included = purchase({ id: "included", amount: 1174.33, date: "2026-10-10" });
+    const extra = purchase({ id: "extra", amount: 156.97, date: "2026-10-18" });
+    const transactions = [included, extra];
+    const preview = getInvoicePreviewAmount(transactions, open, [open], "2026-10-15");
+    const closed = { ...open, status: "CLOSED" as const, closedTotal: preview };
+
+    expect(preview).toBe(1174.33);
+    expect(getInvoiceAmount(transactions, closed)).toBe(1174.33);
+  });
+
   it("keeps a zeroed invoice selectable so it can be closed", () => {
     const refund = purchase({ id: "refund", type: "income", financialKind: "card_refund" });
     const zeroed = invoice();
