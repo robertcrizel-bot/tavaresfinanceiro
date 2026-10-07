@@ -440,7 +440,9 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
             </div>
             {closingInvoice && (
               <div className="border-t pt-4">
-                <p className="text-sm font-medium mb-2">Compras incluídas nesta fatura</p>
+                <p className="text-sm font-medium mb-1">Compras incluídas nesta fatura</p>
+                <p className="text-xs text-muted-foreground mb-1">Marque as compras que devem ir para a próxima fatura.</p>
+                <p className="text-xs text-muted-foreground mb-2">As compras não marcadas permanecerão nesta fatura.</p>
                 <div className="max-h-60 overflow-y-auto space-y-2">
                   {(() => {
                     const actualDate = closingInvoiceActualDate || closingInvoice.invoice.cycleEnd;
