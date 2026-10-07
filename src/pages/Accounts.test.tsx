@@ -100,6 +100,7 @@ vi.mock("lucide-react", () => ({
   Receipt: (p: any) => <svg {...p} />,
   ArrowLeftRight: (p: any) => <svg {...p} />,
   FileText: (p: any) => <svg data-testid="file-text-icon" {...p} />,
+  CalendarDays: (p: any) => <svg {...p} />,
 }));
 
 describe("Accounts page", () => {

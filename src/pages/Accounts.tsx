@@ -10,12 +10,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight, FileText, CalendarDays } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatInvoiceCompetence, getCardCommittedAmount, getCreditCardCycle, getInvoiceAmount, getInvoicePreviewAmount, selectCardInvoice } from "@/lib/credit-card-billing";
 import { calculateAccountBalances } from "@/lib/financial-calculations";
 import AccountStatementDialog from "@/components/AccountStatementDialog";
 import CreditCardStatementDialog from "@/components/CreditCardStatementDialog";
+import CreditCardPeriodStatementDialog from "@/components/CreditCardPeriodStatementDialog";
 
 const COLORS = [
   { value: "purple", label: "Roxo" },
@@ -71,6 +72,7 @@ export default function Accounts() {
   const [transferDesc, setTransferDesc] = useState("");
   const [statementAccount, setStatementAccount] = useState<{ id: string; name: string; initialBalance: number } | null>(null);
   const [statementCard, setStatementCard] = useState<{ id: string; name: string; limit: number; closingDay: number; dueDay: number; invoice?: CreditCardInvoice } | null>(null);
+  const [periodStatementCard, setPeriodStatementCard] = useState<CreditCard | null>(null);
 
   const accountBalances = calculateAccountBalances(accounts, transactions, transfers);
   const getOpenInvoice = (cardId: string) => creditCardInvoices
@@ -230,7 +232,7 @@ export default function Accounts() {
                         <p className="text-xs text-muted-foreground">Conta: {paymentAccount.name}</p>
                       )}
                     </div>
-                    <div className="mt-3 grid grid-cols-2 gap-2">
+<div className="mt-3 grid grid-cols-3 gap-2">
                       <Button
                         variant="ghost"
                         size="sm"
@@ -238,6 +240,14 @@ export default function Accounts() {
                         onClick={() => setStatementCard({ id: cc.id, name: cc.name, limit: cc.limit, closingDay: cc.closingDay, dueDay: cc.dueDay, invoice })}
                       >
                         <FileText className="h-3.5 w-3.5" /> Ver compras
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="gap-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setPeriodStatementCard(cc)}
+                      >
+                        <CalendarDays className="h-3.5 w-3.5" /> Ver extrato
                       </Button>
 {status === "OPEN" && invoice && invoice.cycleStart <= today && hasMovements(invoice) && (
                         <Button size="sm" variant="outline" onClick={() => { setClosingInvoice({ card: cc, invoice, amount: currentInvoice }); setClosingInvoiceActualDate(invoice.cycleEnd); }}>
@@ -555,7 +565,7 @@ export default function Accounts() {
         />
       )}
 
-      {/* Credit Card Statement Dialog */}
+{/* Credit Card Statement Dialog */}
       {statementCard && (
         <CreditCardStatementDialog
           open={!!statementCard}
@@ -564,6 +574,16 @@ export default function Accounts() {
           transactions={transactions}
           invoice={statementCard.invoice}
           invoices={creditCardInvoices}
+        />
+      )}
+
+      {/* Credit Card Period Statement Dialog */}
+      {periodStatementCard && (
+        <CreditCardPeriodStatementDialog
+          open={!!periodStatementCard}
+          onClose={() => setPeriodStatementCard(null)}
+          card={periodStatementCard}
+          transactions={transactions}
         />
       )}
     </div>
