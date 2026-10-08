@@ -63,10 +63,32 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 vi.mock("@/components/TransactionForm", () => ({
-  TransactionForm: ({ open, prefill }: { open: boolean; prefill: Record<string, unknown> }) => open ? (
-    <div>
+  TransactionForm: ({ open, prefill, localAiAction }: {
+    open: boolean;
+    prefill: Record<string, unknown>;
+    localAiAction?: {
+      running: boolean;
+      status: string;
+      metricsText: string | null;
+      fallbackNotice: boolean;
+      onImprove: () => void;
+    };
+  }) => open ? (
+    <div data-testid="review-form">
       <span data-testid="local-prefill-title">{String(prefill.title ?? "")}</span>
       <input aria-label="Título" defaultValue={String(prefill.title ?? "")} readOnly />
+      {localAiAction && (
+        <div>
+          <button type="button" disabled={localAiAction.running} onClick={localAiAction.onImprove}>
+            🧠 Melhorar leitura localmente
+          </button>
+          {localAiAction.running && localAiAction.status && <p>{localAiAction.status}</p>}
+          {!localAiAction.running && localAiAction.metricsText && <p>{localAiAction.metricsText}</p>}
+          {!localAiAction.running && localAiAction.fallbackNotice && (
+            <p>Não foi possível melhorar a leitura localmente; mantido resultado original.</p>
+          )}
+        </div>
+      )}
     </div>
   ) : null,
 }));
@@ -140,16 +162,21 @@ describe("ReceiptImport local AI interpretation", () => {
     return file;
   }
 
-  it("reuses the computed OCR output without a second Paddle run and keeps paid AI manual", async () => {
+  it("improves the open review form from the computed OCR output without a second Paddle run", async () => {
     mocks.interpretReceiptLocally.mockImplementation(async (input: { regions: unknown[]; rawText: string }, options: { fallback: unknown; onMetrics?: (m: unknown) => void }) => {
       options.onMetrics?.({ modelId: "test-model", backend: "wasm", initializationMs: 10, inferenceMs: 20, totalMs: 30, fallbackUsed: false });
       return localParsed();
     });
     selectFile();
 
-    expect(screen.queryByRole("button", { name: /Interpretar localmente/ })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("review-form")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Melhorar leitura localmente/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
-    const localButton = await screen.findByRole("button", { name: /Interpretar localmente/ });
+
+    // The review form opens with the deterministic result and the local action visible inside it.
+    expect(await screen.findByTestId("review-form")).toBeInTheDocument();
+    expect(await screen.findByTestId("local-prefill-title")).toHaveTextContent("Mercado Central");
+    const localButton = await screen.findByRole("button", { name: /Melhorar leitura localmente/ });
     expect(mocks.fastOcrRecognize).toHaveBeenCalledTimes(1);
 
     // Manual paid AI button is untouched and only opens confirmation.
@@ -169,22 +196,26 @@ describe("ReceiptImport local AI interpretation", () => {
     expect(mocks.fastOcrRecognize).toHaveBeenCalledTimes(1);
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
 
+    // The open form is updated in place with the local result and metrics.
+    expect(await screen.findByTestId("review-form")).toBeInTheDocument();
     expect(await screen.findByTestId("local-prefill-title")).toHaveTextContent("Interpretação Local");
     expect(await screen.findByText(/test-model/)).toBeInTheDocument();
   });
 
-  it("shows deterministic fallback messaging when the local model fails", async () => {
+  it("keeps the previous result and informs when local improvement falls back", async () => {
     mocks.interpretReceiptLocally.mockImplementation(async (input: unknown, options: { fallback: unknown; onMetrics?: (m: unknown) => void }) => {
       options.onMetrics?.({ modelId: "test-model", backend: "wasm", initializationMs: 0, inferenceMs: 0, totalMs: 5, fallbackUsed: true, error: "modelo indisponível" });
       return options.fallback;
     });
     selectFile();
     fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
-    fireEvent.click(await screen.findByRole("button", { name: /Interpretar localmente/ }));
+    fireEvent.click(await screen.findByRole("button", { name: /Melhorar leitura localmente/ }));
 
-    expect(await screen.findByDisplayValue("Mercado Central")).toBeInTheDocument();
-    expect(await screen.findByText(/usou o resultado determinístico/)).toBeInTheDocument();
+    expect(await screen.findByTestId("review-form")).toBeInTheDocument();
+    expect(await screen.findByTestId("local-prefill-title")).toHaveTextContent("Mercado Central");
+    expect(await screen.findByText("Não foi possível melhorar a leitura localmente; mantido resultado original.")).toBeInTheDocument();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
+    expect(mocks.fastOcrRecognize).toHaveBeenCalledTimes(1);
   });
 
   it("clears the previous receipt snapshot when a new photo is captured", async () => {
@@ -206,7 +237,7 @@ describe("ReceiptImport local AI interpretation", () => {
     const input = container.querySelector('input[type="file"]')!;
     fireEvent.change(input, { target: { files: [new File(["one"], "um.jpg", { type: "image/jpeg" })] } });
     fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
-    await screen.findByRole("button", { name: /Interpretar localmente/ });
+    await screen.findByRole("button", { name: /Melhorar leitura localmente/ });
 
     fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
     const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
@@ -217,7 +248,7 @@ describe("ReceiptImport local AI interpretation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fotografar" }));
 
     await screen.findByText(/^comprovante-.*\.jpg$/);
-    expect(screen.queryByRole("button", { name: /Interpretar localmente/ })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Melhorar leitura localmente/ })).not.toBeInTheDocument();
     expect(mocks.interpretReceiptLocally).not.toHaveBeenCalled();
   });
 });

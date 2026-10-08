@@ -475,33 +475,6 @@ export default function ReceiptImport() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">A leitura gratuita usa o OCR local e tem custo R$ 0,00.</p>
-                {localSnapshot && (
-                  <div className="space-y-2 rounded-md border border-dashed border-border p-3">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      className="w-full gap-2"
-                      disabled={loading || localLoading}
-                      onClick={() => void interpretLocally()}
-                    >
-                      {localLoading && <Loader2 className="h-4 w-4 animate-spin" />} 🧠 Interpretar localmente
-                    </Button>
-                    <p className="text-xs text-muted-foreground">
-                      Experimental: reusa o OCR já calculado, sem nova leitura e sem IA paga.
-                    </p>
-                    {localLoading && localStatus && (
-                      <p className="text-xs text-muted-foreground">{localStatus}</p>
-                    )}
-                    {localMetrics && !localLoading && (
-                      <p className="text-xs text-muted-foreground">
-                        Modelo local: {localMetrics.modelId} · {localMetrics.backend} · inicialização{" "}
-                        {Math.round(localMetrics.initializationMs)}ms · inferência{" "}
-                        {Math.round(localMetrics.inferenceMs)}ms · total {Math.round(localMetrics.totalMs)}ms
-                        {localMetrics.fallbackUsed ? " · usou o resultado determinístico" : ""}
-                      </p>
-                    )}
-                  </div>
-                )}
               </div>
             )}
             <p className="text-xs text-muted-foreground flex items-start gap-2">
@@ -595,6 +568,15 @@ export default function ReceiptImport() {
           prefill={prefill}
           prefillAttachments={receiptFile ? [receiptFile] : undefined}
           lowConfidence={lowConfidence}
+          localAiAction={localSnapshot ? {
+            running: localLoading,
+            status: localStatus,
+            metricsText: !localLoading && localMetrics
+              ? `Modelo local: ${localMetrics.modelId} · ${localMetrics.backend} · inicialização ${Math.round(localMetrics.initializationMs)}ms · inferência ${Math.round(localMetrics.inferenceMs)}ms · total ${Math.round(localMetrics.totalMs)}ms`
+              : null,
+            fallbackNotice: !localLoading && (localMetrics?.fallbackUsed ?? false),
+            onImprove: () => void interpretLocally(),
+          } : undefined}
           title="Confira o registro"
           submitLabel="Salvar registro"
           onSubmit={async (data, options) => {

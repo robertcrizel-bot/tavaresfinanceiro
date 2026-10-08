@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { Paperclip, Camera, X, FileIcon, Circle } from "lucide-react";
+import { Paperclip, Camera, X, FileIcon, Circle, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { compressImageFile } from "@/lib/image-compression";
 import { toast } from "@/hooks/use-toast";
@@ -28,11 +28,21 @@ interface TransactionFormProps {
   prefillAttachments?: File[];
   /** Fields with low confidence from OCR — show a discreet "Confira este campo" hint. */
   lowConfidence?: string[];
+  /** Optional on-device AI reinterpretation of an already-computed OCR result. */
+  localAiAction?: LocalAiFormAction;
   title?: string;
   submitLabel?: string;
 }
 
-export function TransactionForm({ open, onClose, onSubmit, initial, prefill, prefillAttachments, lowConfidence, title: dialogTitle, submitLabel }: TransactionFormProps) {
+export interface LocalAiFormAction {
+  running: boolean;
+  status: string;
+  metricsText: string | null;
+  fallbackNotice: boolean;
+  onImprove: () => void;
+}
+
+export function TransactionForm({ open, onClose, onSubmit, initial, prefill, prefillAttachments, lowConfidence, localAiAction, title: dialogTitle, submitLabel }: TransactionFormProps) {
   const { accounts, creditCards } = useAccounts();
   const { getCategoriesByType, categories: allCategories } = useCategories();
   const { transactions } = useFinance();
@@ -420,6 +430,28 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
               <p className="text-xs text-muted-foreground">Os anexos selecionados serão adicionados a este registro.</p>
             )}
           </div>
+          {localAiAction && !initial && (
+            <div className="space-y-1 rounded-md border border-dashed border-border p-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full gap-2"
+                disabled={localAiAction.running}
+                onClick={localAiAction.onImprove}
+              >
+                {localAiAction.running && <Loader2 className="h-4 w-4 animate-spin" />} 🧠 Melhorar leitura localmente
+              </Button>
+              {localAiAction.running && localAiAction.status && (
+                <p className="text-xs text-muted-foreground">{localAiAction.status}</p>
+              )}
+              {!localAiAction.running && localAiAction.metricsText && (
+                <p className="text-xs text-muted-foreground">{localAiAction.metricsText}</p>
+              )}
+              {!localAiAction.running && localAiAction.fallbackNotice && (
+                <p className="text-xs text-muted-foreground">Não foi possível melhorar a leitura localmente; mantido resultado original.</p>
+              )}
+            </div>
+          )}
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
             <Button type="submit">{submitLabel ?? (initial ? "Salvar" : "Adicionar")}</Button>
