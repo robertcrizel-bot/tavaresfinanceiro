@@ -1,0 +1,1 @@
+- [ ] Dinheiro -> auto vincular conta caixa (form + previsões), testes, sem alterar dados
