@@ -15,7 +15,7 @@ import { compressImageFile } from "@/lib/image-compression";
 import { toast } from "@/hooks/use-toast";
 import { calculateCurrentMonthCategorySpending, calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
 
-const ACCOUNT_PAYMENT_METHODS = new Set<PaymentMethod>(["Cartão de Débito", "Pix", "Transferência", "Boleto"]);
+const ACCOUNT_PAYMENT_METHODS = new Set<PaymentMethod>(["Dinheiro", "Cartão de Débito", "Pix", "Transferência", "Boleto"]);
 
 interface TransactionFormProps {
   open: boolean;
@@ -215,6 +215,10 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
 
     setCreditCardId("");
     setInstallments("1");
+    if (isCashPaymentMethod(nextPaymentMethod)) {
+      setAccountId(findCashAccount(accounts)?.id ?? "");
+      return;
+    }
     if (!nextPaymentMethod || !ACCOUNT_PAYMENT_METHODS.has(nextPaymentMethod)) setAccountId("");
   };
 
