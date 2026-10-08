@@ -1,18 +1,43 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { forwardRef } from "react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { BottomNav } from "@/components/BottomNav";
 
 vi.mock("@/components/NavLink", () => ({
-  NavLink: ({ children, to, onClick }: { children?: React.ReactNode; to: string; onClick?: () => void }) => (
-    <a href={to} onClick={(event) => {
-      event.preventDefault();
-      onClick?.();
-    }}>
-      {children}
-    </a>
-  ),
+  NavLink: forwardRef(function MockNavLink(
+    {
+      children,
+      to,
+      end: _end,
+      activeClassName: _active,
+      ...props
+    }: {
+      children?: React.ReactNode;
+      to: string;
+      [key: string]: unknown;
+    },
+    ref: React.ForwardedRef<HTMLAnchorElement>,
+  ) {
+    return (
+      <a ref={ref} href={to} {...props}>
+        {children}
+      </a>
+    );
+  }),
 }));
+
+const routes: [string, string][] = [
+  ["Painel", "/"],
+  ["Análises", "/analises-despesas"],
+  ["Registros", "/records"],
+  ["Extratos", "/extratos"],
+  ["Contas", "/accounts"],
+  ["Transf.", "/transfers"],
+  ["Categorias", "/categories"],
+  ["Previsões", "/forecasts"],
+  ["Perfil", "/profile"],
+];
 
 function renderNav(route = "/") {
   return render(
@@ -23,32 +48,40 @@ function renderNav(route = "/") {
 }
 
 describe("BottomNav", () => {
-  it("shows only the five primary destinations", () => {
+  it("shows all nine destinations without a Mais button", () => {
     renderNav("/");
-    for (const label of ["Painel", "Registros", "Extratos", "Contas", "Mais"]) {
-      expect(screen.getByText(label)).toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: "Navegação principal" });
+    for (const [label] of routes) {
+      expect(within(nav).getByText(label)).toBeInTheDocument();
     }
-    expect(screen.queryByText("Análises")).not.toBeInTheDocument();
-    expect(screen.queryByText("Categorias")).not.toBeInTheDocument();
+    expect(within(nav).queryByText("Mais")).not.toBeInTheDocument();
   });
 
-  it("opens Mais with the remaining routes and keeps every route reachable", async () => {
+  it("keeps every route reachable with a horizontal scroll container", () => {
     renderNav("/");
-    fireEvent.click(screen.getByRole("button", { name: "Mais opções" }));
-    for (const label of ["Análises", "Transferências", "Categorias", "Previsões", "Perfil"]) {
-      expect(await screen.findByText(label)).toBeInTheDocument();
+    const nav = screen.getByRole("navigation", { name: "Navegação principal" });
+    for (const [label, url] of routes) {
+      expect(within(nav).getByText(label).closest("a")).toHaveAttribute("href", url);
     }
-    expect(screen.getByText("Análises").closest("a")).toHaveAttribute("href", "/analises-despesas");
-    expect(screen.getByText("Perfil").closest("a")).toHaveAttribute("href", "/profile");
+    const scroller = nav.firstElementChild as HTMLElement;
+    expect(scroller.className).toMatch(/overflow-x-auto/);
+    expect(scroller.className).toMatch(/snap-x/);
   });
 
-  it("highlights Mais when a nested route is active", () => {
-    renderNav("/categories");
-    expect(screen.getByRole("button", { name: "Mais opções" })).toHaveClass("text-primary");
+  it("marks the active destination with aria-current and a visible indicator", () => {
+    renderNav("/extratos");
+    const nav = screen.getByRole("navigation", { name: "Navegação principal" });
+    const active = within(nav).getByText("Extratos").closest("a")!;
+    expect(active).toHaveAttribute("aria-current", "page");
+    expect(active.className).toMatch(/text-primary/);
+    expect(within(nav).getByText("Painel").closest("a")).not.toHaveAttribute("aria-current");
   });
 
-  it("links Extratos to the statements route", () => {
+  it("uses a distinct bar surface with top border and safe-area", () => {
     renderNav("/");
-    expect(screen.getByText("Extratos").closest("a")).toHaveAttribute("href", "/extratos");
+    const nav = screen.getByRole("navigation", { name: "Navegação principal" });
+    expect(nav.className).toMatch(/border-t/);
+    expect(nav.className).toMatch(/safe-area-bottom/);
+    expect(nav.className).toMatch(/shadow-/);
   });
 });
