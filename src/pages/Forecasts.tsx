@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useForecast, BillPayment, RecurringBill } from "@/contexts/ForecastContext";
 import { useAccounts } from "@/contexts/AccountContext";
+import { findCashAccount, isCashPaymentMethod } from "@/lib/cash-account";
 import { useCategories } from "@/contexts/CategoryContext";
 import { useFinance } from "@/contexts/FinanceContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -179,11 +180,13 @@ export default function Forecasts() {
       return;
     }
     setPayCreditCardId("");
+    if (isCashPaymentMethod(nextPaymentMethod)) setPayAccountId(findCashAccount(accounts)?.id ?? "");
   };
 
   const handleConfirmPay = async () => {
     if (!payBill) return;
     if (payIsCreditCard && !payCreditCardId) return;
+    if (isCashPaymentMethod(payMethod) && !payAccountId) return;
     await markAsPaid(payBill, referenceMonth, {
       amount: Number(payAmount),
       date: payDate,
