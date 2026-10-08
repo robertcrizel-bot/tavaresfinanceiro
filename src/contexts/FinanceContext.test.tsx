@@ -215,6 +215,33 @@ describe("FinanceContext receipt details", () => {
     });
   });
 
+  it("reopens a closed invoice through the atomic lifecycle RPC", async () => {
+    await renderProvider();
+
+    let result = false;
+    await act(async () => { result = await context!.reopenCardInvoice("invoice-1"); });
+
+    expect(result).toBe(true);
+    expect(mocks.rpc).toHaveBeenCalledWith("reopen_credit_card_invoice", {
+      p_invoice_id: "invoice-1",
+    });
+    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Fatura reaberta" }));
+  });
+
+  it("does not report an invalid reopen as successful", async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: "Fatura paga nao pode ser reaberta" } });
+    await renderProvider();
+
+    let result = true;
+    await act(async () => { result = await context!.reopenCardInvoice("invoice-paid"); });
+
+    expect(result).toBe(false);
+    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Erro ao reabrir fatura",
+      variant: "destructive",
+    }));
+  });
+
   it("pays the exact closed invoice from the selected account", async () => {
     await renderProvider();
 

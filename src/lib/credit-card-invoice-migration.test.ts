@@ -14,6 +14,10 @@ const closingReassignmentMigration = readFileSync(
   join(process.cwd(), "supabase/migrations/20261007160000_allow_invoice_reassignment_during_close.sql"),
   "utf8",
 );
+const reopenMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261007170000_reopen_closed_credit_card_invoice.sql"),
+  "utf8",
+);
 
 describe("credit card invoice database contract", () => {
   it("creates a persisted invoice model and safely backfills existing data", () => {
@@ -68,5 +72,38 @@ describe("credit card invoice database contract", () => {
     expect(closingReassignmentMigration).toContain("v_operation = 'close'");
     expect(closingReassignmentMigration).toContain("OLD.credit_card_invoice_id IS DISTINCT FROM NEW.credit_card_invoice_id");
     expect(closingReassignmentMigration).toContain("CREATE OR REPLACE FUNCTION public.assign_credit_card_invoice");
+  });
+
+  it("reopens only an unpaid CLOSED invoice atomically", () => {
+    expect(reopenMigration).toContain("CREATE OR REPLACE FUNCTION public.reopen_credit_card_invoice");
+    expect(reopenMigration).toContain("FOR UPDATE");
+    expect(reopenMigration).toContain("v_invoice.user_id <> auth.uid()");
+    expect(reopenMigration).toContain("v_invoice.status <> 'CLOSED'");
+    expect(reopenMigration).toContain("Fatura paga nao pode ser reaberta");
+    expect(reopenMigration).toContain("status = 'OPEN'");
+  });
+
+  it("removes only the obligation securely linked to the reopened invoice", () => {
+    expect(reopenMigration).toContain("v_invoice.obligation_transaction_id");
+    expect(reopenMigration).toContain("v_obligation.credit_card_invoice_id IS DISTINCT FROM v_invoice.id");
+    expect(reopenMigration).toMatch(/DELETE FROM public\.transactions\s+WHERE id = v_obligation\.id/);
+    expect(reopenMigration).toContain("AND credit_card_invoice_id = v_invoice.id");
+    expect(reopenMigration).toContain("AND financial_kind = 'card_invoice_obligation'");
+    expect(reopenMigration).toContain("obligation.id <> v_obligation.id");
+  });
+
+  it("clears the closing snapshot without moving or deleting purchases", () => {
+    expect(reopenMigration).toContain("closed_total = NULL");
+    expect(reopenMigration).toContain("closed_at = NULL");
+    expect(reopenMigration).toContain("actual_closed_at = NULL");
+    expect(reopenMigration).not.toContain("SET credit_card_invoice_id");
+    expect(reopenMigration).not.toMatch(/financial_kind\s+IN\s*\(\s*'card_purchase'/);
+  });
+
+  it("keeps invalid reopen attempts transactional", () => {
+    expect(reopenMigration).toContain("BEGIN;");
+    expect(reopenMigration).toContain("IF NOT FOUND THEN");
+    expect(reopenMigration).toContain("RAISE EXCEPTION 'Fatura nao pode ser reaberta'");
+    expect(reopenMigration).toContain("COMMIT;");
   });
 });

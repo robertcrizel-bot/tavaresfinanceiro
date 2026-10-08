@@ -107,6 +107,43 @@ describe("credit card invoice lifecycle", () => {
     expect(selectCardInvoice([closed, next], [purchase(), laterPurchase], "card-1")).toEqual(closed);
   });
 
+  it("restores OPEN calculation without pulling purchases back from the next invoice", () => {
+    const closed = invoice({
+      status: "CLOSED",
+      closedTotal: 700,
+      closedAt: "2026-10-20T23:59:59Z",
+      actualClosedAt: "2026-10-20T23:59:59Z",
+    });
+    const reopened: CreditCardInvoice = {
+      ...closed,
+      status: "OPEN",
+      closedTotal: undefined,
+      closedAt: undefined,
+      actualClosedAt: undefined,
+      obligationTransactionId: undefined,
+    };
+    const next = invoice({
+      id: "invoice-november",
+      competence: "2026-11-01",
+      cycleStart: "2026-10-21",
+      cycleEnd: "2026-11-20",
+      dueDate: "2026-11-27",
+    });
+    const originalPurchase = purchase({ amount: 500 });
+    const nextInvoicePurchase = purchase({
+      id: "purchase-next",
+      amount: 200,
+      date: "2026-10-21",
+      creditCardInvoiceId: next.id,
+    });
+    const transactions = [originalPurchase, nextInvoicePurchase];
+
+    expect(getInvoiceAmount(transactions, reopened)).toBe(500);
+    expect(getInvoiceAmount(transactions, next)).toBe(200);
+    expect(getInvoicePreviewAmount(transactions, reopened, [reopened, next], reopened.cycleEnd)).toBe(500);
+    expect(transactions).toEqual([originalPurchase, nextInvoicePurchase]);
+  });
+
   it("treats the closed-invoice obligation as financially neutral everywhere", () => {
     const obligation = purchase({
       id: "obligation",

@@ -13,6 +13,7 @@ interface FinanceContextType {
   updateTransaction: (t: Transaction, options?: { attachments?: File[] }) => Promise<boolean>;
   deleteTransaction: (id: string) => Promise<void>;
   closeCardInvoice: (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[], dueDate?: string) => Promise<boolean>;
+  reopenCardInvoice: (invoiceId: string) => Promise<boolean>;
   payCardInvoice: (invoiceId: string, accountId: string, date?: string, paymentMethod?: string) => Promise<boolean>;
   refetch: () => void;
 }
@@ -114,6 +115,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
         status: invoice.status as CreditCardInvoice["status"],
         closedTotal: invoice.closed_total == null ? undefined : Number(invoice.closed_total),
         closedAt: invoice.closed_at || undefined,
+        actualClosedAt: invoice.actual_closed_at || undefined,
         paidAt: invoice.paid_at || undefined,
         paymentAccountId: invoice.payment_account_id || undefined,
         obligationTransactionId: invoice.obligation_transaction_id || undefined,
@@ -288,6 +290,19 @@ const closeCardInvoice = useCallback(async (invoiceId: string, actualClosedDate?
     return true;
   }, [fetchTransactions]);
 
+  const reopenCardInvoice = useCallback(async (invoiceId: string) => {
+    const { error } = await supabase.rpc("reopen_credit_card_invoice", {
+      p_invoice_id: invoiceId,
+    });
+    if (error) {
+      toast({ title: "Erro ao reabrir fatura", description: error.message, variant: "destructive" });
+      return false;
+    }
+    toast({ title: "Fatura reaberta", description: "A obrigação do fechamento foi desfeita." });
+    await fetchTransactions();
+    return true;
+  }, [fetchTransactions]);
+
   const payCardInvoice = useCallback(async (invoiceId: string, accountId: string, date?: string, paymentMethod?: string) => {
     const { error } = await supabase.rpc("pay_credit_card_invoice", {
       p_invoice_id: invoiceId,
@@ -305,7 +320,7 @@ const closeCardInvoice = useCallback(async (invoiceId: string, actualClosedDate?
   }, [fetchTransactions]);
 
   return (
-    <FinanceContext.Provider value={{ transactions, creditCardInvoices, loading, addTransaction, updateTransaction, deleteTransaction, closeCardInvoice, payCardInvoice, refetch: fetchTransactions }}>
+    <FinanceContext.Provider value={{ transactions, creditCardInvoices, loading, addTransaction, updateTransaction, deleteTransaction, closeCardInvoice, reopenCardInvoice, payCardInvoice, refetch: fetchTransactions }}>
       {children}
     </FinanceContext.Provider>
   );

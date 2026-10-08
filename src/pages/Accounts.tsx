@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight, FileText, RotateCcw } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatInvoiceCompetence, getCardCommittedAmount, getCreditCardCycle, getInvoiceAmount, getInvoicePreviewAmount, selectCardInvoice } from "@/lib/credit-card-billing";
 import { calculateAccountBalances } from "@/lib/financial-calculations";
@@ -50,7 +50,7 @@ const fmtDateTime = (date: string) => new Date(date).toLocaleDateString("pt-BR")
 
 export default function Accounts() {
   const { accounts, creditCards, addAccount, updateAccount, deleteAccount, addCreditCard, updateCreditCard, deleteCreditCard } = useAccounts();
-  const { transactions, creditCardInvoices, addTransaction, closeCardInvoice, payCardInvoice } = useFinance();
+  const { transactions, creditCardInvoices, addTransaction, closeCardInvoice, reopenCardInvoice, payCardInvoice } = useFinance();
   const { transfers, addTransfer } = useTransfers();
 
   const [accFormOpen, setAccFormOpen] = useState(false);
@@ -62,6 +62,7 @@ export default function Accounts() {
   const [closingInvoiceActualDate, setClosingInvoiceActualDate] = useState("");
   const [closingInvoiceDueDate, setClosingInvoiceDueDate] = useState("");
   const [closingInvoiceExcludedIds, setClosingInvoiceExcludedIds] = useState<string[]>([]);
+  const [reopeningInvoice, setReopeningInvoice] = useState<CreditCardInvoice | null>(null);
   const [payingCard, setPayingCard] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
   const [payAccountId, setPayAccountId] = useState("");
   const [payDate, setPayDate] = useState("");
@@ -301,6 +302,11 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                           <Receipt className="h-3.5 w-3.5" /> Pagar fatura
                         </Button>
                       )}
+                      {status === "CLOSED" && invoice && (
+                        <Button size="sm" variant="ghost" className="gap-2 text-xs text-muted-foreground" onClick={() => setReopeningInvoice(invoice)}>
+                          <RotateCcw className="h-3.5 w-3.5" /> Reabrir fatura
+                        </Button>
+                      )}
                     </div>
                     {nextOpenInvoice && (
                       <div className="mt-3 rounded-lg border border-dashed border-border p-2 text-xs text-muted-foreground">
@@ -504,6 +510,26 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Reopen Invoice Confirmation */}
+      <AlertDialog open={!!reopeningInvoice} onOpenChange={(open) => { if (!open) setReopeningInvoice(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reabrir esta fatura?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A fatura voltará para aberta e a obrigação criada no fechamento será desfeita. Nenhuma compra será excluída.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button onClick={async () => {
+              if (!reopeningInvoice) return;
+              const reopened = await reopenCardInvoice(reopeningInvoice.id);
+              if (reopened) setReopeningInvoice(null);
+            }}>Reabrir fatura</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Pay Card Bill Dialog */}
       <AlertDialog open={!!payingCard} onOpenChange={(o) => { if (!o) setPayingCard(null); }}>

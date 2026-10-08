@@ -166,6 +166,7 @@ export type Database = {
       }
       credit_card_invoices: {
         Row: {
+          actual_closed_at: string | null
           closed_at: string | null
           closed_total: number | null
           competence: string
@@ -184,6 +185,7 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          actual_closed_at?: string | null
           closed_at?: string | null
           closed_total?: number | null
           competence: string
@@ -202,6 +204,7 @@ export type Database = {
           user_id: string
         }
         Update: {
+          actual_closed_at?: string | null
           closed_at?: string | null
           closed_total?: number | null
           competence?: string
@@ -530,6 +533,10 @@ export type Database = {
           p_payment_date?: string
           p_payment_method?: string
         }
+        Returns: string
+      }
+      reopen_credit_card_invoice: {
+        Args: { p_invoice_id: string }
         Returns: string
       }
     }
