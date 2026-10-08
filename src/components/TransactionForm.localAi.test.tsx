@@ -51,7 +51,7 @@ const action = {
   running: false,
   status: "",
   metricsText: null as string | null,
-  fallbackNotice: false,
+  fallbackMessage: null as string | null,
   onImprove: vi.fn(),
 };
 
@@ -114,13 +114,13 @@ describe("TransactionForm local AI action", () => {
         localAiAction={{
           ...action,
           metricsText: "Modelo local: test-model · wasm · inicialização 10ms · inferência 20ms · total 30ms",
-          fallbackNotice: true,
+          fallbackMessage: "Interpretação local demorou demais; mantido resultado original.",
         }}
       />,
     );
     expect(screen.getByText(/Modelo local: test-model/)).toBeInTheDocument();
     expect(
-      screen.getByText("Não foi possível melhorar a leitura localmente; mantido resultado original."),
+      screen.getByText("Interpretação local demorou demais; mantido resultado original."),
     ).toBeInTheDocument();
   });
 });

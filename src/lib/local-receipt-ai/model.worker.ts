@@ -1,13 +1,18 @@
 /// <reference lib="webworker" />
 
 import { env, pipeline } from "@huggingface/transformers";
-import { LOCAL_RECEIPT_MODEL_ID } from "./model";
+import {
+  LOCAL_RECEIPT_MAX_NEW_TOKENS,
+  LOCAL_RECEIPT_MODEL_ID,
+  LOCAL_RECEIPT_MODEL_TASK,
+} from "./model";
 import type { LocalModelBackend } from "./schema";
 
 env.allowLocalModels = false;
 env.useBrowserCache = true;
 
 interface WorkerRequest {
+  id: number;
   prompt: string;
 }
 
@@ -17,10 +22,18 @@ interface WebGpuNavigator {
   };
 }
 
-type Generator = (
-  messages: { role: "system" | "user"; content: string }[],
-  options: { max_new_tokens: number; do_sample: boolean; temperature: number },
-) => Promise<unknown>;
+type Generator = (input: string, options: { max_new_tokens: number }) => Promise<unknown>;
+
+interface LoadedModel {
+  generator: Generator;
+  backend: LocalModelBackend;
+  initializationMs: number;
+}
+
+// Kept alive for the whole page session: the second run reuses the loaded
+// model instead of downloading and initializing everything again.
+let loadedModel: LoadedModel | null = null;
+let loadingPromise: Promise<LoadedModel> | null = null;
 
 async function supportsFp16WebGpu(): Promise<boolean> {
   try {
@@ -35,81 +48,91 @@ function progressStatus(event: unknown): string | null {
   if (!event || typeof event !== "object") return null;
   const progress = event as { status?: string; progress?: number };
   if (progress.status === "progress" && typeof progress.progress === "number") {
-    return `Baixando modelo local... ${Math.round(progress.progress)}%`;
+    return `Carregando modelo local... ${Math.round(progress.progress)}%`;
   }
-  if (progress.status === "initiate") return "Baixando modelo local...";
+  if (progress.status === "initiate") return "Carregando modelo local...";
   return null;
 }
 
-async function createGenerator(backend: LocalModelBackend): Promise<Generator> {
-  const dtype = backend === "webgpu" ? "q4f16" : "q8";
-  const instance = await pipeline("text-generation", LOCAL_RECEIPT_MODEL_ID, {
-    device: backend,
-    dtype,
-    progress_callback: (event: unknown) => {
-      const status = progressStatus(event);
-      if (status) self.postMessage({ type: "progress", status });
-    },
-  });
-  return instance as unknown as Generator;
+function reply(id: number, message: Record<string, unknown>): void {
+  self.postMessage({ id, ...message });
+}
+
+async function loadModel(id: number): Promise<LoadedModel> {
+  if (loadedModel) return loadedModel;
+  if (!loadingPromise) {
+    loadingPromise = (async (): Promise<LoadedModel> => {
+      let backend: LocalModelBackend = await supportsFp16WebGpu() ? "webgpu" : "wasm";
+      const initializationStart = performance.now();
+      const create = (device: LocalModelBackend) =>
+        pipeline(LOCAL_RECEIPT_MODEL_TASK, LOCAL_RECEIPT_MODEL_ID, {
+          device,
+          dtype: device === "webgpu" ? "q4f16" : "q8",
+          progress_callback: (event: unknown) => {
+            const status = progressStatus(event);
+            if (status) reply(id, { type: "progress", status });
+          },
+        });
+      try {
+        reply(id, {
+          type: "progress",
+          status: backend === "webgpu" ? "Inicializando WebGPU..." : "Usando WASM...",
+        });
+        const instance = await create(backend);
+        return {
+          generator: instance as unknown as Generator,
+          backend,
+          initializationMs: performance.now() - initializationStart,
+        };
+      } catch (error) {
+        if (backend !== "webgpu") throw error;
+        backend = "wasm";
+        reply(id, { type: "progress", status: "Usando WASM..." });
+        const instance = await create(backend);
+        return {
+          generator: instance as unknown as Generator,
+          backend,
+          initializationMs: performance.now() - initializationStart,
+        };
+      }
+    })().catch((error: unknown) => {
+      loadingPromise = null;
+      throw error;
+    });
+  }
+  loadedModel = await loadingPromise;
+  loadingPromise = null;
+  return loadedModel;
 }
 
 function generatedText(output: unknown): string {
+  if (typeof output === "string") return output;
   if (!Array.isArray(output) || !output[0] || typeof output[0] !== "object") {
     throw new Error("O modelo local retornou uma resposta vazia.");
   }
   const generated = (output[0] as { generated_text?: unknown }).generated_text;
   if (typeof generated === "string") return generated;
-  if (Array.isArray(generated)) {
-    const last = generated.at(-1);
-    if (last && typeof last === "object" && typeof (last as { content?: unknown }).content === "string") {
-      return (last as { content: string }).content;
-    }
-  }
   throw new Error("O modelo local retornou um formato desconhecido.");
 }
 
 self.onmessage = async (event: MessageEvent<WorkerRequest>) => {
+  const { id, prompt } = event.data;
   const totalStart = performance.now();
   try {
-    let backend: LocalModelBackend = await supportsFp16WebGpu() ? "webgpu" : "wasm";
-    self.postMessage({ type: "progress", status: backend === "webgpu"
-      ? "Inicializando modelo local com WebGPU..."
-      : "Inicializando modelo local com WASM..." });
-
-    const initializationStart = performance.now();
-    let generator: Generator;
-    try {
-      generator = await createGenerator(backend);
-    } catch (error) {
-      if (backend !== "webgpu") throw error;
-      backend = "wasm";
-      self.postMessage({ type: "progress", status: "WebGPU indisponível; tentando WASM..." });
-      generator = await createGenerator(backend);
-    }
-    const initializationMs = performance.now() - initializationStart;
-
-    self.postMessage({ type: "progress", status: "Interpretando texto OCR localmente..." });
+    const { generator, backend, initializationMs } = await loadModel(id);
+    reply(id, { type: "progress", status: "Interpretando..." });
     const inferenceStart = performance.now();
-    const output = await generator([
-      { role: "system", content: "Return only grounded JSON extracted from the supplied OCR. Never invent missing data." },
-      { role: "user", content: event.data.prompt },
-    ], {
-      max_new_tokens: 768,
-      do_sample: false,
-      temperature: 0,
-    });
-    const inferenceMs = performance.now() - inferenceStart;
-    self.postMessage({
+    const output = await generator(prompt, { max_new_tokens: LOCAL_RECEIPT_MAX_NEW_TOKENS });
+    reply(id, {
       type: "result",
       text: generatedText(output),
       backend,
       initializationMs,
-      inferenceMs,
+      inferenceMs: performance.now() - inferenceStart,
       totalMs: performance.now() - totalStart,
     });
   } catch (error) {
-    self.postMessage({
+    reply(id, {
       type: "error",
       message: error instanceof Error ? error.message : "Não foi possível executar o modelo local.",
     });

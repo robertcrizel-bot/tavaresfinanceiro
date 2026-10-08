@@ -38,7 +38,7 @@ export interface LocalAiFormAction {
   running: boolean;
   status: string;
   metricsText: string | null;
-  fallbackNotice: boolean;
+  fallbackMessage: string | null;
   onImprove: () => void;
 }
 
@@ -447,8 +447,8 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
               {!localAiAction.running && localAiAction.metricsText && (
                 <p className="text-xs text-muted-foreground">{localAiAction.metricsText}</p>
               )}
-              {!localAiAction.running && localAiAction.fallbackNotice && (
-                <p className="text-xs text-muted-foreground">Não foi possível melhorar a leitura localmente; mantido resultado original.</p>
+              {!localAiAction.running && localAiAction.fallbackMessage && (
+                <p className="text-xs text-muted-foreground">{localAiAction.fallbackMessage}</p>
               )}
             </div>
           )}

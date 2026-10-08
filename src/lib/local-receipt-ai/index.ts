@@ -33,7 +33,15 @@ export async function interpretReceiptLocally(
 export { buildLocalReceiptPrompt } from "./prompt";
 export { normalizeLocalReceiptResponse } from "./normalize";
 export { toLocalReceiptInput } from "./ocr-input";
-export { LOCAL_RECEIPT_MODEL_ID, LOCAL_RECEIPT_MODEL_APPROX_MB } from "./model";
+export {
+  LOCAL_RECEIPT_MAX_NEW_TOKENS,
+  LOCAL_RECEIPT_MODEL_APPROX_MB,
+  LOCAL_RECEIPT_MODEL_ID,
+  LOCAL_RECEIPT_TIMEOUT_MESSAGE,
+  LOCAL_RECEIPT_TIMEOUT_MS,
+  resetLocalReceiptModelState,
+  runLocalReceiptModel,
+} from "./model";
 export type {
   LocalInterpretationMetrics,
   LocalInterpretationOptions,

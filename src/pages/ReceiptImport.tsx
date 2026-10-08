@@ -574,7 +574,9 @@ export default function ReceiptImport() {
             metricsText: !localLoading && localMetrics
               ? `Modelo local: ${localMetrics.modelId} · ${localMetrics.backend} · inicialização ${Math.round(localMetrics.initializationMs)}ms · inferência ${Math.round(localMetrics.inferenceMs)}ms · total ${Math.round(localMetrics.totalMs)}ms`
               : null,
-            fallbackNotice: !localLoading && (localMetrics?.fallbackUsed ?? false),
+            fallbackMessage: !localLoading && localMetrics?.fallbackUsed
+              ? (localMetrics.error ?? "Não foi possível melhorar a leitura localmente; mantido resultado original.")
+              : null,
             onImprove: () => void interpretLocally(),
           } : undefined}
           title="Confira o registro"

@@ -70,7 +70,7 @@ vi.mock("@/components/TransactionForm", () => ({
       running: boolean;
       status: string;
       metricsText: string | null;
-      fallbackNotice: boolean;
+      fallbackMessage: string | null;
       onImprove: () => void;
     };
   }) => open ? (
@@ -84,8 +84,8 @@ vi.mock("@/components/TransactionForm", () => ({
           </button>
           {localAiAction.running && localAiAction.status && <p>{localAiAction.status}</p>}
           {!localAiAction.running && localAiAction.metricsText && <p>{localAiAction.metricsText}</p>}
-          {!localAiAction.running && localAiAction.fallbackNotice && (
-            <p>Não foi possível melhorar a leitura localmente; mantido resultado original.</p>
+          {!localAiAction.running && localAiAction.fallbackMessage && (
+            <p>{localAiAction.fallbackMessage}</p>
           )}
         </div>
       )}
@@ -202,9 +202,9 @@ describe("ReceiptImport local AI interpretation", () => {
     expect(await screen.findByText(/test-model/)).toBeInTheDocument();
   });
 
-  it("keeps the previous result and informs when local improvement falls back", async () => {
+  it("keeps the previous result and informs when local improvement times out", async () => {
     mocks.interpretReceiptLocally.mockImplementation(async (input: unknown, options: { fallback: unknown; onMetrics?: (m: unknown) => void }) => {
-      options.onMetrics?.({ modelId: "test-model", backend: "wasm", initializationMs: 0, inferenceMs: 0, totalMs: 5, fallbackUsed: true, error: "modelo indisponível" });
+      options.onMetrics?.({ modelId: "test-model", backend: "wasm", initializationMs: 0, inferenceMs: 0, totalMs: 45000, fallbackUsed: true, error: "Interpretação local demorou demais; mantido resultado original." });
       return options.fallback;
     });
     selectFile();
@@ -213,7 +213,7 @@ describe("ReceiptImport local AI interpretation", () => {
 
     expect(await screen.findByTestId("review-form")).toBeInTheDocument();
     expect(await screen.findByTestId("local-prefill-title")).toHaveTextContent("Mercado Central");
-    expect(await screen.findByText("Não foi possível melhorar a leitura localmente; mantido resultado original.")).toBeInTheDocument();
+    expect(await screen.findByText("Interpretação local demorou demais; mantido resultado original.")).toBeInTheDocument();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
     expect(mocks.fastOcrRecognize).toHaveBeenCalledTimes(1);
   });

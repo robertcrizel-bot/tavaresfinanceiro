@@ -3,6 +3,7 @@ import type { ParsedReceipt } from "@/lib/receipt";
 import {
   buildLocalReceiptPrompt,
   interpretReceiptLocally,
+  LOCAL_RECEIPT_TIMEOUT_MESSAGE,
   normalizeLocalReceiptResponse,
   toLocalReceiptInput,
   type LocalReceiptInput,
@@ -88,12 +89,19 @@ function validModelJson(): string {
 }
 
 describe("local-receipt-ai", () => {
-  it("builds a prompt with grouped lines, regions, categories and fiscal-marker rules", () => {
+  it("builds a compact prompt with grouped lines and fiscal-marker rules", () => {
     const prompt = buildLocalReceiptPrompt(bakeryInput());
     expect(prompt).toContain("[2] 0,274KG X 21,99 T12 6,03");
-    expect(prompt).toContain("T12 and T18 are fiscal markers");
+    expect(prompt).toContain("T12/T18 are fiscal codes");
     expect(prompt).toContain("Alimentação");
     expect(prompt).toContain("purchased_items");
+    expect(prompt).not.toContain("box=");
+    expect(prompt).not.toContain("regions:");
+    const ocrSection = prompt.slice(prompt.indexOf("OCR:"));
+    for (const line of ocrSection.split("\n").slice(1).filter(Boolean)) {
+      expect(line).toMatch(/^\[\d+\] /);
+    }
+    expect(prompt.length).toBeLessThan(1500);
   });
 
   it("accepts valid JSON with multiline bakery items", () => {
@@ -226,6 +234,23 @@ describe("local-receipt-ai", () => {
     } finally {
       fetchSpy.mockRestore();
     }
+  });
+
+  it("keeps the deterministic result with the timeout message when the run expires", async () => {
+    const fallback = fallbackReceipt();
+    const onMetrics = vi.fn();
+    const parsed = await interpretReceiptLocally(bakeryInput(), {
+      fallback,
+      infer: async () => {
+        throw new Error(LOCAL_RECEIPT_TIMEOUT_MESSAGE);
+      },
+      onMetrics,
+    });
+    expect(parsed).toBe(fallback);
+    expect(onMetrics).toHaveBeenCalledWith(expect.objectContaining({
+      fallbackUsed: true,
+      error: LOCAL_RECEIPT_TIMEOUT_MESSAGE,
+    }));
   });
 
   it("builds grouped lines and raw text from OCR regions without a second Paddle run", () => {
