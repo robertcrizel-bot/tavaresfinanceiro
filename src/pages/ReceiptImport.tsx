@@ -15,6 +15,12 @@ import { formatReceiptDescription } from "@/lib/receipt-description";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
 import { fastOcrRecognize } from "@/lib/fast-ocr";
+import {
+  interpretReceiptLocally,
+  toLocalReceiptInput,
+  type LocalInterpretationMetrics,
+  type LocalReceiptInput,
+} from "@/lib/local-receipt-ai";
 import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientation";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
@@ -40,6 +46,14 @@ export default function ReceiptImport() {
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [readStatus, setReadStatus] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [localSnapshot, setLocalSnapshot] = useState<{
+    input: LocalReceiptInput;
+    fallback: ParsedReceipt;
+  } | null>(null);
+  const [localLoading, setLocalLoading] = useState(false);
+  const [localStatus, setLocalStatus] = useState("");
+  const [localMetrics, setLocalMetrics] = useState<LocalInterpretationMetrics | null>(null);
+  const localRunId = useRef(0);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -92,6 +106,9 @@ export default function ReceiptImport() {
       setLoading(true);
       setError(null);
       setDuplicate(false);
+      setLocalSnapshot(null);
+      setLocalMetrics(null);
+      setLocalStatus("");
       setReadStatus("Preparando imagem...");
       try {
         const localImage = await prepareReceiptForLocalOcr(file);
@@ -124,6 +141,14 @@ export default function ReceiptImport() {
         setReceiptRef(parsed.receipt_id ?? null);
         setLowConfidence(parsed.low_confidence_fields || []);
         setPrefill(buildPrefill(parsed));
+        setLocalSnapshot({
+          input: toLocalReceiptInput(
+            ocr.regions,
+            allCategoryNames,
+            [...accounts.map((a) => `${a.name} (${a.bank})`), ...creditCards.map((c) => `${c.name} (${c.bank})`)],
+          ),
+          fallback: parsed,
+        });
         shouldOpenForm = true;
       } catch (e) {
         setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com o OCR rápido.");
@@ -149,14 +174,70 @@ export default function ReceiptImport() {
       }
       if (shouldOpenForm) setFormOpen(true);
     },
-    [buildPrefill],
+    [buildPrefill, allCategoryNames, accounts, creditCards],
   );
+
+  const interpretLocally = useCallback(async () => {
+    if (!localSnapshot || localLoading) return;
+    const run = localRunId.current + 1;
+    localRunId.current = run;
+    setLocalLoading(true);
+    setError(null);
+    setLocalStatus("Preparando interpretação local...");
+    try {
+      const parsed = await interpretReceiptLocally(localSnapshot.input, {
+        fallback: localSnapshot.fallback,
+        onProgress: (status) => {
+          if (localRunId.current === run) setLocalStatus(status);
+        },
+        onMetrics: (metrics) => {
+          if (localRunId.current === run) {
+            setLocalMetrics(metrics);
+            if (import.meta.env.MODE !== "test") {
+              console.info("[receipt-import] local AI metrics", {
+                modelId: metrics.modelId,
+                backend: metrics.backend,
+                initializationMs: Math.round(metrics.initializationMs),
+                inferenceMs: Math.round(metrics.inferenceMs),
+                totalMs: Math.round(metrics.totalMs),
+                fallbackUsed: metrics.fallbackUsed,
+              });
+            }
+          }
+        },
+      });
+      if (localRunId.current !== run) return;
+      if (parsed.receipt_id && parsed.receipt_id !== (localSnapshot.fallback.receipt_id ?? null)) {
+        const { data: existing } = await supabase
+          .from("transactions")
+          .select("id")
+          .eq("receipt_ref", parsed.receipt_id)
+          .limit(1);
+        if (existing && existing.length > 0) setDuplicate(true);
+      }
+      setReceiptRef(parsed.receipt_id ?? null);
+      setLowConfidence(parsed.low_confidence_fields || []);
+      setPrefill(buildPrefill(parsed));
+      setFormOpen(true);
+    } catch (e) {
+      if (localRunId.current !== run) return;
+      setError(e instanceof Error ? e.message : "Não foi possível executar a interpretação local.");
+    } finally {
+      if (localRunId.current === run) {
+        setLocalLoading(false);
+        setLocalStatus("");
+      }
+    }
+  }, [localSnapshot, localLoading, buildPrefill]);
 
   const processFileWithAi = useCallback(
     async (file: File) => {
       setLoading(true);
       setError(null);
       setDuplicate(false);
+      setLocalSnapshot(null);
+      setLocalMetrics(null);
+      setLocalStatus("");
       try {
         const parsed = await parseReceipt(file, {
           categories: allCategoryNames,
@@ -282,6 +363,9 @@ export default function ReceiptImport() {
         lastModified: Date.now(),
       });
       setPendingFile(file);
+      setLocalSnapshot(null);
+      setLocalMetrics(null);
+      setLocalStatus("");
     } catch {
       closeCamera();
       setError("Não foi possível fotografar o comprovante. Tente novamente ou use Escolher arquivo.");
@@ -371,7 +455,12 @@ export default function ReceiptImport() {
               onChange={(e) => {
                 const f = e.target.files?.[0];
                 e.target.value = "";
-                if (f) setPendingFile(f);
+                if (f) {
+                  setPendingFile(f);
+                  setLocalSnapshot(null);
+                  setLocalMetrics(null);
+                  setLocalStatus("");
+                }
               }}
             />
             {pendingFile && (
@@ -386,6 +475,33 @@ export default function ReceiptImport() {
                   </Button>
                 </div>
                 <p className="text-xs text-muted-foreground">A leitura gratuita usa o OCR local e tem custo R$ 0,00.</p>
+                {localSnapshot && (
+                  <div className="space-y-2 rounded-md border border-dashed border-border p-3">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="w-full gap-2"
+                      disabled={loading || localLoading}
+                      onClick={() => void interpretLocally()}
+                    >
+                      {localLoading && <Loader2 className="h-4 w-4 animate-spin" />} 🧠 Interpretar localmente
+                    </Button>
+                    <p className="text-xs text-muted-foreground">
+                      Experimental: reusa o OCR já calculado, sem nova leitura e sem IA paga.
+                    </p>
+                    {localLoading && localStatus && (
+                      <p className="text-xs text-muted-foreground">{localStatus}</p>
+                    )}
+                    {localMetrics && !localLoading && (
+                      <p className="text-xs text-muted-foreground">
+                        Modelo local: {localMetrics.modelId} · {localMetrics.backend} · inicialização{" "}
+                        {Math.round(localMetrics.initializationMs)}ms · inferência{" "}
+                        {Math.round(localMetrics.inferenceMs)}ms · total {Math.round(localMetrics.totalMs)}ms
+                        {localMetrics.fallbackUsed ? " · usou o resultado determinístico" : ""}
+                      </p>
+                    )}
+                  </div>
+                )}
               </div>
             )}
             <p className="text-xs text-muted-foreground flex items-start gap-2">
