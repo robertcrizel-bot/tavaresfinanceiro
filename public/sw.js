@@ -1,7 +1,7 @@
 // Minimal service worker: only exists to receive files shared from other apps.
 // It intentionally does NOT cache app assets, so the app never serves stale content.
 
-const SW_VERSION = "share-v3";
+const SW_VERSION = "share-v4";
 const SHARE_CACHE = "shared-receipt";
 const SHARE_KEY = "/__shared-receipt";
 const DIAG_KEY = "/__shared-receipt-diag";
@@ -16,6 +16,7 @@ function isFileLike(v) {
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
   if (event.request.method !== "POST" || url.pathname !== "/receipt-share") return;
+  const rawRequest = event.request.clone();
 
   event.respondWith(
     (async () => {
@@ -23,14 +24,25 @@ self.addEventListener("fetch", (event) => {
         swVersion: SW_VERSION,
         at: new Date().toISOString(),
         contentType: event.request.headers.get("content-type"),
+        rawBodyLength: null,
+        formDataEntryCount: 0,
         fields: [],
         stored: false,
         error: null,
       };
+      const rawBodyResult = (async () => {
+        try {
+          const rawBuffer = await rawRequest.arrayBuffer();
+          return { length: rawBuffer.byteLength, error: null };
+        } catch (e) {
+          return { length: null, error: e && e.message ? e.message : String(e) };
+        }
+      })();
       try {
         const formData = await event.request.formData();
         let file = null;
         for (const [name, value] of formData.entries()) {
+          diag.formDataEntryCount++;
           const fileLike = isFileLike(value);
           diag.fields.push(
             fileLike
@@ -59,6 +71,9 @@ self.addEventListener("fetch", (event) => {
       } catch (e) {
         diag.error = e && e.message ? e.message : String(e);
       }
+      const rawBody = await rawBodyResult;
+      diag.rawBodyLength = rawBody.length;
+      if (rawBody.error) diag.error = [diag.error, `raw body: ${rawBody.error}`].filter(Boolean).join("; ");
       try {
         const cache = await caches.open(SHARE_CACHE);
         await cache.put(DIAG_KEY, new Response(JSON.stringify(diag), { headers: { "Content-Type": "application/json" } }));

@@ -703,7 +703,14 @@ describe("fast OCR main flow (no paid AI)", () => {
 
   it("shows open diagnostics when the shared file cannot be recovered", async () => {
     const diag = {
-      sw: { stored: false },
+      sw: {
+        contentType: "multipart/form-data; boundary=android-share",
+        rawBodyLength: 483221,
+        formDataEntryCount: 0,
+        fields: [],
+        stored: false,
+        error: null,
+      },
       page: {
         hasCacheApi: true,
         swControlled: true,
@@ -718,6 +725,7 @@ describe("fast OCR main flow (no paid AI)", () => {
 
     const summary = await screen.findByText("Diagnóstico do compartilhamento: arquivo não encontrado");
     expect(summary.closest("details")).toHaveAttribute("open");
+    expect(screen.getByText(/"rawBodyLength": 483221/)).toBeInTheDocument();
     expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
   });
 
