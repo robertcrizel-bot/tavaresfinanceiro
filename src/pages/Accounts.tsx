@@ -1,18 +1,18 @@
 import { useState, useEffect } from "react";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useTransfers } from "@/contexts/TransferContext";
-import { Account, CreditCard } from "@/lib/types";
+import { Account, CreditCard, CreditCardInvoice, Transaction } from "@/lib/types";
 import { useFinance } from "@/contexts/FinanceContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight, FileText } from "lucide-react";
+import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight, FileText, RotateCcw, History } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { getCardCommittedAmount, getCardCurrentInvoiceAmount } from "@/lib/credit-card-billing";
+import { formatInvoiceCompetence, getCardCommittedAmount, getCreditCardCycle, getInvoiceAmount, getInvoicePreviewAmount, selectCardInvoice } from "@/lib/credit-card-billing";
 import { calculateAccountBalances } from "@/lib/financial-calculations";
 import AccountStatementDialog from "@/components/AccountStatementDialog";
 import CreditCardStatementDialog from "@/components/CreditCardStatementDialog";
@@ -45,10 +45,12 @@ const colorDot: Record<string, string> = {
 };
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+const fmtDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
+const fmtDateTime = (date: string) => new Date(date).toLocaleDateString("pt-BR");
 
 export default function Accounts() {
   const { accounts, creditCards, addAccount, updateAccount, deleteAccount, addCreditCard, updateCreditCard, deleteCreditCard } = useAccounts();
-  const { transactions, addTransaction, payCardBill } = useFinance();
+  const { transactions, creditCardInvoices, addTransaction, closeCardInvoice, reopenCardInvoice, payCardInvoice, reverseCardInvoicePayment } = useFinance();
   const { transfers, addTransfer } = useTransfers();
 
   const [accFormOpen, setAccFormOpen] = useState(false);
@@ -56,9 +58,15 @@ export default function Accounts() {
   const [ccFormOpen, setCcFormOpen] = useState(false);
   const [editingCc, setEditingCc] = useState<CreditCard | undefined>();
   const [deleting, setDeleting] = useState<{ type: "account" | "card"; id: string } | null>(null);
-  const [payingCard, setPayingCard] = useState<{ card: CreditCard; amount: number } | null>(null);
+  const [closingInvoice, setClosingInvoice] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
+  const [closingInvoiceActualDate, setClosingInvoiceActualDate] = useState("");
+  const [closingInvoiceDueDate, setClosingInvoiceDueDate] = useState("");
+  const [closingInvoiceExcludedIds, setClosingInvoiceExcludedIds] = useState<string[]>([]);
+  const [reopeningInvoice, setReopeningInvoice] = useState<CreditCardInvoice | null>(null);
+  const [reversingPaymentInvoice, setReversingPaymentInvoice] = useState<CreditCardInvoice | null>(null);
+  const [historyCard, setHistoryCard] = useState<CreditCard | null>(null);
+  const [payingCard, setPayingCard] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
   const [payAccountId, setPayAccountId] = useState("");
-  const [payAmount, setPayAmount] = useState("");
   const [payDate, setPayDate] = useState("");
   const [payMethod, setPayMethod] = useState("Transferência");
   const [transferOpen, setTransferOpen] = useState(false);
@@ -67,9 +75,57 @@ export default function Accounts() {
   const [transferAmount, setTransferAmount] = useState("");
   const [transferDesc, setTransferDesc] = useState("");
   const [statementAccount, setStatementAccount] = useState<{ id: string; name: string; initialBalance: number } | null>(null);
-  const [statementCard, setStatementCard] = useState<{ id: string; name: string; limit: number; closingDay: number; dueDay: number } | null>(null);
+  const [statementCard, setStatementCard] = useState<{ id: string; name: string; limit: number; closingDay: number; dueDay: number; invoice?: CreditCardInvoice } | null>(null);
 
   const accountBalances = calculateAccountBalances(accounts, transactions, transfers);
+const getOpenInvoice = (cardId: string) => creditCardInvoices
+    .filter((invoice) => invoice.creditCardId === cardId && invoice.status === "OPEN")
+    .sort((a, b) => a.cycleEnd.localeCompare(b.cycleEnd))[0];
+
+  const getInvoiceTransactions = (invoice: CreditCardInvoice, actualClosedDate: string) => {
+    return transactions.filter((t) => {
+      if (t.creditCardId !== invoice.creditCardId) return false;
+      if (t.creditCardInvoiceId !== invoice.id) return false;
+      if (!["card_purchase", "card_refund", "manual_adjustment"].includes(t.financialKind || "")) return false;
+      const actualDate = actualClosedDate || invoice.cycleEnd;
+      return t.date <= actualDate;
+    });
+  };
+
+  const getNextInvoiceTransactions = (invoice: CreditCardInvoice, actualClosedDate: string) => {
+    if (!actualClosedDate || actualClosedDate <= invoice.cycleEnd) return [];
+    const nextInvoice = creditCardInvoices.find(
+      (inv) => inv.creditCardId === invoice.creditCardId && inv.status === "OPEN" && inv.cycleStart === invoice.cycleEnd + 1
+    );
+    if (!nextInvoice) return [];
+    return transactions.filter((t) => {
+      if (t.creditCardId !== invoice.creditCardId) return false;
+      if (t.creditCardInvoiceId !== nextInvoice.id) return false;
+      if (!["card_purchase", "card_refund", "manual_adjustment"].includes(t.financialKind || "")) return false;
+      return t.date > invoice.cycleEnd && t.date <= actualClosedDate;
+    });
+  };
+
+  const handleExcludeToggle = (transactionId: string) => {
+    setClosingInvoiceExcludedIds((prev) =>
+      prev.includes(transactionId)
+        ? prev.filter((id) => id !== transactionId)
+        : [...prev, transactionId]
+    );
+  };
+
+  const getPreviewAmount = () => {
+    if (!closingInvoice) return 0;
+    const actualDate = closingInvoiceActualDate || closingInvoice.invoice.cycleEnd;
+    const currentTx = getInvoiceTransactions(closingInvoice.invoice, actualDate);
+    const nextTx = getNextInvoiceTransactions(closingInvoice.invoice, actualDate);
+    const allTx = [...currentTx, ...nextTx];
+    const filtered = allTx.filter((t) => !closingInvoiceExcludedIds.includes(t.id));
+    return filtered.reduce((sum, t) => {
+      const amount = t.type === "income" ? -t.amount : t.amount;
+      return sum + amount;
+    }, 0);
+  };
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
@@ -149,10 +205,29 @@ export default function Accounts() {
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
               {creditCards.map((cc) => {
-                const used = getCardCommittedAmount(transactions, cc.id);
-                const currentInvoice = getCardCurrentInvoiceAmount(transactions, cc.id);
+                const used = getCardCommittedAmount(transactions, cc.id, creditCardInvoices);
+                const invoice = selectCardInvoice(creditCardInvoices, transactions, cc.id);
+                const hasMovements = (candidate: CreditCardInvoice) => transactions.some((transaction) =>
+                  transaction.creditCardInvoiceId === candidate.id &&
+                  transaction.financialKind !== "card_invoice_obligation" &&
+                  transaction.financialKind !== "card_invoice_payment");
+                const nextOpenInvoice = invoice?.status === "CLOSED"
+                  ? creditCardInvoices
+                    .filter((candidate) => candidate.creditCardId === cc.id && candidate.status === "OPEN" && candidate.id !== invoice.id)
+                    .sort((a, b) => a.cycleEnd.localeCompare(b.cycleEnd))
+                    .find(hasMovements)
+                  : undefined;
+                const fallbackCycle = getCreditCardCycle(cc.closingDay, cc.dueDay);
+                const today = new Date().toISOString().split("T")[0];
+                const currentInvoice = invoice ? getInvoiceAmount(transactions, invoice) : 0;
                 const available = cc.limit - used;
                 const pct = cc.limit > 0 ? Math.min((used / cc.limit) * 100, 100) : 0;
+                const status = invoice?.status || "OPEN";
+                const cycleEnd = invoice?.cycleEnd || fallbackCycle.cycleEnd;
+                const dueDate = invoice?.dueDate || fallbackCycle.dueDate;
+                const paymentAccount = invoice?.paymentAccountId
+                  ? accounts.find((account) => account.id === invoice.paymentAccountId)
+                  : undefined;
                 return (
                   <div key={cc.id} className={`glass-card rounded-xl p-5 border-l-4 animate-fade-in ${colorClasses[cc.color] || "border-primary"}`}>
                     <div className="flex items-start justify-between mb-3">
@@ -181,28 +256,90 @@ export default function Accounts() {
                       <span>Disponível: {fmt(available)}</span>
                       <span>Limite: {fmt(cc.limit)}</span>
                     </div>
-                    <div className="mt-3 flex items-center justify-between text-sm">
-                      <span className="text-muted-foreground">Fatura atual</span>
-                      <strong className="text-foreground">{fmt(currentInvoice)}</strong>
+                    <div className="mt-4 rounded-lg border border-border/70 bg-background/30 p-3 space-y-2">
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-xs text-muted-foreground">Fatura atual</p>
+                          <p className="text-xl font-bold text-foreground">{fmt(currentInvoice)}</p>
+                        </div>
+                        <Badge variant={status === "PAID" ? "default" : status === "CLOSED" ? "destructive" : "secondary"}>
+                          {status === "PAID" ? "Paga" : status === "CLOSED" ? "Fechada" : "Aberta"}
+                        </Badge>
+                      </div>
+{invoice && <p className="text-xs capitalize text-muted-foreground">Competência: {formatInvoiceCompetence(invoice.competence)}</p>}
+                      <p className="text-xs text-muted-foreground">
+                        {status === "PAID" && invoice?.paidAt
+                          ? `Paga em ${fmtDateTime(invoice.paidAt)}`
+                          : status === "CLOSED"
+                            ? (invoice?.actualClosedAt
+                                ? `Fechada em ${fmtDateTime(invoice.actualClosedAt)} · Vencimento ${fmtDate(dueDate)}`
+                                : `Fechada em ${fmtDateTime(invoice.closedAt)} · Vencimento ${fmtDate(dueDate)}`)
+                            : `Fechamento previsto: ${fmtDate(cycleEnd)} · Vence em ${fmtDate(dueDate)}`}
+                      </p>
+                      {status === "PAID" && paymentAccount && (
+                        <p className="text-xs text-muted-foreground">Conta: {paymentAccount.name}</p>
+                      )}
                     </div>
-                    {currentInvoice > 0 && (
+<div className="mt-3 grid grid-cols-2 gap-2">
                       <Button
-                        variant="outline"
+                        variant="ghost"
                         size="sm"
-                        className="w-full mt-3 gap-2"
-                        onClick={() => { setPayingCard({ card: cc, amount: currentInvoice }); setPayAccountId(""); setPayAmount(currentInvoice.toFixed(2)); setPayDate(new Date().toISOString().split("T")[0]); setPayMethod("Transferência"); }}
+                        className="gap-2 text-xs text-muted-foreground hover:text-foreground"
+                        onClick={() => setStatementCard({ id: cc.id, name: cc.name, limit: cc.limit, closingDay: cc.closingDay, dueDay: cc.dueDay, invoice })}
                       >
-                        <Receipt className="h-3.5 w-3.5" /> Pagar Fatura
+                        <FileText className="h-3.5 w-3.5" /> Ver compras
                       </Button>
+                      {creditCardInvoices.some((candidate) => candidate.creditCardId === cc.id) && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="gap-2 text-xs text-muted-foreground hover:text-foreground"
+                          onClick={() => setHistoryCard(cc)}
+                        >
+                          <History className="h-3.5 w-3.5" /> Histórico de faturas
+                        </Button>
+                      )}
+{status === "OPEN" && invoice && invoice.cycleStart <= today && hasMovements(invoice) && (
+                        <Button size="sm" variant="outline" onClick={() => { setClosingInvoice({ card: cc, invoice, amount: currentInvoice }); setClosingInvoiceActualDate(invoice.cycleEnd); setClosingInvoiceDueDate(invoice.dueDate); }}>
+                          Fechar fatura
+                        </Button>
+                      )}
+                      {status === "CLOSED" && invoice && (
+                        <Button size="sm" variant="outline" className="gap-2" onClick={() => {
+                          setPayingCard({ card: cc, invoice, amount: currentInvoice });
+                          setPayAccountId("");
+                          setPayDate(new Date().toISOString().split("T")[0]);
+                          setPayMethod("Transferência");
+                        }}>
+                          <Receipt className="h-3.5 w-3.5" /> Pagar fatura
+                        </Button>
+                      )}
+                      {status === "CLOSED" && invoice && (
+                        <Button size="sm" variant="ghost" className="gap-2 text-xs text-muted-foreground" onClick={() => setReopeningInvoice(invoice)}>
+                          <RotateCcw className="h-3.5 w-3.5" /> Reabrir fatura
+                        </Button>
+                      )}
+                      {status === "PAID" && invoice && (
+                        <Button size="sm" variant="ghost" className="gap-2 text-xs text-muted-foreground" onClick={() => setReversingPaymentInvoice(invoice)}>
+                          <RotateCcw className="h-3.5 w-3.5" /> Estornar pagamento
+                        </Button>
+                      )}
+                    </div>
+                    {nextOpenInvoice && (
+                      <div className="mt-3 rounded-lg border border-dashed border-border p-2 text-xs text-muted-foreground">
+                        <p>Próxima fatura aberta: <strong>{fmt(getInvoiceAmount(transactions, nextOpenInvoice))}</strong></p>
+                        <div className="mt-2 flex gap-2">
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setStatementCard({ id: cc.id, name: cc.name, limit: cc.limit, closingDay: cc.closingDay, dueDay: cc.dueDay, invoice: nextOpenInvoice })}>
+                            Ver compras
+                          </Button>
+{nextOpenInvoice.cycleStart <= today && (
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setClosingInvoice({ card: cc, invoice: nextOpenInvoice, amount: getInvoiceAmount(transactions, nextOpenInvoice) }); setClosingInvoiceActualDate(nextOpenInvoice.cycleEnd); setClosingInvoiceDueDate(nextOpenInvoice.dueDate); }}>
+                              Fechar próxima
+                            </Button>
+                          )}
+                        </div>
+                      </div>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="mt-3 gap-2 text-xs text-muted-foreground hover:text-foreground"
-                      onClick={() => setStatementCard({ id: cc.id, name: cc.name, limit: cc.limit, closingDay: cc.closingDay, dueDay: cc.dueDay })}
-                    >
-                      <FileText className="h-3.5 w-3.5" /> Ver extrato
-                    </Button>
                   </div>
                 );
               })}
@@ -228,6 +365,7 @@ export default function Accounts() {
             description: "Ajuste manual de saldo da conta",
             paymentMethod: "Outro",
             accountId: accId,
+            financialKind: "manual_adjustment",
             isPaid: true,
           });
         }}
@@ -239,11 +377,12 @@ export default function Accounts() {
         onClose={() => { setCcFormOpen(false); setEditingCc(undefined); }}
         onSubmit={(data) => editingCc ? updateCreditCard({ ...data, id: editingCc.id }) : addCreditCard(data)}
         initial={editingCc}
-        currentUsed={editingCc ? getCardCurrentInvoiceAmount(transactions, editingCc.id) : 0}
+        currentUsed={editingCc && getOpenInvoice(editingCc.id) ? getInvoiceAmount(transactions, getOpenInvoice(editingCc.id)!) : 0}
+        canAdjustUsed={!editingCc || Boolean(getOpenInvoice(editingCc.id))}
         onAdjustUsed={async (cardId, diff) => {
           // diff > 0 means we need to INCREASE the bill -> add expense on card
           // diff < 0 means we need to DECREASE the bill -> add income (refund) on card
-          await addTransaction({
+          return addTransaction({
             title: "Ajuste de Fatura",
             amount: Math.abs(diff),
             type: diff > 0 ? "expense" : "income",
@@ -252,6 +391,7 @@ export default function Accounts() {
             description: "Ajuste manual da fatura do cartão",
             paymentMethod: "Outro",
             creditCardId: cardId,
+            financialKind: "manual_adjustment",
             isPaid: false,
           });
         }}
@@ -262,7 +402,9 @@ export default function Accounts() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir {deleting?.type === "account" ? "conta" : "cartão"}?</AlertDialogTitle>
-            <AlertDialogDescription>Esta ação não pode ser desfeita. Registros vinculados perderão a associação.</AlertDialogDescription>
+            <AlertDialogDescription>
+              Esta ação não pode ser desfeita. Cartões com histórico de faturas são preservados e não podem ser excluídos.
+            </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
@@ -275,6 +417,182 @@ export default function Accounts() {
         </AlertDialogContent>
       </AlertDialog>
 
+      {/* Close Invoice Confirmation */}
+      <Dialog open={!!closingInvoice} onOpenChange={(open) => { if (!open) { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceDueDate(""); setClosingInvoiceExcludedIds([]); } }}>
+        <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)] sm:w-full">
+          <DialogHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
+            <DialogTitle>Fechar fatura?</DialogTitle>
+          </DialogHeader>
+          <div className="flex min-h-0 flex-1 flex-col px-4 sm:px-6">
+            <div className="shrink-0 space-y-4 py-4">
+              <div className="space-y-2 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Cartão</span>
+                  <span className="font-medium text-foreground">{closingInvoice?.card.name}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Competência</span>
+                  <span className="font-medium capitalize text-foreground">{closingInvoice ? formatInvoiceCompetence(closingInvoice.invoice.competence) : ""}</span>
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="invoice-closing-date" className="text-sm font-normal text-muted-foreground">Fechamento</Label>
+                  <Input
+                    id="invoice-closing-date"
+                    type="date"
+                    value={closingInvoiceActualDate}
+                    onChange={(e) => { setClosingInvoiceActualDate(e.target.value); setClosingInvoiceExcludedIds([]); }}
+                    min={closingInvoice?.invoice.cycleStart}
+                    className="h-8 min-w-0 w-40 max-w-[60%] text-sm"
+                  />
+                </div>
+                <div className="flex items-center justify-between gap-3">
+                  <Label htmlFor="invoice-due-date" className="text-sm font-normal text-muted-foreground">Vencimento</Label>
+                  <Input
+                    id="invoice-due-date"
+                    type="date"
+                    value={closingInvoiceDueDate}
+                    onChange={(e) => setClosingInvoiceDueDate(e.target.value)}
+                    className="h-8 min-w-0 w-40 max-w-[60%] text-sm"
+                  />
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Valor da fatura</span>
+                  <span className="font-semibold text-foreground">
+                    {closingInvoice ? fmt(getPreviewAmount()) : fmt(0)}
+                  </span>
+                </div>
+              </div>
+            </div>
+            {closingInvoice && (
+              <div className="flex min-h-0 flex-1 flex-col border-t border-border pt-4">
+                <div className="shrink-0">
+                  <p className="mb-1 text-sm font-medium">Compras incluídas nesta fatura</p>
+                  <p className="mb-2 text-xs text-muted-foreground">Selecione as compras que devem ir para a próxima fatura.</p>
+                </div>
+                <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
+                  {(() => {
+                    const actualDate = closingInvoiceActualDate || closingInvoice.invoice.cycleEnd;
+                    const currentTx = getInvoiceTransactions(closingInvoice.invoice, actualDate);
+                    const nextTx = getNextInvoiceTransactions(closingInvoice.invoice, actualDate);
+                    const allTx = [...currentTx, ...nextTx];
+                    if (allTx.length === 0) {
+                      return <p className="text-xs text-muted-foreground text-center py-4">Nenhuma compra elegível neste período.</p>;
+                    }
+                    return [...allTx]
+                      .sort((a, b) => {
+                        if (a.date !== b.date) return b.date.localeCompare(a.date);
+                        return a.id.localeCompare(b.id);
+                      })
+                      .map((tx) => {
+                        const isExcluded = closingInvoiceExcludedIds.includes(tx.id);
+                        const isNextInvoiceTx = tx.creditCardInvoiceId !== closingInvoice.invoice.id;
+                        return (
+                          <div key={tx.id} className={`flex items-center gap-2 py-2 px-2 border-b border-border last:border-0 ${isExcluded ? "opacity-50 bg-muted/50" : ""}`}>
+                            <input
+                              type="checkbox"
+                              checked={isExcluded}
+                              onChange={() => handleExcludeToggle(tx.id)}
+                              className="h-4 w-4 rounded border-input"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-medium text-foreground truncate">{tx.title}</p>
+                              <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                                <span>{fmtDate(tx.date)}</span>
+                                {tx.category && <span>· {tx.category}</span>}
+                                {isNextInvoiceTx && <span className="text-primary">· Próxima fatura (automático)</span>}
+                                {isExcluded && <span className="text-orange">· Movida para próxima</span>}
+                              </div>
+                            </div>
+                            <span className={`text-sm font-semibold whitespace-nowrap ${tx.type === "income" ? "text-income" : "text-expense"}`}>
+                              {tx.type === "income" ? "-" : ""} {fmt(tx.amount)}
+                            </span>
+                          </div>
+                        );
+                      });
+                  })()}
+                </div>
+              </div>
+            )}
+            <p className="shrink-0 border-t border-border py-3 text-xs text-muted-foreground">
+              O valor será congelado e uma obrigação neutra será criada em Meus Registros.
+            </p>
+          </div>
+          <DialogFooter className="shrink-0 gap-2 border-t border-border px-4 py-4 sm:px-6">
+            <Button variant="outline" onClick={() => { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceDueDate(""); setClosingInvoiceExcludedIds([]); }}>Cancelar</Button>
+            <Button onClick={async () => {
+              if (!closingInvoice) return;
+              const closed = await closeCardInvoice(closingInvoice.invoice.id, closingInvoiceActualDate || undefined, closingInvoiceExcludedIds, closingInvoiceDueDate || undefined);
+              if (closed) { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceDueDate(""); setClosingInvoiceExcludedIds([]); }
+            }}>Fechar fatura</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {historyCard && (
+        <CreditCardInvoiceHistoryDialog
+          open
+          onClose={() => setHistoryCard(null)}
+          card={historyCard}
+          invoices={creditCardInvoices.filter((invoice) => invoice.creditCardId === historyCard.id)}
+          transactions={transactions}
+          onPay={(invoice) => {
+            setHistoryCard(null);
+            setPayingCard({ card: historyCard, invoice, amount: getInvoiceAmount(transactions, invoice) });
+            setPayAccountId("");
+            setPayDate(new Date().toISOString().split("T")[0]);
+            setPayMethod("Transferência");
+          }}
+          onReopen={(invoice) => {
+            setHistoryCard(null);
+            setReopeningInvoice(invoice);
+          }}
+          onReversePayment={(invoice) => {
+            setHistoryCard(null);
+            setReversingPaymentInvoice(invoice);
+          }}
+        />
+      )}
+
+      {/* Reopen Invoice Confirmation */}
+      <AlertDialog open={!!reopeningInvoice} onOpenChange={(open) => { if (!open) setReopeningInvoice(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Reabrir esta fatura?</AlertDialogTitle>
+            <AlertDialogDescription>
+              A fatura voltará para aberta e a obrigação criada no fechamento será desfeita. Nenhuma compra será excluída.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button onClick={async () => {
+              if (!reopeningInvoice) return;
+              const reopened = await reopenCardInvoice(reopeningInvoice.id);
+              if (reopened) setReopeningInvoice(null);
+            }}>Reabrir fatura</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reverse Invoice Payment Confirmation */}
+      <AlertDialog open={!!reversingPaymentInvoice} onOpenChange={(open) => { if (!open) setReversingPaymentInvoice(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Estornar pagamento da fatura?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O pagamento será desfeito e a fatura voltará para fechada. Nenhuma compra será excluída.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button onClick={async () => {
+              if (!reversingPaymentInvoice) return;
+              const reversed = await reverseCardInvoicePayment(reversingPaymentInvoice.id);
+              if (reversed) setReversingPaymentInvoice(null);
+            }}>Estornar pagamento</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Pay Card Bill Dialog */}
       <AlertDialog open={!!payingCard} onOpenChange={(o) => { if (!o) setPayingCard(null); }}>
         <AlertDialogContent>
@@ -282,7 +600,8 @@ export default function Accounts() {
             <AlertDialogTitle>Pagar Fatura — {payingCard?.card.name}</AlertDialogTitle>
             <AlertDialogDescription>
               Valor total da fatura: <strong className="text-foreground">{fmt(payingCard?.amount ?? 0)}</strong>.
-              Você pode editar o valor pago, a data e a forma de pagamento. Pagamentos parciais abatem somente o que foi pago.
+              {payingCard && <> Vencimento: <strong className="text-foreground">{fmtDate(payingCard.invoice.dueDate)}</strong>.</>}
+              O pagamento debita a conta escolhida sem registrar uma segunda despesa.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <div className="py-2 space-y-3">
@@ -299,10 +618,10 @@ export default function Accounts() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label className="mb-2 block">Valor Pago</Label>
-                <Input type="number" step="0.01" min="0" max={payingCard?.amount} value={payAmount} onChange={(e) => setPayAmount(e.target.value)} />
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="rounded-md border border-border px-3 py-2">
+                <p className="text-xs text-muted-foreground">Valor do pagamento</p>
+                <p className="font-semibold text-foreground">{fmt(payingCard?.amount ?? 0)}</p>
               </div>
               <div>
                 <Label className="mb-2 block">Data</Label>
@@ -326,18 +645,17 @@ export default function Accounts() {
           </div>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction
-              disabled={!payAccountId || !payAmount || parseFloat(payAmount) <= 0 || parseFloat(payAmount) > (payingCard?.amount ?? 0)}
+            <Button
+              disabled={!payAccountId || !payDate}
               onClick={async () => {
                 if (payingCard && payAccountId) {
-                  const amt = parseFloat(payAmount);
-                  await payCardBill(payingCard.card.id, payAccountId, amt, payDate, payMethod);
-                  setPayingCard(null);
+                  const paid = await payCardInvoice(payingCard.invoice.id, payAccountId, payDate, payMethod);
+                  if (paid) setPayingCard(null);
                 }
               }}
             >
               Confirmar Pagamento
-            </AlertDialogAction>
+            </Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -416,16 +734,80 @@ export default function Accounts() {
         />
       )}
 
-      {/* Credit Card Statement Dialog */}
+{/* Credit Card Statement Dialog */}
       {statementCard && (
         <CreditCardStatementDialog
           open={!!statementCard}
           onClose={() => setStatementCard(null)}
           card={statementCard}
           transactions={transactions}
+          invoice={statementCard.invoice}
+          invoices={creditCardInvoices}
         />
       )}
     </div>
+  );
+}
+
+export function CreditCardInvoiceHistoryDialog({
+  open,
+  onClose,
+  card,
+  invoices,
+  transactions,
+  onPay,
+  onReopen,
+  onReversePayment,
+}: {
+  open: boolean;
+  onClose: () => void;
+  card: CreditCard;
+  invoices: CreditCardInvoice[];
+  transactions: Transaction[];
+  onPay: (invoice: CreditCardInvoice) => void;
+  onReopen: (invoice: CreditCardInvoice) => void;
+  onReversePayment: (invoice: CreditCardInvoice) => void;
+}) {
+  const sortedInvoices = [...invoices].sort((a, b) => b.competence.localeCompare(a.competence));
+
+  return (
+    <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
+      <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100%-1rem)] max-w-lg flex-col overflow-hidden p-0 sm:w-full">
+        <DialogHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
+          <DialogTitle>Histórico de faturas · {card.name}</DialogTitle>
+        </DialogHeader>
+        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4 sm:p-6">
+          {sortedInvoices.map((invoice) => {
+            const statusLabel = invoice.status === "PAID" ? "Paga" : invoice.status === "CLOSED" ? "Fechada" : "Aberta";
+            return (
+              <div key={invoice.id} className="rounded-lg border border-border/70 bg-background/30 p-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-medium capitalize text-foreground">{formatInvoiceCompetence(invoice.competence)}</p>
+                    <p className="mt-1 text-sm font-semibold text-foreground">{fmt(getInvoiceAmount(transactions, invoice))}</p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">Vencimento {fmtDate(invoice.dueDate)}</p>
+                  </div>
+                  <Badge variant={invoice.status === "PAID" ? "default" : invoice.status === "CLOSED" ? "destructive" : "secondary"}>
+                    {statusLabel}
+                  </Badge>
+                </div>
+                {invoice.status === "CLOSED" && (
+                  <div className="mt-3 flex flex-wrap justify-end gap-2 border-t border-border/60 pt-3">
+                    <Button size="sm" variant="outline" onClick={() => onPay(invoice)}>Pagar fatura</Button>
+                    <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => onReopen(invoice)}>Reabrir fatura</Button>
+                  </div>
+                )}
+                {invoice.status === "PAID" && (
+                  <div className="mt-3 flex justify-end border-t border-border/60 pt-3">
+                    <Button size="sm" variant="ghost" className="text-muted-foreground" onClick={() => onReversePayment(invoice)}>Estornar pagamento</Button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }
 
@@ -564,13 +946,14 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
 }
 
 // --- Credit Card Form ---
-function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, onAdjustUsed }: {
+function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, canAdjustUsed, onAdjustUsed }: {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<CreditCard, "id">) => void;
+  onSubmit: (data: Omit<CreditCard, "id">) => Promise<boolean | void>;
   initial?: CreditCard;
   currentUsed?: number;
-  onAdjustUsed?: (cardId: string, diff: number) => Promise<void>;
+  canAdjustUsed?: boolean;
+  onAdjustUsed?: (cardId: string, diff: number) => Promise<boolean | void>;
 }) {
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
@@ -602,13 +985,15 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, o
         </DialogHeader>
         <form onSubmit={async (e) => {
           e.preventDefault();
-          await onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color });
-          if (initial && onAdjustUsed && typeof currentUsed === "number") {
+          const saved = await onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color });
+          if (saved === false) return;
+          if (initial && canAdjustUsed && onAdjustUsed && typeof currentUsed === "number") {
             const target = parseFloat(adjustTo);
             if (!isNaN(target) && target >= 0) {
               const diff = +(target - currentUsed).toFixed(2);
               if (Math.abs(diff) >= 0.01) {
-                await onAdjustUsed(initial.id, diff);
+                const adjusted = await onAdjustUsed(initial.id, diff);
+                if (adjusted === false) return;
               }
             }
           }
@@ -659,7 +1044,7 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, o
               </Select>
             </div>
           </div>
-          {initial && typeof currentUsed === "number" && (
+          {initial && canAdjustUsed && typeof currentUsed === "number" && (
             <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
               <Label className="text-foreground">Ajustar fatura atual</Label>
               <p className="text-xs text-muted-foreground">

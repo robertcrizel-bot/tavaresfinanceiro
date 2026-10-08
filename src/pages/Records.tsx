@@ -14,14 +14,15 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown, ScanLine, Paperclip } from "lucide-react";
 import { Link } from "react-router-dom";
-import { isAdjustmentTransaction, isBillPaymentTransaction, isFinancialNeutralTransaction } from "@/lib/transaction-classification";
+import { isAdjustmentTransaction, isBillPaymentTransaction, isFinancialNeutralTransaction, isSystemInvoiceTransaction } from "@/lib/transaction-classification";
+import { getInvoiceRecordTitle, getInvoiceRecordTypeLabel, shouldHideSettledInvoiceObligation } from "@/lib/invoice-record-presentation";
 import * as XLSX from "xlsx";
 
 type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "source" | "amount";
 type SortDir = "asc" | "desc";
 
 export default function Records() {
-  const { transactions, addTransaction, updateTransaction, deleteTransaction } = useFinance();
+  const { transactions, creditCardInvoices, addTransaction, updateTransaction, deleteTransaction } = useFinance();
   const { allCategoryNames } = useCategories();
   const { accounts, creditCards } = useAccounts();
 
@@ -63,9 +64,27 @@ export default function Records() {
     return sortDir === "asc" ? <ArrowUp className="h-3 w-3 ml-1" /> : <ArrowDown className="h-3 w-3 ml-1" />;
   };
 
+  const today = new Date().toISOString().split("T")[0];
+  const isBillPayment = (t: Transaction) => isBillPaymentTransaction(t);
+  const isAdjustment = (t: Transaction) => isAdjustmentTransaction(t);
+  const isNeutral = (t: Transaction) => isFinancialNeutralTransaction(t);
+  const isForecast = (t: Transaction) => t.type === "expense" && t.date > today;
+  const getDisplayTitle = (t: Transaction) => getInvoiceRecordTitle(t, creditCardInvoices, creditCards);
+  const getTypeLabel = (t: Transaction) => getInvoiceRecordTypeLabel(t) || (isAdjustment(t)
+    ? "Ajuste"
+    : isBillPayment(t)
+      ? "Pagamento de Fatura"
+      : t.type === "income"
+        ? "Entrada"
+        : isForecast(t)
+          ? "Saída - Previsão"
+          : "Saída");
+  const getSignedAmount = (t: Transaction) => t.type === "income" ? t.amount : -t.amount;
+
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const list = transactions.filter((t) => {
+      if (shouldHideSettledInvoiceObligation(t, transactions, creditCardInvoices)) return false;
       const isNeutral = isFinancialNeutralTransaction(t);
       if (typeFilter !== "all" && (isNeutral || t.type !== typeFilter)) return false;
       if (catFilter !== "all" && t.category !== catFilter) return false;
@@ -73,10 +92,11 @@ export default function Records() {
       if (q) {
         const dateStr = new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR");
         const typeLabel = isNeutral
-          ? (isAdjustmentTransaction(t) ? "ajuste" : "pagamento de fatura")
+          ? getTypeLabel(t)
           : t.type === "income" ? "entrada" : "saída saida";
         const amountStr = t.amount.toLocaleString("pt-BR", { minimumFractionDigits: 2 });
         const haystack = [
+          getDisplayTitle(t),
           t.title,
           t.category,
           t.description || "",
@@ -96,30 +116,23 @@ export default function Records() {
       let cmp = 0;
       switch (sortKey) {
         case "date": cmp = a.date.localeCompare(b.date); break;
-        case "title": cmp = a.title.localeCompare(b.title); break;
+        case "title": cmp = getDisplayTitle(a).localeCompare(getDisplayTitle(b)); break;
         case "category": cmp = a.category.localeCompare(b.category); break;
-        case "type": cmp = a.type.localeCompare(b.type); break;
+        case "type": cmp = getTypeLabel(a).localeCompare(getTypeLabel(b)); break;
         case "paymentMethod": cmp = (a.paymentMethod || "").localeCompare(b.paymentMethod || ""); break;
         case "source": cmp = getSourceName(a).localeCompare(getSourceName(b)); break;
         case "amount": cmp = a.amount - b.amount; break;
       }
       return sortDir === "asc" ? cmp : -cmp;
     });
-  }, [transactions, search, typeFilter, catFilter, sourceFilter, sortKey, sortDir, sourceMap]);
+  }, [transactions, creditCardInvoices, creditCards, search, typeFilter, catFilter, sourceFilter, sortKey, sortDir, sourceMap]);
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
-  const today = new Date().toISOString().split("T")[0];
-  const isBillPayment = (t: Transaction) => isBillPaymentTransaction(t);
-  const isAdjustment = (t: Transaction) => isAdjustmentTransaction(t);
-  const isNeutral = (t: Transaction) => isFinancialNeutralTransaction(t);
-  const isForecast = (t: Transaction) => t.type === "expense" && t.date > today;
-  const getTypeLabel = (t: Transaction) => isAdjustment(t) ? "Ajuste" : isBillPayment(t) ? "Pagamento de Fatura" : t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída";
-  const getSignedAmount = (t: Transaction) => isNeutral(t) ? 0 : t.type === "income" ? t.amount : -t.amount;
 
   const exportToXlsx = useCallback(() => {
     const data = filtered.map((t) => ({
       "Data": new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR"),
-      "Título": t.title,
+      "Título": getDisplayTitle(t),
       "Categoria": t.category,
       "Tipo": getTypeLabel(t),
       "Pagamento": t.paymentMethod || "—",
@@ -247,7 +260,7 @@ export default function Records() {
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 min-w-0">
-                      <p className="font-medium text-foreground truncate">{t.title}</p>
+                      <p className="font-medium text-foreground truncate">{getDisplayTitle(t)}</p>
                       {t.hasAttachment && (
                         <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" aria-label="Possui anexo" />
                       )}
@@ -277,12 +290,14 @@ export default function Records() {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewing(t)}>
                       <Eye className="h-3.5 w-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(t); setFormOpen(true); }}>
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleting(t.id)}>
-                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                    </Button>
+                    {!isSystemInvoiceTransaction(t) && <>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(t); setFormOpen(true); }}>
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleting(t.id)}>
+                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                      </Button>
+                    </>}
                   </div>
                 </div>
                 {t.description && (
@@ -320,7 +335,7 @@ export default function Records() {
                     </TableCell>
                     <TableCell className="font-medium text-foreground">
                       <div className="flex items-center gap-1.5">
-                        <span>{t.title}</span>
+                        <span>{getDisplayTitle(t)}</span>
                         {t.hasAttachment && (
                           <Paperclip className="h-3.5 w-3.5 text-primary shrink-0" aria-label="Possui anexo" />
                         )}
@@ -351,12 +366,14 @@ export default function Records() {
                         <Button variant="ghost" size="icon" onClick={() => setViewing(t)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        <Button variant="ghost" size="icon" onClick={() => { setEditing(t); setFormOpen(true); }}>
-                          <Pencil className="h-4 w-4" />
-                        </Button>
-                        <Button variant="ghost" size="icon" onClick={() => setDeleting(t.id)}>
-                          <Trash2 className="h-4 w-4 text-destructive" />
-                        </Button>
+                        {!isSystemInvoiceTransaction(t) && <>
+                          <Button variant="ghost" size="icon" onClick={() => { setEditing(t); setFormOpen(true); }}>
+                            <Pencil className="h-4 w-4" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => setDeleting(t.id)}>
+                            <Trash2 className="h-4 w-4 text-destructive" />
+                          </Button>
+                        </>}
                       </div>
                     </TableCell>
                   </TableRow>
@@ -371,11 +388,11 @@ export default function Records() {
       <TransactionForm
         open={formOpen}
         onClose={() => { setFormOpen(false); setEditing(undefined); }}
-        onSubmit={(data, options) => {
+        onSubmit={async (data, options) => {
           if (editing) {
-            updateTransaction({ ...data, id: editing.id }, options?.attachments ? { attachments: options.attachments } : undefined);
+            return updateTransaction({ ...editing, ...data, id: editing.id }, options?.attachments ? { attachments: options.attachments } : undefined);
           } else {
-            addTransaction(data, options);
+            return addTransaction(data, options);
           }
         }}
         initial={editing}

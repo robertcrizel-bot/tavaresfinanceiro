@@ -151,6 +151,26 @@ describe("AccountStatementDialog", () => {
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("keeps an invoice payment visible in the account statement", () => {
+    const paymentDate = `${currentMonth}-08`;
+    const transactions = [makeTx({
+      id: "card-invoice-payment",
+      title: "Pagamento de Fatura - Caixa Master Camila",
+      amount: 1174.33,
+      type: "expense",
+      category: "Fatura Cartão",
+      date: paymentDate,
+      accountId: "acc-1",
+      creditCardId: "cc-1",
+    })];
+
+    render(<AccountStatementDialog {...defaultProps} transactions={transactions} />);
+
+    expect(screen.getByText("Pagamento de Fatura - Caixa Master Camila")).toBeTruthy();
+    expect(screen.getByText(new Date(`${paymentDate}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }))).toBeTruthy();
+    expect(screen.getAllByText(/-.*1\.174,33/).length).toBeGreaterThanOrEqual(1);
+  });
+
   it("shows empty state when no entries", () => {
     render(<AccountStatementDialog {...defaultProps} />);
     expect(screen.getByText("Nenhuma movimentação neste mês.")).toBeTruthy();
