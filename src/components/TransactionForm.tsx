@@ -13,9 +13,10 @@ import { Paperclip, Camera, X, FileIcon, Circle, Loader2 } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
 import { compressImageFile } from "@/lib/image-compression";
 import { toast } from "@/hooks/use-toast";
+import { findCashAccount, isCashPaymentMethod } from "@/lib/cash-account";
 import { calculateCurrentMonthCategorySpending, calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
 
-const ACCOUNT_PAYMENT_METHODS = new Set<PaymentMethod>(["Cartão de Débito", "Pix", "Transferência", "Boleto"]);
+const ACCOUNT_PAYMENT_METHODS = new Set<PaymentMethod>(["Dinheiro", "Cartão de Débito", "Pix", "Transferência", "Boleto"]);
 
 interface TransactionFormProps {
   open: boolean;
@@ -82,11 +83,12 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
       setDate(prefill?.date ?? new Date().toISOString().split("T")[0]);
       setDescription(prefill?.description ?? "");
       setPaymentMethod(prefill?.paymentMethod ?? "");
-      setAccountId(prefill?.accountId ?? "");
+      setAccountId(prefill?.accountId ?? (isCashPaymentMethod(prefill?.paymentMethod) ? findCashAccount(accounts)?.id ?? "" : ""));
       setCreditCardId(prefill?.creditCardId ?? "");
       setInstallments("1");
     }
     setAttachments(!initial && prefillAttachments ? [...prefillAttachments] : []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial, open, prefill, prefillAttachments]);
 
   const categories = getCategoriesByType(type);
@@ -215,11 +217,19 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
 
     setCreditCardId("");
     setInstallments("1");
+    if (isCashPaymentMethod(nextPaymentMethod)) {
+      setAccountId(findCashAccount(accounts)?.id ?? "");
+      return;
+    }
     if (!nextPaymentMethod || !ACCOUNT_PAYMENT_METHODS.has(nextPaymentMethod)) setAccountId("");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isCashPaymentMethod(paymentMethod) && (!accountId || accountId === "none")) {
+      toast({ title: "Selecione a conta", description: "Pagamentos em Dinheiro precisam de uma conta/caixa.", variant: "destructive" });
+      return;
+    }
     const installmentsNum = parseInt(installments) || 1;
     const isInstallment = !initial && type === "expense" && creditCardId && creditCardId !== "none" && installmentsNum > 1;
     const opts: { installments?: number; attachments?: File[] } = {};
@@ -304,7 +314,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
           </div>
           {showAccount && (
             <div className="space-y-1 sm:space-y-1.5">
-              <Label>Conta</Label>
+              <Label>Conta{isCashPaymentMethod(paymentMethod) && <span className="text-destructive" aria-hidden="true"> *</span>}</Label>
               <Select value={accountId || "none"} onValueChange={(v) => { setAccountId(v === "none" ? "" : v); if (v !== "none") setCreditCardId(""); }}>
                 <SelectTrigger className="h-9 sm:h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
