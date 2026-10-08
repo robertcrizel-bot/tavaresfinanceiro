@@ -46,11 +46,12 @@ const mockData = vi.hoisted(() => ({
       date: "2026-08-15",
     },
   ] as Transaction[],
+  accounts: [{ id: "account-1", name: "Conta principal", bank: "Banco", type: "checking", initialBalance: 0, color: "blue" }] as any[],
 }));
 
 vi.mock("@/contexts/AccountContext", () => ({
   useAccounts: () => ({
-    accounts: [{ id: "account-1", name: "Conta principal", bank: "Banco", type: "checking", initialBalance: 0, color: "blue" }],
+    accounts: mockData.accounts,
     creditCards: [{ id: "card-1", name: "Cartão principal", bank: "Banco", limit: 1000, closingDay: 10, dueDay: 17, color: "blue" }],
   }),
 }));
@@ -438,5 +439,54 @@ describe("TransactionForm budget indicator", () => {
     expect(cartaoLabel!.compareDocumentPosition(orcamento) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
     expect(orcamento.compareDocumentPosition(descricao) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
     expect(screen.queryByText("Conta")).not.toBeInTheDocument();
+  });
+});
+
+describe("TransactionForm pagamento em Dinheiro", () => {
+  const onSubmit = vi.fn();
+  const base = [{ id: "account-1", name: "Conta principal", bank: "Banco", type: "checking", initialBalance: 0, color: "blue" }];
+  beforeEach(() => { vi.clearAllMocks(); mockData.accounts = base; });
+
+  const fill = () => {
+    fireEvent.change(screen.getByPlaceholderText("Ex: Supermercado"), { target: { value: "Salário" } });
+    fireEvent.change(screen.getByPlaceholderText("0,00"), { target: { value: "3872" } });
+  };
+
+  it("auto-seleciona a conta Dinheiro e salva o accountId", () => {
+    mockData.accounts = [...base, { id: "cash-1", name: "dinheiro", bank: "Caixa", type: "checking", initialBalance: 0, color: "green" }];
+    render(<TransactionForm open onClose={vi.fn()} onSubmit={onSubmit} />);
+    fill();
+    fireEvent.click(screen.getByTestId("select-item-Dinheiro"));
+    expect(screen.getByText("Conta")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar" }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ paymentMethod: "Dinheiro", accountId: "cash-1" }), undefined);
+  });
+
+  it("prefere conta estrutural do tipo cash", () => {
+    mockData.accounts = [...base, { id: "cash-name", name: "Dinheiro", bank: "x", type: "checking" }, { id: "cash-type", name: "Carteira", bank: "x", type: "cash" }];
+    render(<TransactionForm open onClose={vi.fn()} onSubmit={onSubmit} prefill={{ paymentMethod: "Dinheiro" }} />);
+    fill();
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar" }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ accountId: "cash-type" }), undefined);
+  });
+
+  it("sem conta caixa não escolhe outra conta e exige seleção", () => {
+    render(<TransactionForm open onClose={vi.fn()} onSubmit={onSubmit} />);
+    fill();
+    fireEvent.click(screen.getByTestId("select-item-Dinheiro"));
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar" }));
+    expect(onSubmit).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByTestId("select-item-account-1"));
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar" }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ accountId: "account-1" }), undefined);
+  });
+
+  it("outras formas de pagamento continuam sem auto-seleção", () => {
+    mockData.accounts = [...base, { id: "cash-1", name: "Dinheiro", bank: "Caixa", type: "checking" }];
+    render(<TransactionForm open onClose={vi.fn()} onSubmit={onSubmit} />);
+    fill();
+    fireEvent.click(screen.getByTestId("select-item-Pix"));
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar" }));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ paymentMethod: "Pix", accountId: undefined }), undefined);
   });
 });

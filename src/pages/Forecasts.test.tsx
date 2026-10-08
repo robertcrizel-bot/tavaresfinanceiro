@@ -736,3 +736,30 @@ describe("Registrar Pagamento cartão de crédito", () => {
     expect(confirmButton()).toBeDisabled();
   });
 });
+
+describe("Registrar Pagamento em Dinheiro", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockData.bills = [makeBill()];
+    mockData.payments = [];
+    mockData.transactions = [];
+    mockData.creditCards = [];
+  });
+  const open = () => { render(<Forecasts />); fireEvent.click(screen.getByTitle("Marcar como pago")); };
+  const confirm = () => screen.getByRole("button", { name: "Confirmar Pagamento" });
+
+  it("vincula automaticamente a conta Dinheiro", () => {
+    mockData.accounts = [{ id: "account-1", name: "Conta principal" }, { id: "cash-1", name: "Dinheiro" }];
+    open();
+    fireEvent.click(screen.getByTestId("select-item-Dinheiro"));
+    fireEvent.click(confirm());
+    expect(mockData.markAsPaid.mock.calls[0][2]).toMatchObject({ paymentMethod: "Dinheiro", accountId: "cash-1", creditCardId: null });
+  });
+
+  it("sem conta caixa bloqueia até escolher manualmente", () => {
+    mockData.accounts = [{ id: "account-1", name: "Conta principal" }];
+    open();
+    fireEvent.click(screen.getByTestId("select-item-Dinheiro"));
+    expect(confirm()).toBeDisabled();
+  });
+});
