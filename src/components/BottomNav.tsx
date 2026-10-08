@@ -68,12 +68,12 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Navegação principal"
-      className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-[hsl(224_20%_16%)] shadow-[0_-10px_28px_-14px_rgba(0,0,0,0.75)] backdrop-blur-md safe-area-bottom md:hidden"
+      className="fixed bottom-0 left-0 right-0 z-50 border-t border-primary/30 bg-[hsl(224_24%_12%)] shadow-[0_-14px_32px_-10px_rgba(0,0,0,0.92)] safe-area-bottom md:hidden"
     >
       <div
         ref={scrollerRef}
         data-testid="bottomnav-scroller"
-        className="flex snap-x snap-mandatory gap-0.5 overflow-x-auto px-2 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        className="flex snap-x snap-mandatory gap-0.5 overflow-x-auto scroll-px-2 px-2 py-1.5 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
       >
         {items.map((item) => {
           const active = item.url === "/" ? pathname === "/" : pathname === item.url;
@@ -88,19 +88,19 @@ export function BottomNav() {
               end={item.url === "/"}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex min-w-[72px] flex-1 snap-start flex-col items-center justify-center gap-1 rounded-lg px-2 py-2 text-muted-foreground transition-colors hover:text-foreground",
-                active && "bg-primary/10 text-primary",
+                "relative flex min-w-[80px] shrink-0 snap-start flex-col items-center justify-center gap-1 rounded-xl px-2 py-2 text-slate-300 transition-colors hover:bg-white/5 hover:text-white",
+                active && "bg-primary/20 text-primary shadow-[inset_0_0_0_1px_hsl(var(--primary)/0.22)]",
               )}
             >
               <span
                 aria-hidden="true"
                 className={cn(
-                  "absolute inset-x-6 top-0 h-0.5 rounded-full bg-transparent transition-colors",
+                  "absolute inset-x-5 top-0 h-1 rounded-full bg-transparent transition-colors",
                   active && "bg-primary",
                 )}
               />
-              <item.icon className="h-5 w-5 shrink-0" aria-hidden="true" />
-              <span className={cn("whitespace-nowrap text-[10px] font-medium leading-tight", active && "font-semibold")}>
+              <item.icon className="h-6 w-6 shrink-0" aria-hidden="true" />
+              <span className={cn("whitespace-nowrap text-[11px] font-semibold leading-tight", active && "font-bold")}>
                 {item.title}
               </span>
             </NavLink>
@@ -111,18 +111,18 @@ export function BottomNav() {
         <div
           aria-hidden="true"
           data-testid="bottomnav-fade-left"
-          className="pointer-events-none absolute inset-y-0 left-0 flex w-10 items-center justify-start bg-gradient-to-r from-[hsl(224_20%_16%)] via-[hsl(224_20%_16%/0.85)] to-transparent pl-1"
+          className="pointer-events-none absolute inset-y-0 left-0 flex w-16 items-center justify-start bg-gradient-to-r from-[hsl(224_24%_12%)] via-[hsl(224_24%_12%/0.96)] to-transparent pl-1"
         >
-          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+          <ChevronLeft className="h-8 w-8 stroke-[2.75] text-white drop-shadow-md" />
         </div>
       )}
       {canScrollRight && (
         <div
           aria-hidden="true"
           data-testid="bottomnav-fade-right"
-          className="pointer-events-none absolute inset-y-0 right-0 flex w-10 items-center justify-end bg-gradient-to-l from-[hsl(224_20%_16%)] via-[hsl(224_20%_16%/0.85)] to-transparent pr-1"
+          className="pointer-events-none absolute inset-y-0 right-0 flex w-16 items-center justify-end bg-gradient-to-l from-[hsl(224_24%_12%)] via-[hsl(224_24%_12%/0.96)] to-transparent pr-1"
         >
-          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+          <ChevronRight className="h-8 w-8 stroke-[2.75] text-white drop-shadow-md" />
         </div>
       )}
     </nav>

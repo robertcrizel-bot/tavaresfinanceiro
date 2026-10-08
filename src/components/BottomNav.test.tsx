@@ -74,15 +74,29 @@ describe("BottomNav", () => {
     const active = within(nav).getByText("Extratos").closest("a")!;
     expect(active).toHaveAttribute("aria-current", "page");
     expect(active.className).toMatch(/text-primary/);
+    expect(active.className).toMatch(/bg-primary\/20/);
     expect(within(nav).getByText("Painel").closest("a")).not.toHaveAttribute("aria-current");
   });
 
-  it("uses a distinct bar surface with top border and safe-area", () => {
+  it("uses a distinct solid surface with a strong top separation and safe-area", () => {
     renderNav("/");
     const nav = screen.getByRole("navigation", { name: "Navegação principal" });
     expect(nav.className).toMatch(/border-t/);
+    expect(nav.className).toMatch(/border-primary\/30/);
+    expect(nav.className).toContain("bg-[hsl(224_24%_12%)]");
     expect(nav.className).toMatch(/safe-area-bottom/);
     expect(nav.className).toMatch(/shadow-/);
+  });
+
+  it("keeps buttons legible and leaves the next fixed-width item partially visible", () => {
+    renderNav("/");
+    const firstItem = screen.getByText("Painel").closest("a")!;
+    expect(firstItem.className).toMatch(/min-w-\[80px\]/);
+    expect(firstItem.className).toMatch(/shrink-0/);
+    expect(firstItem.className).not.toMatch(/flex-1/);
+    expect(firstItem.querySelector("svg")?.getAttribute("class")).toMatch(/h-6/);
+    expect(screen.getByText("Painel").className).toMatch(/text-\[11px\]/);
+    expect(screen.getByText("Painel").className).toMatch(/whitespace-nowrap/);
   });
 });
 
@@ -151,6 +165,9 @@ describe("BottomNav scroll indicators", () => {
     renderScrollable();
     const right = await screen.findByTestId("bottomnav-fade-right");
     expect(right.className).toMatch(/pointer-events-none/);
+    expect(right.className).toMatch(/w-16/);
+    expect(right.querySelector("svg")?.getAttribute("class")).toMatch(/h-8/);
+    expect(right.querySelector("svg")?.getAttribute("class")).toMatch(/text-white/);
     const nav = screen.getByRole("navigation", { name: "Navegação principal" });
     for (const label of ["Painel", "Perfil"]) {
       expect(within(nav).getByText(label)).toBeInTheDocument();
