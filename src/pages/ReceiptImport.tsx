@@ -15,7 +15,7 @@ import { formatReceiptDescription } from "@/lib/receipt-description";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
 import type { PaddleOcrRegion } from "@/lib/ocr-paddle-test/types";
-import { paddleRecognize } from "@/lib/paddle-ocr-worker";
+import { paddleRecognizeWorker } from "@/lib/paddle-ocr-worker";
 import {
   interpretReceiptLocally,
   toLocalReceiptInput,
@@ -120,7 +120,7 @@ export default function ReceiptImport() {
       try {
         const localImage = await prepareReceiptForLocalOcr(file);
         setReadStatus("Carregando OCR...");
-        const ocr = await paddleRecognize(localImage.image, (status) => setReadStatus(status));
+        const ocr = await paddleRecognizeWorker(localImage.image, (status) => setReadStatus(status));
         setReadStatus("Extraindo dados...");
         const parserStart = performance.now();
         const receiptResult = buildPaddleReceiptResult(ocr.regions);

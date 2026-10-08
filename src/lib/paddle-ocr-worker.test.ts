@@ -1,212 +1,145 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  PADDLE_OCR_TILE_COUNT,
   PADDLE_OCR_TIMEOUT_MESSAGE,
   PADDLE_OCR_TIMEOUT_MS,
-  buildVerticalOcrTiles,
-  paddleRecognize,
+  paddleRecognizeWorker,
 } from "@/lib/paddle-ocr-worker";
 
-interface Deferred<T> {
-  promise: Promise<T>;
-  resolve: (value: T) => void;
+class FakeWorker {
+  static instances: FakeWorker[] = [];
+  onmessage: ((event: { data: Record<string, unknown> }) => void) | null = null;
+  onerror: ((event: { message?: string }) => void) | null = null;
+  posted: unknown[] = [];
+  terminated = false;
+
+  constructor() {
+    FakeWorker.instances.push(this);
+  }
+
+  postMessage(message: unknown) {
+    this.posted.push(message);
+  }
+
+  terminate() {
+    this.terminated = true;
+  }
 }
 
-function deferred<T>(): Deferred<T> {
-  let resolve!: (value: T) => void;
-  const promise = new Promise<T>((done) => {
-    resolve = done;
-  });
-  return { promise, resolve };
-}
+const createWorker = () => {
+  const worker = new FakeWorker();
+  return worker as unknown as Worker;
+};
 
 function makeFile(): File {
-  return new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
+  const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
+  file.arrayBuffer = async () => new ArrayBuffer(8);
+  return file;
 }
 
-function ocrResult(
-  items: Array<{ text: string; score: number; poly: [number, number][] }>,
-) {
-  return [{
-    image: { width: 1280, height: 348 },
-    items,
-    metrics: {
-      detMs: 1,
-      recMs: 1,
-      totalMs: 2,
-      detectedBoxes: items.length,
-      recognizedCount: items.length,
-    },
-    runtime: {
-      requestedBackend: "wasm",
-      detProvider: "wasm",
-      recProvider: "wasm",
-      webgpuAvailable: false,
-    },
-  }];
-}
+const lastWorker = async () => {
+  await vi.waitFor(() => expect(FakeWorker.instances.length).toBeGreaterThan(0));
+  return FakeWorker.instances[FakeWorker.instances.length - 1];
+};
 
-function item(text: string, y: number, score = 0.99) {
+function resultPayload(id: number, overrides: Record<string, unknown> = {}) {
   return {
-    text,
-    score,
-    poly: [[10, y], [300, y], [300, y + 20], [10, y + 20]] as [number, number][],
+    id,
+    type: "result",
+    regions: [{ text: "PAO FRANCES", confidence: 0.99, bbox: [[0, 0], [10, 0], [10, 5], [0, 5]] }],
+    text: "PAO FRANCES",
+    confidence: 0.99,
+    initializationMs: 100,
+    ocrMs: 200,
+    detectedBoxes: 1,
+    recognizedCount: 1,
+    ...overrides,
   };
 }
 
-function runtimeHarness(predict: ReturnType<typeof vi.fn>) {
-  const dispose = vi.fn().mockResolvedValue(undefined);
-  const createPaddle = vi.fn().mockResolvedValue({ predict, dispose });
-  const bitmap = { width: 1280, height: 900, close: vi.fn() };
-  const canvases: Array<HTMLCanvasElement & { drawImage: ReturnType<typeof vi.fn> }> = [];
-  const createCanvas = () => {
-    const drawImage = vi.fn();
-    const canvas = {
-      width: 0,
-      height: 0,
-      drawImage,
-      getContext: vi.fn(() => ({
-        fillStyle: "",
-        fillRect: vi.fn(),
-        drawImage,
-      })),
-      toBlob: vi.fn((callback: BlobCallback) => callback(new Blob(["tile"], { type: "image/jpeg" }))),
-    } as unknown as HTMLCanvasElement & { drawImage: ReturnType<typeof vi.fn> };
-    canvases.push(canvas);
-    return canvas;
-  };
-
-  return {
-    createPaddle,
-    dispose,
-    bitmap,
-    canvases,
-    deps: {
-      createPaddle,
-      createBitmap: vi.fn().mockResolvedValue(bitmap),
-      createCanvas,
-      timeoutMs: 1_000,
-    },
-  };
-}
-
-describe("paddleRecognize native worker pipeline", () => {
+describe("paddleRecognizeWorker", () => {
   afterEach(() => {
+    FakeWorker.instances = [];
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
 
-  it("uses a 45s global timeout and three vertical tiles", () => {
-    expect(PADDLE_OCR_TIMEOUT_MS).toBe(45_000);
-    expect(PADDLE_OCR_TILE_COUNT).toBe(3);
-    expect(buildVerticalOcrTiles(900)).toEqual([
-      { top: 0, height: 348 },
-      { top: 252, height: 396 },
-      { top: 552, height: 348 },
-    ]);
+  it("uses a 35s safety timeout", () => {
+    expect(PADDLE_OCR_TIMEOUT_MS).toBe(35_000);
   });
 
-  it("uses one native Paddle worker and predicts the three tiles sequentially", async () => {
-    const calls: Deferred<ReturnType<typeof ocrResult>>[] = [];
-    const predict = vi.fn(() => {
-      const call = deferred<ReturnType<typeof ocrResult>>();
-      calls.push(call);
-      return call.promise;
-    });
-    const harness = runtimeHarness(predict);
-    const progress = vi.fn();
-    const pending = paddleRecognize(makeFile(), progress, harness.deps);
+  it("returns regions and terminates the worker after success", async () => {
+    const file = makeFile();
+    const onProgress = vi.fn();
+    const pending = paddleRecognizeWorker(file, onProgress, { createWorker, timeoutMs: 1000 });
+    const worker = await lastWorker();
+    expect(worker.posted).toHaveLength(1);
+    expect((worker.posted[0] as { image: unknown }).image).toBeInstanceOf(ArrayBuffer);
 
-    await vi.waitFor(() => expect(predict).toHaveBeenCalledTimes(1));
-    expect(harness.createPaddle).toHaveBeenCalledTimes(1);
-    expect(harness.createPaddle).toHaveBeenCalledWith({
-      worker: true,
-      lang: "pt",
-      ocrVersion: "PP-OCRv6",
-      initialize: true,
-      ortOptions: {
-        backend: "wasm",
-        wasmPaths: "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/",
-      },
-    });
-    calls[0].resolve(ocrResult([
-      item("PADARIA", 20),
-      item("PAO FRANCES", 300, 0.9),
-    ]));
-    await vi.waitFor(() => expect(predict).toHaveBeenCalledTimes(2));
-    calls[1].resolve(ocrResult([
-      item("PAO FRANCES", 48),
-      item("PAO DE QUEIJO", 100),
-    ]));
-    await vi.waitFor(() => expect(predict).toHaveBeenCalledTimes(3));
-    calls[2].resolve(ocrResult([item("VALOR TOTAL 7,85", 50)]));
+    worker.onmessage?.({ data: { id: 1, type: "progress", message: "Carregando OCR..." } });
+    expect(onProgress).toHaveBeenCalledWith("Carregando OCR...");
+    worker.onmessage?.({ data: resultPayload(1) });
 
     const outcome = await pending;
-    expect(outcome.regions.map((region) => region.text)).toEqual([
-      "PADARIA",
-      "PAO FRANCES",
-      "PAO DE QUEIJO",
-      "VALOR TOTAL 7,85",
-    ]);
-    expect(outcome.regions[1]).toMatchObject({
-      text: "PAO FRANCES",
-      confidence: 0.99,
-      bbox: [[10, 300], [300, 300], [300, 320], [10, 320]],
-    });
-    expect(outcome.regions[2].bbox[0][1]).toBe(352);
-    expect(outcome.regions[3].bbox[0][1]).toBe(602);
-    expect(progress.mock.calls.map(([message]) => message)).toEqual([
-      "Carregando OCR...",
-      "Lendo parte 1 de 3...",
-      "Lendo parte 2 de 3...",
-      "Lendo parte 3 de 3...",
-    ]);
-    expect(harness.dispose).toHaveBeenCalledTimes(1);
-    expect(harness.bitmap.close).toHaveBeenCalledTimes(1);
-    expect(harness.canvases).toHaveLength(3);
-    expect(harness.canvases.every((canvas) => canvas.width === 0 && canvas.height === 0)).toBe(true);
+    expect(outcome.regions).toHaveLength(1);
+    expect(outcome.regions[0]).toMatchObject({ text: "PAO FRANCES", confidence: 0.99 });
+    expect(outcome.text).toBe("PAO FRANCES");
+    expect(outcome.initializationMs).toBe(100);
+    expect(outcome.ocrMs).toBe(200);
+    expect(worker.terminated).toBe(true);
   });
 
-  it("does not create an application Worker around PaddleOCR", async () => {
-    const externalWorker = vi.fn(() => {
-      throw new Error("external worker must not be created");
-    });
-    vi.stubGlobal("Worker", externalWorker);
-    const predict = vi.fn()
-      .mockResolvedValueOnce(ocrResult([]))
-      .mockResolvedValueOnce(ocrResult([]))
-      .mockResolvedValueOnce(ocrResult([]));
-    const harness = runtimeHarness(predict);
-
-    await paddleRecognize(makeFile(), undefined, harness.deps);
-
-    expect(externalWorker).not.toHaveBeenCalled();
-    expect(harness.createPaddle).toHaveBeenCalledTimes(1);
+  it("terminates the worker after an error message", async () => {
+    const file = makeFile();
+    const pending = paddleRecognizeWorker(file, undefined, { createWorker, timeoutMs: 1000 });
+    const worker = await lastWorker();
+    worker.onmessage?.({ data: { id: 1, type: "error", message: "Falha no OCR." } });
+    await expect(pending).rejects.toThrow("Falha no OCR.");
+    expect(worker.terminated).toBe(true);
   });
 
-  it("disposes the native instance and rejects promptly after timeout", async () => {
-    const predict = vi.fn(() => new Promise(() => undefined));
-    const harness = runtimeHarness(predict);
+  it("terminates the worker after a worker-level error", async () => {
+    const file = makeFile();
+    const pending = paddleRecognizeWorker(file, undefined, { createWorker, timeoutMs: 1000 });
+    const worker = await lastWorker();
+    worker.onerror?.({ message: "Falha no worker do OCR." });
+    await expect(pending).rejects.toThrow("Falha no worker do OCR.");
+    expect(worker.terminated).toBe(true);
+  });
+
+  it("terminates the worker and keeps a clear message after timeout", async () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
-
-    await expect(paddleRecognize(makeFile(), undefined, {
-      ...harness.deps,
-      timeoutMs: 20,
-    })).rejects.toThrow(PADDLE_OCR_TIMEOUT_MESSAGE);
-
-    await vi.waitFor(() => expect(harness.dispose).toHaveBeenCalledTimes(1));
-    expect(harness.bitmap.close).toHaveBeenCalledTimes(1);
-    expect(warn).toHaveBeenCalledWith("[paddle-ocr] timeout na etapa:", "predict-1/3");
-    warn.mockRestore();
+    try {
+      const file = makeFile();
+      const pending = paddleRecognizeWorker(file, undefined, { createWorker, timeoutMs: 200 });
+      const assertion = expect(pending).rejects.toThrow(PADDLE_OCR_TIMEOUT_MESSAGE);
+      let worker: FakeWorker | undefined;
+      for (let i = 0; i < 100 && !worker; i += 1) {
+        await Promise.resolve();
+        worker = FakeWorker.instances[FakeWorker.instances.length - 1];
+      }
+      if (!worker) throw new Error("worker was not created");
+      worker.onmessage?.({ data: { id: 1, type: "progress", message: "Lendo comprovante..." } });
+      await assertion;
+      expect(worker.terminated).toBe(true);
+      expect(warn).toHaveBeenCalledWith(
+        "[paddle-ocr-worker] timeout na etapa:",
+        "Lendo comprovante...",
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
-  it("disposes the instance when prediction fails", async () => {
-    const predict = vi.fn().mockRejectedValueOnce(new TypeError("predict failed"));
-    const harness = runtimeHarness(predict);
-
-    await expect(paddleRecognize(makeFile(), undefined, harness.deps))
-      .rejects.toThrow("Falha no OCR durante predict-1/3: TypeError: predict failed");
-    expect(harness.dispose).toHaveBeenCalledTimes(1);
-    expect(harness.bitmap.close).toHaveBeenCalledTimes(1);
+  it("creates one worker per read", async () => {
+    const file = makeFile();
+    const first = paddleRecognizeWorker(file, undefined, { createWorker, timeoutMs: 1000 });
+    (await lastWorker()).onmessage?.({ data: resultPayload(1) });
+    await first;
+    const second = paddleRecognizeWorker(file, undefined, { createWorker, timeoutMs: 1000 });
+    await vi.waitFor(() => expect(FakeWorker.instances.length).toBe(2));
+    FakeWorker.instances[1].onmessage?.({ data: resultPayload(2) });
+    await second;
+    expect(FakeWorker.instances).toHaveLength(2);
+    expect(FakeWorker.instances.every((worker) => worker.terminated)).toBe(true);
   });
 });

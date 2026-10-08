@@ -6,10 +6,6 @@ export const ORT_WASM_PATHS = {
   wasm: "/ort-wasm/ort-wasm-simd-threaded.jsep.wasm",
 } as const;
 
-// PaddleOCR worker mode accepts a base URL, not ONNX Runtime's path map.
-export const PADDLE_ORT_WASM_BASE_URL =
-  "https://cdn.jsdelivr.net/npm/onnxruntime-web@1.30.0/dist/";
-
 let configured = false;
 
 export function configureOrtWasm() {
