@@ -739,7 +739,6 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
           onClose={() => setStatementCard(null)}
           card={statementCard}
           transactions={transactions}
-          invoice={statementCard.invoice}
           invoices={creditCardInvoices}
         />
       )}
