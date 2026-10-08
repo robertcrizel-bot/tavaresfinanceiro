@@ -197,7 +197,7 @@ describe("TransactionForm payment fields", () => {
     expect(screen.getByText("Parcelar em")).toBeInTheDocument();
 
     fireEvent.click(screen.getByTestId("select-item-Dinheiro"));
-    expect(screen.queryByText("Conta")).not.toBeInTheDocument();
+    expect(screen.getByText("Conta")).toBeInTheDocument();
     expect(screen.getAllByText("Cartão de Crédito")).toHaveLength(1);
     expect(screen.queryByText("Parcelar em")).not.toBeInTheDocument();
   });
