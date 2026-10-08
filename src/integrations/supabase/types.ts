@@ -125,6 +125,95 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_card_invoices: {
+        Row: {
+          actual_closed_at: string | null
+          closed_at: string | null
+          closed_total: number | null
+          competence: string
+          created_at: string
+          credit_card_id: string
+          cycle_end: string
+          cycle_start: string
+          due_date: string
+          id: string
+          obligation_transaction_id: string | null
+          paid_at: string | null
+          payment_account_id: string | null
+          payment_transaction_id: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          actual_closed_at?: string | null
+          closed_at?: string | null
+          closed_total?: number | null
+          competence: string
+          created_at?: string
+          credit_card_id: string
+          cycle_end: string
+          cycle_start: string
+          due_date: string
+          id?: string
+          obligation_transaction_id?: string | null
+          paid_at?: string | null
+          payment_account_id?: string | null
+          payment_transaction_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          actual_closed_at?: string | null
+          closed_at?: string | null
+          closed_total?: number | null
+          competence?: string
+          created_at?: string
+          credit_card_id?: string
+          cycle_end?: string
+          cycle_start?: string
+          due_date?: string
+          id?: string
+          obligation_transaction_id?: string | null
+          paid_at?: string | null
+          payment_account_id?: string | null
+          payment_transaction_id?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "credit_card_invoices_credit_card_id_fkey"
+            columns: ["credit_card_id"]
+            isOneToOne: false
+            referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_card_invoices_obligation_transaction_id_fkey"
+            columns: ["obligation_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_card_invoices_payment_account_id_fkey"
+            columns: ["payment_account_id"]
+            isOneToOne: false
+            referencedRelation: "accounts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "credit_card_invoices_payment_transaction_id_fkey"
+            columns: ["payment_transaction_id"]
+            isOneToOne: true
+            referencedRelation: "transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       credit_cards: {
         Row: {
           bank: string
@@ -287,8 +376,10 @@ export type Database = {
           category: string
           created_at: string
           credit_card_id: string | null
+          credit_card_invoice_id: string | null
           date: string
           description: string | null
+          financial_kind: string
           id: string
           installment_number: number | null
           installments: number | null
@@ -308,8 +399,10 @@ export type Database = {
           category: string
           created_at?: string
           credit_card_id?: string | null
+          credit_card_invoice_id?: string | null
           date?: string
           description?: string | null
+          financial_kind?: string
           id?: string
           installment_number?: number | null
           installments?: number | null
@@ -329,8 +422,10 @@ export type Database = {
           category?: string
           created_at?: string
           credit_card_id?: string | null
+          credit_card_invoice_id?: string | null
           date?: string
           description?: string | null
+          financial_kind?: string
           id?: string
           installment_number?: number | null
           installments?: number | null
@@ -357,6 +452,13 @@ export type Database = {
             columns: ["credit_card_id"]
             isOneToOne: false
             referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_credit_card_invoice_id_fkey"
+            columns: ["credit_card_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "credit_card_invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -402,7 +504,55 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      close_credit_card_invoice:
+        | { Args: { p_invoice_id: string }; Returns: string }
+        | {
+            Args: { p_actual_closed_date?: string; p_invoice_id: string }
+            Returns: string
+          }
+        | {
+            Args: {
+              p_actual_closed_date?: string
+              p_due_date?: string
+              p_exclude_transaction_ids?: string[]
+              p_invoice_id: string
+            }
+            Returns: string
+          }
+      credit_card_cycle_dates: {
+        Args: {
+          p_closing_day: number
+          p_due_day: number
+          p_reference_date: string
+        }
+        Returns: {
+          competence: string
+          cycle_end: string
+          cycle_start: string
+          due_date: string
+        }[]
+      }
+      ensure_credit_card_invoice: {
+        Args: { p_credit_card_id: string; p_reference_date?: string }
+        Returns: string
+      }
+      pay_credit_card_invoice: {
+        Args: {
+          p_account_id: string
+          p_invoice_id: string
+          p_payment_date?: string
+          p_payment_method?: string
+        }
+        Returns: string
+      }
+      reopen_credit_card_invoice: {
+        Args: { p_invoice_id: string }
+        Returns: string
+      }
+      reverse_credit_card_invoice_payment: {
+        Args: { p_invoice_id: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never
