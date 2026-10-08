@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => ({
   insertSingle: vi.fn(),
   update: vi.fn(),
   updateEq: vi.fn(),
+  updateIn: vi.fn(),
   rpc: vi.fn(),
   toast: vi.fn(),
   transactionRows: [] as Record<string, unknown>[],
@@ -59,7 +60,8 @@ describe("FinanceContext receipt details", () => {
       return { select: () => ({ single: mocks.insertSingle }) };
     });
     mocks.updateEq.mockResolvedValue({ error: null });
-    mocks.update.mockReturnValue({ eq: mocks.updateEq });
+    mocks.updateIn.mockResolvedValue({ error: null });
+    mocks.update.mockReturnValue({ eq: mocks.updateEq, in: mocks.updateIn });
     mocks.from.mockImplementation((table: string) => {
       if (table === "transactions") {
         return {
@@ -212,6 +214,25 @@ describe("FinanceContext receipt details", () => {
       p_actual_closed_date: "2026-10-25",
       p_exclude_transaction_ids: ["tx-1"],
       p_due_date: "2026-11-08",
+    });
+  });
+
+  it("restores manually moved purchases before closing the reopened invoice", async () => {
+    await renderProvider();
+
+    let result = false;
+    await act(async () => {
+      result = await context!.closeCardInvoice("invoice-1", "2026-09-25", [], "2026-10-07", ["tx-moved"]);
+    });
+
+    expect(result).toBe(true);
+    expect(mocks.update).toHaveBeenCalledWith({ credit_card_invoice_id: "invoice-1" });
+    expect(mocks.updateIn).toHaveBeenCalledWith("id", ["tx-moved"]);
+    expect(mocks.rpc).toHaveBeenCalledWith("close_credit_card_invoice", {
+      p_invoice_id: "invoice-1",
+      p_actual_closed_date: "2026-09-25",
+      p_exclude_transaction_ids: [],
+      p_due_date: "2026-10-07",
     });
   });
 

@@ -3,9 +3,15 @@ import type { CreditCardInvoice, Transaction } from "@/lib/types";
 
 type CardTransaction = Pick<
   Transaction,
-  "accountId" | "amount" | "category" | "creditCardId" | "creditCardInvoiceId" | "date" |
+  "accountId" | "amount" | "category" | "creditCardId" | "creditCardInvoiceId" | "date" | "id" |
   "financialKind" | "isPaid" | "title" | "type"
 >;
+
+export type InvoiceClosingCandidate = {
+  transaction: CardTransaction;
+  isFromNextInvoice: boolean;
+  isManuallyExcluded: boolean;
+};
 
 type CardCycle = Pick<CreditCardInvoice, "competence" | "cycleStart" | "cycleEnd" | "dueDate">;
 
@@ -153,6 +159,49 @@ export const formatInvoiceCompetence = (competence: string) =>
   new Intl.DateTimeFormat("pt-BR", { month: "long", year: "numeric", timeZone: "UTC" })
     .format(new Date(`${competence}T12:00:00Z`));
 
+export const getInvoiceClosingCandidates = (
+  transactions: CardTransaction[],
+  invoice: CreditCardInvoice,
+  creditCardInvoices: CreditCardInvoice[],
+  actualClosedDate: string,
+): InvoiceClosingCandidate[] => {
+  if (invoice.status !== "OPEN") return [];
+
+  const nextCycleStart = addDays(invoice.cycleEnd, 1);
+  const nextInvoice = creditCardInvoices.find((candidate) =>
+    candidate.creditCardId === invoice.creditCardId &&
+    candidate.status === "OPEN" &&
+    candidate.cycleStart === nextCycleStart
+  );
+
+  return transactions.flatMap((transaction) => {
+    if (!isCardMovement(transaction, invoice.creditCardId) || transaction.date > actualClosedDate) return [];
+
+    if (transaction.creditCardInvoiceId === invoice.id) {
+      return [{ transaction, isFromNextInvoice: false, isManuallyExcluded: false }];
+    }
+
+    if (!nextInvoice || transaction.creditCardInvoiceId !== nextInvoice.id) return [];
+
+    const isManuallyExcluded = transaction.date >= invoice.cycleStart && transaction.date <= invoice.cycleEnd;
+    const entersByPostponedClosing = actualClosedDate > invoice.cycleEnd && transaction.date > invoice.cycleEnd;
+    return isManuallyExcluded || entersByPostponedClosing
+      ? [{ transaction, isFromNextInvoice: true, isManuallyExcluded }]
+      : [];
+  });
+};
+
+export const getInvoiceClosingPreviewAmount = (
+  candidates: InvoiceClosingCandidate[],
+  excludedTransactionIds: string[],
+) => {
+  const excludedIds = new Set(excludedTransactionIds);
+  return candidates.reduce(
+    (total, candidate) => total + (excludedIds.has(candidate.transaction.id) ? 0 : signedAmount(candidate.transaction)),
+    0,
+  );
+};
+
 export const getInvoicePreviewAmount = (
   transactions: CardTransaction[],
   invoice: CreditCardInvoice,
@@ -160,49 +209,9 @@ export const getInvoicePreviewAmount = (
   actualClosedDate: string,
 ): number => {
   if (invoice.status === "CLOSED" || invoice.status === "PAID") return invoice.closedTotal ?? 0;
-
-  const predictedCycleEnd = invoice.cycleEnd;
-  const isPostponed = actualClosedDate > predictedCycleEnd;
-  const isAdvanced = actualClosedDate < predictedCycleEnd;
-
-  let total = 0;
-
-  // 1. Transactions currently in this invoice that fall within the actual closing date
-  for (const transaction of transactions) {
-    if (
-      transaction.creditCardInvoiceId === invoice.id &&
-      isCardMovement(transaction, invoice.creditCardId) &&
-      transaction.date <= actualClosedDate
-    ) {
-      total += signedAmount(transaction);
-    }
-  }
-
-  // 2. If postponed, pull eligible transactions from the next OPEN invoice
-  if (isPostponed) {
-    const nextCycleStart = addDays(predictedCycleEnd, 1);
-    const nextInvoice = creditCardInvoices.find(
-      (inv) =>
-        inv.creditCardId === invoice.creditCardId &&
-        inv.status === "OPEN" &&
-        inv.cycleStart === nextCycleStart
-    );
-
-    if (nextInvoice) {
-      for (const transaction of transactions) {
-        if (
-          transaction.creditCardInvoiceId === nextInvoice.id &&
-          isCardMovement(transaction, invoice.creditCardId) &&
-          transaction.date > predictedCycleEnd &&
-          transaction.date <= actualClosedDate
-        ) {
-          total += signedAmount(transaction);
-        }
-      }
-    }
-  }
-
-  // 3. If advanced, transactions after actualClosedDate are already excluded by the date check in step 1
-
-  return total;
+  const candidates = getInvoiceClosingCandidates(transactions, invoice, creditCardInvoices, actualClosedDate);
+  const excludedIds = candidates
+    .filter((candidate) => candidate.isManuallyExcluded)
+    .map((candidate) => candidate.transaction.id);
+  return getInvoiceClosingPreviewAmount(candidates, excludedIds);
 };

@@ -12,7 +12,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Plus, Pencil, Trash2, Landmark, CreditCard as CreditCardIcon, Receipt, ArrowLeftRight, FileText, RotateCcw, History } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { formatInvoiceCompetence, getCardCommittedAmount, getCreditCardCycle, getInvoiceAmount, getInvoicePreviewAmount, selectCardInvoice } from "@/lib/credit-card-billing";
+import { formatInvoiceCompetence, getCardCommittedAmount, getCreditCardCycle, getInvoiceAmount, getInvoiceClosingCandidates, getInvoiceClosingPreviewAmount, selectCardInvoice } from "@/lib/credit-card-billing";
 import { calculateAccountBalances } from "@/lib/financial-calculations";
 import AccountStatementDialog from "@/components/AccountStatementDialog";
 import CreditCardStatementDialog from "@/components/CreditCardStatementDialog";
@@ -82,30 +82,6 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
     .filter((invoice) => invoice.creditCardId === cardId && invoice.status === "OPEN")
     .sort((a, b) => a.cycleEnd.localeCompare(b.cycleEnd))[0];
 
-  const getInvoiceTransactions = (invoice: CreditCardInvoice, actualClosedDate: string) => {
-    return transactions.filter((t) => {
-      if (t.creditCardId !== invoice.creditCardId) return false;
-      if (t.creditCardInvoiceId !== invoice.id) return false;
-      if (!["card_purchase", "card_refund", "manual_adjustment"].includes(t.financialKind || "")) return false;
-      const actualDate = actualClosedDate || invoice.cycleEnd;
-      return t.date <= actualDate;
-    });
-  };
-
-  const getNextInvoiceTransactions = (invoice: CreditCardInvoice, actualClosedDate: string) => {
-    if (!actualClosedDate || actualClosedDate <= invoice.cycleEnd) return [];
-    const nextInvoice = creditCardInvoices.find(
-      (inv) => inv.creditCardId === invoice.creditCardId && inv.status === "OPEN" && inv.cycleStart === invoice.cycleEnd + 1
-    );
-    if (!nextInvoice) return [];
-    return transactions.filter((t) => {
-      if (t.creditCardId !== invoice.creditCardId) return false;
-      if (t.creditCardInvoiceId !== nextInvoice.id) return false;
-      if (!["card_purchase", "card_refund", "manual_adjustment"].includes(t.financialKind || "")) return false;
-      return t.date > invoice.cycleEnd && t.date <= actualClosedDate;
-    });
-  };
-
   const handleExcludeToggle = (transactionId: string) => {
     setClosingInvoiceExcludedIds((prev) =>
       prev.includes(transactionId)
@@ -114,12 +90,23 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
     );
   };
 
-  const getPreviewAmount = () => {
-    if (!closingInvoice) return 0;
-    const actualDate = closingInvoiceActualDate || closingInvoice.invoice.cycleEnd;
-    const includedTransactions = transactions.filter((transaction) => !closingInvoiceExcludedIds.includes(transaction.id));
-    return getInvoicePreviewAmount(includedTransactions, closingInvoice.invoice, creditCardInvoices, actualDate);
+  const getClosingCandidates = (invoice: CreditCardInvoice, actualClosedDate: string) =>
+    getInvoiceClosingCandidates(transactions, invoice, creditCardInvoices, actualClosedDate);
+
+  const openClosingInvoice = (card: CreditCard, invoice: CreditCardInvoice) => {
+    const candidates = getClosingCandidates(invoice, invoice.cycleEnd);
+    setClosingInvoice({ card, invoice });
+    setClosingInvoiceActualDate(invoice.cycleEnd);
+    setClosingInvoiceDueDate(invoice.dueDate);
+    setClosingInvoiceExcludedIds(candidates
+      .filter((candidate) => candidate.isManuallyExcluded)
+      .map((candidate) => candidate.transaction.id));
   };
+
+  const closingCandidates = closingInvoice
+    ? getClosingCandidates(closingInvoice.invoice, closingInvoiceActualDate || closingInvoice.invoice.cycleEnd)
+    : [];
+  const closingPreviewAmount = getInvoiceClosingPreviewAmount(closingCandidates, closingInvoiceExcludedIds);
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
@@ -294,7 +281,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                         </Button>
                       )}
 {status === "OPEN" && invoice && invoice.cycleStart <= today && hasMovements(invoice) && (
-                        <Button size="sm" variant="outline" onClick={() => { setClosingInvoice({ card: cc, invoice }); setClosingInvoiceActualDate(invoice.cycleEnd); setClosingInvoiceDueDate(invoice.dueDate); }}>
+                        <Button size="sm" variant="outline" onClick={() => openClosingInvoice(cc, invoice)}>
                           Fechar fatura
                         </Button>
                       )}
@@ -327,7 +314,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                             Ver compras
                           </Button>
 {nextOpenInvoice.cycleStart <= today && (
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setClosingInvoice({ card: cc, invoice: nextOpenInvoice }); setClosingInvoiceActualDate(nextOpenInvoice.cycleEnd); setClosingInvoiceDueDate(nextOpenInvoice.dueDate); }}>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => openClosingInvoice(cc, nextOpenInvoice)}>
                               Fechar próxima
                             </Button>
                           )}
@@ -434,7 +421,15 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                     id="invoice-closing-date"
                     type="date"
                     value={closingInvoiceActualDate}
-                    onChange={(e) => { setClosingInvoiceActualDate(e.target.value); setClosingInvoiceExcludedIds([]); }}
+                    onChange={(e) => {
+                      const nextDate = e.target.value;
+                      setClosingInvoiceActualDate(nextDate);
+                      setClosingInvoiceExcludedIds(closingInvoice
+                        ? getClosingCandidates(closingInvoice.invoice, nextDate)
+                          .filter((candidate) => candidate.isManuallyExcluded)
+                          .map((candidate) => candidate.transaction.id)
+                        : []);
+                    }}
                     min={closingInvoice?.invoice.cycleStart}
                     className="h-8 min-w-0 w-40 max-w-[60%] text-sm"
                   />
@@ -452,7 +447,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                 <div className="flex justify-between">
                   <span className="text-muted-foreground">Valor da fatura</span>
                   <span className="font-semibold text-foreground">
-                    {closingInvoice ? fmt(getPreviewAmount()) : fmt(0)}
+                    {fmt(closingPreviewAmount)}
                   </span>
                 </div>
               </div>
@@ -465,21 +460,17 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                 </div>
                 <div className="min-h-0 flex-1 space-y-2 overflow-y-auto">
                   {(() => {
-                    const actualDate = closingInvoiceActualDate || closingInvoice.invoice.cycleEnd;
-                    const currentTx = getInvoiceTransactions(closingInvoice.invoice, actualDate);
-                    const nextTx = getNextInvoiceTransactions(closingInvoice.invoice, actualDate);
-                    const allTx = [...currentTx, ...nextTx];
-                    if (allTx.length === 0) {
+                    if (closingCandidates.length === 0) {
                       return <p className="text-xs text-muted-foreground text-center py-4">Nenhuma compra elegível neste período.</p>;
                     }
-                    return [...allTx]
+                    return [...closingCandidates]
                       .sort((a, b) => {
-                        if (a.date !== b.date) return b.date.localeCompare(a.date);
-                        return a.id.localeCompare(b.id);
+                        if (a.transaction.date !== b.transaction.date) return b.transaction.date.localeCompare(a.transaction.date);
+                        return a.transaction.id.localeCompare(b.transaction.id);
                       })
-                      .map((tx) => {
+                      .map((candidate) => {
+                        const tx = candidate.transaction;
                         const isExcluded = closingInvoiceExcludedIds.includes(tx.id);
-                        const isNextInvoiceTx = tx.creditCardInvoiceId !== closingInvoice.invoice.id;
                         return (
                           <div key={tx.id} className={`flex items-center gap-2 py-2 px-2 border-b border-border last:border-0 ${isExcluded ? "opacity-50 bg-muted/50" : ""}`}>
                             <input
@@ -493,7 +484,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                               <div className="flex items-center gap-2 text-xs text-muted-foreground">
                                 <span>{fmtDate(tx.date)}</span>
                                 {tx.category && <span>· {tx.category}</span>}
-                                {isNextInvoiceTx && <span className="text-primary">· Próxima fatura (automático)</span>}
+                                {candidate.isFromNextInvoice && !candidate.isManuallyExcluded && <span className="text-primary">· Próxima fatura (automático)</span>}
                                 {isExcluded && <span className="text-orange">· Movida para próxima</span>}
                               </div>
                             </div>
@@ -515,7 +506,20 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
             <Button variant="outline" onClick={() => { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceDueDate(""); setClosingInvoiceExcludedIds([]); }}>Cancelar</Button>
             <Button onClick={async () => {
               if (!closingInvoice) return;
-              const closed = await closeCardInvoice(closingInvoice.invoice.id, closingInvoiceActualDate || undefined, closingInvoiceExcludedIds, closingInvoiceDueDate || undefined);
+              const selectedIds = new Set(closingInvoiceExcludedIds);
+              const excludeTransactionIds = closingCandidates
+                .filter((candidate) => selectedIds.has(candidate.transaction.id) && !candidate.isFromNextInvoice)
+                .map((candidate) => candidate.transaction.id);
+              const restoreTransactionIds = closingCandidates
+                .filter((candidate) => candidate.isManuallyExcluded && !selectedIds.has(candidate.transaction.id))
+                .map((candidate) => candidate.transaction.id);
+              const closed = await closeCardInvoice(
+                closingInvoice.invoice.id,
+                closingInvoiceActualDate || undefined,
+                excludeTransactionIds,
+                closingInvoiceDueDate || undefined,
+                restoreTransactionIds,
+              );
               if (closed) { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceDueDate(""); setClosingInvoiceExcludedIds([]); }
             }}>Fechar fatura</Button>
           </DialogFooter>

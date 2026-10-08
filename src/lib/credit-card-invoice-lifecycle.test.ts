@@ -3,6 +3,8 @@ import {
   getCardCommittedAmount,
   getCreditCardCycle,
   getInvoiceAmount,
+  getInvoiceClosingCandidates,
+  getInvoiceClosingPreviewAmount,
   getInvoicePreviewAmount,
   selectCardInvoice,
 } from "@/lib/credit-card-billing";
@@ -355,6 +357,62 @@ describe("credit card invoice lifecycle", () => {
       const p = purchase({ date: "2026-10-10", amount: 500 });
       const preview = getInvoicePreviewAmount([p], baseInvoice, [baseInvoice, nextInvoice], "2026-10-20");
       expect(preview).toBe(500);
+    });
+
+    it("keeps a manually moved purchase as a reversible closing candidate", () => {
+      const currentPurchase = purchase({ id: "current", amount: 100 });
+      const manuallyMoved = purchase({
+        id: "tradicao",
+        title: "Supermercado Tradição",
+        amount: 21.23,
+        date: "2026-10-15",
+        creditCardInvoiceId: nextInvoice.id,
+      });
+
+      const candidates = getInvoiceClosingCandidates(
+        [currentPurchase, manuallyMoved],
+        baseInvoice,
+        [baseInvoice, nextInvoice],
+        baseInvoice.cycleEnd,
+      );
+
+      expect(candidates.map((candidate) => ({
+        id: candidate.transaction.id,
+        isManuallyExcluded: candidate.isManuallyExcluded,
+      }))).toEqual([
+        { id: "current", isManuallyExcluded: false },
+        { id: "tradicao", isManuallyExcluded: true },
+      ]);
+      expect(getInvoiceClosingPreviewAmount(candidates, ["tradicao"])).toBe(100);
+      expect(getInvoiceClosingPreviewAmount(candidates, [])).toBe(121.23);
+    });
+
+    it("uses the same candidates for the changing closing date and preview", () => {
+      const currentPurchase = purchase({ id: "current", amount: 1174.33, date: "2026-10-20" });
+      const afterCycle = purchase({
+        id: "after-cycle",
+        amount: 483.08,
+        date: "2026-10-27",
+        creditCardInvoiceId: nextInvoice.id,
+      });
+
+      const originalCandidates = getInvoiceClosingCandidates(
+        [currentPurchase, afterCycle],
+        baseInvoice,
+        [baseInvoice, nextInvoice],
+        "2026-10-20",
+      );
+      const postponedCandidates = getInvoiceClosingCandidates(
+        [currentPurchase, afterCycle],
+        baseInvoice,
+        [baseInvoice, nextInvoice],
+        "2026-10-27",
+      );
+
+      expect(originalCandidates.map((candidate) => candidate.transaction.id)).toEqual(["current"]);
+      expect(getInvoiceClosingPreviewAmount(originalCandidates, [])).toBe(1174.33);
+      expect(postponedCandidates.map((candidate) => candidate.transaction.id)).toEqual(["current", "after-cycle"]);
+      expect(getInvoiceClosingPreviewAmount(postponedCandidates, [])).toBeCloseTo(1657.41, 2);
     });
 
     it("includes eligible movements from next OPEN invoice when actual date is after predicted cycle end", () => {

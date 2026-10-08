@@ -12,7 +12,7 @@ interface FinanceContextType {
   addTransaction: (t: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[]; receiptRef?: string }) => Promise<boolean>;
   updateTransaction: (t: Transaction, options?: { attachments?: File[] }) => Promise<boolean>;
   deleteTransaction: (id: string) => Promise<void>;
-  closeCardInvoice: (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[], dueDate?: string) => Promise<boolean>;
+  closeCardInvoice: (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[], dueDate?: string, restoreTransactionIds?: string[]) => Promise<boolean>;
   reopenCardInvoice: (invoiceId: string) => Promise<boolean>;
   payCardInvoice: (invoiceId: string, accountId: string, date?: string, paymentMethod?: string) => Promise<boolean>;
   reverseCardInvoicePayment: (invoiceId: string) => Promise<boolean>;
@@ -275,7 +275,18 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, [transactions, fetchTransactions]);
 
-const closeCardInvoice = useCallback(async (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[], dueDate?: string) => {
+const closeCardInvoice = useCallback(async (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[], dueDate?: string, restoreTransactionIds?: string[]) => {
+    if (restoreTransactionIds?.length) {
+      const { error: restoreError } = await supabase
+        .from("transactions")
+        .update({ credit_card_invoice_id: invoiceId })
+        .in("id", restoreTransactionIds);
+      if (restoreError) {
+        toast({ title: "Erro ao restaurar compras", description: restoreError.message, variant: "destructive" });
+        return false;
+      }
+    }
+
     const { error } = await supabase.rpc("close_credit_card_invoice", {
       p_invoice_id: invoiceId,
       p_actual_closed_date: actualClosedDate || null,

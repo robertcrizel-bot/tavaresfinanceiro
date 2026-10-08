@@ -1,11 +1,12 @@
 import React, { type ReactNode } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import Accounts, { CreditCardInvoiceHistoryDialog } from "@/pages/Accounts";
 
 const financeMocks = vi.hoisted(() => ({
   transactions: [] as Record<string, unknown>[],
   creditCardInvoices: [] as Record<string, unknown>[],
+  closeCardInvoice: vi.fn(),
   reopenCardInvoice: vi.fn(),
   reverseCardInvoicePayment: vi.fn(),
 }));
@@ -36,7 +37,7 @@ vi.mock("@/contexts/FinanceContext", () => ({
     addTransaction: vi.fn(),
     updateTransaction: vi.fn(),
     deleteTransaction: vi.fn(),
-    closeCardInvoice: vi.fn(),
+    closeCardInvoice: financeMocks.closeCardInvoice,
     reopenCardInvoice: financeMocks.reopenCardInvoice,
     payCardInvoice: vi.fn(),
     reverseCardInvoicePayment: financeMocks.reverseCardInvoicePayment,
@@ -126,6 +127,7 @@ describe("Accounts page", () => {
     vi.clearAllMocks();
     financeMocks.transactions = [];
     financeMocks.creditCardInvoices = [];
+    financeMocks.closeCardInvoice.mockResolvedValue(true);
     financeMocks.reopenCardInvoice.mockResolvedValue(true);
     financeMocks.reverseCardInvoicePayment.mockResolvedValue(true);
   });
@@ -314,6 +316,160 @@ describe("Accounts page", () => {
 
     expect(screen.getAllByText(/640,05/).length).toBeGreaterThanOrEqual(3);
     expect(screen.queryByText(/1\.174,33/)).toBeNull();
+  });
+
+  it("keeps a manually moved purchase checked and lets the user restore it", async () => {
+    financeMocks.creditCardInvoices = [
+      {
+        id: "invoice-september",
+        creditCardId: "cc-1",
+        competence: "2026-09-01",
+        cycleStart: "2026-08-21",
+        cycleEnd: "2026-09-25",
+        dueDate: "2026-10-07",
+        status: "OPEN",
+      },
+      {
+        id: "invoice-october",
+        creditCardId: "cc-1",
+        competence: "2026-10-01",
+        cycleStart: "2026-09-26",
+        cycleEnd: "2026-10-25",
+        dueDate: "2026-11-07",
+        status: "OPEN",
+      },
+    ];
+    financeMocks.transactions = [
+      {
+        id: "purchase-base",
+        title: "Compra base",
+        amount: 100,
+        type: "expense",
+        category: "Outros",
+        date: "2026-09-20",
+        creditCardId: "cc-1",
+        creditCardInvoiceId: "invoice-september",
+        financialKind: "card_purchase",
+        isPaid: false,
+      },
+      {
+        id: "purchase-tradicao",
+        title: "Supermercado Tradição",
+        amount: 21.23,
+        type: "expense",
+        category: "Alimentação",
+        date: "2026-09-22",
+        creditCardId: "cc-1",
+        creditCardInvoiceId: "invoice-october",
+        financialKind: "card_purchase",
+        isPaid: false,
+      },
+    ];
+
+    render(<Accounts />);
+    fireEvent.click(screen.getByRole("button", { name: "Fechar fatura" }));
+
+    const traditionRow = screen.getByText("Supermercado Tradição").parentElement?.parentElement;
+    expect(traditionRow).toBeTruthy();
+    const traditionCheckbox = within(traditionRow as HTMLElement).getByRole("checkbox") as HTMLInputElement;
+    expect(traditionCheckbox.checked).toBe(true);
+    expect(screen.getByText("Valor da fatura").parentElement?.textContent).toContain("100,00");
+
+    fireEvent.click(traditionCheckbox);
+
+    expect(traditionCheckbox.checked).toBe(false);
+    expect(screen.getByText("Valor da fatura").parentElement?.textContent).toContain("121,23");
+
+    const closeButtons = screen.getAllByRole("button", { name: "Fechar fatura" });
+    fireEvent.click(closeButtons[closeButtons.length - 1]);
+    await waitFor(() => expect(financeMocks.closeCardInvoice).toHaveBeenCalledWith(
+      "invoice-september",
+      "2026-09-25",
+      [],
+      "2026-10-07",
+      ["purchase-tradicao"],
+    ));
+  });
+
+  it("keeps the candidate list and preview synchronized with the closing date", () => {
+    financeMocks.creditCardInvoices = [
+      {
+        id: "invoice-september",
+        creditCardId: "cc-1",
+        competence: "2026-09-01",
+        cycleStart: "2026-08-26",
+        cycleEnd: "2026-09-25",
+        dueDate: "2026-10-07",
+        status: "OPEN",
+      },
+      {
+        id: "invoice-october",
+        creditCardId: "cc-1",
+        competence: "2026-10-01",
+        cycleStart: "2026-09-26",
+        cycleEnd: "2026-10-25",
+        dueDate: "2026-11-07",
+        status: "OPEN",
+      },
+    ];
+    financeMocks.transactions = [
+      {
+        id: "purchase-current",
+        title: "Compras até 25/09",
+        amount: 1174.33,
+        type: "expense",
+        category: "Outros",
+        date: "2026-09-25",
+        creditCardId: "cc-1",
+        creditCardInvoiceId: "invoice-september",
+        financialKind: "card_purchase",
+        isPaid: false,
+      },
+      {
+        id: "purchase-september-26",
+        title: "Compra de 26/09",
+        amount: 400,
+        type: "expense",
+        category: "Outros",
+        date: "2026-09-26",
+        creditCardId: "cc-1",
+        creditCardInvoiceId: "invoice-october",
+        financialKind: "card_purchase",
+        isPaid: false,
+      },
+      {
+        id: "purchase-october-7",
+        title: "Compra de 07/10",
+        amount: 83.08,
+        type: "expense",
+        category: "Outros",
+        date: "2026-10-07",
+        creditCardId: "cc-1",
+        creditCardInvoiceId: "invoice-october",
+        financialKind: "card_purchase",
+        isPaid: false,
+      },
+    ];
+
+    render(<Accounts />);
+    fireEvent.click(screen.getByRole("button", { name: "Fechar fatura" }));
+
+    expect(screen.getByText("Compras até 25/09")).toBeTruthy();
+    expect(screen.queryByText("Compra de 26/09")).toBeNull();
+    expect(screen.queryByText("Compra de 07/10")).toBeNull();
+    expect(screen.getByText("Valor da fatura").parentElement?.textContent).toContain("1.174,33");
+
+    fireEvent.change(screen.getByLabelText("Fechamento"), { target: { value: "2026-10-07" } });
+
+    expect(screen.getByText("Compra de 26/09")).toBeTruthy();
+    expect(screen.getByText("Compra de 07/10")).toBeTruthy();
+    expect(screen.getByText("Valor da fatura").parentElement?.textContent).toContain("1.657,41");
+
+    fireEvent.change(screen.getByLabelText("Fechamento"), { target: { value: "2026-09-25" } });
+
+    expect(screen.queryByText("Compra de 26/09")).toBeNull();
+    expect(screen.queryByText("Compra de 07/10")).toBeNull();
+    expect(screen.getByText("Valor da fatura").parentElement?.textContent).toContain("1.174,33");
   });
 
   it("shows paid invoices and status actions in invoice history", () => {
