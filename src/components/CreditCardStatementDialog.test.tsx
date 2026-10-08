@@ -4,17 +4,6 @@ import { describe, expect, it, vi, beforeEach } from "vitest";
 import CreditCardStatementDialog from "@/components/CreditCardStatementDialog";
 import type { CardStatementTransaction } from "@/lib/credit-card-statement";
 
-const makeTx = (overrides: Partial<CardStatementTransaction> = {}): CardStatementTransaction => ({
-  id: `tx-${Math.random().toString(36).slice(2, 8)}`,
-  title: "Compra",
-  amount: 100,
-  type: "expense",
-  category: "Alimentação",
-  date: "2026-10-15",
-  creditCardId: "cc-1",
-  ...overrides,
-});
-
 vi.mock("@/components/ui/dialog", () => {
   const Wrapper = ({ children }: { children?: ReactNode }) => <>{children}</>;
   return {
@@ -28,13 +17,10 @@ vi.mock("@/components/ui/dialog", () => {
 vi.mock("lucide-react", () => ({
   ChevronLeft: (p: any) => <svg {...p} />,
   ChevronRight: (p: any) => <svg {...p} />,
-  ChevronLeft: (p: any) => <svg {...p} />,
-  ChevronRight: (p: any) => <svg {...p} />,
   ArrowUpRight: (p: any) => <svg data-testid="icon-charge" {...p} />,
   ArrowDownLeft: (p: any) => <svg data-testid="icon-credit" {...p} />,
   RotateCcw: (p: any) => <svg data-testid="icon-reversal" {...p} />,
   Download: (p: any) => <svg data-testid="icon-download" {...p} />,
-  Calendar: (p: any) => <svg {...p} />,
 }));
 
 vi.mock("@/components/ui/dropdown-menu", () => ({
@@ -52,9 +38,6 @@ vi.mock("@/lib/credit-card-statement-export", () => ({
 vi.mock("date-fns", () => ({
   format: (date: Date, fmt: string) => {
     const months = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
-    if (fmt === "yyyy-MM-dd") {
-      return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-    }
     if (fmt === "yyyy-MM") {
       return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
     }
@@ -68,9 +51,6 @@ vi.mock("date-fns", () => ({
   },
   addMonths: (date: Date, n: number) => { const d = new Date(date); d.setMonth(d.getMonth() + n); return d; },
   subMonths: (date: Date, n: number) => { const d = new Date(date); d.setMonth(d.getMonth() - n); return d; },
-  startOfMonth: (date: Date) => new Date(date.getFullYear(), date.getMonth(), 1),
-  endOfMonth: (date: Date) => new Date(date.getFullYear(), date.getMonth() + 1, 0, 23, 59, 59),
-  subDays: (date: Date, n: number) => { const d = new Date(date); d.setDate(d.getDate() - n); return d; },
 }));
 
 vi.mock("date-fns/locale", () => ({ ptBR: {} }));
@@ -81,6 +61,19 @@ vi.mock("@/lib/credit-card-billing", () => ({
 }));
 
 const card = { id: "cc-1", name: "Nubank Platinum", limit: 5000, closingDay: 20, dueDay: 27 };
+
+const currentMonth = new Date().toISOString().slice(0, 7);
+
+const makeTx = (overrides: Partial<CardStatementTransaction> = {}): CardStatementTransaction => ({
+  id: `tx-${Math.random().toString(36).slice(2, 8)}`,
+  title: "Compra",
+  amount: 100,
+  type: "expense",
+  category: "Alimentação",
+  date: `${currentMonth}-15`,
+  creditCardId: "cc-1",
+  ...overrides,
+});
 
 const defaultProps = {
   open: true,
@@ -96,43 +89,53 @@ describe("CreditCardStatementDialog", () => {
 
   it("shows card name in dialog title", () => {
     render(<CreditCardStatementDialog {...defaultProps} />);
-    expect(screen.getByText("Compras — Nubank Platinum")).toBeTruthy();
+    expect(screen.getByText("Extrato — Nubank Platinum")).toBeTruthy();
   });
 
-  it("shows period selector with Data inicial and Data final", () => {
+  it("shows current month initially", () => {
     render(<CreditCardStatementDialog {...defaultProps} />);
-    expect(screen.getByLabelText("Data inicial")).toBeTruthy();
-    expect(screen.getByLabelText("Data final")).toBeTruthy();
+    const now = new Date();
+    const months = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+    expect(screen.getByText(`${months[now.getMonth()]} ${now.getFullYear()}`)).toBeTruthy();
   });
 
-  it("shows period preset buttons", () => {
+  it("shows situação atual section", () => {
     render(<CreditCardStatementDialog {...defaultProps} />);
-    const buttons = screen.getAllByRole("button", { name: /este m.s|m.s anterior|30 dias/i });
-    expect(buttons.length).toBeGreaterThanOrEqual(3);
+    expect(screen.getByText("Situação atual")).toBeTruthy();
+    expect(screen.getByText("Fatura atual")).toBeTruthy();
+    expect(screen.getByText("Comprometido")).toBeTruthy();
+    expect(screen.getByText("Disponível")).toBeTruthy();
   });
 
-  it("shows month navigation with prev/next buttons", () => {
+  it("shows current invoice from helper", () => {
     render(<CreditCardStatementDialog {...defaultProps} />);
-    const prevBtn = screen.getAllByRole("button").find((btn) => btn.querySelector("svg"));
-    expect(prevBtn).toBeTruthy();
-  });
-
-  it("shows summary with Compras, Estornos and Total líquido", () => {
-    render(<CreditCardStatementDialog {...defaultProps} />);
-    expect(screen.getByText("Compras")).toBeTruthy();
-    expect(screen.getByText("Estornos")).toBeTruthy();
-    expect(screen.getByText("Total líquido")).toBeTruthy();
+    expect(screen.getByText("R$ 450,00")).toBeTruthy();
   });
 
   it("shows purchases entry", () => {
     const transactions = [makeTx({ id: "tx-buy", title: "Supermercado", amount: 200, category: "Alimentação" })];
     render(<CreditCardStatementDialog {...defaultProps} transactions={transactions} />);
     expect(screen.getByText("Supermercado")).toBeTruthy();
-    const matches = screen.getAllByText(/R\$ 200,00/);
+    const matches = screen.getAllByText(/\+.*200,00/);
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
-  it("shows reversal entry with negative sign", () => {
+  it("shows payment entry with - sign", () => {
+    const transactions = [makeTx({
+      id: "tx-pay",
+      title: "Pagamento de Fatura",
+      category: "Pagamento Fatura",
+      type: "expense",
+      accountId: "acc-1",
+      amount: 500,
+    })];
+    render(<CreditCardStatementDialog {...defaultProps} transactions={transactions} />);
+    expect(screen.getByText("Pagamento de Fatura")).toBeTruthy();
+    const matches = screen.getAllByText(/-.*500,00/);
+    expect(matches.length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("shows reversal entry with - sign", () => {
     const transactions = [makeTx({
       id: "tx-rev",
       title: "Estorno Loja",
@@ -142,7 +145,7 @@ describe("CreditCardStatementDialog", () => {
     })];
     render(<CreditCardStatementDialog {...defaultProps} transactions={transactions} />);
     expect(screen.getByText("Estorno Loja")).toBeTruthy();
-    const matches = screen.getAllByText(/-R\$ 50,00/);
+    const matches = screen.getAllByText(/-.*50,00/);
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
@@ -152,8 +155,7 @@ describe("CreditCardStatementDialog", () => {
     expect(screen.getByText(/Parcela 2\/5/)).toBeTruthy();
   });
 
-  it("filters out partial_record entries", () => {
-    // The new component filters out partial_record entries by default
+  it("does NOT show partial_record entries", () => {
     const transactions = [
       makeTx({ id: "tx-buy", title: "Notebook", amount: 200 }),
       makeTx({
@@ -166,34 +168,61 @@ describe("CreditCardStatementDialog", () => {
     ];
     render(<CreditCardStatementDialog {...defaultProps} transactions={transactions} />);
     expect(screen.getByText("Notebook")).toBeTruthy();
-    // partial_record entries should not appear
     expect(screen.queryByText("Parcial fatura")).toBeNull();
   });
 
-  it("shows empty state when no entries in period", () => {
+  it("shows empty state when no entries in month", () => {
     render(<CreditCardStatementDialog {...defaultProps} />);
-    expect(screen.getByText("Nenhuma compra neste período.")).toBeTruthy();
+    expect(screen.getByText("Nenhuma movimentação neste período.")).toBeTruthy();
   });
 
-  it("shows summary with Compras, Estornos and Total líquido", () => {
+  it("shows summary with Compras, Pagamentos and Estornos", () => {
     const transactions = [
       makeTx({ id: "tx-1", amount: 300 }),
-      makeTx({ id: "tx-2", type: "income", amount: 100, category: "Outros" }),
+      makeTx({ id: "tx-2", title: "Pagamento de Fatura", category: "Pagamento Fatura", type: "expense", accountId: "acc-1", amount: 200 }),
     ];
     render(<CreditCardStatementDialog {...defaultProps} transactions={transactions} />);
     expect(screen.getByText("Compras")).toBeTruthy();
+    expect(screen.getByText("Pagamentos")).toBeTruthy();
     expect(screen.getByText("Estornos")).toBeTruthy();
-    expect(screen.getByText("Total líquido")).toBeTruthy();
   });
 
-  it("renders purchase entries with charge direction", () => {
+  it("shows period label with month name", () => {
+    render(<CreditCardStatementDialog {...defaultProps} />);
+    const now = new Date();
+    const months = ["janeiro","fevereiro","março","abril","maio","junho","julho","agosto","setembro","outubro","novembro","dezembro"];
+    expect(screen.getByText(new RegExp(`Movimentações de ${months[now.getMonth()]}`))).toBeTruthy();
+  });
+
+  it("navigating to previous month works without crashing", () => {
+    render(<CreditCardStatementDialog {...defaultProps} />);
+    const buttons = screen.getAllByRole("button");
+    const prevBtn = buttons.find((btn) => btn.querySelector("svg")?.classList.contains("h-4"));
+    if (prevBtn) {
+      fireEvent.click(prevBtn);
+    }
+    expect(screen.getByText(/Extrato/)).toBeTruthy();
+  });
+
+  it("renders charge icons for purchase entries", () => {
     const transactions = [makeTx({ id: "tx-buy", title: "Supermercado" })];
     render(<CreditCardStatementDialog {...defaultProps} transactions={transactions} />);
-    expect(screen.getByText("Supermercado")).toBeTruthy();
-    expect(screen.getAllByText("R$ 100,00").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getAllByTestId("icon-charge").length).toBeGreaterThanOrEqual(1);
   });
 
-  it("renders reversal entries with credit direction", () => {
+  it("renders credit icons for payment entries", () => {
+    const transactions = [makeTx({
+      id: "tx-pay",
+      title: "Pagamento de Fatura",
+      category: "Pagamento Fatura",
+      type: "expense",
+      accountId: "acc-1",
+    })];
+    render(<CreditCardStatementDialog {...defaultProps} transactions={transactions} />);
+    expect(screen.getAllByTestId("icon-credit").length).toBeGreaterThanOrEqual(1);
+  });
+
+  it("renders reversal icons for reversal entries", () => {
     const transactions = [makeTx({
       id: "tx-rev",
       title: "Estorno",
@@ -201,8 +230,7 @@ describe("CreditCardStatementDialog", () => {
       amount: 30,
     })];
     render(<CreditCardStatementDialog {...defaultProps} transactions={transactions} />);
-    expect(screen.getByText("Estorno")).toBeTruthy();
-    expect(screen.getByText("-R$ 30,00")).toBeTruthy();
+    expect(screen.getAllByTestId("icon-reversal").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows Export button", () => {

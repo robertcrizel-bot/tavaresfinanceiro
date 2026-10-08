@@ -13,7 +13,7 @@ import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, 
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { CalendarClock, Plus, ChevronLeft, ChevronRight, Check, Undo2, Pencil, Trash2, CircleDollarSign, Clock, AlertTriangle, ArrowUpRight, ArrowDownLeft } from "lucide-react";
+import { CalendarClock, Plus, ChevronLeft, ChevronRight, Check, Undo2, Pencil, Trash2, CircleDollarSign, Clock, AlertTriangle } from "lucide-react";
 import { format, addMonths, subMonths } from "date-fns";
 import { ptBR } from "date-fns/locale";
 import { Loader2 } from "lucide-react";
@@ -31,8 +31,8 @@ import {
 
 export default function Forecasts() {
   const { bills, payments, loading, addBill, updateBill, deleteBill, markAsPaid, unmarkAsPaid } = useForecast();
-  const { accounts, creditCards } = useAccounts();
-  const { categories, getCategoriesByType } = useCategories();
+  const { accounts } = useAccounts();
+  const { categories } = useCategories();
   const { transactions } = useFinance();
   const [currentMonth, setCurrentMonth] = useState(new Date());
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -48,7 +48,6 @@ export default function Forecasts() {
   const [payDate, setPayDate] = useState("");
   const [payMethod, setPayMethod] = useState<PaymentMethod | "">("Transferência");
   const [payAccountId, setPayAccountId] = useState<string>("");
-  const [payCreditCardId, setPayCreditCardId] = useState<string>("");
   const [payDescription, setPayDescription] = useState("");
 
   // Form state
@@ -74,17 +73,18 @@ export default function Forecasts() {
   const getEffectiveAmount = (bill: RecurringBill, payment: BillPayment) =>
     transactions.find((transaction) => transaction.id === payment.transactionId)?.amount ?? bill.amount;
 
-  const totalPagar = activeBills
-    .filter((bill) => bill.type === "expense")
+  const totalPrevisto = activeBills.reduce((sum, b) => sum + b.amount, 0);
+  const totalPago = activeBills.reduce((sum, bill) => {
+    const payment = getPayment(bill.id);
+    return payment ? sum + getEffectiveAmount(bill, payment) : sum;
+  }, 0);
+  const totalPendente = activeBills
+    .filter((bill) => !getPayment(bill.id))
     .reduce((sum, bill) => sum + bill.amount, 0);
-  const totalReceber = activeBills
-    .filter((bill) => bill.type === "income")
-    .reduce((sum, bill) => sum + bill.amount, 0);
-  const saldoProjetado = totalReceber - totalPagar;
 
   const formBudgetProjection = useMemo(() => {
     if (formType !== "expense" || !formCategory) return null;
-    const selectedCategory = categories.find((c) => c.name === formCategory && (c.type === "expense" || c.type === "both"));
+    const selectedCategory = categories.find((c) => c.name === formCategory && c.type === "expense");
     if (!selectedCategory || !selectedCategory.monthlyBudget || selectedCategory.monthlyBudget <= 0) return null;
     const persistedProjection = calculateMonthlyCategoryBudgetProjection({
       transactions,
@@ -164,32 +164,17 @@ export default function Forecasts() {
     setPayDate(dueDate.toISOString().split("T")[0]);
     setPayMethod("Transferência");
     setPayAccountId(bill.accountId || "");
-    setPayCreditCardId("");
     setPayDescription(bill.description || "");
     setPayOpen(true);
   };
 
-  const payIsCreditCard = payMethod === "Cartão de Crédito";
-
-  const handlePayMethodChange = (value: string) => {
-    const nextPaymentMethod = value === "none" ? "" : value as PaymentMethod;
-    setPayMethod(nextPaymentMethod);
-    if (nextPaymentMethod === "Cartão de Crédito") {
-      setPayAccountId("");
-      return;
-    }
-    setPayCreditCardId("");
-  };
-
   const handleConfirmPay = async () => {
     if (!payBill) return;
-    if (payIsCreditCard && !payCreditCardId) return;
     await markAsPaid(payBill, referenceMonth, {
       amount: Number(payAmount),
       date: payDate,
       paymentMethod: payMethod || undefined,
-      accountId: payIsCreditCard ? null : payAccountId || null,
-      creditCardId: payIsCreditCard ? payCreditCardId : null,
+      accountId: payAccountId || null,
       description: payDescription || null,
     });
     setPayOpen(false);
@@ -206,7 +191,7 @@ export default function Forecasts() {
     setDeletingBill(null);
   };
 
-  const filteredCategories = getCategoriesByType(formType);
+  const filteredCategories = categories.filter((c) => c.type === formType);
   const protectedMonths = editingBill
     ? [referenceMonth, ...payments.filter((payment) => payment.recurringBillId === editingBill.id).map((payment) => payment.referenceMonth)]
     : [];
@@ -243,39 +228,39 @@ export default function Forecasts() {
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <Card className="border-border bg-card">
           <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-muted">
+              <CircleDollarSign className="h-5 w-5 text-muted-foreground" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Previsto</p>
+              <p className="text-lg font-bold text-foreground">
+                {totalPrevisto.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-card">
+          <CardContent className="p-4 flex items-center gap-3">
+            <div className="p-2 rounded-lg bg-primary/10">
+              <Check className="h-5 w-5 text-primary" />
+            </div>
+            <div>
+              <p className="text-xs text-muted-foreground">Total Pago</p>
+              <p className="text-lg font-bold text-primary">
+                {totalPago.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+        <Card className="border-border bg-card">
+          <CardContent className="p-4 flex items-center gap-3">
             <div className="p-2 rounded-lg bg-destructive/10">
-              <ArrowUpRight className="h-5 w-5 text-destructive" />
+              <Clock className="h-5 w-5 text-destructive" />
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Previsto a pagar</p>
+              <p className="text-xs text-muted-foreground">Total Pendente</p>
               <p className="text-lg font-bold text-destructive">
-                {totalPagar.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className="p-2 rounded-lg bg-income/10">
-              <ArrowDownLeft className="h-5 w-5 text-income" />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Previsto a receber</p>
-              <p className="text-lg font-bold text-income">
-                {totalReceber.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-border bg-card">
-          <CardContent className="p-4 flex items-center gap-3">
-            <div className={`p-2 rounded-lg ${saldoProjetado > 0 ? "bg-income/10" : saldoProjetado < 0 ? "bg-destructive/10" : "bg-muted"}`}>
-              <CircleDollarSign className={`h-5 w-5 ${saldoProjetado > 0 ? "text-income" : saldoProjetado < 0 ? "text-destructive" : "text-muted-foreground"}`} />
-            </div>
-            <div>
-              <p className="text-xs text-muted-foreground">Saldo projetado</p>
-              <p className={`text-lg font-bold ${saldoProjetado > 0 ? "text-income" : saldoProjetado < 0 ? "text-destructive" : "text-foreground"}`}>
-                {saldoProjetado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+                {totalPendente.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
               </p>
             </div>
           </CardContent>
@@ -468,8 +453,8 @@ export default function Forecasts() {
               <Select value={formCategory} onValueChange={setFormCategory}>
                 <SelectTrigger><SelectValue placeholder="Selecione" /></SelectTrigger>
                 <SelectContent>
-                  {filteredCategories.map((categoryName) => (
-                    <SelectItem key={categoryName} value={categoryName}>{categoryName}</SelectItem>
+                  {filteredCategories.map((c) => (
+                    <SelectItem key={c.id} value={c.name}>{c.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -624,7 +609,7 @@ export default function Forecasts() {
             </div>
             <div>
               <Label>{payBill?.type === "income" ? "Forma de recebimento" : "Forma de pagamento"}</Label>
-              <Select value={payMethod || "none"} onValueChange={handlePayMethodChange}>
+              <Select value={payMethod || "none"} onValueChange={(v) => setPayMethod(v === "none" ? "" : v as PaymentMethod)}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhuma</SelectItem>
@@ -634,37 +619,18 @@ export default function Forecasts() {
                 </SelectContent>
               </Select>
             </div>
-            {!payIsCreditCard && (
-              <div>
-                <Label>Conta</Label>
-                <Select value={payAccountId || "none"} onValueChange={(v) => setPayAccountId(v === "none" ? "" : v)}>
-                  <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhuma</SelectItem>
-                    {accounts.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            )}
-            {payIsCreditCard && (
-              <div>
-                <Label>Cartão de crédito</Label>
-                <Select value={payCreditCardId || "none"} onValueChange={(v) => setPayCreditCardId(v === "none" ? "" : v)}>
-                  <SelectTrigger><SelectValue placeholder="Selecionar cartão" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Selecionar cartão</SelectItem>
-                    {creditCards.map((card) => (
-                      <SelectItem key={card.id} value={card.id}>{card.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {creditCards.length === 0 && (
-                  <p className="mt-1 text-xs text-muted-foreground">Nenhum cartão cadastrado.</p>
-                )}
-              </div>
-            )}
+            <div>
+              <Label>Conta</Label>
+              <Select value={payAccountId || "none"} onValueChange={(v) => setPayAccountId(v === "none" ? "" : v)}>
+                <SelectTrigger><SelectValue placeholder="Nenhuma" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma</SelectItem>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
             <div>
               <Label>Observações</Label>
               <Textarea value={payDescription} onChange={(e) => setPayDescription(e.target.value)} rows={2} />
@@ -672,7 +638,7 @@ export default function Forecasts() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPayOpen(false)}>Cancelar</Button>
-            <Button onClick={handleConfirmPay} disabled={!payAmount || !payDate || (payIsCreditCard && !payCreditCardId)}>{payBill?.type === "income" ? "Confirmar Recebimento" : "Confirmar Pagamento"}</Button>
+            <Button onClick={handleConfirmPay} disabled={!payAmount || !payDate}>{payBill?.type === "income" ? "Confirmar Recebimento" : "Confirmar Pagamento"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

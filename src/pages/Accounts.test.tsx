@@ -3,13 +3,6 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import Accounts from "@/pages/Accounts";
 
-const financeMocks = vi.hoisted(() => ({
-  transactions: [] as Record<string, unknown>[],
-  creditCardInvoices: [] as Record<string, unknown>[],
-  reopenCardInvoice: vi.fn(),
-  reverseCardInvoicePayment: vi.fn(),
-}));
-
 vi.mock("@/contexts/AccountContext", () => ({
   useAccounts: () => ({
     accounts: [
@@ -30,16 +23,12 @@ vi.mock("@/contexts/AccountContext", () => ({
 
 vi.mock("@/contexts/FinanceContext", () => ({
   useFinance: () => ({
-    transactions: financeMocks.transactions,
-    creditCardInvoices: financeMocks.creditCardInvoices,
+    transactions: [],
     loading: false,
     addTransaction: vi.fn(),
     updateTransaction: vi.fn(),
     deleteTransaction: vi.fn(),
-    closeCardInvoice: vi.fn(),
-    reopenCardInvoice: financeMocks.reopenCardInvoice,
-    payCardInvoice: vi.fn(),
-    reverseCardInvoicePayment: financeMocks.reverseCardInvoicePayment,
+    payCardBill: vi.fn(),
     refetch: vi.fn(),
   }),
 }));
@@ -53,6 +42,11 @@ vi.mock("@/contexts/TransferContext", () => ({
     deleteTransfer: vi.fn(),
     refetch: vi.fn(),
   }),
+}));
+
+vi.mock("@/lib/credit-card-billing", () => ({
+  getCardCommittedAmount: () => 0,
+  getCardCurrentInvoiceAmount: () => 0,
 }));
 
 vi.mock("@/lib/financial-calculations", () => ({
@@ -74,7 +68,6 @@ vi.mock("@/components/ui/dialog", () => {
     DialogContent: Wrapper,
     DialogHeader: Wrapper,
     DialogTitle: Wrapper,
-    DialogFooter: Wrapper,
   };
 });
 
@@ -100,13 +93,6 @@ vi.mock("@/components/ui/select", () => ({
   SelectValue: () => null,
 }));
 
-vi.mock("@/components/ui/tabs", () => ({
-  Tabs: ({ children }: any) => <div>{children}</div>,
-  TabsContent: ({ children }: any) => <div>{children}</div>,
-  TabsList: ({ children }: any) => <div>{children}</div>,
-  TabsTrigger: ({ children }: any) => <button>{children}</button>,
-}));
-
 vi.mock("lucide-react", () => ({
   Plus: (p: any) => <svg {...p} />,
   Pencil: (p: any) => <svg {...p} />,
@@ -116,17 +102,11 @@ vi.mock("lucide-react", () => ({
   Receipt: (p: any) => <svg {...p} />,
   ArrowLeftRight: (p: any) => <svg {...p} />,
   FileText: (p: any) => <svg data-testid="file-text-icon" {...p} />,
-  RotateCcw: (p: any) => <svg {...p} />,
-  CalendarDays: (p: any) => <svg {...p} />,
 }));
 
 describe("Accounts page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    financeMocks.transactions = [];
-    financeMocks.creditCardInvoices = [];
-    financeMocks.reopenCardInvoice.mockResolvedValue(true);
-    financeMocks.reverseCardInvoicePayment.mockResolvedValue(true);
   });
 
   it("shows 'Ver extrato' button on account card", () => {
@@ -155,86 +135,5 @@ describe("Accounts page", () => {
     render(<Accounts />);
     expect(screen.getByText("Contas")).toBeTruthy();
     expect(screen.getByText("Cartões")).toBeTruthy();
-  });
-
-  it("offers reopening for a CLOSED invoice", () => {
-    financeMocks.creditCardInvoices = [{
-      id: "invoice-closed",
-      creditCardId: "cc-1",
-      competence: "2026-09-01",
-      cycleStart: "2026-08-21",
-      cycleEnd: "2026-09-20",
-      dueDate: "2026-09-27",
-      status: "CLOSED",
-      closedTotal: 500,
-      closedAt: "2026-09-20T12:00:00Z",
-    }];
-    financeMocks.transactions = [{
-      id: "purchase-1",
-      title: "Mercado",
-      amount: 500,
-      type: "expense",
-      category: "Alimentação",
-      date: "2026-09-10",
-      creditCardId: "cc-1",
-      creditCardInvoiceId: "invoice-closed",
-      financialKind: "card_purchase",
-      isPaid: false,
-    }];
-
-    render(<Accounts />);
-    fireEvent.click(screen.getByText("Cartões"));
-
-    expect(screen.getByRole("button", { name: "Reabrir fatura" })).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Estornar pagamento" })).toBeNull();
-  });
-
-  it("does not offer reopening for a PAID invoice", () => {
-    financeMocks.creditCardInvoices = [{
-      id: "invoice-paid",
-      creditCardId: "cc-1",
-      competence: "2026-09-01",
-      cycleStart: "2026-08-21",
-      cycleEnd: "2026-09-20",
-      dueDate: "2026-09-27",
-      status: "PAID",
-      closedTotal: 500,
-      paidAt: "2026-09-27T12:00:00Z",
-    }];
-
-    render(<Accounts />);
-    fireEvent.click(screen.getByText("Cartões"));
-
-    expect(screen.queryByRole("button", { name: "Reabrir fatura" })).toBeNull();
-    expect(screen.getByRole("button", { name: "Estornar pagamento" })).toBeTruthy();
-  });
-
-  it("does not offer payment reversal for an OPEN invoice", () => {
-    financeMocks.creditCardInvoices = [{
-      id: "invoice-open",
-      creditCardId: "cc-1",
-      competence: "2026-09-01",
-      cycleStart: "2026-08-21",
-      cycleEnd: "2026-09-20",
-      dueDate: "2026-09-27",
-      status: "OPEN",
-    }];
-    financeMocks.transactions = [{
-      id: "purchase-1",
-      title: "Mercado",
-      amount: 500,
-      type: "expense",
-      category: "Alimentação",
-      date: "2026-09-10",
-      creditCardId: "cc-1",
-      creditCardInvoiceId: "invoice-open",
-      financialKind: "card_purchase",
-      isPaid: false,
-    }];
-
-    render(<Accounts />);
-    fireEvent.click(screen.getByText("Cartões"));
-
-    expect(screen.queryByRole("button", { name: "Estornar pagamento" })).toBeNull();
   });
 });

@@ -49,10 +49,7 @@ const mockData = vi.hoisted(() => ({
 }));
 
 vi.mock("@/contexts/AccountContext", () => ({
-  useAccounts: () => ({
-    accounts: [{ id: "account-1", name: "Conta principal", bank: "Banco", type: "checking", initialBalance: 0, color: "blue" }],
-    creditCards: [{ id: "card-1", name: "Cartão principal", bank: "Banco", limit: 1000, closingDay: 10, dueDay: 17, color: "blue" }],
-  }),
+  useAccounts: () => ({ accounts: [], creditCards: [] }),
 }));
 
 vi.mock("@/contexts/CategoryContext", () => ({
@@ -166,56 +163,6 @@ describe("TransactionForm receipt details", () => {
     expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
       receiptRef: undefined,
       receiptDetails: undefined,
-    }), undefined);
-  });
-});
-
-describe("TransactionForm payment fields", () => {
-  const onSubmit = vi.fn();
-  const onClose = vi.fn();
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-  });
-
-  it("updates financial fields when the payment method changes", () => {
-    render(<TransactionForm open onClose={onClose} onSubmit={onSubmit} />);
-
-    expect(screen.queryByText("Conta")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Cartão de Crédito")).toHaveLength(1);
-    expect(screen.queryByText("Parcelar em")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("select-item-Cartão de Débito"));
-    expect(screen.getByText("Conta")).toBeInTheDocument();
-    expect(screen.getAllByText("Cartão de Crédito")).toHaveLength(1);
-    expect(screen.queryByText("Parcelar em")).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("select-item-Cartão de Crédito"));
-    expect(screen.queryByText("Conta")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Cartão de Crédito")).toHaveLength(2);
-    expect(screen.getByText("Parcelar em")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByTestId("select-item-Dinheiro"));
-    expect(screen.queryByText("Conta")).not.toBeInTheDocument();
-    expect(screen.getAllByText("Cartão de Crédito")).toHaveLength(1);
-    expect(screen.queryByText("Parcelar em")).not.toBeInTheDocument();
-  });
-
-  it("clears incompatible financial links while preserving account methods", () => {
-    render(<TransactionForm open onClose={onClose} onSubmit={onSubmit} />);
-    fireEvent.change(screen.getByPlaceholderText("Ex: Supermercado"), { target: { value: "Compra" } });
-    fireEvent.change(screen.getByPlaceholderText("0,00"), { target: { value: "100" } });
-
-    fireEvent.click(screen.getByTestId("select-item-Cartão de Crédito"));
-    fireEvent.click(screen.getByTestId("select-item-card-1"));
-    fireEvent.click(screen.getByTestId("select-item-Pix"));
-    fireEvent.click(screen.getByTestId("select-item-account-1"));
-    fireEvent.click(screen.getByRole("button", { name: "Adicionar" }));
-
-    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
-      paymentMethod: "Pix",
-      accountId: "account-1",
-      creditCardId: undefined,
     }), undefined);
   });
 });
@@ -396,47 +343,5 @@ describe("TransactionForm budget indicator", () => {
     expect(screen.getByText("Orçamento utilizado após este lançamento")).toBeInTheDocument();
     expect(screen.queryByText("NaN")).not.toBeInTheDocument();
     expect(screen.getByText(/de R\$ 1\.000,00/)).toBeInTheDocument();
-  });
-
-  it("keeps budget card after Conta and before Descrição", () => {
-    render(
-      <TransactionForm
-        open
-        onClose={onClose}
-        onSubmit={onSubmit}
-        initial={{ ...initial, category: "Alimentação", date: "2026-09-10" }}
-      />,
-    );
-
-    fireEvent.click(screen.getByTestId("select-item-Pix"));
-
-    const conta = screen.getByText("Conta");
-    const orcamento = screen.getByText("Orçamento utilizado após este lançamento");
-    const descricao = screen.getByText("Descrição");
-
-    expect(conta.compareDocumentPosition(orcamento) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
-    expect(orcamento.compareDocumentPosition(descricao) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
-  });
-
-  it("keeps budget card after Cartão de Crédito and before Descrição", () => {
-    render(
-      <TransactionForm
-        open
-        onClose={onClose}
-        onSubmit={onSubmit}
-        initial={{ ...initial, category: "Alimentação", date: "2026-09-10" }}
-      />,
-    );
-
-    fireEvent.click(screen.getByTestId("select-item-Cartão de Crédito"));
-
-    const cartaoLabel = screen.getAllByText("Cartão de Crédito").find((el) => el.tagName !== "BUTTON");
-    const orcamento = screen.getByText("Orçamento utilizado após este lançamento");
-    const descricao = screen.getByText("Descrição");
-
-    expect(cartaoLabel).toBeDefined();
-    expect(cartaoLabel!.compareDocumentPosition(orcamento) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
-    expect(orcamento.compareDocumentPosition(descricao) & Node.DOCUMENT_POSITION_FOLLOWING).toBeGreaterThan(0);
-    expect(screen.queryByText("Conta")).not.toBeInTheDocument();
   });
 });

@@ -7,12 +7,10 @@ const mocks = vi.hoisted(() => ({
   user: { id: "user-1" },
   from: vi.fn(),
   transactionOrder: vi.fn(),
-  invoiceOrder: vi.fn(),
   insert: vi.fn(),
   insertSingle: vi.fn(),
   update: vi.fn(),
   updateEq: vi.fn(),
-  rpc: vi.fn(),
   toast: vi.fn(),
   transactionRows: [] as Record<string, unknown>[],
 }));
@@ -20,7 +18,6 @@ const mocks = vi.hoisted(() => ({
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
     from: mocks.from,
-    rpc: mocks.rpc,
     storage: { from: vi.fn() },
   },
 }));
@@ -51,8 +48,6 @@ describe("FinanceContext receipt details", () => {
     context = null;
     mocks.transactionRows = [];
     mocks.transactionOrder.mockImplementation(async () => ({ data: mocks.transactionRows, error: null }));
-    mocks.invoiceOrder.mockResolvedValue({ data: [], error: null });
-    mocks.rpc.mockResolvedValue({ data: "operation-1", error: null });
     mocks.insertSingle.mockResolvedValue({ data: { id: "parent-1" }, error: null });
     mocks.insert.mockImplementation((payload: unknown) => {
       if (Array.isArray(payload)) return Promise.resolve({ error: null });
@@ -73,9 +68,6 @@ describe("FinanceContext receipt details", () => {
       }
       if (table === "transaction_attachments") {
         return { select: () => ({ data: [], error: null }), insert: vi.fn() };
-      }
-      if (table === "credit_card_invoices") {
-        return { select: () => ({ order: mocks.invoiceOrder }) };
       }
       throw new Error(`Unexpected table: ${table}`);
     });
@@ -198,105 +190,5 @@ describe("FinanceContext receipt details", () => {
       expect(child).not.toHaveProperty("receipt_details");
       expect(child).not.toHaveProperty("receipt_ref");
     }
-  });
-
-  it("closes an invoice through the atomic lifecycle RPC", async () => {
-    await renderProvider();
-
-    let result = false;
-    await act(async () => { result = await context!.closeCardInvoice("invoice-1", "2026-10-25", ["tx-1"], "2026-11-08"); });
-
-    expect(result).toBe(true);
-    expect(mocks.rpc).toHaveBeenCalledWith("close_credit_card_invoice", {
-      p_invoice_id: "invoice-1",
-      p_actual_closed_date: "2026-10-25",
-      p_exclude_transaction_ids: ["tx-1"],
-      p_due_date: "2026-11-08",
-    });
-  });
-
-  it("reopens a closed invoice through the atomic lifecycle RPC", async () => {
-    await renderProvider();
-
-    let result = false;
-    await act(async () => { result = await context!.reopenCardInvoice("invoice-1"); });
-
-    expect(result).toBe(true);
-    expect(mocks.rpc).toHaveBeenCalledWith("reopen_credit_card_invoice", {
-      p_invoice_id: "invoice-1",
-    });
-    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Fatura reaberta" }));
-  });
-
-  it("does not report an invalid reopen as successful", async () => {
-    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: "Fatura paga nao pode ser reaberta" } });
-    await renderProvider();
-
-    let result = true;
-    await act(async () => { result = await context!.reopenCardInvoice("invoice-paid"); });
-
-    expect(result).toBe(false);
-    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({
-      title: "Erro ao reabrir fatura",
-      variant: "destructive",
-    }));
-  });
-
-  it("pays the exact closed invoice from the selected account", async () => {
-    await renderProvider();
-
-    let result = false;
-    await act(async () => {
-      result = await context!.payCardInvoice("invoice-1", "account-1", "2026-11-08", "Pix");
-    });
-
-    expect(result).toBe(true);
-    expect(mocks.rpc).toHaveBeenCalledWith("pay_credit_card_invoice", {
-      p_invoice_id: "invoice-1",
-      p_account_id: "account-1",
-      p_payment_date: "2026-11-08",
-      p_payment_method: "Pix",
-    });
-  });
-
-  it("reverses an invoice payment through the atomic lifecycle RPC", async () => {
-    await renderProvider();
-
-    let result = false;
-    await act(async () => { result = await context!.reverseCardInvoicePayment("invoice-paid"); });
-
-    expect(result).toBe(true);
-    expect(mocks.rpc).toHaveBeenCalledWith("reverse_credit_card_invoice_payment", {
-      p_invoice_id: "invoice-paid",
-    });
-    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Pagamento estornado" }));
-  });
-
-  it("does not report an invalid payment reversal as successful", async () => {
-    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: "Somente fatura paga pode ter o pagamento estornado" } });
-    await renderProvider();
-
-    let result = true;
-    await act(async () => { result = await context!.reverseCardInvoicePayment("invoice-closed"); });
-
-    expect(result).toBe(false);
-    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({
-      title: "Erro ao estornar pagamento",
-      variant: "destructive",
-    }));
-  });
-
-  it("does not report a duplicate payment as successful", async () => {
-    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: "Fatura ja paga" } });
-    await renderProvider();
-
-    let result = true;
-    await act(async () => { result = await context!.payCardInvoice("invoice-1", "account-1"); });
-
-    expect(result).toBe(false);
-    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({
-      title: "Erro ao pagar fatura",
-      variant: "destructive",
-    }));
   });
 });

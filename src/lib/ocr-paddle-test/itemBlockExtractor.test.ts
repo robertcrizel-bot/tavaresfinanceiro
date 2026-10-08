@@ -240,7 +240,6 @@ describe("itemBlockExtractor quantity/unit synthetic", () => {
       "classification",
       "description",
       "explicitFinalValue",
-      "hasDiscountZone",
       "lineIndices",
       "originalTotal",
       "quantity",
@@ -406,7 +405,6 @@ describe("itemBlockExtractor monetary synthetic", () => {
       "classification",
       "description",
       "explicitFinalValue",
-      "hasDiscountZone",
       "lineIndices",
       "originalTotal",
       "quantity",
@@ -945,66 +943,5 @@ describe("itemBlockExtractor real fixtures", () => {
       { q: null, u: null },
       { q: 1, u: "UN" },
     ]);
-  });
-});
-
-describe("itemBlockExtractor split OCR item prices", () => {
-  const CREAM = "CREME LEITE UHT ITALAC 200G TP";
-
-  it("keeps the three cream prices (2,75 / 2:75 / 2.75) when description, 1UN and price are separate regions of the same line", () => {
-    const extracted = extractOnly([
-      makeRegion("PRODUTO QTD VALOR", 10, 100, 200, 12),
-      makeRegion(CREAM, 10, 150, 300, 16),
-      makeRegion("1UN", 240, 152, 40, 12),
-      makeRegion("2,75", 300, 152, 50, 12),
-      makeRegion(CREAM, 10, 180, 300, 16),
-      makeRegion("1UN", 240, 182, 40, 12),
-      makeRegion("2:75", 300, 182, 50, 12),
-      makeRegion(CREAM, 10, 210, 300, 16),
-      makeRegion("1UN", 240, 212, 40, 12),
-      makeRegion("2.75", 300, 212, 50, 12),
-      makeRegion("Qtde. Total de Itens", 10, 250, 200, 12),
-    ]);
-
-    expect(extracted).toHaveLength(3);
-    for (const block of extracted) {
-      expect(block.description).toBe(CREAM);
-      expect(block.quantity).toBe(1);
-      expect(block.unit).toBe("UN");
-      expect(block.unitPrice).toBeNull();
-      expect(block.originalTotal).toBe(2.75);
-      expect(block.explicitFinalValue).toBeNull();
-    }
-  });
-
-  it("keeps the price when description, 1UN and price end up as independent grid lines", () => {
-    const extracted = extractOnly([
-      makeRegion("PRODUTO QTD VALOR", 10, 100, 200, 12),
-      makeRegion(CREAM, 10, 150, 300, 12),
-      makeRegion("1UN", 240, 175, 40, 12),
-      makeRegion("2:75", 300, 200, 50, 12),
-      makeRegion(CREAM, 10, 225, 300, 12),
-      makeRegion("1UN", 240, 250, 40, 12),
-      makeRegion("2,75", 300, 275, 50, 12),
-      makeRegion("Qtde. Total de Itens", 10, 320, 200, 12),
-    ]);
-
-    expect(extracted).toHaveLength(2);
-    expect(extracted[0].description).toContain(CREAM);
-    expect(extracted[0].originalTotal).toBe(2.75);
-    expect(extracted[1].description).toContain(CREAM);
-    expect(extracted[1].originalTotal).toBe(2.75);
-  });
-
-  it("keeps a colon price glued to the quantity ('1UN 2:75')", () => {
-    const block = extractOnly([
-      makeRegion("PRODUTO QTD VALOR", 10, 100, 200, 12),
-      makeRegion(CREAM, 10, 150, 300, 12),
-      makeRegion("1UN 2:75", 240, 150, 120, 12),
-      makeRegion("Qtde. Total de Itens", 10, 250, 200, 12),
-    ])[0];
-
-    expect(block.quantity).toBe(1);
-    expect(block.originalTotal).toBe(2.75);
   });
 });

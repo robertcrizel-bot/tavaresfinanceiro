@@ -1,6 +1,6 @@
 import { act, render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { ForecastProvider, useForecast, type RecurringBill } from "@/contexts/ForecastContext";
+import { ForecastProvider, useForecast } from "@/contexts/ForecastContext";
 
 const mocks = vi.hoisted(() => ({
   user: { id: "user-1" },
@@ -100,110 +100,5 @@ describe("ForecastContext recurring bill deletion", () => {
     expect(mocks.updateEq).toHaveBeenCalledWith("id", "bill-1");
     expect(mocks.from).not.toHaveBeenCalledWith("transactions");
     expect(context?.payments).toHaveLength(1);
-  });
-});
-
-describe("ForecastContext markAsPaid com cartão de crédito", () => {
-  const transactionInsert = vi.fn();
-  const billPaymentInsert = vi.fn();
-
-  const recurringBill: RecurringBill = {
-    id: "bill-1",
-    name: "Aluguel",
-    amount: 1000,
-    category: "Moradia",
-    dueDay: 10,
-    startDate: "2026-01-01",
-    durationMonths: 12,
-    accountId: "account-1",
-    description: null,
-    type: "expense",
-    scopedEdits: { months: {}, future: [], deletedMonths: {}, deletedFrom: null },
-  };
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    mocks.recurringOrder.mockResolvedValue({ data: [recurringBillRow] });
-    mocks.paymentsOrder.mockResolvedValue({ data: [] });
-    transactionInsert.mockReturnValue({
-      select: () => ({ single: async () => ({ data: { id: "tx-9" }, error: null }) }),
-    });
-    billPaymentInsert.mockResolvedValue({ error: null });
-    mocks.from.mockImplementation((table: string) => {
-      if (table === "recurring_bills") {
-        return { select: () => ({ order: mocks.recurringOrder }) };
-      }
-      if (table === "bill_payments") {
-        return { select: () => ({ order: mocks.paymentsOrder }), insert: billPaymentInsert };
-      }
-      if (table === "transactions") {
-        return { insert: transactionInsert };
-      }
-      throw new Error(`Unexpected table: ${table}`);
-    });
-  });
-
-  it("insere a transação com credit_card_id e sem conta", async () => {
-    let context: ReturnType<typeof useForecast> | null = null;
-    const Consumer = () => {
-      context = useForecast();
-      return null;
-    };
-
-    render(<ForecastProvider><Consumer /></ForecastProvider>);
-    await waitFor(() => expect(context?.loading).toBe(false));
-
-    await act(async () => {
-      await context?.markAsPaid(recurringBill, "2026-09", {
-        amount: 1000,
-        date: "2026-09-10",
-        paymentMethod: "Cartão de Crédito",
-        accountId: null,
-        creditCardId: "card-1",
-        description: null,
-      });
-    });
-
-    expect(transactionInsert).toHaveBeenCalledWith(expect.objectContaining({
-      title: "Aluguel",
-      amount: 1000,
-      payment_method: "Cartão de Crédito",
-      account_id: null,
-      credit_card_id: "card-1",
-      is_paid: true,
-    }));
-    expect(billPaymentInsert).toHaveBeenCalledWith(expect.objectContaining({
-      recurring_bill_id: "bill-1",
-      reference_month: "2026-09",
-      transaction_id: "tx-9",
-    }));
-  });
-
-  it("mantém conta e cartão nulos quando a forma não é cartão de crédito", async () => {
-    let context: ReturnType<typeof useForecast> | null = null;
-    const Consumer = () => {
-      context = useForecast();
-      return null;
-    };
-
-    render(<ForecastProvider><Consumer /></ForecastProvider>);
-    await waitFor(() => expect(context?.loading).toBe(false));
-
-    await act(async () => {
-      await context?.markAsPaid(recurringBill, "2026-09", {
-        amount: 1000,
-        date: "2026-09-10",
-        paymentMethod: "Pix",
-        accountId: "account-1",
-        creditCardId: null,
-        description: null,
-      });
-    });
-
-    expect(transactionInsert).toHaveBeenCalledWith(expect.objectContaining({
-      payment_method: "Pix",
-      account_id: "account-1",
-      credit_card_id: null,
-    }));
   });
 });

@@ -24,32 +24,6 @@ type ExifOrientationInspection =
 
 const JPEG_HEADER_LIMIT = 512 * 1024;
 const SMALL_FILE_LIMIT = 400 * 1024;
-const MAX_PROGRESSIVE_DOWNSCALE_STEPS = 3;
-
-export type ImageNormalizationStrategy =
-  | "unknown"
-  | "original"
-  | "single-downscale"
-  | "progressive-downscale";
-
-export type ImageDecodeMode = "skipped" | "decode-time-resize" | "decode-time-resize+canvas" | "full-decode";
-
-export interface ImageNormalizationReport {
-  strategy: ImageNormalizationStrategy;
-  downscaleSteps: number;
-  decodeMode: ImageDecodeMode;
-  sourceDimensions: { width: number; height: number } | null;
-  intermediateDimensions: { width: number; height: number } | null;
-  targetDimensions: { width: number; height: number } | null;
-}
-
-export type CompressionOptions = CompressionBounds & {
-  quality?: number;
-  requireDecodeResize?: boolean;
-  preferBoundedOutput?: boolean;
-  progressiveDownscale?: boolean;
-  onNormalization?: (report: ImageNormalizationReport) => void;
-};
 
 function inspectExifOrientation(view: DataView, start: number, end: number): ExifOrientationInspection {
   const signature = [0x45, 0x78, 0x69, 0x66, 0x00, 0x00];
@@ -287,60 +261,15 @@ export function calculateImageDimensions(width: number, height: number, opts: Co
   return { width: Math.round(width * scale), height: Math.round(height * scale) };
 }
 
-// Caps the RGBA surface of the decode-time intermediate (≈16 MiB) so a single
-// decode never allocates a bigger bitmap than the progressive canvas chain.
-const MAX_INTERMEDIATE_PIXELS = 4_000_000;
-
-export function calculateIntermediateDimensions(
-  sourceWidth: number,
-  sourceHeight: number,
-  targetWidth: number,
-  targetHeight: number,
-): { width: number; height: number } | null {
-  if (sourceWidth <= targetWidth || sourceHeight <= targetHeight) return null;
-
-  // Half size aligns with the JPEG IDCT 1/2 tier and avoids upscaled detail.
-  let width = Math.round(sourceWidth / 2);
-  let height = Math.round(sourceHeight / 2);
-  if (width < targetWidth || height < targetHeight) return null;
-
-  if (width * height > MAX_INTERMEDIATE_PIXELS) {
-    const scale = Math.sqrt(MAX_INTERMEDIATE_PIXELS / (width * height));
-    width = Math.floor(width * scale);
-    height = Math.floor(height * scale);
-    if (width < targetWidth || height < targetHeight) return null;
-  }
-
-  if (width === targetWidth && height === targetHeight) return null;
-  return { width, height };
-}
-
 export async function compressImageFile(
   file: File,
-  opts: CompressionOptions = {},
+  opts: CompressionBounds & { quality?: number } = {},
 ): Promise<File> {
   const quality = opts.quality ?? 0.7;
   const mimeType = file.type.toLowerCase();
-  const report: ImageNormalizationReport = {
-    strategy: "unknown",
-    downscaleSteps: 0,
-    decodeMode: "skipped",
-    sourceDimensions: null,
-    intermediateDimensions: null,
-    targetDimensions: null,
-  };
-  const keepOriginal = () => {
-    report.strategy = "original";
-    report.downscaleSteps = 0;
-  };
-  const emitNormalization = () => opts.onNormalization?.(report);
 
   // Skip GIFs (would lose animation) and SVGs.
-  if (mimeType === "image/gif" || mimeType === "image/svg+xml") {
-    keepOriginal();
-    emitNormalization();
-    return file;
-  }
+  if (mimeType === "image/gif" || mimeType === "image/svg+xml") return file;
 
   const declaredJpeg = /^image\/jpe?g$/i.test(mimeType);
   const canBeUndeclaredJpeg = mimeType === "" || mimeType === "application/octet-stream";
@@ -356,30 +285,16 @@ export async function compressImageFile(
     }
   }
   const isJpeg = declaredJpeg || hasJpegSignature;
-  if (!mimeType.startsWith("image/") && !isJpeg) {
-    keepOriginal();
-    emitNormalization();
-    return file;
-  }
+  if (!mimeType.startsWith("image/") && !isJpeg) return file;
   const needsOrientationNormalization = Boolean(jpegMetadata && jpegMetadata.orientation !== 1);
 
   if (file.size < SMALL_FILE_LIMIT) {
-    if (!jpegMetadata) {
-      keepOriginal();
-      emitNormalization();
-      return file;
-    }
+    if (!jpegMetadata) return file;
     const swapsAxes = jpegMetadata.orientation >= 5 && jpegMetadata.orientation <= 8;
     const displayWidth = swapsAxes ? jpegMetadata.height : jpegMetadata.width;
     const displayHeight = swapsAxes ? jpegMetadata.width : jpegMetadata.height;
     const target = calculateImageDimensions(displayWidth, displayHeight, opts);
-    if (!needsOrientationNormalization && target.width === displayWidth && target.height === displayHeight) {
-      report.sourceDimensions = { width: displayWidth, height: displayHeight };
-      report.targetDimensions = target;
-      keepOriginal();
-      emitNormalization();
-      return file;
-    }
+    if (!needsOrientationNormalization && target.width === displayWidth && target.height === displayHeight) return file;
   }
 
   let bitmap: ImageBitmap | null = null;
@@ -401,15 +316,8 @@ export async function compressImageFile(
         const displayWidth = swapsAxes ? jpegMetadata.height : jpegMetadata.width;
         const displayHeight = swapsAxes ? jpegMetadata.width : jpegMetadata.height;
         const target = calculateImageDimensions(displayWidth, displayHeight, opts);
-        const intermediate = opts.progressiveDownscale
-          ? calculateIntermediateDimensions(displayWidth, displayHeight, target.width, target.height)
-          : null;
-        const decodeWidth = intermediate
-          ? (swapsAxes ? intermediate.height : intermediate.width)
-          : swapsAxes ? target.height : target.width;
-        const decodeHeight = intermediate
-          ? (swapsAxes ? intermediate.width : intermediate.height)
-          : swapsAxes ? target.width : target.height;
+        const decodeWidth = swapsAxes ? target.height : target.width;
+        const decodeHeight = swapsAxes ? target.width : target.height;
         const options: ImageBitmapOptions = { imageOrientation: "none" };
         if (decodeWidth !== jpegMetadata.width || decodeHeight !== jpegMetadata.height) {
           options.resizeWidth = decodeWidth;
@@ -418,62 +326,33 @@ export async function compressImageFile(
         }
         try {
           bitmap = await createImageBitmap(decodeSource, options);
-          report.decodeMode = options.resizeWidth === undefined
-            ? "full-decode"
-            : intermediate ? "decode-time-resize+canvas" : "decode-time-resize";
-          if (options.resizeWidth !== undefined && intermediate) {
-            report.intermediateDimensions = intermediate;
-          }
         } catch (error) {
-          if (opts.requireDecodeResize) throw error;
-          if (!(error instanceof TypeError)) {
-            keepOriginal();
-            return file;
-          }
+          if (!(error instanceof TypeError)) return file;
         }
       } else if (jpegMetadata) {
         const swapsAxes = jpegMetadata.orientation >= 5 && jpegMetadata.orientation <= 8;
         const displayWidth = swapsAxes ? jpegMetadata.height : jpegMetadata.width;
         const displayHeight = swapsAxes ? jpegMetadata.width : jpegMetadata.height;
         const target = calculateImageDimensions(displayWidth, displayHeight, opts);
-        const intermediate = opts.progressiveDownscale
-          ? calculateIntermediateDimensions(displayWidth, displayHeight, target.width, target.height)
-          : null;
-        const resizeTo = intermediate ?? target;
-        const needsResize = resizeTo.width !== displayWidth || resizeTo.height !== displayHeight;
+        const needsResize = target.width !== displayWidth || target.height !== displayHeight;
         if (needsResize) {
           try {
             bitmap = await createImageBitmap(decodeSource, {
               imageOrientation: "from-image",
-              resizeWidth: resizeTo.width,
-              resizeHeight: resizeTo.height,
+              resizeWidth: target.width,
+              resizeHeight: target.height,
               resizeQuality: "high",
             });
-            report.decodeMode = intermediate ? "decode-time-resize+canvas" : "decode-time-resize";
-            if (intermediate) report.intermediateDimensions = intermediate;
           } catch (error) {
-            if (opts.requireDecodeResize) throw error;
             // Retry only when the options themselves are unsupported, not after a decoder failure.
-            if (!(error instanceof TypeError)) {
-              keepOriginal();
-              return file;
-            }
+            if (!(error instanceof TypeError)) return file;
           }
         }
       }
-      if (!bitmap) {
-        bitmap = await createImageBitmap(decodeSource);
-        report.decodeMode = "full-decode";
-      }
+      if (!bitmap) bitmap = await createImageBitmap(decodeSource);
       width = bitmap.width;
       height = bitmap.height;
     } else {
-      if (opts.requireDecodeResize && jpegMetadata) {
-        const target = calculateImageDimensions(jpegMetadata.width, jpegMetadata.height, opts);
-        if (target.width !== jpegMetadata.width || target.height !== jpegMetadata.height) {
-          throw new Error("decode-time image resizing is unavailable");
-        }
-      }
       objectUrl = URL.createObjectURL(decodeSource);
       imgEl = await new Promise<HTMLImageElement>((resolve, reject) => {
         const img = new Image();
@@ -483,7 +362,6 @@ export async function compressImageFile(
       });
       width = imgEl.naturalWidth;
       height = imgEl.naturalHeight;
-      report.decodeMode = "full-decode";
     }
 
     const swapsAxes = Boolean(jpegMetadata && needsOrientationNormalization
@@ -493,145 +371,42 @@ export async function compressImageFile(
     const { width: targetW, height: targetH } = calculateImageDimensions(displayWidth, displayHeight, opts);
     const drawWidth = swapsAxes ? targetH : targetW;
     const drawHeight = swapsAxes ? targetW : targetH;
-    const sourceDisplayWidth = jpegMetadata
-      ? (swapsAxes ? jpegMetadata.height : jpegMetadata.width)
-      : displayWidth;
-    const sourceDisplayHeight = jpegMetadata
-      ? (swapsAxes ? jpegMetadata.width : jpegMetadata.height)
-      : displayHeight;
-    const wasResized = targetW !== sourceDisplayWidth || targetH !== sourceDisplayHeight;
-    const needsCanvasScale = drawWidth !== width || drawHeight !== height;
 
-    report.sourceDimensions = { width: sourceDisplayWidth, height: sourceDisplayHeight };
-    report.targetDimensions = { width: targetW, height: targetH };
-
-    const progressiveSizes: Array<{ width: number; height: number }> = [];
-    if (opts.progressiveDownscale && needsCanvasScale) {
-      let stepWidth = width;
-      let stepHeight = height;
-      while (
-        progressiveSizes.length < MAX_PROGRESSIVE_DOWNSCALE_STEPS
-        && stepWidth >= drawWidth * 2
-        && stepHeight >= drawHeight * 2
-      ) {
-        stepWidth = Math.round(stepWidth / 2);
-        stepHeight = Math.round(stepHeight / 2);
-        progressiveSizes.push({ width: stepWidth, height: stepHeight });
-      }
+    canvas = document.createElement("canvas");
+    canvas.width = targetW;
+    canvas.height = targetH;
+    const ctx = canvas.getContext("2d", { alpha: false });
+    if (!ctx) return file;
+    if (needsOrientationNormalization && jpegMetadata) {
+      applyExifOrientation(ctx, jpegMetadata.orientation, targetW, targetH);
     }
-
-    const decodeStep = report.decodeMode === "decode-time-resize"
-      || report.decodeMode === "decode-time-resize+canvas"
-      ? 1
-      : 0;
-    const canvasSteps = needsCanvasScale ? progressiveSizes.length + 1 : 0;
-    const downscaleSteps = !wasResized ? 0 : Math.max(1, decodeStep + canvasSteps);
-    report.downscaleSteps = downscaleSteps;
-    report.strategy = downscaleSteps === 0
-      ? "original"
-      : downscaleSteps === 1 ? "single-downscale" : "progressive-downscale";
-
-    const highQualityScale = opts.progressiveDownscale === true;
-    const configureContext = (context: CanvasRenderingContext2D | null): CanvasRenderingContext2D | null => {
-      if (!context) return null;
-      if (highQualityScale) {
-        context.imageSmoothingEnabled = true;
-        context.imageSmoothingQuality = "high";
-      }
-      return context;
-    };
-    const drawSource = (context: CanvasRenderingContext2D, toWidth: number, toHeight: number) => {
-      if (bitmap) context.drawImage(bitmap, 0, 0, toWidth, toHeight);
-      else if (imgEl) context.drawImage(imgEl, 0, 0, toWidth, toHeight);
-    };
-    const releaseSource = () => {
-      if (bitmap) {
+    if (bitmap) {
+      try {
+        ctx.drawImage(bitmap, 0, 0, drawWidth, drawHeight);
+      } finally {
         bitmap.close?.();
         bitmap = null;
       }
-      if (imgEl) {
+    } else if (imgEl) {
+      try {
+        ctx.drawImage(imgEl, 0, 0, drawWidth, drawHeight);
+      } finally {
         imgEl.removeAttribute("src");
         imgEl = null;
         if (objectUrl) URL.revokeObjectURL(objectUrl);
         objectUrl = null;
-      }
-    };
-
-    const intermediates: HTMLCanvasElement[] = [];
-    try {
-      for (const size of progressiveSizes) {
-        const step = document.createElement("canvas");
-        step.width = size.width;
-        step.height = size.height;
-        const stepContext = configureContext(step.getContext("2d", { alpha: false }));
-        if (!stepContext) {
-          keepOriginal();
-          return file;
-        }
-        const previous = intermediates[intermediates.length - 1];
-        if (previous) {
-          stepContext.drawImage(previous, 0, 0, size.width, size.height);
-          previous.width = 0;
-          previous.height = 0;
-        } else {
-          drawSource(stepContext, size.width, size.height);
-          releaseSource();
-        }
-        intermediates.push(step);
-      }
-
-      canvas = document.createElement("canvas");
-      canvas.width = targetW;
-      canvas.height = targetH;
-      const ctx = configureContext(canvas.getContext("2d", { alpha: false }));
-      if (!ctx) {
-        keepOriginal();
-        return file;
-      }
-      if (needsOrientationNormalization && jpegMetadata) {
-        applyExifOrientation(ctx, jpegMetadata.orientation, targetW, targetH);
-      }
-      const last = intermediates[intermediates.length - 1];
-      if (last) {
-        ctx.drawImage(last, 0, 0, drawWidth, drawHeight);
-      } else if (bitmap) {
-        try {
-          ctx.drawImage(bitmap, 0, 0, drawWidth, drawHeight);
-        } finally {
-          bitmap.close?.();
-          bitmap = null;
-        }
-      } else if (imgEl) {
-        try {
-          ctx.drawImage(imgEl, 0, 0, drawWidth, drawHeight);
-        } finally {
-          releaseSource();
-        }
-      }
-    } finally {
-      for (const step of intermediates) {
-        step.width = 0;
-        step.height = 0;
       }
     }
 
     const blob: Blob | null = await new Promise((resolve) =>
       canvas.toBlob(resolve, "image/jpeg", quality),
     );
-    if (!blob) {
-      keepOriginal();
-      return file;
-    }
-    if (!needsOrientationNormalization && blob.size >= file.size && !(opts.preferBoundedOutput && wasResized)) {
-      keepOriginal();
-      return file;
-    }
+    if (!blob) return file;
+    if (!needsOrientationNormalization && blob.size >= file.size) return file;
 
     const newName = file.name.replace(/\.(heic|heif|png|webp|bmp|tiff?|jpe?g)$/i, "") + ".jpg";
     return new File([blob], newName, { type: "image/jpeg", lastModified: Date.now() });
-  } catch (error) {
-    if (opts.requireDecodeResize) throw error;
-    keepOriginal();
+  } catch {
     return file;
   } finally {
     if (bitmap) bitmap.close?.();
@@ -641,6 +416,5 @@ export async function compressImageFile(
       canvas.width = 0;
       canvas.height = 0;
     }
-    emitNormalization();
   }
 }

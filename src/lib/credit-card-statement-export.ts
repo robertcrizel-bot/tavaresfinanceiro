@@ -4,7 +4,6 @@ import type { CreditCardStatement, CreditCardStatementEntry } from "@/lib/credit
 export interface CreditCardExportContext {
   cardName: string;
   referenceMonth: string;
-  periodLabel?: string;
   currentInvoice: number;
   committedAmount: number;
   availableAmount: number;
@@ -76,8 +75,8 @@ const setBorder = (cell: any, color = COLORS.border) => {
 };
 
 export const exportCreditCardStatementToExcel = async (ctx: CreditCardExportContext): Promise<void> => {
-  const { cardName, referenceMonth, periodLabel, currentInvoice, committedAmount, availableAmount, limit, statement } = ctx;
-  const period = periodLabel || formatPeriod(referenceMonth);
+  const { cardName, referenceMonth, currentInvoice, committedAmount, availableAmount, limit, statement } = ctx;
+  const period = formatPeriod(referenceMonth);
   const { default: ExcelJS } = await import("exceljs");
 
   const wb = new ExcelJS.Workbook();
@@ -276,8 +275,8 @@ export const exportCreditCardStatementToExcel = async (ctx: CreditCardExportCont
 };
 
 export const exportCreditCardStatementToPdf = (ctx: CreditCardExportContext): void => {
-  const { cardName, referenceMonth, periodLabel, currentInvoice, committedAmount, availableAmount, limit, statement } = ctx;
-  const period = periodLabel || formatPeriod(referenceMonth);
+  const { cardName, referenceMonth, currentInvoice, committedAmount, availableAmount, limit, statement } = ctx;
+  const period = formatPeriod(referenceMonth);
 
   const generatePdf = async () => {
     const { default: jsPDF } = await import("jspdf");

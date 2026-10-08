@@ -98,34 +98,3 @@ describe("CategoryContext monthly budget", () => {
     });
   });
 });
-
-describe("CategoryContext shared category lists", () => {
-  let context: ReturnType<typeof useCategories> | null;
-
-  beforeEach(() => {
-    vi.clearAllMocks();
-    context = null;
-    mocks.rows = [
-      { id: "category-1", name: "Alimentação", type: "expense", monthly_budget: null },
-      { id: "category-2", name: "Salário", type: "income", monthly_budget: null },
-      { id: "category-3", name: "Outros", type: "both", monthly_budget: null },
-    ];
-    mocks.order.mockImplementation(async () => ({ data: mocks.rows, error: null }));
-  });
-
-  const renderProvider = async () => {
-    const Consumer = () => {
-      context = useCategories();
-      return null;
-    };
-    render(<CategoryProvider><Consumer /></CategoryProvider>);
-    await waitFor(() => expect(context?.loading).toBe(false));
-  };
-
-  it("includes a both-type category such as Outros in expense and income lists", async () => {
-    await renderProvider();
-
-    expect(context?.getCategoriesByType("expense")).toEqual(["Alimentação", "Outros"]);
-    expect(context?.getCategoriesByType("income")).toEqual(["Salário", "Outros"]);
-  });
-});

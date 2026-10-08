@@ -1,37 +1,14 @@
 import { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-type KpiColor = "green" | "red" | "balance" | "neutral";
+type KpiColor = "green" | "red" | "amber" | "blue" | "purple";
 
-const colorMap: Record<KpiColor, { icon: string; title: string; value: string; accent: string; surface: string }> = {
-  green: {
-    icon: "text-income",
-    title: "text-muted-foreground",
-    value: "text-income",
-    accent: "border-l-income/70",
-    surface: "",
-  },
-  red: {
-    icon: "text-expense",
-    title: "text-muted-foreground",
-    value: "text-expense",
-    accent: "border-l-expense/70",
-    surface: "",
-  },
-  balance: {
-    icon: "text-primary",
-    title: "text-foreground",
-    value: "text-income",
-    accent: "border-l-primary/60",
-    surface: "dashboard-card-balance",
-  },
-  neutral: {
-    icon: "text-primary",
-    title: "text-muted-foreground",
-    value: "text-foreground",
-    accent: "border-l-border",
-    surface: "",
-  },
+const colorMap: Record<KpiColor, { border: string; icon: string; bg: string }> = {
+  green: { border: "border-l-income", icon: "text-income", bg: "bg-income/5" },
+  red: { border: "border-l-expense", icon: "text-expense", bg: "bg-expense/5" },
+  amber: { border: "border-l-warning", icon: "text-warning", bg: "bg-warning/5" },
+  blue: { border: "border-l-info", icon: "text-info", bg: "bg-info/5" },
+  purple: { border: "border-l-purple-500", icon: "text-purple-400", bg: "bg-purple-500/5" },
 };
 
 interface KpiCardProps {
@@ -41,29 +18,24 @@ interface KpiCardProps {
   trend?: string;
   trendUp?: boolean;
   color?: KpiColor;
-  negativeValue?: boolean;
 }
 
-export function KpiCard({ title, value, icon: Icon, trend, trendUp, color, negativeValue }: KpiCardProps) {
-  const c = colorMap[color ?? "neutral"];
-  const valueColor = negativeValue ? "text-expense" : c.value;
+export function KpiCard({ title, value, icon: Icon, trend, trendUp, color }: KpiCardProps) {
+  const c = color ? colorMap[color] : null;
 
   return (
-    <div className={cn("dashboard-card border-l-4 p-3 sm:p-5 h-full flex flex-col justify-between", c.accent, c.surface)}>
+    <div
+      className={cn(
+        "glass-card rounded-xl p-3 sm:p-5 animate-fade-in border-l-4 h-full flex flex-col justify-between",
+        c ? [c.border, c.bg] : "border-l-border"
+      )}
+    >
       <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
-        <span className={cn("text-xs sm:text-sm font-semibold line-clamp-1", c.title)}>{title}</span>
-        <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5 shrink-0", c.icon)} />
+        <span className="text-xs sm:text-sm text-muted-foreground font-medium line-clamp-1">{title}</span>
+        <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5 shrink-0", c ? c.icon : "text-muted-foreground")} />
       </div>
       <div>
-        <p
-          className={cn(
-            "text-base sm:text-lg lg:text-2xl font-bold break-words leading-tight",
-            valueColor,
-            color === "balance" && "font-extrabold",
-          )}
-        >
-          {value}
-        </p>
+        <p className="text-base sm:text-lg lg:text-2xl font-bold text-foreground break-words leading-tight">{value}</p>
         {trend && (
           <p className={`text-xs mt-1 ${trendUp ? "text-income" : "text-expense"}`}>
             {trend}

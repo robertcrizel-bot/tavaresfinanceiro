@@ -244,34 +244,6 @@ describe("compressImageFile", () => {
     expect(create).toHaveBeenCalledWith(file, expect.objectContaining({ resizeWidth: 2000, resizeHeight: 2667 }));
   });
 
-  it("keeps a bounded OCR output even when its encoded bytes exceed the original", async () => {
-    const file = makeJpeg(3000, 12000, 1000);
-    installBitmapMock(3000, 12000);
-    installCanvasMock(new Blob([new Uint8Array(2000)], { type: "image/jpeg" }));
-
-    const output = await compressImageFile(file, {
-      maxWidth: 1280,
-      maxHeight: 2400,
-      quality: 0.92,
-      requireDecodeResize: true,
-      preferBoundedOutput: true,
-    });
-
-    expect(output).not.toBe(file);
-    expect(output.size).toBe(2000);
-  });
-
-  it("aborts instead of decoding a full-resolution OCR image when decode resize is unsupported", async () => {
-    const file = makeJpeg(3000, 12000);
-    vi.stubGlobal("createImageBitmap", vi.fn().mockRejectedValue(new TypeError("resize options unsupported")));
-
-    await expect(compressImageFile(file, {
-      maxWidth: 1280,
-      maxHeight: 2400,
-      requireDecodeResize: true,
-    })).rejects.toThrow("resize options unsupported");
-  });
-
   it("normalizes EXIF orientation when later APP1 metadata is present", async () => {
     const file = makeJpeg(4000, 3000, 500 * 1024, 6, true);
     const { create } = installBitmapMock(4000, 3000);

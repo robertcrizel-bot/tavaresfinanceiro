@@ -99,9 +99,6 @@ export const DOCUMENT_ORIENTATION_TIMEOUT_MS = 30_000;
 
 let sessionPromise: Promise<CachedSession> | null = null;
 let unavailableError: Error | null = null;
-let sessionReleasePromise: Promise<void> | null = null;
-let activeSessionUsers = 0;
-let resolveSessionIdle: (() => void) | null = null;
 
 async function createSession(): Promise<CachedSession> {
   configureOrtWasm();
@@ -122,51 +119,6 @@ async function getSession(): Promise<CachedSession> {
     });
   }
   return sessionPromise;
-}
-
-async function acquireSession(): Promise<CachedSession> {
-  if (sessionReleasePromise) await sessionReleasePromise;
-  activeSessionUsers++;
-  try {
-    return await getSession();
-  } catch (error) {
-    releaseSessionUse();
-    throw error;
-  }
-}
-
-function releaseSessionUse() {
-  activeSessionUsers--;
-  if (activeSessionUsers === 0) {
-    resolveSessionIdle?.();
-    resolveSessionIdle = null;
-  }
-}
-
-function waitForSessionIdle() {
-  if (activeSessionUsers === 0) return Promise.resolve();
-  return new Promise<void>((resolve) => {
-    resolveSessionIdle = resolve;
-  });
-}
-
-export function releaseDocumentOrientationSession(): Promise<void> {
-  if (sessionReleasePromise) return sessionReleasePromise;
-
-  const currentSessionPromise = sessionPromise;
-  sessionPromise = null;
-  unavailableError = null;
-  if (!currentSessionPromise) return Promise.resolve();
-
-  const release = (async () => {
-    await waitForSessionIdle();
-    const cached = await currentSessionPromise.catch(() => null);
-    if (cached) await cached.session.release();
-  })();
-  sessionReleasePromise = release.finally(() => {
-    sessionReleasePromise = null;
-  });
-  return sessionReleasePromise;
 }
 
 function calculateResize(width: number, height: number) {
@@ -236,70 +188,53 @@ async function imageToTensor(image: Blob) {
   }
 }
 
-export async function classifyDocumentOrientation(
-  image: Blob,
-  runOptions?: ort.InferenceSession.RunOptions,
-): Promise<DocumentOrientationResult> {
-  const cached = await acquireSession();
-  try {
-    const prepared = await imageToTensor(image);
-    let output: ort.Tensor | undefined;
-    try {
-      const inputName = cached.session.inputNames[0];
-      const outputName = cached.session.outputNames[0];
-      if (!inputName || !outputName) throw new Error("orientation model has an invalid input/output contract");
+export async function classifyDocumentOrientation(image: Blob): Promise<DocumentOrientationResult> {
+  const cached = await getSession();
+  const prepared = await imageToTensor(image);
+  const inputName = cached.session.inputNames[0];
+  const outputName = cached.session.outputNames[0];
+  if (!inputName || !outputName) throw new Error("orientation model has an invalid input/output contract");
 
-      const start = performance.now();
-      const outputs = await cached.session.run({ [inputName]: prepared.tensor }, runOptions);
-      const inferenceMs = performance.now() - start;
-      output = outputs[outputName];
-      if (!output || output.data.length !== LABELS.length) {
-        throw new Error("orientation model must return exactly four scores");
-      }
-
-      const values = Array.from(output.data, Number);
-      if (values.some((value) => !Number.isFinite(value))) {
-        throw new Error("orientation model returned a non-finite score");
-      }
-      const ranked = LABELS.map((orientation, index) => ({ orientation, score: values[index] }))
-        .sort((a, b) => b.score - a.score);
-      const [first, second] = ranked;
-      const margin = first.score - second.score;
-
-      return {
-        scores: { 0: values[0], 90: values[1], 180: values[2], 270: values[3] },
-        first,
-        second,
-        margin,
-        modelInitializationMs: cached.initializationMs,
-        inferenceMs,
-        sourceDimensions: prepared.sourceDimensions,
-        resizedDimensions: prepared.resizedDimensions,
-        preprocessingDimensions: { width: 224, height: 224 },
-        automaticRotationEnabled: DOCUMENT_ORIENTATION_AUTO_ROTATION_ENABLED,
-        decision: decideOrientationCorrection(first, margin),
-      };
-    } finally {
-      prepared.tensor.dispose();
-      output?.dispose?.();
-    }
-  } finally {
-    releaseSessionUse();
+  const start = performance.now();
+  const outputs = await cached.session.run({ [inputName]: prepared.tensor });
+  const inferenceMs = performance.now() - start;
+  const output = outputs[outputName];
+  if (!output || output.data.length !== LABELS.length) {
+    throw new Error("orientation model must return exactly four scores");
   }
+
+  const values = Array.from(output.data, Number);
+  if (values.some((value) => !Number.isFinite(value))) {
+    throw new Error("orientation model returned a non-finite score");
+  }
+  const ranked = LABELS.map((orientation, index) => ({ orientation, score: values[index] }))
+    .sort((a, b) => b.score - a.score);
+  const [first, second] = ranked;
+  const margin = first.score - second.score;
+
+  return {
+    scores: { 0: values[0], 90: values[1], 180: values[2], 270: values[3] },
+    first,
+    second,
+    margin,
+    modelInitializationMs: cached.initializationMs,
+    inferenceMs,
+    sourceDimensions: prepared.sourceDimensions,
+    resizedDimensions: prepared.resizedDimensions,
+    preprocessingDimensions: { width: 224, height: 224 },
+    automaticRotationEnabled: DOCUMENT_ORIENTATION_AUTO_ROTATION_ENABLED,
+    decision: decideOrientationCorrection(first, margin),
+  };
 }
 
 async function classifyWithTimeout(image: Blob): Promise<DocumentOrientationResult> {
   let timeoutId: ReturnType<typeof setTimeout> | undefined;
-  const runOptions: ort.InferenceSession.RunOptions = {};
   try {
     return await Promise.race([
-      classifyDocumentOrientation(image, runOptions),
+      classifyDocumentOrientation(image),
       new Promise<never>((_, reject) => {
         timeoutId = setTimeout(
-          () => {
-            runOptions.terminate = true;
-            reject(new Error(`orientation classification timed out after ${DOCUMENT_ORIENTATION_TIMEOUT_MS}ms`));
-          },
+          () => reject(new Error(`orientation classification timed out after ${DOCUMENT_ORIENTATION_TIMEOUT_MS}ms`)),
           DOCUMENT_ORIENTATION_TIMEOUT_MS,
         );
       }),

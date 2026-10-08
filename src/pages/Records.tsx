@@ -14,7 +14,7 @@ import { Badge } from "@/components/ui/badge";
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from "@/components/ui/alert-dialog";
 import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowUpDown, ScanLine, Paperclip } from "lucide-react";
 import { Link } from "react-router-dom";
-import { isAdjustmentTransaction, isBillPaymentTransaction, isCardInvoiceObligation, isFinancialNeutralTransaction, isSystemInvoiceTransaction } from "@/lib/transaction-classification";
+import { isAdjustmentTransaction, isBillPaymentTransaction, isFinancialNeutralTransaction } from "@/lib/transaction-classification";
 import * as XLSX from "xlsx";
 
 type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "source" | "amount";
@@ -113,18 +113,8 @@ export default function Records() {
   const isAdjustment = (t: Transaction) => isAdjustmentTransaction(t);
   const isNeutral = (t: Transaction) => isFinancialNeutralTransaction(t);
   const isForecast = (t: Transaction) => t.type === "expense" && t.date > today;
-  const getTypeLabel = (t: Transaction) => isCardInvoiceObligation(t)
-    ? `Fatura · ${t.isPaid ? "Paga" : "A pagar"}`
-    : isAdjustment(t)
-      ? "Ajuste"
-      : isBillPayment(t)
-        ? "Pagamento de Fatura"
-        : t.type === "income"
-          ? "Entrada"
-          : isForecast(t)
-            ? "Saída - Previsão"
-            : "Saída";
-  const getSignedAmount = (t: Transaction) => t.type === "income" ? t.amount : -t.amount;
+  const getTypeLabel = (t: Transaction) => isAdjustment(t) ? "Ajuste" : isBillPayment(t) ? "Pagamento de Fatura" : t.type === "income" ? "Entrada" : isForecast(t) ? "Saída - Previsão" : "Saída";
+  const getSignedAmount = (t: Transaction) => isNeutral(t) ? 0 : t.type === "income" ? t.amount : -t.amount;
 
   const exportToXlsx = useCallback(() => {
     const data = filtered.map((t) => ({
@@ -287,14 +277,12 @@ export default function Records() {
                     <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewing(t)}>
                       <Eye className="h-3.5 w-3.5" />
                     </Button>
-                    {!isSystemInvoiceTransaction(t) && <>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(t); setFormOpen(true); }}>
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleting(t.id)}>
-                        <Trash2 className="h-3.5 w-3.5 text-destructive" />
-                      </Button>
-                    </>}
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(t); setFormOpen(true); }}>
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleting(t.id)}>
+                      <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                    </Button>
                   </div>
                 </div>
                 {t.description && (
@@ -363,14 +351,12 @@ export default function Records() {
                         <Button variant="ghost" size="icon" onClick={() => setViewing(t)}>
                           <Eye className="h-4 w-4" />
                         </Button>
-                        {!isSystemInvoiceTransaction(t) && <>
-                          <Button variant="ghost" size="icon" onClick={() => { setEditing(t); setFormOpen(true); }}>
-                            <Pencil className="h-4 w-4" />
-                          </Button>
-                          <Button variant="ghost" size="icon" onClick={() => setDeleting(t.id)}>
-                            <Trash2 className="h-4 w-4 text-destructive" />
-                          </Button>
-                        </>}
+                        <Button variant="ghost" size="icon" onClick={() => { setEditing(t); setFormOpen(true); }}>
+                          <Pencil className="h-4 w-4" />
+                        </Button>
+                        <Button variant="ghost" size="icon" onClick={() => setDeleting(t.id)}>
+                          <Trash2 className="h-4 w-4 text-destructive" />
+                        </Button>
                       </div>
                     </TableCell>
                   </TableRow>
@@ -385,11 +371,11 @@ export default function Records() {
       <TransactionForm
         open={formOpen}
         onClose={() => { setFormOpen(false); setEditing(undefined); }}
-        onSubmit={async (data, options) => {
+        onSubmit={(data, options) => {
           if (editing) {
-            return updateTransaction({ ...editing, ...data, id: editing.id }, options?.attachments ? { attachments: options.attachments } : undefined);
+            updateTransaction({ ...data, id: editing.id }, options?.attachments ? { attachments: options.attachments } : undefined);
           } else {
-            return addTransaction(data, options);
+            addTransaction(data, options);
           }
         }}
         initial={editing}

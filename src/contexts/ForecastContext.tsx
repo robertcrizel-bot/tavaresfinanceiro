@@ -30,7 +30,7 @@ interface ForecastContextType {
   addBill: (b: Omit<RecurringBill, "id" | "scopedEdits">) => Promise<void>;
   updateBill: (b: RecurringBill, scope: RecurringBillEditScope, referenceMonth: string) => Promise<void>;
   deleteBill: (id: string, scope: RecurringBillDeleteScope, referenceMonth: string) => Promise<void>;
-  markAsPaid: (bill: RecurringBill, referenceMonth: string, overrides?: { amount?: number; date?: string; paymentMethod?: string; accountId?: string | null; creditCardId?: string | null; description?: string | null; }) => Promise<void>;
+  markAsPaid: (bill: RecurringBill, referenceMonth: string, overrides?: { amount?: number; date?: string; paymentMethod?: string; accountId?: string | null; description?: string | null; }) => Promise<void>;
   unmarkAsPaid: (paymentId: string) => Promise<void>;
   refetch: () => void;
 }
@@ -135,7 +135,7 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
     else { toast({ title: "Previsão excluída", variant: "destructive" }); fetchData(); }
   }, [bills, fetchData]);
 
-  const markAsPaid = useCallback(async (bill: RecurringBill, referenceMonth: string, overrides?: { amount?: number; date?: string; paymentMethod?: string; accountId?: string | null; creditCardId?: string | null; description?: string | null; }) => {
+  const markAsPaid = useCallback(async (bill: RecurringBill, referenceMonth: string, overrides?: { amount?: number; date?: string; paymentMethod?: string; accountId?: string | null; description?: string | null; }) => {
     if (!user) return;
 
     let dateStr: string;
@@ -147,10 +147,7 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
       dateStr = dueDate.toISOString().split("T")[0];
     }
 
-    // When paying with a credit card, the transaction should not have an account_id
-    // because the payment is made via credit card (the account will be debited when the invoice is paid)
-    const isCreditCardPayment = overrides?.creditCardId !== undefined && overrides.creditCardId !== null;
-    const accountId = isCreditCardPayment ? null : (overrides?.accountId !== undefined ? overrides.accountId : bill.accountId);
+    const accountId = overrides?.accountId !== undefined ? overrides.accountId : bill.accountId;
 
     // Create a real transaction
     const { data: txData, error: txError } = await supabase.from("transactions").insert({
@@ -163,7 +160,6 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
       description: overrides?.description ?? (bill.description || (bill.type === "income" ? `Recebimento de ${bill.name}` : `Pagamento de ${bill.name}`)),
       payment_method: overrides?.paymentMethod ?? "Transferência",
       account_id: accountId,
-      credit_card_id: overrides?.creditCardId ?? null,
       is_paid: true,
     }).select("id").single();
 

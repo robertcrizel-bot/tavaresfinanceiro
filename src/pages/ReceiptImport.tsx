@@ -9,13 +9,12 @@ import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
-import { takeSharedReceiptWithDiagnostics } from "@/lib/shared-receipt";
-import { parseReceipt, prepareReceiptForLocalOcr, matchByName, matchCategory, ParsedReceipt, type LocalOcrPreparationMetrics } from "@/lib/receipt";
+import { takeSharedReceiptWithDiagnostics, type ShareDiagnostics } from "@/lib/shared-receipt";
+import { receiptToImageDataUrl, matchByName, matchCategory, ParsedReceipt } from "@/lib/receipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
+import { paddleRecognize } from "@/lib/ocr-paddle-test/recognize";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
-import { fastOcrRecognize } from "@/lib/fast-ocr";
-import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientation";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
 
@@ -34,7 +33,6 @@ export default function ReceiptImport() {
   const [duplicate, setDuplicate] = useState(false);
   const [formOpen, setFormOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
-  const [aiConfirmOpen, setAiConfirmOpen] = useState(false);
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -45,6 +43,7 @@ export default function ReceiptImport() {
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const cameraRequestRef = useRef(0);
   const sharedChecked = useRef(false);
+  const [shareDiag, setShareDiag] = useState<ShareDiagnostics | null>(null);
 
   const buildPrefill = useCallback(
     (parsed: ParsedReceipt): Partial<Omit<Transaction, "id">> => {
@@ -76,90 +75,20 @@ export default function ReceiptImport() {
     [accounts, creditCards, allCategoryNames],
   );
 
-  const processFileFast = useCallback(
+  const processFile = useCallback(
     async (file: File) => {
-      const totalStart = performance.now();
-      let shouldOpenForm = false;
-      let completedRun: {
-        initializationMs: number;
-        ocrMs: number;
-        parserMs: number;
-        preparation: LocalOcrPreparationMetrics;
-      } | null = null;
       setPendingFile(file);
       setLoading(true);
       setError(null);
       setDuplicate(false);
-      setReadStatus("Preparando imagem...");
+      setReadStatus("Carregando modelo PaddleOCR...");
       try {
-        const localImage = await prepareReceiptForLocalOcr(file);
-        setReadStatus("Carregando modelo de OCR rápido...");
-        const ocr = await fastOcrRecognize(localImage.image, (status) => setReadStatus(status));
-        const parserStart = performance.now();
-        const receiptResult = buildPaddleReceiptResult(ocr.regions);
-        const parsed = paddleToParsedReceipt(receiptResult);
-        const parserMs = performance.now() - parserStart;
-        completedRun = {
-          initializationMs: ocr.initializationMs,
-          ocrMs: ocr.ocrMs,
-          parserMs,
-          preparation: localImage.metrics,
-        };
-
-        if (!parsed.is_receipt) {
-          setError("Essa imagem não parece ser um comprovante. Tente outra foto mais nítida.");
-          return;
+        const imageDataUrl = await receiptToImageDataUrl(file);
+        const ocr = await paddleRecognize(imageDataUrl, (status) => setReadStatus(status));
+        if (ocr.error) {
+          throw new Error("Não foi possível ler o comprovante agora. Verifique a foto e tente novamente.");
         }
-        if (parsed.receipt_id) {
-          const { data: existing } = await supabase
-            .from("transactions")
-            .select("id")
-            .eq("receipt_ref", parsed.receipt_id)
-            .limit(1);
-          if (existing && existing.length > 0) setDuplicate(true);
-        }
-        setReceiptFile(file);
-        setReceiptRef(parsed.receipt_id ?? null);
-        setLowConfidence(parsed.low_confidence_fields || []);
-        setPrefill(buildPrefill(parsed));
-        shouldOpenForm = true;
-      } catch (e) {
-        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com o OCR rápido.");
-      } finally {
-        try {
-          await releaseDocumentOrientationSession();
-        } catch (releaseError) {
-          console.warn("[receipt-import] failed to release document orientation session", releaseError);
-        }
-        if (completedRun && import.meta.env.MODE !== "test") {
-          console.info("[receipt-import] fast OCR metrics", {
-            initializationMs: Math.round(completedRun.initializationMs),
-            ocrMs: Math.round(completedRun.ocrMs),
-            parserMs: Math.round(completedRun.parserMs),
-            totalMs: Math.round(performance.now() - totalStart),
-            originalDimensions: completedRun.preparation.originalDimensions,
-            ocrInputDimensions: completedRun.preparation.outputDimensions,
-            normalization: completedRun.preparation.normalization,
-          });
-        }
-        setLoading(false);
-        setReadStatus("");
-      }
-      if (shouldOpenForm) setFormOpen(true);
-    },
-    [buildPrefill],
-  );
-
-  const processFileWithAi = useCallback(
-    async (file: File) => {
-      setLoading(true);
-      setError(null);
-      setDuplicate(false);
-      try {
-        const parsed = await parseReceipt(file, {
-          categories: allCategoryNames,
-          accounts: [...accounts.map((a) => `${a.name} (${a.bank})`), ...creditCards.map((c) => `${c.name} (${c.bank})`)],
-        });
+        const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(ocr.regions));
         if (!parsed.is_receipt) {
           setError("Essa imagem não parece ser um comprovante. Tente outra foto mais nítida.");
           return;
@@ -178,9 +107,10 @@ export default function ReceiptImport() {
         setPrefill(buildPrefill(parsed));
         setFormOpen(true);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com IA.");
+        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante.");
       } finally {
         setLoading(false);
+        setReadStatus("");
       }
     },
     [accounts, creditCards, allCategoryNames, buildPrefill],
@@ -292,12 +222,14 @@ export default function ReceiptImport() {
   useEffect(() => {
     if (sharedChecked.current) return;
     sharedChecked.current = true;
-    void takeSharedReceiptWithDiagnostics().then(({ file }) => {
+    const openedByShare = new URLSearchParams(window.location.search).has("shared");
+    void takeSharedReceiptWithDiagnostics().then(({ file, diag }) => {
+      if (openedByShare) setShareDiag(diag);
       if (file) {
-        void processFileFast(file);
+        void processFile(file);
       }
     });
-  }, [processFileFast]);
+  }, [processFile]);
 
   const fieldLabels: Record<string, string> = {
     amount: "valor",
@@ -324,6 +256,15 @@ export default function ReceiptImport() {
         </p>
       </div>
 
+      {shareDiag && (
+        <details className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground" open={!shareDiag.page.found}>
+          <summary className="cursor-pointer font-medium text-foreground">
+            Diagnóstico do compartilhamento: {shareDiag.page.found ? "foto recebida" : "foto não encontrada"}
+          </summary>
+          <pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(shareDiag, null, 2)}</pre>
+        </details>
+      )}
+
       <Card className="p-6 space-y-4">
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
@@ -340,6 +281,16 @@ export default function ReceiptImport() {
               <Button variant="outline" className="gap-2" onClick={() => void openCamera()}>
                 <Camera className="h-4 w-4" /> Tirar foto
               </Button>
+              {pendingFile && (
+                <Button
+                  className="gap-2"
+                  disabled={loading}
+                  onClick={() => void processFile(pendingFile)}
+                >
+                  {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <ScanLine className="h-4 w-4" />}
+                  Ler comprovante
+                </Button>
+              )}
             </div>
             <input
               ref={fileInputRef}
@@ -352,20 +303,6 @@ export default function ReceiptImport() {
                 if (f) setPendingFile(f);
               }}
             />
-            {pendingFile && (
-              <div className="space-y-3 rounded-md border border-border p-3">
-                <p className="truncate text-sm font-medium">{pendingFile.name}</p>
-                <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button className="gap-2 sm:flex-1" disabled={loading} onClick={() => void processFileFast(pendingFile)}>
-                    <ScanLine className="h-4 w-4" /> Ler gratuitamente
-                  </Button>
-                  <Button variant="outline" disabled={loading} onClick={() => setAiConfirmOpen(true)}>
-                    ✨ Ler com IA
-                  </Button>
-                </div>
-                <p className="text-xs text-muted-foreground">A leitura gratuita usa o OCR local e tem custo R$ 0,00.</p>
-              </div>
-            )}
             <p className="text-xs text-muted-foreground flex items-start gap-2">
               <ScanLine className="h-4 w-4 shrink-0 mt-0.5" />
               Funciona com comprovantes de Pix, boletos pagos, compras no cartão e cupons fiscais. Nada é salvo sem a sua
@@ -393,31 +330,7 @@ export default function ReceiptImport() {
             {[...new Set(lowConfidence.map((f) => fieldLabels[f.replace(/\[\d+\].*$/, "")] ?? fieldLabels[f] ?? f))].join(", ")}.
           </div>
         )}
-
       </Card>
-
-      <Dialog open={aiConfirmOpen} onOpenChange={setAiConfirmOpen}>
-        <DialogContent className="w-[calc(100%-2rem)] max-w-md">
-          <DialogHeader>
-            <DialogTitle>Ler com IA</DialogTitle>
-            <DialogDescription>
-              Esta leitura utiliza a IA do Lovable e pode consumir seus créditos. Deseja continuar?
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={() => setAiConfirmOpen(false)}>Cancelar</Button>
-            <Button
-              type="button"
-              onClick={() => {
-                setAiConfirmOpen(false);
-                if (pendingFile) void processFileWithAi(pendingFile);
-              }}
-            >
-              Continuar com IA
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       <Dialog open={cameraOpen} onOpenChange={(open) => !open && closeCamera()}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-2xl">
@@ -459,12 +372,10 @@ export default function ReceiptImport() {
           lowConfidence={lowConfidence}
           title="Confira o registro"
           submitLabel="Salvar registro"
-          onSubmit={async (data, options) => {
-            const created = await addTransaction(data, { ...options, receiptRef: receiptRef ?? undefined });
-            if (!created) return false;
+          onSubmit={(data, options) => {
+            addTransaction(data, { ...options, receiptRef: receiptRef ?? undefined });
             toast({ title: "Registro criado a partir do comprovante" });
             navigate("/records");
-            return true;
           }}
         />
       )}

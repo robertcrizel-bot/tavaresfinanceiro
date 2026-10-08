@@ -15,12 +15,10 @@ import { compressImageFile } from "@/lib/image-compression";
 import { toast } from "@/hooks/use-toast";
 import { calculateCurrentMonthCategorySpending, calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
 
-const ACCOUNT_PAYMENT_METHODS = new Set<PaymentMethod>(["Cartão de Débito", "Pix", "Transferência", "Boleto"]);
-
 interface TransactionFormProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => boolean | void | Promise<boolean | void>;
+  onSubmit: (data: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[] }) => void;
   initial?: Transaction;
   /** Pre-filled values for a brand new record (e.g. read from a receipt). */
   prefill?: Partial<Omit<Transaction, "id">>;
@@ -195,27 +193,14 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
     setAttachments((prev) => prev.filter((_, i) => i !== idx));
   };
 
-  const handlePaymentMethodChange = (value: string) => {
-    const nextPaymentMethod = value === "none" ? "" : value as PaymentMethod;
-    setPaymentMethod(nextPaymentMethod);
-    if (nextPaymentMethod === "Cartão de Crédito") {
-      setAccountId("");
-      return;
-    }
-
-    setCreditCardId("");
-    setInstallments("1");
-    if (!nextPaymentMethod || !ACCOUNT_PAYMENT_METHODS.has(nextPaymentMethod)) setAccountId("");
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     const installmentsNum = parseInt(installments) || 1;
     const isInstallment = !initial && type === "expense" && creditCardId && creditCardId !== "none" && installmentsNum > 1;
     const opts: { installments?: number; attachments?: File[] } = {};
     if (isInstallment) opts.installments = installmentsNum;
     if (attachments.length > 0) opts.attachments = attachments;
-    const saved = await onSubmit(
+    onSubmit(
       {
         title,
         amount: parseFloat(amount),
@@ -231,58 +216,37 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
       },
       Object.keys(opts).length > 0 ? opts : undefined,
     );
-    if (saved !== false) onClose();
+    onClose();
   };
 
-  const showAccount = Boolean(paymentMethod && ACCOUNT_PAYMENT_METHODS.has(paymentMethod));
-  const showCreditCard = paymentMethod === "Cartão de Crédito";
-  const showInstallments = showCreditCard && !initial && type === "expense";
+  const showInstallments = !initial && type === "expense" && creditCardId && creditCardId !== "none";
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
-      <DialogContent className="max-h-[90vh] gap-3 overflow-y-auto p-4 sm:max-w-md sm:gap-4 sm:p-6">
+      <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{dialogTitle ?? (initial ? "Editar Registro" : "Novo Registro")}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-1.5 sm:space-y-2">
-          <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 min-[360px]:gap-x-3 sm:grid-cols-8 sm:gap-x-4 sm:gap-y-2">
-            <div className="order-1 min-w-0 space-y-1 sm:col-span-3 sm:space-y-1.5">
+        <form onSubmit={handleSubmit} className="space-y-2">
+          <div className="grid grid-cols-1 gap-x-4 gap-y-2 min-[360px]:grid-cols-[minmax(0,3fr)_minmax(0,5fr)]">
+            <div className="space-y-1.5">
               <Label>Data <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="date" /></Label>
-              <Input className="h-9 sm:h-10" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
             </div>
-            <div className="order-3 col-span-2 min-w-0 space-y-1 sm:order-2 sm:col-span-5 sm:space-y-1.5">
+            <div className="space-y-1.5">
               <Label>Título <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="counterparty" /></Label>
-              <Input className="h-9 sm:h-10" value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Ex: Supermercado" />
+              <Input value={title} onChange={(e) => setTitle(e.target.value)} required placeholder="Ex: Supermercado" />
             </div>
-            <div className="order-2 min-w-0 space-y-1 sm:order-3 sm:col-span-4 sm:space-y-1.5">
+          </div>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+            <div className="space-y-1.5">
               <Label>Valor (R$) <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="amount" /></Label>
-              <Input className="h-9 sm:h-10" type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="0,00" />
+              <Input type="number" step="0.01" min="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} required placeholder="0,00" />
             </div>
-            <div className="order-4 col-span-2 min-w-0 space-y-1 min-[360px]:col-span-1 sm:col-span-4 sm:space-y-1.5">
-              <Label>Tipo <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="type" /></Label>
-              <Select value={type} onValueChange={(v: TransactionType) => { setType(v); setCategory("Outros"); }}>
-                <SelectTrigger className="h-9 sm:h-10"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="expense">Saída</SelectItem>
-                  <SelectItem value="income">Entrada</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="order-5 col-span-2 min-w-0 space-y-1 min-[360px]:col-span-1 sm:col-span-4 sm:space-y-1.5">
-              <Label>Categoria <span className="text-destructive" aria-hidden="true">*</span></Label>
-              <Select value={category} onValueChange={(v: Category) => setCategory(v)}>
-                <SelectTrigger className="h-9 sm:h-10"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  {categories.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="order-6 col-span-2 min-w-0 space-y-1 sm:col-span-4 sm:space-y-1.5">
+            <div className="space-y-1.5">
               <Label>Forma de Pagamento <LowConfidenceHint field="payment_method" /></Label>
-              <Select value={paymentMethod || "none"} onValueChange={handlePaymentMethodChange}>
-                <SelectTrigger className="h-9 sm:h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+              <Select value={paymentMethod || "none"} onValueChange={(v) => setPaymentMethod(v === "none" ? "" : v as PaymentMethod)}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="none">Nenhuma</SelectItem>
                   {PAYMENT_METHODS.map((m) => (
@@ -292,58 +256,31 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
               </Select>
             </div>
           </div>
-          {showAccount && (
-            <div className="space-y-1 sm:space-y-1.5">
-              <Label>Conta</Label>
-              <Select value={accountId || "none"} onValueChange={(v) => { setAccountId(v === "none" ? "" : v); if (v !== "none") setCreditCardId(""); }}>
-                <SelectTrigger className="h-9 sm:h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
+          <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Tipo <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="type" /></Label>
+              <Select value={type} onValueChange={(v: TransactionType) => { setType(v); setCategory("Outros"); }}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="none">Nenhuma</SelectItem>
-                  {accounts.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name} ({a.bank})</SelectItem>
+                  <SelectItem value="expense">Saída</SelectItem>
+                  <SelectItem value="income">Entrada</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Categoria <span className="text-destructive" aria-hidden="true">*</span></Label>
+              <Select value={category} onValueChange={(v: Category) => setCategory(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {categories.map((c) => (
+                    <SelectItem key={c} value={c}>{c}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
             </div>
-          )}
-          {showCreditCard && (
-            <div className="grid grid-cols-1 gap-x-3 gap-y-1.5 min-[360px]:grid-cols-2 sm:gap-x-4 sm:gap-y-2">
-              <div className="min-w-0 space-y-1 sm:space-y-1.5">
-                <Label>Cartão de Crédito</Label>
-                <Select value={creditCardId || "none"} onValueChange={(v) => { setCreditCardId(v === "none" ? "" : v); if (v !== "none") setAccountId(""); }}>
-                  <SelectTrigger className="h-9 sm:h-10"><SelectValue placeholder="Selecione..." /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">Nenhum</SelectItem>
-                    {creditCards.map((c) => (
-                      <SelectItem key={c.id} value={c.id}>{c.name} ({c.bank})</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              {showInstallments && (
-                <div className="min-w-0 space-y-1 sm:space-y-1.5">
-                  <Label>Parcelar em</Label>
-                  <Select value={installments} onValueChange={setInstallments} disabled={!creditCardId || creditCardId === "none"}>
-                    <SelectTrigger className="h-9 sm:h-10"><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      {Array.from({ length: 24 }, (_, i) => i + 1).map((n) => (
-                        <SelectItem key={n} value={String(n)}>
-                          {n === 1 ? "À vista" : `${n}x de ${(parseFloat(amount || "0") / n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                  {parseInt(installments) > 1 && (
-                    <p className="text-xs text-muted-foreground">
-                      Será criada uma transação por mês na fatura do cartão, começando na data informada.
-                    </p>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
+          </div>
           {budgetInfo && (
-            <div className="space-y-1 rounded-lg border border-border bg-muted/30 p-2 text-xs sm:space-y-1.5 sm:p-3">
+            <div className="rounded-lg border border-border bg-muted/30 p-3 text-xs space-y-1.5">
               <p className="text-muted-foreground text-[11px]">Orçamento utilizado após este lançamento</p>
               <div>
                 <span className="font-semibold text-sm">
@@ -367,11 +304,57 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
               </p>
             </div>
           )}
-          <div className="space-y-1 sm:space-y-1.5">
-            <Label>Descrição</Label>
-            <Textarea className="min-h-[140px] sm:min-h-[120px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
+          <div className="grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Conta</Label>
+              <Select value={accountId || "none"} onValueChange={(v) => { setAccountId(v === "none" ? "" : v); if (v !== "none") setCreditCardId(""); }}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhuma</SelectItem>
+                  {accounts.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name} ({a.bank})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Cartão de Crédito</Label>
+              <Select value={creditCardId || "none"} onValueChange={(v) => { setCreditCardId(v === "none" ? "" : v); if (v !== "none") setAccountId(""); }}>
+                <SelectTrigger><SelectValue placeholder="Selecione..." /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">Nenhum</SelectItem>
+                  {creditCards.map((c) => (
+                    <SelectItem key={c.id} value={c.id}>{c.name} ({c.bank})</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
-          <div className="space-y-1 sm:space-y-1.5">
+          {showInstallments && (
+            <div className="space-y-1.5 rounded-lg border border-border bg-muted/30 p-3">
+              <Label>Parcelar em</Label>
+              <Select value={installments} onValueChange={setInstallments}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  {Array.from({ length: 24 }, (_, i) => i + 1).map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n === 1 ? "À vista" : `${n}x de ${(parseFloat(amount || "0") / n).toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {parseInt(installments) > 1 && (
+                <p className="text-xs text-muted-foreground">
+                  Será criada uma transação por mês na fatura do cartão, começando na data informada.
+                </p>
+              )}
+            </div>
+          )}
+          <div className="space-y-1.5">
+            <Label>Descrição</Label>
+            <Textarea className="min-h-[120px]" value={description} onChange={(e) => setDescription(e.target.value)} placeholder="Detalhes..." rows={2} />
+          </div>
+          <div className="space-y-1.5">
             <Label>Anexos</Label>
             <div className="flex flex-wrap gap-2">
               <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()}>
