@@ -14,6 +14,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TransactionDetail } from "@/components/TransactionDetail";
 import { calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
+import { chartColor } from "@/lib/chart-theme";
 import { cn } from "@/lib/utils";
 import type { Transaction } from "@/lib/types";
 import {
@@ -70,20 +71,7 @@ const PERIOD_OPTIONS: { value: AnalyticsPeriod; label: string }[] = [
   { value: "year", label: "Ano" },
 ];
 
-const DONUT_COLORS = [
-  "hsl(160 84% 39%)",
-  "hsl(160 62% 34%)",
-  "hsl(168 50% 42%)",
-  "hsl(150 42% 46%)",
-  "hsl(195 55% 46%)",
-  "hsl(215 45% 52%)",
-  "hsl(180 35% 45%)",
-  "hsl(140 35% 40%)",
-  "hsl(170 28% 52%)",
-  "hsl(200 30% 44%)",
-];
-
-const colorForIndex = (index: number) => DONUT_COLORS[index % DONUT_COLORS.length];
+const colorForIndex = (index: number) => chartColor(index);
 
 const money = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -620,14 +608,15 @@ export default function ExpenseAnalytics() {
                       )}
                       <ResponsiveContainer width="100%" height={240}>
                         <LineChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" />
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 20%)" vertical={false} />
                           <XAxis
                             dataKey="label"
-                            tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }}
+                            tick={{ fontSize: 11, fill: "hsl(215 20% 66%)" }}
                             interval="preserveStartEnd"
                             minTickGap={16}
+                            tickMargin={8}
                           />
-                          <YAxis tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} width={45} />
+                          <YAxis tick={{ fontSize: 11, fill: "hsl(215 20% 66%)" }} width={52} />
                           <Tooltip
                             contentStyle={{
                               backgroundColor: "hsl(224 18% 13%)",
@@ -654,9 +643,10 @@ export default function ExpenseAnalytics() {
                           <Line
                             type="monotone"
                             dataKey="total"
-                            stroke="hsl(160 84% 39%)"
-                            strokeWidth={2}
+                            stroke="hsl(168 70% 45%)"
+                            strokeWidth={2.5}
                             dot={false}
+                            activeDot={{ r: 4, fill: "hsl(168 70% 45%)", strokeWidth: 0 }}
                           />
                         </LineChart>
                       </ResponsiveContainer>

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet, ScanLine } from "lucide-react";
 import { Link } from "react-router-dom";
 import { isFinancialNeutralTransaction } from "@/lib/transaction-classification";
+import { chartColor } from "@/lib/chart-theme";
 import { calculateAccountBalances, calculateFinancialTotals } from "@/lib/financial-calculations";
 import { getCardCommittedAmount } from "@/lib/credit-card-billing";
 import {
@@ -104,8 +105,6 @@ export default function Dashboard() {
   }, [filtered]);
 
   // Bar chart data
-  const categoryColors = ["hsl(160 84% 39%)"];
-
   const barData = useMemo(() => {
     const map: Record<string, number> = {};
     filtered.filter((t) => t.type === "expense" && !isNeutral(t)).forEach((t) => {
@@ -113,7 +112,7 @@ export default function Dashboard() {
     });
     return Object.entries(map)
       .sort(([, a], [, b]) => b - a)
-      .map(([category, total], i) => ({ category, total, fill: categoryColors[i % categoryColors.length] }));
+      .map(([category, total], i) => ({ category, total, fill: chartColor(i) }));
   }, [filtered]);
 
   // Insights
@@ -232,9 +231,9 @@ export default function Dashboard() {
         <ChartCard title="Gastos por Dia">
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={lineData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" />
-              <XAxis dataKey="date" tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} />
-              <YAxis tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} width={45} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 20%)" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "hsl(215 20% 66%)" }} tickMargin={8} />
+              <YAxis tick={{ fontSize: 11, fill: "hsl(215 20% 66%)" }} width={52} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "hsl(224 18% 13%)",
@@ -248,17 +247,17 @@ export default function Dashboard() {
                 cursor={{ stroke: "hsl(215 15% 52%)", strokeWidth: 1, strokeDasharray: "3 3" }}
                 formatter={(value: number) => [fmt(value), "Total"]}
               />
-              <Line type="monotone" dataKey="total" stroke="hsl(160 84% 39%)" strokeWidth={2} dot={{ r: 3, fill: "hsl(160 84% 39%)" }} />
+              <Line type="monotone" dataKey="total" stroke="hsl(0 72% 58%)" strokeWidth={2.5} dot={{ r: 3, fill: "hsl(0 72% 58%)", strokeWidth: 0 }} activeDot={{ r: 4, fill: "hsl(0 72% 58%)", strokeWidth: 0 }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
 
         <ChartCard title="Despesas por Categoria">
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={barData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" />
-              <XAxis dataKey="category" tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} />
-              <YAxis tick={{ fontSize: 10, fill: "hsl(215 15% 52%)" }} width={45} />
+            <BarChart data={barData} margin={{ left: 4, right: 12 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 20%)" vertical={false} />
+              <XAxis dataKey="category" tick={{ fontSize: 11, fill: "hsl(215 20% 66%)" }} tickMargin={8} interval={0} angle={-18} dy={8} height={52} />
+              <YAxis tick={{ fontSize: 11, fill: "hsl(215 20% 66%)" }} width={52} />
               <Tooltip
                 contentStyle={{
                   backgroundColor: "hsl(224 18% 13%)",
@@ -272,7 +271,7 @@ export default function Dashboard() {
                 cursor={{ fill: "hsl(224 14% 22% / 0.4)" }}
                 formatter={(value: number) => [fmt(value), "Total"]}
               />
-              <Bar dataKey="total" radius={[6, 6, 0, 0]}>
+              <Bar dataKey="total" radius={[6, 6, 6, 6]} background={{ fill: "hsl(224 14% 16%)", radius: 6 } as never}>
                 {barData.map((entry, index) => (
                   <Cell key={index} fill={entry.fill} />
                 ))}

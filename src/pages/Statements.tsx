@@ -48,6 +48,7 @@ import {
 } from "@/lib/statements";
 import type { Transaction } from "@/lib/types";
 import { PAYMENT_METHODS } from "@/lib/types";
+import { chartColor } from "@/lib/chart-theme";
 import {
   exportStatementsToCsv,
   exportStatementsToExcel,
@@ -56,12 +57,7 @@ import {
   type StatementsExportPayload,
 } from "@/lib/statements-export";
 
-const DONUT_COLORS = [
-  "hsl(172 66% 45%)", "hsl(217 80% 62%)", "hsl(262 68% 68%)", "hsl(36 92% 58%)",
-  "hsl(340 70% 62%)", "hsl(150 60% 45%)", "hsl(200 78% 55%)", "hsl(288 62% 66%)",
-  "hsl(24 86% 60%)", "hsl(190 72% 48%)",
-];
-const colorForIndex = (index: number) => DONUT_COLORS[index % DONUT_COLORS.length];
+const colorForIndex = (index: number) => chartColor(index);
 
 const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const percent = (value: number) => `${value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
