@@ -107,12 +107,27 @@ describe("paddleRecognizeWorker", () => {
   });
 
   it("terminates the worker and keeps a clear message after timeout", async () => {
-    const file = makeFile();
-    const pending = paddleRecognizeWorker(file, undefined, { createWorker, timeoutMs: 30 });
-    const assertion = expect(pending).rejects.toThrow(PADDLE_OCR_TIMEOUT_MESSAGE);
-    const worker = await lastWorker();
-    await assertion;
-    expect(worker.terminated).toBe(true);
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const file = makeFile();
+      const pending = paddleRecognizeWorker(file, undefined, { createWorker, timeoutMs: 200 });
+      const assertion = expect(pending).rejects.toThrow(PADDLE_OCR_TIMEOUT_MESSAGE);
+      let worker: FakeWorker | undefined;
+      for (let i = 0; i < 100 && !worker; i += 1) {
+        await Promise.resolve();
+        worker = FakeWorker.instances[FakeWorker.instances.length - 1];
+      }
+      if (!worker) throw new Error("worker was not created");
+      worker.onmessage?.({ data: { id: 1, type: "progress", message: "Lendo comprovante..." } });
+      await assertion;
+      expect(worker.terminated).toBe(true);
+      expect(warn).toHaveBeenCalledWith(
+        "[paddle-ocr-worker] timeout na etapa:",
+        "Lendo comprovante...",
+      );
+    } finally {
+      warn.mockRestore();
+    }
   });
 
   it("creates one worker per read", async () => {

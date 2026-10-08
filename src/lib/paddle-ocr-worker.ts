@@ -50,13 +50,16 @@ export async function paddleRecognizeWorker(
   ))();
   try {
     return await new Promise<PaddleWorkerOutcome>((resolve, reject) => {
+      let lastStatus = "worker-start";
       const timeout = setTimeout(() => {
+        console.warn("[paddle-ocr-worker] timeout na etapa:", lastStatus);
         worker.terminate();
         reject(new Error(PADDLE_OCR_TIMEOUT_MESSAGE));
       }, timeoutMs);
       worker.onmessage = (event: MessageEvent<PaddleOcrWorkerMessage>) => {
         const message = event.data;
         if (message.type === "progress") {
+          lastStatus = message.message;
           onProgress?.(message.message);
         } else if (message.type === "result") {
           clearTimeout(timeout);
