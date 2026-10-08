@@ -35,9 +35,78 @@ const TOTAL_MARKER_PATTERNS: RegExp[] = [
   /total\s*geral/i,
 ];
 
+const TOTAL_LABEL_WORD_SETS: readonly (readonly string[])[] = [
+  ["valor", "a", "pagar"],
+  ["valor", "pago"],
+  ["valor", "total"],
+  ["total", "geral"],
+];
+const TOTAL_LABEL_MAX_EDIT_DISTANCE = 2;
+
 const EXCLUDE_TOTAL_LINE_RE =
   /(?:descont|troco|subtotal|sub\s*total|incidentes|unit[aá]rio|pre[çc]o\s*unit|vlr?\s*unit)/i;
 const MONEY_TOKEN_RE = /(?:\d{1,3}(?:\.\d{3})+,\d{2}|\d+[.,]\d{2})/;
+
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0;
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  let previous = Array.from({ length: cols }, (_, index) => index);
+  for (let i = 1; i < rows; i++) {
+    const current = [i];
+    for (let j = 1; j < cols; j++) {
+      current[j] = Math.min(
+        previous[j] + 1,
+        current[j - 1] + 1,
+        previous[j - 1] + (a[i - 1] === b[j - 1] ? 0 : 1),
+      );
+    }
+    previous = current;
+  }
+  return previous[cols - 1];
+}
+
+function maxWordDistance(target: string): number {
+  if (target.length >= 5) return 2;
+  if (target.length === 4) return 1;
+  return 0;
+}
+
+/**
+ * Tolerant end index (into the original text) of a known total label degraded by
+ * common OCR character errors, e.g. "UALOR TOTAL" -> "valor total".
+ * Requires a word-level match of one known label with at most
+ * TOTAL_LABEL_MAX_EDIT_DISTANCE corrections in total, so unrelated fiscal lines
+ * (payment methods, unit prices, PIX rows) never qualify.
+ */
+function fuzzyTotalLabelEnd(text: string): number | null {
+  const matches = [...text.matchAll(/[a-z0-9]+/gi)];
+  const words = matches.map((match) => ({
+    word: match[0].toLowerCase(),
+    end: (match.index ?? 0) + match[0].length,
+  }));
+  for (const label of TOTAL_LABEL_WORD_SETS) {
+    if (words.length < label.length) continue;
+    for (let start = 0; start + label.length <= words.length; start++) {
+      let total = 0;
+      let matched = true;
+      for (let offset = 0; offset < label.length; offset++) {
+        const target = label[offset];
+        const candidate = words[start + offset].word;
+        const distance = candidate === target ? 0 : levenshtein(candidate, target);
+        if (distance > maxWordDistance(target)) {
+          matched = false;
+          break;
+        }
+        total += distance;
+      }
+      if (matched && total <= TOTAL_LABEL_MAX_EDIT_DISTANCE) {
+        return words[start + label.length - 1].end;
+      }
+    }
+  }
+  return null;
+}
 
 function roundCents(value: number): number {
   return Math.round(value * 100) / 100;
@@ -154,6 +223,23 @@ function extractReceiptTotal(
         }
       }
     }
+    for (let i = from; i < lines.length; i++) {
+      const text = lineText(lines[i]);
+      const labelEnd = fuzzyTotalLabelEnd(text);
+      if (labelEnd === null) continue;
+      if (EXCLUDE_TOTAL_LINE_RE.test(text)) continue;
+      const sameLine = moneyAfterIndex(text, labelEnd);
+      if (sameLine !== null) return sameLine;
+      const nextLine = lineText(lines[i + 1]).trim();
+      if (nextLine && !EXCLUDE_TOTAL_LINE_RE.test(nextLine)) {
+        const nextValue = moneyAfterIndex(nextLine, 0);
+        if (nextValue !== null) return nextValue;
+        if (lines[i + 1] && linesAreClose(lines[i], lines[i + 1])) {
+          const fragmentedNextLine = fragmentedMoneyInLine(lines[i + 1], 0);
+          if (fragmentedNextLine !== null) return fragmentedNextLine;
+        }
+      }
+    }
     return null;
   };
 
@@ -267,13 +353,220 @@ function extractTime(text: string): string | null {
   return null;
 }
 
+export interface UnitPriceFallbackContext {
+  unitPrice: number | null;
+  quantity: number | null;
+  unit: string | null;
+  hasDiscountZone: boolean;
+}
+
+/**
+ * Picks what the customer actually paid for the item.
+ *
+ * When neither an explicit final price nor an original total was recognized,
+ * a single unit of "UN" can still fall back to its printed unit price: with
+ * quantity 1 and unit UN the unit price *is* the item total. The fallback is
+ * deliberately narrow and never applies to weighed goods (KG), liquids, packed
+ * quantities different from 1, unknown quantities, discounted items or any
+ * ambiguous block.
+ */
 export function selectEffectiveValue(
   explicitFinalValue: number | null,
   originalTotal: number | null,
+  fallback?: UnitPriceFallbackContext,
 ): number | null {
   if (explicitFinalValue !== null) return explicitFinalValue;
   if (originalTotal !== null) return originalTotal;
+  if (!fallback || fallback.hasDiscountZone) return null;
+  const { unitPrice, quantity, unit } = fallback;
+  if (unitPrice === null || !(unitPrice > 0)) return null;
+  if (unit !== "UN") return null;
+  if (quantity === null) return null;
+  if (Math.abs(quantity - 1) > QUANTITY_EPSILON) return null;
+  return roundCents(unitPrice);
+}
+
+const ITEM_CODE_TOKEN_RE = /^(?:\d{8}|\d{12}|\d{13}|\d{14})(?!\d)/;
+const QUANTITY_EPSILON = 1e-6;
+const MAX_EQUIVALENT_DESCRIPTION_DISTANCE = 2;
+const MIN_EQUIVALENT_DESCRIPTION_LENGTH = 8;
+
+function extractItemCode(
+  lines: GridLine[],
+  lineIndices: number[],
+): string | null {
+  for (const lineIndex of lineIndices) {
+    const line = lines[lineIndex];
+    if (!line) continue;
+    for (const region of line.regions) {
+      const match = region.text.trim().match(ITEM_CODE_TOKEN_RE);
+      if (match) return match[0];
+    }
+  }
   return null;
+}
+
+function normalizeDescription(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, " ")
+    .trim();
+}
+
+function descriptionsEquivalent(a: string | null, b: string | null): boolean {
+  if (a === null || b === null) return false;
+  const left = normalizeDescription(a);
+  const right = normalizeDescription(b);
+  if (!left || !right) return false;
+  if (left === right) return true;
+  if (Math.max(left.length, right.length) < MIN_EQUIVALENT_DESCRIPTION_LENGTH) {
+    return false;
+  }
+  return levenshtein(left, right) <= allowedDescriptionDistance(left, right);
+}
+
+/**
+ * The same product line printed three times comes back from the OCR with
+ * confusions like "OHT" / "UHT" or "IIALAC" / "ITALAC", so the strict distance
+ * alone drops the sibling lines of a repeated EAN. Allow up to 10% of the
+ * longer description to differ (never more than 2 extra characters) while the
+ * items are already known to carry the exact same barcode.
+ */
+function allowedDescriptionDistance(left: string, right: string): number {
+  const longest = Math.max(left.length, right.length);
+  return Math.max(
+    MAX_EQUIVALENT_DESCRIPTION_DISTANCE,
+    Math.min(
+      MAX_EQUIVALENT_DESCRIPTION_DISTANCE + 2,
+      Math.floor(longest * 0.1),
+    ),
+  );
+}
+
+function quantitiesCompatible(a: number | null, b: number | null): boolean {
+  if (a === null || b === null) return true;
+  return Math.abs(a - b) < QUANTITY_EPSILON;
+}
+
+function unitsCompatible(a: string | null, b: string | null): boolean {
+  if (a === null || b === null) return true;
+  return a === b;
+}
+
+function fillRepeatedItemPrice(group: PaddleReceiptItem[]): void {
+  const values = new Set<number>();
+  for (const item of group) {
+    if (item.effectiveValue !== null) values.add(roundCents(item.effectiveValue));
+  }
+  if (values.size !== 1) return;
+
+  const carriers = group.filter((item) => item.effectiveValue !== null);
+  const value = [...values][0];
+  for (const item of group) {
+    if (item.effectiveValue !== null) continue;
+    if (item.explicitFinalValue !== null) continue;
+    // Every sibling that carries the price has to agree on description,
+    // quantity and unit before the value is copied to this line. A single
+    // unreadable sibling never blanks the readable ones.
+    const compatible = carriers.every(
+      (carrier) =>
+        descriptionsEquivalent(carrier.description, item.description) &&
+        quantitiesCompatible(carrier.quantity, item.quantity) &&
+        unitsCompatible(carrier.unit, item.unit),
+    );
+    if (!compatible) continue;
+    item.originalTotal = value;
+    item.effectiveValue = value;
+  }
+}
+
+function propagateRepeatedItemPrices(
+  items: PaddleReceiptItem[],
+  codes: (string | null)[],
+  hasDiscountZone: boolean[],
+): void {
+  let index = 0;
+  while (index < items.length) {
+    const code = codes[index];
+    let end = index;
+    while (
+      code !== null &&
+      end + 1 < items.length &&
+      codes[end + 1] === code
+    ) {
+      end += 1;
+    }
+    if (code !== null && end > index) {
+      const group = items.slice(index, end + 1);
+      fillRepeatedItemPrice(group);
+      reconcileRepeatedItemPrices(group, hasDiscountZone.slice(index, end + 1));
+    }
+    index = end + 1;
+  }
+}
+
+/**
+ * Conservative reconciliation of the same repeated product when the OCR read
+ * the same EAN three or more consecutive times but returned slightly different
+ * values for each row (e.g. 2.75 / 2.25 / 2.75 from "2:25" noise).
+ *
+ * Only runs when every row of the group carries the exact same EAN, quantity
+ * and unit, none of them has an explicit final price or a discount zone, and a
+ * strict majority of the recognized values is identical. Groups without a
+ * clear majority are never touched.
+ */
+function reconcileRepeatedItemPrices(
+  group: PaddleReceiptItem[],
+  hasDiscountZone: boolean[],
+): void {
+  if (group.length < 3) return;
+  if (hasDiscountZone.some(Boolean)) return;
+  if (group.some((item) => item.explicitFinalValue !== null)) return;
+
+  const quantity = group[0].quantity;
+  const unit = group[0].unit;
+  if (quantity === null || unit === null) return;
+  const sameShape = group.every(
+    (item) =>
+      item.quantity !== null &&
+      item.unit !== null &&
+      Math.abs(item.quantity - quantity) < QUANTITY_EPSILON &&
+      item.unit === unit,
+  );
+  if (!sameShape) return;
+
+  const counts = new Map<number, number>();
+  let pricedCount = 0;
+  for (const item of group) {
+    if (item.effectiveValue === null) continue;
+    pricedCount += 1;
+    const value = roundCents(item.effectiveValue);
+    counts.set(value, (counts.get(value) ?? 0) + 1);
+  }
+  if (pricedCount < 2) return;
+
+  let bestValue: number | null = null;
+  let bestCount = 0;
+  let tied = false;
+  for (const [value, count] of counts) {
+    if (count > bestCount) {
+      bestValue = value;
+      bestCount = count;
+      tied = false;
+    } else if (count === bestCount) {
+      tied = true;
+    }
+  }
+  if (bestValue === null || tied) return;
+  if (bestCount * 2 <= pricedCount) return;
+
+  for (const item of group) {
+    if (item.effectiveValue === null) continue;
+    item.originalTotal = bestValue;
+    item.effectiveValue = bestValue;
+  }
 }
 
 function buildText(lines: GridLine[]): string {
@@ -315,8 +608,10 @@ export function buildPaddleReceiptResult(
   const text = buildText(lines);
   const { blocks, areaEnd } = detectItemBlocks(lines);
 
+  const discountZones: boolean[] = [];
   const items: PaddleReceiptItem[] = blocks.map((block) => {
     const extracted = extractItemBlock(lines, block);
+    discountZones.push(extracted.hasDiscountZone);
     return {
       description: extracted.description,
       quantity: extracted.quantity,
@@ -327,10 +622,21 @@ export function buildPaddleReceiptResult(
       effectiveValue: selectEffectiveValue(
         extracted.explicitFinalValue,
         extracted.originalTotal,
+        {
+          unitPrice: extracted.unitPrice,
+          quantity: extracted.quantity,
+          unit: extracted.unit,
+          hasDiscountZone: extracted.hasDiscountZone,
+        },
       ),
       classification: extracted.classification,
     };
   });
+
+  const itemCodes = blocks.map((block) =>
+    extractItemCode(lines, block.lineIndices),
+  );
+  propagateRepeatedItemPrices(items, itemCodes, discountZones);
 
   const receiptTotal = extractReceiptTotal(lines, areaEnd);
 

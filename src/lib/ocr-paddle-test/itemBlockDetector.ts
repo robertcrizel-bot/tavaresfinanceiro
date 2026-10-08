@@ -55,7 +55,7 @@ const COMPLEMENT_PREFIX_RE = /^(?:de|por|desconto)\b/i;
 const DIGIT_RE = /\d/;
 const UNIT_TOKEN_RE =
   /(?:^|[\s.,])(?:un|und|unidade|kg|g|ml|lt|l)(?=$|[\s.,])/i;
-const MONEY_RE = /\d+[.,]\d{2}(?!\d)/;
+const MONEY_RE = /\d+[.,]\d{2}(?!\d)|\d{1,3}:\d{2}(?!\d)/;
 const QTY_PATTERN_RE =
   /(?<!\d)\d+(?:[.,]\d+)?\s*(?:[xX]\s*)?(?:UN|KG|ML|LT|L|G)X?(?![A-Za-z])/;
 const LEADING_CODE_RE = /^\d{3,}\s+\S/;
@@ -409,7 +409,7 @@ export function detectItemBlocks(
         };
         continue;
       }
-      const labelRemainder = text.replace(/\d+[.,]\d{2}/g, "").trim();
+      const labelRemainder = text.replace(/\d+[.,]\d{2}|\d{1,3}:\d{2}(?!\d)/g, "").trim();
       const hasShortLabel =
         !hasQtyPrefix &&
         /[A-Za-z\u00C0-\u024F]{1,}/.test(labelRemainder);
@@ -453,7 +453,7 @@ export function detectItemBlocks(
       const coded = hasLeadingCode(text);
       const openMoney = open ? blockHasMoney(lines, open) : false;
       const hasPureMoneyRegion = line.regions.some((region) =>
-        /^\d+[.,]\d{2}$/.test(region.text.trim()),
+        /^\d+[.,]\d{2}$|^\d{1,3}:\d{2}$/.test(region.text.trim()),
       );
       const auxiliary =
         hasMoney(text) &&

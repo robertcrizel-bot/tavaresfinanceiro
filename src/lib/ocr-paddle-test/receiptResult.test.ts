@@ -3,6 +3,7 @@ import {
   buildPaddleReceiptResult,
   selectEffectiveValue,
 } from "./receiptResult";
+import { paddleToParsedReceipt } from "./paddleToParsedReceipt";
 import { drogalRegions } from "./__fixtures__/drogal.fixture";
 import { fonsecaRegions } from "./__fixtures__/fonseca.fixture";
 import { hortifrutiRegions } from "./__fixtures__/hortifruti.fixture";
@@ -580,5 +581,434 @@ describe("buildPaddleReceiptResult rules", () => {
     ]);
 
     expect(result.receiptTotal).toBe(40);
+  });
+});
+
+describe("buildPaddleReceiptResult OCR-degraded total labels", () => {
+  function region(text: string, x: number, y: number, width: number, height = 30) {
+    return {
+      text,
+      confidence: 0.95,
+      bbox: [
+        [x, y],
+        [x + width, y],
+        [x + width, y + height],
+        [x, y + height],
+      ] as [number, number][],
+    };
+  }
+
+  it('reads "VALOR TOTAL R$ 65,67" with comma decimals', () => {
+    const result = buildPaddleReceiptResult([
+      region("FONSECA SUPERMERCADOS LTDA", 120, 300, 300),
+      region("VALOR TOTAL R$ 65,67", 151, 1239, 300),
+    ]);
+
+    expect(result.receiptTotal).toBeCloseTo(65.67, 2);
+  });
+
+  it('reads "VALOR TOTAL R$ 65.67" with dot decimals', () => {
+    const result = buildPaddleReceiptResult([
+      region("FONSECA SUPERMERCADOS LTDA", 120, 300, 300),
+      region("VALOR TOTAL R$ 65.67", 151, 1239, 300),
+    ]);
+
+    expect(result.receiptTotal).toBeCloseTo(65.67, 2);
+  });
+
+  it('reads the OCR-degraded "UALOR TOTAL R$ 65.67" into amount 65.67', () => {
+    const result = buildPaddleReceiptResult([
+      region("FONSECA SUPERMERCADOS LTDA", 120, 300, 300),
+      region("UALOR TOTAL R$ 65.67", 151, 1239, 300),
+    ]);
+
+    expect(result.receiptTotal).toBeCloseTo(65.67, 2);
+
+    const parsed = paddleToParsedReceipt(result);
+    expect(parsed.amount).toBeCloseTo(65.67, 2);
+    expect(parsed.low_confidence_fields).not.toContain("amount");
+  });
+
+  it("reads label and value from separate regions of the same line", () => {
+    const result = buildPaddleReceiptResult([
+      region("FONSECA SUPERMERCADOS LTDA", 120, 300, 300),
+      region("CARTEIRA DIGITAL", 151, 964, 200),
+      region("65,67", 784, 977, 68),
+      region("UALOR TOTAL", 151, 1239, 125),
+      region("R$ 65.67", 467, 1257, 97, 23),
+    ]);
+
+    expect(result.receiptTotal).toBeCloseTo(65.67, 2);
+  });
+
+  it("never picks the PIX payment row as the total", () => {
+    const withPix = buildPaddleReceiptResult([
+      region("FONSECA SUPERMERCADOS LTDA", 120, 300, 300),
+      region("CARTEIRA DIGITAL", 151, 964, 200),
+      region("65,67", 784, 977, 68),
+      region("UALOR TOTAL", 151, 1239, 125),
+      region("R$ 65.67", 467, 1257, 97, 23),
+      region("VENDA PIX COMPRA", 127, 1386, 226),
+      region("12,05", 784, 1390, 68, 26),
+    ]);
+    expect(withPix.receiptTotal).toBeCloseTo(65.67, 2);
+    expect(withPix.receiptTotal).not.toBeCloseTo(12.05, 2);
+
+    const pixOnly = buildPaddleReceiptResult([
+      region("FONSECA SUPERMERCADOS LTDA", 120, 300, 300),
+      region("VENDA PIX COMPRA", 127, 1386, 226),
+      region("12,05", 784, 1390, 68, 26),
+    ]);
+    expect(pixOnly.receiptTotal).toBeNull();
+  });
+});
+
+describe("propagate repeated item prices by exact EAN", () => {
+  const CREAM = "CREME LEITE UHT ITALAC 200G TP";
+  const CREAM_EAN = "7898080640222";
+  const OTHER_EAN = "7891132082469";
+
+  function region(text: string, x: number, y: number, w: number, h: number) {
+    return {
+      text,
+      confidence: 0.95,
+      bbox: [
+        [x, y],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+      ] as [number, number][],
+    };
+  }
+
+  type Row = {
+    y: number;
+    ean?: string;
+    description?: string;
+    price?: string;
+    discount?: string;
+  };
+
+  function build(rows: Row[]) {
+    const regions = [region("PRODUTO QTD VALOR", 10, 60, 240, 12)];
+    for (const row of rows) {
+      const ean = row.ean ?? CREAM_EAN;
+      const description = row.description ?? CREAM;
+      regions.push(region(`${ean} ${description}`, 10, row.y, 340, 16));
+      regions.push(region("1UN", 400, row.y + 2, 40, 12));
+      if (row.price) regions.push(region(row.price, 460, row.y + 2, 50, 12));
+      if (row.discount) regions.push(region(row.discount, 10, row.y + 25, 240, 12));
+    }
+    const lastY = rows[rows.length - 1].y;
+    regions.push(region("Qtde. Total de Itens", 10, lastY + 60, 240, 12));
+    return buildPaddleReceiptResult(regions);
+  }
+
+  it("fills 2,75 / 2,75 / 2,75 for three consecutive rows with the same EAN", () => {
+    const result = build([
+      { y: 150, price: "2,75" },
+      { y: 195 },
+      { y: 240 },
+    ]);
+
+    expect(result.items).toHaveLength(3);
+    expect(result.items.map((item) => item.effectiveValue)).toEqual([
+      2.75, 2.75, 2.75,
+    ]);
+    expect(result.items.map((item) => item.originalTotal)).toEqual([
+      2.75, 2.75, 2.75,
+    ]);
+    expect(result.items.every((item) => item.explicitFinalValue === null)).toBe(
+      true,
+    );
+  });
+
+  it("does not fill missing prices when two explicit prices differ", () => {
+    const result = build([
+      { y: 150, price: "2,75" },
+      { y: 195, price: "3,50" },
+      { y: 240 },
+    ]);
+
+    expect(result.items.map((item) => item.effectiveValue)).toEqual([
+      2.75, 3.5, null,
+    ]);
+  });
+
+  it("does not propagate across different EANs even with the same description", () => {
+    const result = build([
+      { y: 150, price: "2,75" },
+      { y: 195, ean: OTHER_EAN },
+    ]);
+
+    expect(result.items).toHaveLength(2);
+    expect(result.items.map((item) => item.effectiveValue)).toEqual([
+      2.75, null,
+    ]);
+  });
+
+  it("does not propagate when the same EAN is not consecutive", () => {
+    const result = build([
+      { y: 150, price: "2,75" },
+      { y: 195, ean: OTHER_EAN, description: "REFRESCO EM PO TANG 18GR" },
+      { y: 240 },
+    ]);
+
+    expect(result.items).toHaveLength(3);
+    expect(result.items.map((item) => item.effectiveValue)).toEqual([
+      2.75, null, null,
+    ]);
+  });
+
+  it("never invents a price when no item of the group has a known value", () => {
+    const result = build([{ y: 150 }, { y: 195 }, { y: 240 }]);
+
+    expect(result.items).toHaveLength(3);
+    expect(result.items.map((item) => item.effectiveValue)).toEqual([
+      null, null, null,
+    ]);
+    expect(result.sumKnownItemValues).toBe(0);
+  });
+
+  it("keeps an item's own discount instead of overwriting it", () => {
+    const result = build([
+      { y: 150, price: "2,75" },
+      { y: 195, discount: "Por 2,50" },
+      { y: 240 },
+    ]);
+
+    expect(result.items).toHaveLength(3);
+    expect(result.items[1].explicitFinalValue).toBe(2.5);
+    expect(result.items[1].effectiveValue).toBe(2.5);
+    expect(result.items[1].originalTotal).toBeNull();
+    expect(result.items[0].effectiveValue).toBe(2.75);
+    expect(result.items[2].effectiveValue).toBeNull();
+  });
+
+  it("keeps the three Fonseca cream rows without inventing a price", () => {
+    const result = buildPaddleReceiptResult(fonsecaRegions);
+    const cream = result.items.filter((item) =>
+      (item.description ?? "").includes("CREME LEITE"),
+    );
+
+    expect(cream).toHaveLength(3);
+    expect(cream.every((item) => item.effectiveValue === null)).toBe(true);
+    expect(result.receiptTotal).toBeCloseTo(88.38, 2);
+    expect(result.sumKnownItemValues).toBeCloseTo(67.54, 2);
+  });
+});
+
+describe("unit price fallback for single UN items", () => {
+  it("uses unitPrice when a 1 UN item has no recognized total", () => {
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 2.75,
+        quantity: 1,
+        unit: "UN",
+        hasDiscountZone: false,
+      }),
+    ).toBe(2.75);
+  });
+
+  it("never assumes a total for quantity greater than 1", () => {
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 5,
+        quantity: 2,
+        unit: "UN",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 5,
+        quantity: 1.5,
+        unit: "UN",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("never assumes a total for KG or weight units", () => {
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 10,
+        quantity: 1,
+        unit: "KG",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 10,
+        quantity: 0.5,
+        unit: "KG",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("never assumes a total for liters or other units", () => {
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 6.69,
+        quantity: 1,
+        unit: "L",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 6.69,
+        quantity: 1,
+        unit: "ML",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("never assumes a total for an unknown quantity", () => {
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 5,
+        quantity: null,
+        unit: "UN",
+        hasDiscountZone: false,
+      }),
+    ).toBeNull();
+  });
+
+  it("never uses the fallback for an item with a discount zone", () => {
+    expect(
+      selectEffectiveValue(null, null, {
+        unitPrice: 2.85,
+        quantity: 1,
+        unit: "UN",
+        hasDiscountZone: true,
+      }),
+    ).toBeNull();
+  });
+
+  it("keeps explicit final values and original totals above the fallback", () => {
+    expect(
+      selectEffectiveValue(1.99, null, {
+        unitPrice: 2.85,
+        quantity: 1,
+        unit: "UN",
+        hasDiscountZone: true,
+      }),
+    ).toBe(1.99);
+    expect(
+      selectEffectiveValue(null, 8.7, {
+        unitPrice: 6.79,
+        quantity: 1,
+        unit: "UN",
+        hasDiscountZone: false,
+      }),
+    ).toBe(8.7);
+  });
+});
+
+describe("real receipt regression: repeated EAN and discounted wafer", () => {
+  function region(text: string, x: number, y: number, w: number, h: number) {
+    return {
+      text,
+      confidence: 0.95,
+      bbox: [
+        [x, y],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+      ] as [number, number][],
+    };
+  }
+
+  it("reads 3 x CREME LEITE UHT ITALAC 200G TP at R$ 2,75 each (OCR 2.75 / 2:25 / 2:75)", () => {
+    const rows = [
+      { y: 150, name: "CREME LEITE UHT ITALAC 200G TP", price: "2.75" },
+      { y: 195, name: "CREME LEITE UHT ITALAC 2006 tP", price: "2:25" },
+      { y: 240, name: "CREME LEITE UHT ITALAC 200G TP", price: "2:75" },
+    ];
+    const regions = [region("PRODUTO QTD VALOR", 10, 60, 240, 12)];
+    for (const row of rows) {
+      regions.push(
+        region(`7898080640222 ${row.name}`, 10, row.y, 340, 16),
+        region("1UN", 400, row.y + 2, 40, 12),
+        region(row.price, 460, row.y + 2, 50, 12),
+      );
+    }
+    regions.push(region("Qtde. Total de Itens", 10, 300, 240, 12));
+
+    const result = buildPaddleReceiptResult(regions);
+
+    expect(result.items).toHaveLength(3);
+    expect(result.items.every((item) => item.quantity === 1)).toBe(true);
+    expect(result.items.every((item) => item.unit === "UN")).toBe(true);
+    expect(result.items.map((item) => item.effectiveValue)).toEqual([
+      2.75, 2.75, 2.75,
+    ]);
+    expect(result.sumKnownItemValues).toBeCloseTo(8.25, 2);
+  });
+
+  it("reads Wafer Morango R$ 1,99 from its own DESCONTO block", () => {
+    const result = buildPaddleReceiptResult([
+      region("PRODUTO QTD VALOR", 10, 60, 240, 12),
+      region("7896004009995 BISC WAFER MINUETO 81GR MORANGO", 10, 150, 340, 16),
+      region("2,85", 460, 152, 50, 12),
+      region("DESCONTO -30,18%", 10, 175, 240, 12),
+      region("R$-0,86", 10, 190, 100, 12),
+      region("1,99", 460, 205, 50, 12),
+      region("Qtde. Total de Itens", 10, 300, 240, 12),
+    ]);
+
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0].description).toContain("WAFER MINUETO");
+    expect(result.items[0].explicitFinalValue).toBe(1.99);
+    expect(result.items[0].effectiveValue).toBe(1.99);
+  });
+
+  it("does not reconcile a repeated EAN group without a strict majority", () => {
+    const prices = ["2,75", "2:25", "3:50"];
+    const regions = [region("PRODUTO QTD VALOR", 10, 60, 240, 12)];
+    prices.forEach((price, index) => {
+      const y = 150 + index * 45;
+      regions.push(
+        region("7898080640222 CREME LEITE UHT ITALAC 200G TP", 10, y, 340, 16),
+        region("1UN", 400, y + 2, 40, 12),
+        region(price, 460, y + 2, 50, 12),
+      );
+    });
+    regions.push(region("Qtde. Total de Itens", 10, 300, 240, 12));
+
+    const result = buildPaddleReceiptResult(regions);
+
+    expect(result.items.map((item) => item.effectiveValue)).toEqual([
+      2.75, 2.25, 3.5,
+    ]);
+  });
+
+  it("does not reconcile rows of the same EAN with different quantities", () => {
+    const rows = [
+      { price: "2,75", qty: "1UN" },
+      { price: "2:25", qty: "2UN" },
+      { price: "2:75", qty: "1UN" },
+    ];
+    const regions = [region("PRODUTO QTD VALOR", 10, 60, 240, 12)];
+    rows.forEach((row, index) => {
+      const y = 150 + index * 45;
+      regions.push(
+        region("7898080640222 CREME LEITE UHT ITALAC 200G TP", 10, y, 340, 16),
+        region(row.qty, 400, y + 2, 40, 12),
+        region(row.price, 460, y + 2, 50, 12),
+      );
+    });
+    regions.push(region("Qtde. Total de Itens", 10, 300, 240, 12));
+
+    const result = buildPaddleReceiptResult(regions);
+
+    expect(result.items.map((item) => item.quantity)).toEqual([1, 2, 1]);
+    expect(result.items.map((item) => item.effectiveValue)).toEqual([
+      2.75, 2.25, 2.75,
+    ]);
   });
 });

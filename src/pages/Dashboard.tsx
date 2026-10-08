@@ -11,53 +11,33 @@ import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriod
 import { Button } from "@/components/ui/button";
 import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet, ScanLine } from "lucide-react";
 import { Link } from "react-router-dom";
-import { isFinancialNeutralTransaction, isBillPaymentTransaction } from "@/lib/transaction-classification";
+import { isFinancialNeutralTransaction } from "@/lib/transaction-classification";
 import { calculateAccountBalances, calculateFinancialTotals } from "@/lib/financial-calculations";
+import { getCardCommittedAmount } from "@/lib/credit-card-billing";
 import {
   LineChart, Line, BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from "recharts";
 import type { DateRange } from "react-day-picker";
 
-const colorBorder: Record<string, string> = {
-  purple: "border-l-purple-500",
-  orange: "border-l-orange-500",
-  blue: "border-l-blue-500",
-  green: "border-l-green-500",
-  red: "border-l-red-500",
-  pink: "border-l-pink-500",
-};
-const colorBg: Record<string, string> = {
-  purple: "bg-purple-500/5",
-  orange: "bg-orange-500/5",
-  blue: "bg-blue-500/5",
-  green: "bg-green-500/5",
-  red: "bg-red-500/5",
-  pink: "bg-pink-500/5",
-};
-const colorIcon: Record<string, string> = {
-  purple: "text-purple-400",
-  orange: "text-orange-400",
-  blue: "text-blue-400",
-  green: "text-green-400",
-  red: "text-red-400",
-  pink: "text-pink-400",
-};
-
 export default function Dashboard() {
-  const { transactions, addTransaction } = useFinance();
+  const { transactions, creditCardInvoices, addTransaction } = useFinance();
   const { accounts, creditCards } = useAccounts();
   const { transfers } = useTransfers();
   const [formOpen, setFormOpen] = useState(false);
-  const [period, setPeriod] = useState<Period>("30");
+  const [period, setPeriod] = useState<Period>("month");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
 
   const filtered = useMemo(() => {
     if (period === "all") return transactions;
     if (period === "month") {
       const now = new Date();
-      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-      const today = now.toISOString().split("T")[0];
-      return transactions.filter((t) => t.date >= firstDay && t.date <= today);
+      const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+      const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const toLocalDateStr = (date: Date) =>
+        `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
+      const firstDay = toLocalDateStr(monthStart);
+      const lastDay = toLocalDateStr(monthEnd);
+      return transactions.filter((t) => t.date >= firstDay && t.date <= lastDay);
     }
     if (period === "custom") {
       if (!dateRange?.from) return transactions;
@@ -107,13 +87,7 @@ export default function Dashboard() {
 
   const accountBalances = calculateAccountBalances(accounts, transactions, transfers);
 
-  const getCardUsed = (ccId: string) => {
-    return transactions.reduce((total, t) => {
-      if (t.creditCardId !== ccId || t.isPaid) return total;
-      if (isBillPaymentTransaction(t)) return total;
-      return total + (t.type === "income" ? -t.amount : t.amount);
-    }, 0);
-  };
+  const getCardUsed = (ccId: string) => getCardCommittedAmount(transactions, ccId, creditCardInvoices);
 
   // Line chart data
   const lineData = useMemo(() => {
@@ -130,11 +104,7 @@ export default function Dashboard() {
   }, [filtered]);
 
   // Bar chart data
-  const categoryColors = [
-    "hsl(210 76% 52%)", "hsl(160 84% 39%)", "hsl(340 75% 55%)",
-    "hsl(45 93% 47%)", "hsl(270 60% 55%)", "hsl(25 95% 53%)",
-    "hsl(190 80% 42%)", "hsl(0 72% 51%)", "hsl(120 40% 45%)",
-  ];
+  const categoryColors = ["hsl(160 84% 39%)"];
 
   const barData = useMemo(() => {
     const map: Record<string, number> = {};
@@ -165,24 +135,24 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-        <h1 className="text-xl sm:text-2xl font-bold text-primary">Painel de Controle</h1>
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 w-full sm:w-auto">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <h1 className="whitespace-nowrap text-lg font-extrabold tracking-tight text-primary sm:text-2xl sm:font-bold sm:tracking-normal">Painel de Controle</h1>
+        <div className="contents sm:flex sm:w-auto sm:flex-row sm:items-center sm:gap-2">
           <DashboardPeriodFilter
             period={period}
             dateRange={dateRange}
             onPeriodChange={setPeriod}
             onDateRangeChange={setDateRange}
           />
-          <div className="flex items-center gap-2 w-full sm:w-auto">
-            <Button variant="outline" asChild className="gap-2 flex-1 sm:flex-none justify-center">
+          <div className="order-3 col-span-2 flex w-full items-center gap-2 sm:order-none sm:w-auto">
+            <Button variant="outline" asChild className="h-9 flex-1 justify-center gap-1.5 sm:h-10 sm:flex-none sm:gap-2">
               <Link to="/receipt">
                 <ScanLine className="h-4 w-4 shrink-0" />
                 <span className="sm:hidden">Comprovante</span>
                 <span className="hidden sm:inline">Ler comprovante</span>
               </Link>
             </Button>
-            <Button onClick={() => setFormOpen(true)} className="gap-2 flex-1 sm:flex-none justify-center">
+            <Button onClick={() => setFormOpen(true)} className="h-9 flex-1 justify-center gap-1.5 sm:h-10 sm:flex-none sm:gap-2">
               <Plus className="h-4 w-4 shrink-0" />
               <span className="sm:hidden">Novo</span>
               <span className="hidden sm:inline">Novo Registro</span>
@@ -195,33 +165,33 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
         <KpiCard title="Total de Entradas" value={fmt(totalIncome)} icon={TrendingUp} color="green" />
         <KpiCard title="Total de Saídas" value={fmt(totalExpense)} icon={TrendingDown} color="red" />
-        <KpiCard title="Saldo do Período" value={fmt(balance)} icon={Wallet} color="purple" />
-        <KpiCard title="Gasto Médio Diário" value={fmt(avgDaily)} icon={CalendarDays} color="amber" />
+        <KpiCard title="Saldo do Período" value={fmt(balance)} icon={Wallet} color="balance" negativeValue={balance < 0} />
+        <KpiCard title="Gasto Médio Diário" value={fmt(avgDaily)} icon={CalendarDays} color="neutral" />
         <div className="col-span-2 md:col-span-1 xl:col-span-1">
-          <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} color="blue" />
+          <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} color="neutral" />
         </div>
       </div>
 
       {/* Accounts & Cards */}
       {(accounts.length > 0 || creditCards.length > 0) && (
         <div>
-          <h2 className="text-sm font-medium text-muted-foreground mb-3">Contas & Cartões</h2>
+          <h2 className="relative mb-2 pl-3 text-base font-bold text-primary before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-primary sm:before:hidden">Contas & Cartões</h2>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {accounts.map((acc) => {
               const balance = accountBalances[acc.id];
               return (
                 <div
                   key={acc.id}
-                  className={`glass-card rounded-xl p-4 border-l-4 animate-fade-in flex flex-col justify-between min-h-[128px] ${colorBorder[acc.color] || "border-l-primary"} ${colorBg[acc.color] || ""}`}
+                  className="dashboard-card p-4 border-l-4 border-l-border flex flex-col justify-between min-h-[128px]"
                 >
                   <div className="flex items-center gap-2 mb-2">
-                    <Landmark className={`h-4 w-4 shrink-0 ${colorIcon[acc.color] || "text-muted-foreground"}`} />
-                    <span className="text-sm font-medium text-foreground truncate">{acc.name}</span>
+                    <Landmark className="h-4 w-4 shrink-0 text-primary" />
+                    <span className="truncate text-sm font-semibold text-foreground">{acc.name}</span>
                   </div>
                   <div>
-                    <p className={`text-xl font-bold ${balance >= 0 ? "text-income" : "text-expense"}`}>{fmt(balance)}</p>
+                    <p className={`text-xl font-bold ${balance > 0 ? "text-income" : balance < 0 ? "text-expense" : "text-foreground"}`}>{fmt(balance)}</p>
                   </div>
-                  <p className="text-xs text-muted-foreground mt-2">{acc.bank} · {acc.type === "checking" ? "Corrente" : "Poupança"}</p>
+                  <p className="mt-2 text-xs text-muted-foreground/80">{acc.bank} · {acc.type === "checking" ? "Corrente" : "Poupança"}</p>
                 </div>
               );
             })}
@@ -232,12 +202,12 @@ export default function Dashboard() {
               return (
                 <div
                   key={cc.id}
-                  className={`glass-card rounded-xl p-4 border-l-4 animate-fade-in flex flex-col justify-between min-h-[128px] ${colorBorder[cc.color] || "border-l-primary"} ${colorBg[cc.color] || ""}`}
+                  className="dashboard-card p-4 border-l-4 border-l-border flex flex-col justify-between min-h-[128px]"
                 >
                   <div>
                     <div className="flex items-center gap-2 mb-2">
-                      <CreditCard className={`h-4 w-4 shrink-0 ${colorIcon[cc.color] || "text-muted-foreground"}`} />
-                      <span className="text-sm font-medium text-foreground truncate">{cc.name}</span>
+                      <CreditCard className="h-4 w-4 shrink-0 text-primary" />
+                      <span className="truncate text-sm font-semibold text-foreground">{cc.name}</span>
                     </div>
                     <p className="text-xl font-bold text-expense">{fmt(used)}</p>
                   </div>
@@ -314,7 +284,7 @@ export default function Dashboard() {
 
       {/* Insights */}
       <div>
-        <h2 className="text-sm font-medium text-muted-foreground mb-3">Insights</h2>
+        <h2 className="relative mb-2 pl-3 text-base font-bold text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-foreground sm:before:hidden">Insights</h2>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
           {insights.map((text, i) => (
             <InsightCard key={i} text={text} />

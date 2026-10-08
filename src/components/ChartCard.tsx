@@ -7,8 +7,8 @@ interface ChartCardProps {
 
 export function ChartCard({ title, children }: ChartCardProps) {
   return (
-    <div className="glass-card rounded-xl p-5 animate-fade-in">
-      <h3 className="text-sm font-medium text-muted-foreground mb-4">{title}</h3>
+    <div className="dashboard-card p-5">
+      <h3 className="mb-4 text-sm font-semibold text-foreground">{title}</h3>
       {children}
     </div>
   );

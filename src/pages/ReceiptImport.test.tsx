@@ -7,12 +7,16 @@ const mocks = vi.hoisted(() => ({
   addTransaction: vi.fn(),
   navigate: vi.fn(),
   parseReceipt: vi.fn(),
-  takeSharedReceipt: vi.fn(),
+  takeSharedReceiptWithDiagnostics: vi.fn(),
   duplicateLimit: vi.fn(),
   toast: vi.fn(),
   paddleRecognize: vi.fn(),
+  fastOcrRecognize: vi.fn(),
+  disposePaddleRecognizer: vi.fn(),
+  releaseDocumentOrientationSession: vi.fn(),
   buildPaddleReceiptResult: vi.fn(),
   receiptToImageDataUrl: vi.fn(),
+  prepareReceiptForLocalOcr: vi.fn(),
 }));
 
 vi.mock("react-router-dom", async (importOriginal) => ({
@@ -30,18 +34,27 @@ vi.mock("@/contexts/CategoryContext", () => ({
 }));
 vi.mock("@/hooks/use-toast", () => ({ toast: mocks.toast }));
 vi.mock("@/lib/shared-receipt", () => ({
-  takeSharedReceipt: mocks.takeSharedReceipt,
+  takeSharedReceiptWithDiagnostics: mocks.takeSharedReceiptWithDiagnostics,
 }));
 vi.mock("@/lib/receipt", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/receipt")>(),
   parseReceipt: mocks.parseReceipt,
   receiptToImageDataUrl: mocks.receiptToImageDataUrl,
+  prepareReceiptForLocalOcr: mocks.prepareReceiptForLocalOcr,
 }));
 vi.mock("@/lib/ocr-paddle-test/recognize", () => ({
   paddleRecognize: mocks.paddleRecognize,
+  disposePaddleRecognizer: mocks.disposePaddleRecognizer,
+}));
+vi.mock("@/lib/fast-ocr", () => ({
+  fastOcrRecognize: mocks.fastOcrRecognize,
 }));
 vi.mock("@/lib/ocr-paddle-test/receiptResult", () => ({
   buildPaddleReceiptResult: mocks.buildPaddleReceiptResult,
+}));
+vi.mock("@/lib/receipt-image-orientation", () => ({
+  correctDocumentOrientation: vi.fn(async (image: File) => image),
+  releaseDocumentOrientationSession: mocks.releaseDocumentOrientationSession,
 }));
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
@@ -53,12 +66,13 @@ vi.mock("@/integrations/supabase/client", () => ({
   },
 }));
 vi.mock("@/components/TransactionForm", () => ({
-  TransactionForm: ({ prefill, prefillAttachments, lowConfidence, onSubmit }: {
+  TransactionForm: ({ open, prefill, prefillAttachments, lowConfidence, onSubmit }: {
+    open: boolean;
     prefill: Record<string, unknown>;
     prefillAttachments?: File[];
     lowConfidence?: string[];
     onSubmit: (data: Record<string, unknown>, options?: { attachments?: File[] }) => void;
-  }) => (
+  }) => open ? (
     <div>
       <button type="button" onClick={() => onSubmit(prefill, { attachments: prefillAttachments })}>
         Confirmar importação
@@ -72,7 +86,7 @@ vi.mock("@/components/TransactionForm", () => ({
       )}
       <input aria-label="Título" defaultValue={String(prefill.title ?? "")} readOnly />
     </div>
-  ),
+  ) : null,
 }));
 
 function makePaddleResult(overrides: Record<string, unknown> = {}) {
@@ -92,6 +106,30 @@ function makePaddleResult(overrides: Record<string, unknown> = {}) {
 
 function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult()) {
   mocks.receiptToImageDataUrl.mockResolvedValue("data:image/jpeg;base64,TEST");
+  mocks.prepareReceiptForLocalOcr.mockImplementation(async (file: File) => ({
+    image: file,
+    metrics: {
+      originalDimensions: { width: 3000, height: 4000 },
+      outputDimensions: { width: 1200, height: 1600 },
+      originalPixels: 1_920_000,
+      outputPixels: 1_920_000,
+      largestRgbaSurfaceBytes: 7_680_000,
+      estimatedOrientationPeakRgbaBytes: 23_040_000,
+      inputFileBytes: file.size,
+      outputFileBytes: file.size,
+      preparationMs: 1200,
+      orientationMs: 2300,
+      totalMs: 3500,
+      normalization: {
+        strategy: "progressive-downscale",
+        downscaleSteps: 2,
+        decodeMode: "decode-time-resize+canvas",
+        sourceDimensions: { width: 3000, height: 4000 },
+        intermediateDimensions: { width: 1500, height: 2000 },
+        targetDimensions: { width: 1200, height: 1600 },
+      },
+    },
+  }));
   mocks.paddleRecognize.mockResolvedValue({
     text: "MERCADO CENTRAL\nTOTAL 120,00",
     confidence: 90,
@@ -102,8 +140,29 @@ function stubPaddleSuccess(result: Record<string, unknown> = makePaddleResult())
     detectedBoxes: 1,
     recognizedCount: 1,
     backend: "wasm",
+    initializationMs: 5000,
+    inferenceMs: 110000,
+    detectionMs: 40000,
+    recognitionMs: 65000,
+    inputDimensions: { width: 1000, height: 1600 },
   });
   mocks.buildPaddleReceiptResult.mockReturnValue(result);
+  mocks.fastOcrRecognize.mockResolvedValue({
+    regions: [
+      { text: "MERCADO CENTRAL", confidence: 0.9, bbox: [[0, 0], [10, 0], [10, 5], [0, 5]] },
+      { text: "CREME LEITE UHT ITALAC 200G TP", confidence: 0.8, bbox: [[0, 10], [60, 10], [60, 15], [0, 15]] },
+      { text: "2,75", confidence: 0.95, bbox: [[80, 10], [90, 10], [90, 15], [80, 15]] },
+    ],
+    rawLines: [
+      [{ text: "MERCADO CENTRAL", box: { x: 0, y: 0, width: 10, height: 5 }, confidence: 0.9123 }],
+      [
+        { text: "CREME LEITE UHT ITALAC 200G TP", box: { x: 0, y: 10, width: 60, height: 5 }, confidence: 0.8123 },
+        { text: "2,75", box: { x: 80, y: 10, width: 10, height: 5 }, confidence: 0.9512 },
+      ],
+    ],
+    initializationMs: 1500,
+    ocrMs: 8000,
+  });
 }
 
 function installCamera(stream?: MediaStream) {
@@ -133,7 +192,10 @@ function installCameraCanvas() {
 describe("ReceiptImport metadata", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.takeSharedReceipt.mockResolvedValue(null);
+    window.history.replaceState({}, "", "/receipt");
+    mocks.disposePaddleRecognizer.mockReset().mockResolvedValue(undefined);
+    mocks.releaseDocumentOrientationSession.mockReset().mockResolvedValue(undefined);
+    mocks.takeSharedReceiptWithDiagnostics.mockResolvedValue({ file: null, diag: null });
     mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
     stubPaddleSuccess();
   });
@@ -143,18 +205,18 @@ describe("ReceiptImport metadata", () => {
     vi.unstubAllGlobals();
   });
 
-  it("does not read on file selection and requires explicit 'Ler comprovante' click", async () => {
+  it("does not read on file selection and requires explicit 'Ler gratuitamente' click", async () => {
     const { container } = render(<ReceiptImport />);
     const input = container.querySelector('input[type="file"]');
     const file = new File(["receipt"], "receipt.jpg", { type: "image/jpeg" });
     expect(input).not.toBeNull();
 
     fireEvent.change(input!, { target: { files: [file] } });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler comprovante" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
     expect(mocks.paddleRecognize).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ler comprovante" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
 
@@ -174,7 +236,7 @@ describe("ReceiptImport metadata", () => {
     );
   });
 
-  it("keeps Escolher arquivo on the normal file input and requires 'Ler comprovante' to trigger PaddleOCR", async () => {
+  it("keeps Escolher arquivo on the normal file input and requires 'Ler gratuitamente' to trigger fast OCR", async () => {
     const { container } = render(<ReceiptImport />);
     const inputs = container.querySelectorAll<HTMLInputElement>('input[type="file"]');
     const input = inputs[0];
@@ -187,20 +249,56 @@ describe("ReceiptImport metadata", () => {
 
     fireEvent.change(input, { target: { files: [file] } });
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler comprovante" })).toBeInTheDocument());
-    expect(mocks.paddleRecognize).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ler comprovante" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
 
     await waitFor(() =>
-      expect(mocks.paddleRecognize).toHaveBeenCalledWith(
-        "data:image/jpeg;base64,TEST",
-        expect.any(Function),
-      ),
+      expect(mocks.fastOcrRecognize).toHaveBeenCalledWith(file, expect.any(Function)),
     );
     expect(mocks.buildPaddleReceiptResult).toHaveBeenCalled();
+    expect(mocks.paddleRecognize).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
+  });
+
+  it("uses the validated fast OCR pipeline without development controls or diagnostics", async () => {
+    const { container } = render(<ReceiptImport />);
+    const input = container.querySelector('input[type="file"]');
+    const file = new File(["receipt"], "receipt-fast.jpg", { type: "image/jpeg" });
+
+    fireEvent.change(input!, { target: { files: [file] } });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "⚡ Testar OCR rápido" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "📋 Copiar diagnóstico" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+    expect(mocks.prepareReceiptForLocalOcr).toHaveBeenCalledWith(file);
+    expect(mocks.fastOcrRecognize).toHaveBeenCalledWith(file, expect.any(Function));
+    expect(mocks.paddleRecognize).not.toHaveBeenCalled();
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+    expect(mocks.disposePaddleRecognizer).not.toHaveBeenCalled();
+    expect(mocks.buildPaddleReceiptResult).toHaveBeenCalledWith([
+      expect.objectContaining({ text: "MERCADO CENTRAL" }),
+      expect.objectContaining({ text: "CREME LEITE UHT ITALAC 200G TP" }),
+      expect.objectContaining({ text: "2,75" }),
+    ]);
+
+    expect(screen.queryByTestId("free-ocr-diagnostics")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("fast-ocr-diagnostics")).not.toBeInTheDocument();
+    expect(screen.queryByText("SAÍDA BRUTA DO V6 TINY")).not.toBeInTheDocument();
+    expect(screen.queryByText("APÓS AGRUPAMENTO")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
+    expect(mocks.addTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({ amount: 120, title: "Mercado Central" }),
+      expect.objectContaining({ attachments: [file] }),
+    );
   });
 
   it("does not show the removed local OCR development controls after file selection", async () => {
@@ -210,9 +308,12 @@ describe("ReceiptImport metadata", () => {
 
     fireEvent.change(input!, { target: { files: [file] } });
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler comprovante" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "Testar OCR local" })).not.toBeInTheDocument();
     expect(screen.queryByText("Resultado do OCR Local")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "🚀 Testar OCR híbrido" })).not.toBeInTheDocument();
+    expect(screen.queryByTestId("hybrid-ocr-diagnostics")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("hybrid-ocr-crop-previews")).not.toBeInTheDocument();
   });
 
   it("opens the internal rear camera without a capture input", async () => {
@@ -233,7 +334,7 @@ describe("ReceiptImport metadata", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
-  it("captures a bounded JPEG, stops the camera and requires 'Ler comprovante' to read with PaddleOCR", async () => {
+  it("captures a bounded JPEG, stops the camera and requires 'Ler gratuitamente' to read with fast OCR", async () => {
     const { cameraStream, track } = installCamera();
     const { canvases, drawImage, toBlob } = installCameraCanvas();
     render(<ReceiptImport />);
@@ -246,8 +347,8 @@ describe("ReceiptImport metadata", () => {
     fireEvent.canPlay(video);
     fireEvent.click(screen.getByRole("button", { name: "Fotografar" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler comprovante" })).toBeInTheDocument());
-    expect(mocks.paddleRecognize).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 1920, 1080);
     expect(toBlob).toHaveBeenCalledWith(expect.any(Function), "image/jpeg", 0.9);
@@ -256,8 +357,8 @@ describe("ReceiptImport metadata", () => {
     expect(canvases[0].width).toBe(0);
     expect(canvases[0].height).toBe(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "Ler comprovante" }));
-    await waitFor(() => expect(mocks.paddleRecognize).toHaveBeenCalled());
+    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    await waitFor(() => expect(mocks.fastOcrRecognize).toHaveBeenCalled());
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
   });
 
@@ -274,7 +375,7 @@ describe("ReceiptImport metadata", () => {
     fireEvent.canPlay(video);
     fireEvent.click(screen.getByRole("button", { name: "Fotografar" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler comprovante" })).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 1080, 1920);
     expect(track.stop).toHaveBeenCalledTimes(1);
   });
@@ -352,10 +453,113 @@ describe("ReceiptImport metadata", () => {
   });
 });
 
-describe("PaddleOCR main flow (no paid AI)", () => {
+describe("Lovable AI receipt flow", () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    mocks.takeSharedReceipt.mockResolvedValue(null);
+    window.history.replaceState({}, "", "/receipt");
+    mocks.parseReceipt.mockReset();
+    mocks.disposePaddleRecognizer.mockReset().mockResolvedValue(undefined);
+    mocks.releaseDocumentOrientationSession.mockReset().mockResolvedValue(undefined);
+    mocks.takeSharedReceiptWithDiagnostics.mockResolvedValue({ file: null, diag: null });
+    mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
+    stubPaddleSuccess();
+  });
+
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  function selectFile() {
+    const { container } = render(<ReceiptImport />);
+    const input = container.querySelector('input[type="file"]');
+    const file = new File(["receipt"], "comprovante-ia.jpg", { type: "image/jpeg" });
+    fireEvent.change(input!, { target: { files: [file] } });
+    return file;
+  }
+
+  it("only calls Lovable AI after explicit confirmation and sends the result to the existing form", async () => {
+    mocks.parseReceipt.mockResolvedValue({
+      is_receipt: true,
+      type: "expense",
+      amount: 40,
+      date: "2026-10-03",
+      time: "14:30:00",
+      counterparty: "Café Central",
+      institution: null,
+      payment_method: "Pix",
+      category_hint: "Alimentação",
+      receipt_id: "AI-123",
+      merchant_name: "Café Central Ltda",
+      tax_id: "12.345.678/0001-90",
+      fiscal_document_number: "456",
+      card_brand: null,
+      card_last_four: null,
+      title: "Café Central",
+      notes: "Pagamento confirmado",
+      purchased_items: [{ name: "Café", quantity: 2, unit_price: 10, total: 20 }],
+      low_confidence_fields: [],
+    });
+    const file = selectFile();
+
+    expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ler com IA/ })).toBeInTheDocument();
+    expect(screen.getByText("A leitura gratuita usa o OCR local e tem custo R$ 0,00.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /Ler com IA/ }));
+    expect(screen.getByText("Esta leitura utiliza a IA do Lovable e pode consumir seus créditos. Deseja continuar?")).toBeInTheDocument();
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+    expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /Ler com IA/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar com IA" }));
+
+    await waitFor(() => expect(mocks.parseReceipt).toHaveBeenCalledWith(file, {
+      categories: ["Alimentação", "Outros"],
+      accounts: [],
+    }));
+    expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
+    expect(screen.queryByTestId("free-ocr-diagnostics")).not.toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "Confirmar importação" }));
+
+    expect(mocks.addTransaction).toHaveBeenCalledWith(
+      expect.objectContaining({
+        title: "Café Central",
+        amount: 40,
+        type: "expense",
+        date: "2026-10-03",
+        paymentMethod: "Pix",
+        description: expect.stringContaining("2x Café — R$ 20,00"),
+      }),
+      expect.objectContaining({ receiptRef: "AI-123", attachments: [file] }),
+    );
+  });
+
+  it("keeps the selected image and both reading options after an AI failure", async () => {
+    mocks.parseReceipt.mockRejectedValueOnce(new Error("A leitura com IA falhou. Tente novamente."));
+    selectFile();
+
+    fireEvent.click(screen.getByRole("button", { name: /Ler com IA/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar com IA" }));
+
+    expect(await screen.findByText("A leitura com IA falhou. Tente novamente.")).toBeInTheDocument();
+    expect(screen.getByText("comprovante-ia.jpg")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Ler com IA/ })).toBeInTheDocument();
+    expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
+  });
+});
+
+describe("fast OCR main flow (no paid AI)", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    window.history.replaceState({}, "", "/receipt");
+    mocks.disposePaddleRecognizer.mockReset().mockResolvedValue(undefined);
+    mocks.releaseDocumentOrientationSession.mockReset().mockResolvedValue(undefined);
+    mocks.takeSharedReceiptWithDiagnostics.mockResolvedValue({ file: null, diag: null });
     mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
     stubPaddleSuccess();
   });
@@ -373,19 +577,18 @@ describe("PaddleOCR main flow (no paid AI)", () => {
     return { container, file };
   }
 
-  it("clicking 'Ler comprovante' uses PaddleOCR and never parseReceipt, passing the original file as attachment", async () => {
+  it("clicking 'Ler gratuitamente' uses fast OCR and never parseReceipt, passing the original file as attachment", async () => {
     const { file } = selectFile();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler comprovante" })).toBeInTheDocument());
-    expect(mocks.paddleRecognize).not.toHaveBeenCalled();
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ler comprovante" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
-    expect(mocks.paddleRecognize).toHaveBeenCalledWith(
-      "data:image/jpeg;base64,TEST",
-      expect.any(Function),
-    );
-    expect(mocks.paddleRecognize).toHaveBeenCalledTimes(1);
+    expect(mocks.prepareReceiptForLocalOcr).toHaveBeenCalledWith(file);
+    expect(mocks.fastOcrRecognize).toHaveBeenCalledWith(file, expect.any(Function));
+    expect(mocks.fastOcrRecognize).toHaveBeenCalledTimes(1);
+    expect(mocks.paddleRecognize).not.toHaveBeenCalled();
     expect(mocks.buildPaddleReceiptResult).toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
 
@@ -402,6 +605,25 @@ describe("PaddleOCR main flow (no paid AI)", () => {
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
   });
 
+  it("extracts the receipt result and awaits orientation cleanup before opening the form", async () => {
+    let finishOrientationRelease: (() => void) | undefined;
+    mocks.releaseDocumentOrientationSession.mockReturnValueOnce(new Promise<void>((resolve) => {
+      finishOrientationRelease = resolve;
+    }));
+    selectFile();
+
+    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+
+    await waitFor(() => expect(mocks.buildPaddleReceiptResult).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.releaseDocumentOrientationSession).toHaveBeenCalledTimes(1));
+    expect(mocks.buildPaddleReceiptResult.mock.invocationCallOrder[0])
+      .toBeLessThan(mocks.releaseDocumentOrientationSession.mock.invocationCallOrder[0]);
+    expect(screen.queryByRole("button", { name: "Confirmar importação" })).not.toBeInTheDocument();
+
+    finishOrientationRelease!();
+    expect(await screen.findByRole("button", { name: "Confirmar importação" })).toBeInTheDocument();
+  });
+
   it("saves known Fonseca item values without inventing missing values", async () => {
     const receiptResultModule = await vi.importActual<typeof import("@/lib/ocr-paddle-test/receiptResult")>(
       "@/lib/ocr-paddle-test/receiptResult",
@@ -409,7 +631,7 @@ describe("PaddleOCR main flow (no paid AI)", () => {
     stubPaddleSuccess(receiptResultModule.buildPaddleReceiptResult(fonsecaRegions));
 
     selectFile();
-    fireEvent.click(await screen.findByRole("button", { name: "Ler comprovante" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Ler gratuitamente" }));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar importação" }));
 
     const transaction = mocks.addTransaction.mock.calls[0][0];
@@ -420,50 +642,83 @@ describe("PaddleOCR main flow (no paid AI)", () => {
     expect(transaction.description).not.toContain("R$ 3,15");
   });
 
-  it("PaddleOCR failure shows an error and never calls parseReceipt/Lovable (no paid fallback)", async () => {
-    mocks.paddleRecognize.mockResolvedValue({
-      text: "",
-      confidence: null,
-      regions: [],
-      spatialItems: [],
-      spatialHeaderColumns: null,
-      timeMs: 0,
-      detectedBoxes: 0,
-      recognizedCount: 0,
-      backend: "unknown",
-      error: "model download failed",
-    });
+  it("fast OCR failure shows an error and never calls parseReceipt/Lovable (no paid fallback)", async () => {
+    mocks.fastOcrRecognize.mockRejectedValue(new Error("Não foi possível ler o comprovante com o OCR rápido."));
 
     selectFile();
-    fireEvent.click(screen.getByRole("button", { name: "Ler comprovante" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
 
     expect(
-      await screen.findByText("Não foi possível ler o comprovante agora. Verifique a foto e tente novamente."),
+      await screen.findByText("Não foi possível ler o comprovante com o OCR rápido."),
     ).toBeInTheDocument();
-    expect(mocks.paddleRecognize).toHaveBeenCalled();
+    expect(mocks.fastOcrRecognize).toHaveBeenCalled();
+    expect(mocks.paddleRecognize).not.toHaveBeenCalled();
+    expect(mocks.releaseDocumentOrientationSession).toHaveBeenCalledTimes(1);
     expect(mocks.buildPaddleReceiptResult).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
     expect(mocks.addTransaction).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "Confirmar importação" })).not.toBeInTheDocument();
   });
 
-  it("shared receipt is processed automatically through PaddleOCR", async () => {
+  it("cleans the orientation runtime when image preparation or orientation fails", async () => {
+    mocks.prepareReceiptForLocalOcr.mockRejectedValueOnce(new Error("orientation failed"));
+
+    selectFile();
+    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+
+    expect(await screen.findByText("orientation failed")).toBeInTheDocument();
+    expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
+    expect(mocks.releaseDocumentOrientationSession).toHaveBeenCalledTimes(1);
+  });
+
+  it("shared receipt is processed automatically through fast OCR", async () => {
     const sharedFile = new File(["shared"], "shared.jpg", { type: "image/jpeg" });
-    mocks.takeSharedReceipt.mockResolvedValue(sharedFile);
+    const diag = {
+      sw: { stored: true },
+      page: {
+        hasCacheApi: true,
+        swControlled: true,
+        attempts: 2,
+        found: true,
+        fileName: "shared.jpg",
+        fileType: "image/jpeg",
+        fileSize: sharedFile.size,
+      },
+    };
+    window.history.replaceState({}, "", "/receipt?shared=1");
+    mocks.takeSharedReceiptWithDiagnostics.mockResolvedValue({ file: sharedFile, diag });
 
     render(<ReceiptImport />);
 
-    await waitFor(() => expect(mocks.takeSharedReceipt).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(mocks.takeSharedReceiptWithDiagnostics).toHaveBeenCalledTimes(1));
+    expect(await screen.findByText("Diagnóstico do compartilhamento: arquivo recebido")).toBeInTheDocument();
     await waitFor(() =>
-      expect(mocks.paddleRecognize).toHaveBeenCalledWith(
-        "data:image/jpeg;base64,TEST",
-        expect.any(Function),
-      ),
+      expect(mocks.fastOcrRecognize).toHaveBeenCalledWith(sharedFile, expect.any(Function)),
     );
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument(),
     );
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
+  });
+
+  it("shows open diagnostics when the shared file cannot be recovered", async () => {
+    const diag = {
+      sw: { stored: false },
+      page: {
+        hasCacheApi: true,
+        swControlled: true,
+        attempts: 10,
+        found: false,
+      },
+    };
+    window.history.replaceState({}, "", "/receipt?shared=1");
+    mocks.takeSharedReceiptWithDiagnostics.mockResolvedValue({ file: null, diag });
+
+    render(<ReceiptImport />);
+
+    const summary = await screen.findByText("Diagnóstico do compartilhamento: arquivo não encontrado");
+    expect(summary.closest("details")).toHaveAttribute("open");
+    expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
   });
 
   it("preserves parser nulls in the form (amount is never fabricated)", async () => {
@@ -477,7 +732,7 @@ describe("PaddleOCR main flow (no paid AI)", () => {
     );
 
     selectFile();
-    fireEvent.click(screen.getByRole("button", { name: "Ler comprovante" }));
+    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument(),

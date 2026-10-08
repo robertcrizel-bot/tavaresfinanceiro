@@ -95,6 +95,14 @@
   .hover-scale {
     @apply transition-transform duration-200 hover:scale-105;
   }
+
+  .dashboard-card {
+    @apply rounded-xl border border-border bg-card animate-fade-in;
+  }
+
+  .dashboard-card-balance {
+    @apply border-primary/30 bg-primary/10;
+  }
 }
 
 /* Recharts tooltip dark theme overrides */
@@ -120,4 +128,8 @@
 .recharts-tooltip-item-value,
 .recharts-tooltip-item-unit {
   color: #f1f5f9 !important;
+}
+
+#lovable-badge {
+  display: none !important;
 }

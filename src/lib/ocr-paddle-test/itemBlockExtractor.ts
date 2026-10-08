@@ -16,8 +16,32 @@ export interface ExtractedItemBlock {
   unitPrice: number | null;
   originalTotal: number | null;
   explicitFinalValue: number | null;
+  hasDiscountZone: boolean;
   classification: ItemBlockClassification;
   signals?: string[];
+}
+
+export interface ItemBlockPriceDebug {
+  moneyCandidates: Array<{
+    lineIndex: number;
+    cx: number;
+    cy: number;
+    value: number;
+  }>;
+  discountZoneLineIndices: number[] | null;
+  discountZoneCandidates: number[];
+  discountZoneDiscountValue: number | null;
+  discountZonePercentValue: number | null;
+}
+
+export function createItemBlockPriceDebug(): ItemBlockPriceDebug {
+  return {
+    moneyCandidates: [],
+    discountZoneLineIndices: null,
+    discountZoneCandidates: [],
+    discountZoneDiscountValue: null,
+    discountZonePercentValue: null,
+  };
 }
 
 const COMPLEMENT_PREFIX_RE = /^(?:de|por|desconto)\b/i;
@@ -32,6 +56,8 @@ const DESCRIPTION_TRAILING_QTY_RE =
   /(?:^|\s)(\d+)(?:\s*[Xx]\s*|\s*)(UN)$/i;
 
 const MONEY_FULL_RE = /^\d+[.,]\d{2}$/;
+const COLON_MONEY_FULL_RE = /^\d{1,3}:\d{2}(?!\d)$/;
+const MONEY_TOKEN_G_RE = /\d+[.,]\d{2}|\d{1,3}:\d{2}(?!\d)/g;
 const POR_RE = /\bpor\s+(\d+[.,]\d{2})\b/i;
 const DE_RE = /\bde\s+(\d+[.,]\d{2})\b/gi;
 const HEIGHT_GUARD_FACTOR = 2;
@@ -45,7 +71,7 @@ function hasSignificantAlphabetic(text: string): boolean {
 }
 
 function hasMoneyText(text: string): boolean {
-  return /\d+[.,]\d{2}(?!\d)/.test(text);
+  return /\d+[.,]\d{2}(?!\d)|\d{1,3}:\d{2}(?!\d)/.test(text);
 }
 
 function isComplementText(text: string): boolean {
@@ -54,6 +80,38 @@ function isComplementText(text: string): boolean {
 
 function isComplementLine(line: GridLine): boolean {
   return line.regions.some((region) => isComplementText(region.text));
+}
+
+function isPercentText(text: string): boolean {
+  return text.includes("%");
+}
+
+function extractPercentValue(text: string): number | null {
+  const matches = [...text.matchAll(/(\d+(?:[.,]\d{1,2})?)\s*%/g)];
+  if (matches.length !== 1) return null;
+  const value = Number(matches[0][1].replace(",", "."));
+  return Number.isFinite(value) ? value : null;
+}
+
+function isNegativeMoneyText(text: string): boolean {
+  const trimmed = text.trim();
+  return /^[-−]/.test(trimmed) || /^r\s*\$\s*[-−]/i.test(trimmed);
+}
+
+/**
+ * Absolute monetary discount of a promotional line (never a percentage).
+ * "R$-0,86" wins over a percentage written in the same text, so a token like
+ * "-30,18%" is treated as a percentage only, never as R$ 30,18.
+ */
+function extractNegativeMoneyValue(text: string): number | null {
+  const trimmed = text.trim();
+  const withPrefix = trimmed.match(
+    /r\s*\$\s*[-−]\s*(\d+[.,]\d{2})(?!\d)/i,
+  );
+  if (withPrefix) return parseMoney(withPrefix[1]);
+  if (isPercentText(trimmed)) return null;
+  const match = trimmed.match(/[-−]\s*(?:r\s*\$\s*)?(\d+[.,]\d{2})(?!\d)/i);
+  return match ? parseMoney(match[1]) : null;
 }
 
 function stripLeadingCode(text: string): string {
@@ -109,6 +167,10 @@ function parseQuantity(raw: string): number | null {
 
 function parseMoney(raw: string): number | null {
   const text = raw.trim();
+  if (COLON_MONEY_FULL_RE.test(text)) {
+    const value = Number(text.replace(":", "."));
+    return Number.isFinite(value) ? value : null;
+  }
   if (!MONEY_FULL_RE.test(text)) return null;
   const value = Number(text.replace(",", "."));
   return Number.isFinite(value) ? value : null;
@@ -116,6 +178,7 @@ function parseMoney(raw: string): number | null {
 
 function extractMoneyValue(text: string): number | null {
   const trimmed = text.trim();
+  if (COLON_MONEY_FULL_RE.test(trimmed)) return parseMoney(trimmed);
   if (MONEY_FULL_RE.test(trimmed)) return parseMoney(trimmed);
   const ocr = trimmed.match(/^(\d+[.,]\d{2})\d$/);
   if (ocr) return parseMoney(ocr[1]);
@@ -347,7 +410,7 @@ function extractSuffixUnitPrice(text: string): number | null {
 
   for (const match of matches) {
     const remainder = text.slice((match.index ?? 0) + match[0].length);
-    const moneyMatch = remainder.match(/\d+[.,]\d{2}/);
+    const moneyMatch = remainder.match(/\d+[.,]\d{2}|\d{1,3}:\d{2}(?!\d)/);
     if (!moneyMatch) continue;
     const value = parseMoney(moneyMatch[0]);
     if (value !== null) best = value;
@@ -387,20 +450,31 @@ interface MoneyCandidate {
 function collectMoneyCandidates(
   lines: GridLine[],
   block: ItemLineBlock,
+  excludedLines?: ReadonlySet<number>,
+  debug?: ItemBlockPriceDebug,
 ): MoneyCandidate[] {
   const heights: number[] = [];
   const raw: MoneyCandidate[] = [];
   const descriptionLineIndex = block.lineIndices[0];
 
   for (const lineIndex of block.lineIndices) {
+    if (excludedLines?.has(lineIndex)) continue;
     const line = lines[lineIndex];
     if (!line || isComplementLine(line)) continue;
     const parsed = new Set<ItemRegion>();
     for (const region of line.regions) {
+      if (isPercentText(region.text)) continue;
+      if (isNegativeMoneyText(region.text)) continue;
       heights.push(region.height);
       const value = extractMoneyValue(region.text);
       if (value === null) continue;
       parsed.add(region);
+      debug?.moneyCandidates.push({
+        lineIndex,
+        cx: region.cx,
+        cy: region.cy,
+        value,
+      });
       raw.push({
         cx: region.cx,
         cy: region.cy,
@@ -414,8 +488,18 @@ function collectMoneyCandidates(
       const left = sorted[i];
       const right = sorted[i + 1];
       if (parsed.has(left) || parsed.has(right)) continue;
+      if (isPercentText(left.text) || isPercentText(right.text)) continue;
+      if (isNegativeMoneyText(left.text) || isNegativeMoneyText(right.text)) {
+        continue;
+      }
       const joined = tryJoinAdjacentMoney(left, right, line);
       if (joined === null) continue;
+      debug?.moneyCandidates.push({
+        lineIndex,
+        cx: (left.cx + right.cx) / 2,
+        cy: (left.cy + right.cy) / 2,
+        value: joined,
+      });
       raw.push({
         cx: (left.cx + right.cx) / 2,
         cy: (left.cy + right.cy) / 2,
@@ -469,7 +553,7 @@ function extractMoniesAfterQty(text: string): {
 
   for (const match of matches) {
     const remainder = text.slice((match.index ?? 0) + match[0].length);
-    const tokens = remainder.match(/\d+[.,]\d{2}/g) ?? [];
+    const tokens = remainder.match(MONEY_TOKEN_G_RE) ?? [];
     const values: number[] = [];
     for (const token of tokens) {
       const value = parseMoney(token);
@@ -490,11 +574,13 @@ function findSuffixAnchor(
   lines: GridLine[],
   block: ItemLineBlock,
   descriptionPick: DescriptionPick,
+  excludedLines?: ReadonlySet<number>,
 ): MoneyCandidate | null {
   const excluded = new Set(descriptionPick.pieces);
   if (descriptionPick.region) excluded.add(descriptionPick.region);
   const descriptionLineIndex = block.lineIndices[0];
   for (const lineIndex of block.lineIndices) {
+    if (excludedLines?.has(lineIndex)) continue;
     const line = lines[lineIndex];
     if (!line || isComplementLine(line)) continue;
     for (const region of line.regions) {
@@ -511,6 +597,7 @@ function findSuffixAnchor(
     }
   }
   for (const lineIndex of block.lineIndices) {
+    if (excludedLines?.has(lineIndex)) continue;
     const line = lines[lineIndex];
     if (!line || isComplementLine(line)) continue;
     for (const region of line.regions) {
@@ -573,8 +660,10 @@ function deriveMonetaryBands(
   lines: GridLine[],
   block: ItemLineBlock,
   suffixAnchor: MoneyCandidate | null,
+  excludedLines?: ReadonlySet<number>,
+  debug?: ItemBlockPriceDebug,
 ): { unitPrice: number | null; originalTotal: number | null } {
-  const collected = collectMoneyCandidates(lines, block);
+  const collected = collectMoneyCandidates(lines, block, excludedLines, debug);
   const { candidates, droppedDescriptionLineMoney } =
     preferOffDescriptionLine(collected);
   if (candidates.length === 0) {
@@ -663,6 +752,259 @@ function isDescontoLine(line: GridLine): boolean {
   );
 }
 
+/**
+ * Promotional block attached to the item above it:
+ *
+ *   [original price]
+ *   DESCONTO
+ *   [percentage]      (optional)
+ *   [negative amount] (optional)
+ *   [final positive price]
+ *
+ * Returns the grid lines that belong to the discount block (so their money
+ * never leaks into unit price / original total), plus the recognized final
+ * price and discount amount for validation.
+ */
+interface DiscountZone {
+  lineIndices: Set<number>;
+  candidates: number[];
+  discountValue: number | null;
+  percentValue: number | null;
+}
+
+function joinLinesText(lines: GridLine[], lineIndices: number[]): string {
+  return lineIndices
+    .map((lineIndex) => {
+      const line = lines[lineIndex];
+      if (!line) return "";
+      return [...line.regions]
+        .sort((a, b) => a.minX - b.minX)
+        .map((region) => region.text)
+        .join(" ");
+    })
+    .filter(Boolean)
+    .join(" ");
+}
+
+function findDiscountZone(
+  lines: GridLine[],
+  block: ItemLineBlock,
+): DiscountZone | null {
+  const indices = block.lineIndices;
+  let start = -1;
+  for (let k = 0; k < indices.length; k++) {
+    const line = lines[indices[k]];
+    if (line && isDescontoLine(line)) {
+      start = k;
+      break;
+    }
+  }
+  if (start < 0) return null;
+
+  const zone: number[] = [start];
+  for (let k = start + 1; k < indices.length; k++) {
+    const line = lines[indices[k]];
+    if (!line) continue;
+    if (isComplementLine(line)) {
+      zone.push(k);
+      continue;
+    }
+    const startsNewProduct = line.regions.some((region) => {
+      const text = region.text;
+      if (isComplementText(text)) return false;
+      return text.replace(/[^a-zA-Z\u00C0-\u024F]/g, "").length >= 4;
+    });
+    if (startsNewProduct) break;
+    zone.push(k);
+  }
+
+  const zoneIds: number[] = zone.map((k) => indices[k]);
+  // The block detector can close the block right before the absolute discount
+  // amount when the item has no recognized price at all. Pull those trailing
+  // discount/final lines back into the zone, stopping at the first line that
+  // looks like another product or a summary/payment label.
+  if (zone[zone.length - 1] === indices.length - 1) {
+    const lastBlockIndex = indices[indices.length - 1];
+    let tail = 0;
+    for (
+      let lineIndex = lastBlockIndex + 1;
+      lineIndex < lines.length && tail < 3;
+      lineIndex++
+    ) {
+      const line = lines[lineIndex];
+      if (!line) break;
+      if (isComplementLine(line)) {
+        zoneIds.push(lineIndex);
+        tail += 1;
+        continue;
+      }
+      const looksLikeProduct = line.regions.some((region) => {
+        const text = region.text;
+        if (isComplementText(text)) return false;
+        return text.replace(/[^a-zA-Z\u00C0-\u024F]/g, "").length >= 4;
+      });
+      if (looksLikeProduct) break;
+      zoneIds.push(lineIndex);
+      tail += 1;
+    }
+  }
+
+  const lineIndices = new Set<number>(zoneIds);
+
+  let order = 0;
+  let lastMarkerOrder = -1;
+  let discountValue: number | null = null;
+  let percentValue: number | null = null;
+  const candidates: { order: number; value: number }[] = [];
+
+  for (const lineIndex of zoneIds) {
+    const line = lines[lineIndex];
+    if (!line) continue;
+    const regions = [...line.regions].sort((a, b) => a.minX - b.minX);
+    const kinds: Array<"marker" | "money" | "other"> = [];
+
+    for (const region of regions) {
+      const text = region.text.trim();
+      let kind: "marker" | "money" | "other" = "other";
+      if (isPercentText(text) || isNegativeMoneyText(text)) {
+        kind = "marker";
+        if (isPercentText(text)) {
+          const percent = extractPercentValue(text);
+          if (percent !== null) percentValue = percent;
+        }
+        const negative = extractNegativeMoneyValue(text);
+        if (negative !== null) discountValue = negative;
+      } else if (!isComplementText(text)) {
+        const value = extractMoneyValue(text);
+        if (value !== null && value > 0) {
+          kind = "money";
+          candidates.push({ order, value });
+        }
+      }
+      if (kind === "marker") lastMarkerOrder = order;
+      kinds.push(kind);
+      order += 1;
+    }
+
+    for (let i = 0; i < regions.length - 1; i++) {
+      if (kinds[i] !== "other" || kinds[i + 1] !== "other") continue;
+      const joined = tryJoinAdjacentMoney(regions[i], regions[i + 1], line);
+      if (joined === null) continue;
+      candidates.push({ order, value: joined });
+      order += 1;
+      i++;
+    }
+  }
+
+  // The percentage is often fragmented across regions ("-30,18" plus "%") or
+  // printed on the product line instead of the discount line, which no single
+  // region can express. Read the joined text of the zone so both numbers of the
+  // discount math come from the same, complete string. The negative amount is
+  // re-read from the zone text *without* its percentage tokens, otherwise a
+  // "%"-less fragment like "-30,18" would be taken for the absolute discount.
+  const zoneText = joinLinesText(lines, zoneIds);
+  const joinedZonePercent = extractPercentValue(zoneText);
+  if (joinedZonePercent !== null) percentValue = joinedZonePercent;
+  if (percentValue === null) {
+    const blockIds = [
+      ...new Set([...block.lineIndices, ...zoneIds]),
+    ].sort((a, b) => a - b);
+    percentValue = extractPercentValue(joinLinesText(lines, blockIds));
+  }
+  const zoneTextWithoutPercent = zoneText.replace(
+    /\d+(?:[.,]\d{1,2})?\s*%/g,
+    " ",
+  );
+  const joinedZoneDiscount = extractNegativeMoneyValue(zoneTextWithoutPercent);
+  if (joinedZoneDiscount !== null) {
+    discountValue = joinedZoneDiscount;
+  } else if (percentValue !== null) {
+    // Everything negative left in the zone is the percentage itself.
+    discountValue = null;
+  }
+
+  const afterMarker = candidates.filter(
+    (candidate) => candidate.order > lastMarkerOrder,
+  );
+
+  return {
+    lineIndices,
+    candidates: afterMarker.map((candidate) => candidate.value),
+    discountValue,
+    percentValue,
+  };
+}
+
+function resolveDiscountFinalValue(
+  zone: DiscountZone | null,
+  originalTotal: number | null,
+): number | null {
+  if (!zone || zone.candidates.length === 0) return null;
+  if (zone.candidates.length === 1) return zone.candidates[0];
+  if (originalTotal !== null && zone.discountValue !== null) {
+    const consistent = zone.candidates.find(
+      (value) =>
+        Math.abs(originalTotal - zone.discountValue - value) < 0.011,
+    );
+    if (consistent !== undefined) return consistent;
+  }
+  return zone.candidates[zone.candidates.length - 1];
+}
+
+const MAX_INFERRED_ORIGINAL_PRICE = 10000;
+
+function roundMoney(value: number): number {
+  return Math.round(value * 100) / 100;
+}
+
+interface InferredDiscountPrices {
+  original: number;
+  final: number;
+}
+
+/**
+ * Rebuilds the promotional prices when the OCR lost every price of the item
+ * but captured both the discount percentage and the absolute discount:
+ *
+ *   original ≈ desconto / (percentual / 100)
+ *   final    ≈ original - desconto
+ *
+ * e.g. 0,86 / 30,18% ≈ 2,85 -> 2,85 - 0,86 = 1,99.
+ *
+ * Only reads values from the item's own discount zone, requires both numbers,
+ * never contradicts an already recognized original total and rejects results
+ * that are not plausible item prices.
+ */
+function inferPricesFromDiscountMath(
+  zone: DiscountZone | null,
+  originalTotal: number | null,
+): InferredDiscountPrices | null {
+  if (!zone) return null;
+  const percent = zone.percentValue;
+  const discount = zone.discountValue;
+  if (percent === null || discount === null) return null;
+  if (!(percent > 0 && percent < 100)) return null;
+  if (!(discount > 0)) return null;
+
+  const derivedOriginal = roundMoney(discount / (percent / 100));
+  if (!Number.isFinite(derivedOriginal)) return null;
+  if (derivedOriginal < 0.01 || derivedOriginal > MAX_INFERRED_ORIGINAL_PRICE) {
+    return null;
+  }
+
+  let original = derivedOriginal;
+  if (originalTotal !== null) {
+    const tolerance = Math.max(0.02, derivedOriginal * 0.005);
+    if (Math.abs(originalTotal - derivedOriginal) > tolerance) return null;
+    original = originalTotal;
+  }
+
+  const final = roundMoney(original - discount);
+  if (!Number.isFinite(final) || final < 0.01) return null;
+  if (final >= original) return null;
+  return { original, final };
+}
+
 function tryJoinAdjacentMoney(
   left: ItemRegion,
   right: ItemRegion,
@@ -707,63 +1049,44 @@ function tryJoinAdjacentMoney(
   return value;
 }
 
-function extractDescontoFinalValue(
-  lines: GridLine[],
-  block: ItemLineBlock,
-): number | null {
-  let bestValue: number | null = null;
-  let bestCx = -Infinity;
-
-  for (const lineIndex of block.lineIndices) {
-    const line = lines[lineIndex];
-    if (!line || !isComplementLine(line) || !isDescontoLine(line)) continue;
-
-    const regions = [...line.regions].sort((a, b) => a.minX - b.minX);
-
-    for (let i = 0; i < regions.length; i++) {
-      const region = regions[i];
-
-      const value = extractMoneyValue(region.text);
-      if (value !== null && value > 0) {
-        if (region.cx > bestCx) {
-          bestValue = value;
-          bestCx = region.cx;
-        }
-        continue;
-      }
-
-      if (i < regions.length - 1) {
-        const joined = tryJoinAdjacentMoney(region, regions[i + 1], line);
-        if (joined !== null) {
-          const joinCx = Math.max(region.cx, regions[i + 1].cx);
-          if (joinCx > bestCx) {
-            bestValue = joined;
-            bestCx = joinCx;
-          }
-        }
-      }
-    }
-  }
-
-  return bestValue;
-}
-
 function extractMonetary(
   lines: GridLine[],
   block: ItemLineBlock,
   descriptionPick: DescriptionPick,
+  debug?: ItemBlockPriceDebug,
 ): {
   unitPrice: number | null;
   originalTotal: number | null;
   explicitFinalValue: number | null;
+  hasDiscountZone: boolean;
 } {
-  const suffixAnchor = findSuffixAnchor(lines, block, descriptionPick);
+  const zone = findDiscountZone(lines, block);
+  const zoneLines = zone?.lineIndices;
+  if (debug) {
+    debug.discountZoneLineIndices = zone ? [...zone.lineIndices] : null;
+    debug.discountZoneCandidates = zone ? [...zone.candidates] : [];
+    debug.discountZoneDiscountValue = zone?.discountValue ?? null;
+    debug.discountZonePercentValue = zone?.percentValue ?? null;
+  }
+  const suffixAnchor = findSuffixAnchor(
+    lines,
+    block,
+    descriptionPick,
+    zoneLines,
+  );
   const suffixUnitPrice = suffixAnchor ? suffixAnchor.value : null;
-  const bands = deriveMonetaryBands(lines, block, suffixAnchor);
+  const bands = deriveMonetaryBands(
+    lines,
+    block,
+    suffixAnchor,
+    zoneLines,
+    debug,
+  );
   const { por, de } = extractMarkers(lines, block);
 
   let suffixTotal: number | null = null;
   for (const lineIndex of block.lineIndices) {
+    if (zoneLines?.has(lineIndex)) continue;
     const line = lines[lineIndex];
     if (!line || isComplementLine(line)) continue;
     for (const region of line.regions) {
@@ -790,23 +1113,37 @@ function extractMonetary(
     originalTotal = suffixTotal;
   }
 
-  const descontoFinal =
-    por === null ? extractDescontoFinalValue(lines, block) : null;
+  let descontoFinal =
+    por === null ? resolveDiscountFinalValue(zone, originalTotal) : null;
+
+  let inferredOriginal: number | null = null;
+  if (por === null && descontoFinal === null) {
+    const inferred = inferPricesFromDiscountMath(zone, originalTotal);
+    if (inferred !== null) {
+      descontoFinal = inferred.final;
+      inferredOriginal = inferred.original;
+    }
+  }
+  if (inferredOriginal !== null && originalTotal === null) {
+    originalTotal = inferredOriginal;
+  }
 
   return {
     unitPrice: resolvedUnitPrice,
     originalTotal,
     explicitFinalValue: por ?? descontoFinal,
+    hasDiscountZone: zone !== null,
   };
 }
 
 export function extractItemBlock(
   lines: GridLine[],
   block: ItemLineBlock,
+  priceDebug?: ItemBlockPriceDebug,
 ): ExtractedItemBlock {
   const descriptionPick = pickDescription(lines, block);
   const { quantity, unit } = extractQuantityUnit(lines, block, descriptionPick);
-  const monetary = extractMonetary(lines, block, descriptionPick);
+  const monetary = extractMonetary(lines, block, descriptionPick, priceDebug);
 
   return {
     lineIndices: [...block.lineIndices],
@@ -816,6 +1153,7 @@ export function extractItemBlock(
     unitPrice: monetary.unitPrice,
     originalTotal: monetary.originalTotal,
     explicitFinalValue: monetary.explicitFinalValue,
+    hasDiscountZone: monetary.hasDiscountZone,
     classification: block.classification ?? "fragment",
     signals: block.signals ? [...block.signals] : undefined,
   };

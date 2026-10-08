@@ -13,11 +13,16 @@ const mockData = vi.hoisted(() => ({
     { id: "3", name: "Lazer", type: "expense" as const, monthlyBudget: null },
     { id: "4", name: "Salário", type: "income" as const, monthlyBudget: null },
     { id: "5", name: "Freelance", type: "income" as const, monthlyBudget: null },
+    { id: "6", name: "Outros", type: "both" as const, monthlyBudget: null },
   ],
   transactions: [] as Transaction[],
   bills: [] as RecurringBill[],
   payments: [] as { id: string; recurringBillId: string; referenceMonth: string; paidAt: string; transactionId: string | null }[],
+  accounts: [] as { id: string; name: string }[],
+  creditCards: [] as { id: string; name: string }[],
   addBill: vi.fn(),
+  updateBill: vi.fn(),
+  markAsPaid: vi.fn(),
 }));
 
 vi.mock("@/contexts/ForecastContext", () => ({
@@ -26,20 +31,24 @@ vi.mock("@/contexts/ForecastContext", () => ({
     payments: mockData.payments,
     loading: false,
     addBill: mockData.addBill,
-    updateBill: vi.fn(),
+    updateBill: mockData.updateBill,
     deleteBill: vi.fn(),
-    markAsPaid: vi.fn(),
+    markAsPaid: mockData.markAsPaid,
     unmarkAsPaid: vi.fn(),
     refetch: vi.fn(),
   }),
 }));
 
 vi.mock("@/contexts/AccountContext", () => ({
-  useAccounts: () => ({ accounts: [], creditCards: [] }),
+  useAccounts: () => ({ accounts: mockData.accounts, creditCards: mockData.creditCards }),
 }));
 
 vi.mock("@/contexts/CategoryContext", () => ({
-  useCategories: () => ({ categories: mockData.categories }),
+  useCategories: () => ({
+    categories: mockData.categories,
+    getCategoriesByType: (type: string) =>
+      mockData.categories.filter((c) => c.type === type || c.type === "both").map((c) => c.name),
+  }),
 }));
 
 vi.mock("@/contexts/FinanceContext", () => ({
@@ -131,6 +140,8 @@ vi.mock("lucide-react", () => ({
   CircleDollarSign: (p: any) => <svg {...p} />,
   Clock: (p: any) => <svg {...p} />,
   AlertTriangle: (p: any) => <svg {...p} />,
+  ArrowUpRight: (p: any) => <svg {...p} />,
+  ArrowDownLeft: (p: any) => <svg {...p} />,
   Loader2: (p: any) => <svg {...p} />,
 }));
 
@@ -152,6 +163,8 @@ const makeBill = (overrides: Partial<RecurringBill> = {}): RecurringBill => ({
 describe("Forecasts budget indicator", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date(2026, 8, 15, 12));
     mockData.bills = [];
     mockData.payments = [];
     mockData.transactions = [
@@ -201,6 +214,8 @@ describe("Forecasts budget indicator", () => {
     return parent?.textContent || "";
   };
 
+  const normalizeMoney = (text?: string | null) => (text ?? "").replace(/\u00A0/g, " ");
+
   it.each([
     { type: "income" as const, category: "Salário" },
     { type: "expense" as const, category: "Alimentação" },
@@ -249,7 +264,7 @@ describe("Forecasts budget indicator", () => {
     render(<Forecasts />);
 
     const cardText = screen.getByText("FIES").closest('[class*="rounded-lg"]')?.textContent;
-    expect(cardText).toContain("R$ 362,00");
+    expect(normalizeMoney(cardText)).toContain("R$ 362,00");
     expect(cardText).not.toContain("Efetivo:");
   });
 
@@ -275,11 +290,21 @@ describe("Forecasts budget indicator", () => {
     render(<Forecasts />);
 
     const cardText = screen.getByText(name).closest('[class*="rounded-lg"]')?.textContent;
-    expect(cardText).toContain("Previsto: R$ 362,00");
-    expect(cardText).toContain("Efetivo: R$ 361,43");
-    expect(screen.getByText("Total Previsto").parentElement?.textContent).toContain("R$ 362,00");
-    expect(screen.getByText("Total Pago").parentElement?.textContent).toContain("R$ 361,43");
-    expect(screen.getByText("Total Pendente").parentElement?.textContent).toContain("R$ 0,00");
+    expect(normalizeMoney(cardText)).toContain("Previsto: R$ 362,00");
+    expect(normalizeMoney(cardText)).toContain("Efetivo: R$ 361,43");
+    const pagar = normalizeMoney(screen.getByText("Previsto a pagar").parentElement?.textContent);
+    const receber = normalizeMoney(screen.getByText("Previsto a receber").parentElement?.textContent);
+    const saldo = normalizeMoney(screen.getByText("Saldo projetado").parentElement?.textContent);
+    if (type === "expense") {
+      expect(pagar).toContain("R$ 362,00");
+      expect(receber).toContain("R$ 0,00");
+      expect(saldo).toContain("-R$ 362,00");
+    } else {
+      expect(pagar).toContain("R$ 0,00");
+      expect(receber).toContain("R$ 362,00");
+      expect(saldo).toContain("R$ 362,00");
+      expect(saldo).not.toContain("-R$");
+    }
   });
 
   it("does not repeat forecast and effective labels when the amounts match", () => {
@@ -301,7 +326,7 @@ describe("Forecasts budget indicator", () => {
     render(<Forecasts />);
 
     const cardText = screen.getByText("FIES").closest('[class*="rounded-lg"]')?.textContent;
-    expect(cardText).toContain("R$ 362,00");
+    expect(normalizeMoney(cardText)).toContain("R$ 362,00");
     expect(cardText).not.toContain("Previsto:");
     expect(cardText).not.toContain("Efetivo:");
   });
@@ -542,5 +567,172 @@ describe("Forecasts budget indicator", () => {
     expect(exceededEl).toBeDefined();
     const text = exceededEl.textContent || "";
     expect(text).toMatch(/R\$\s*[\d.]+,\d{2}\s*acima do orçamento/);
+  });
+});
+
+describe("Previsões categoria Outros", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockData.bills = [];
+    mockData.payments = [];
+    mockData.transactions = [];
+  });
+
+  const openForm = () => fireEvent.click(screen.getByText("Nova Previsão"));
+
+  const selectTypeLabel = (typeLabel: "Saída" | "Entrada") => {
+    const tipoSelect = screen.getAllByTestId("select-mock")[0];
+    const btn = Array.from(tipoSelect.querySelectorAll("button")).find((b) => b.textContent === typeLabel);
+    expect(btn).toBeDefined();
+    fireEvent.click(btn!);
+  };
+
+  it("A) nova previsão de Saída mostra a categoria Outros", () => {
+    render(<Forecasts />);
+    openForm();
+
+    expect(screen.getByTestId("select-item-Outros")).toBeInTheDocument();
+    expect(screen.getByTestId("select-item-Alimentação")).toBeInTheDocument();
+  });
+
+  it("A2) nova previsão de Entrada mostra Outros e mantém o filtro por tipo", () => {
+    render(<Forecasts />);
+    openForm();
+    selectTypeLabel("Entrada");
+
+    expect(screen.getByTestId("select-item-Outros")).toBeInTheDocument();
+    expect(screen.getByTestId("select-item-Salário")).toBeInTheDocument();
+    expect(screen.queryByTestId("select-item-Alimentação")).not.toBeInTheDocument();
+    expect(screen.queryByTestId("select-item-Transporte")).not.toBeInTheDocument();
+  });
+
+  it("B) editar previsão de Saída mostra Outros e persiste a seleção ao salvar", () => {
+    mockData.bills = [makeBill({ name: "Supermercado", category: "Outros" })];
+
+    render(<Forecasts />);
+    fireEvent.click(screen.getByTitle("Editar previsão"));
+
+    expect(screen.getByTestId("select-item-Outros")).toBeInTheDocument();
+
+    const scopeSelect = screen.getAllByTestId("select-mock").find((el) =>
+      Array.from(el.querySelectorAll("button")).some((b) => b.textContent === "Toda a recorrência"),
+    );
+    expect(scopeSelect).toBeDefined();
+    const allScopeBtn = Array.from(scopeSelect!.querySelectorAll("button")).find((b) => b.textContent === "Toda a recorrência");
+    fireEvent.click(allScopeBtn!);
+
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+
+    expect(mockData.updateBill).toHaveBeenCalledTimes(1);
+    expect(mockData.updateBill.mock.calls[0][0]).toMatchObject({ category: "Outros" });
+  });
+
+  it("C) salvar nova previsão com Outros persiste a categoria", () => {
+    render(<Forecasts />);
+    openForm();
+
+    fireEvent.change(screen.getByPlaceholderText("Ex: Aluguel"), { target: { value: "Conta de luz" } });
+    fireEvent.change(screen.getByPlaceholderText("0,00"), { target: { value: "90" } });
+    fireEvent.click(screen.getByTestId("select-item-Outros"));
+    fireEvent.click(screen.getByText("Criar"));
+
+    expect(mockData.addBill).toHaveBeenCalledTimes(1);
+    expect(mockData.addBill.mock.calls[0][0]).toMatchObject({ category: "Outros" });
+  });
+
+  it("D) não duplica Outros na lista de categorias", () => {
+    render(<Forecasts />);
+    openForm();
+
+    expect(screen.getAllByTestId("select-item-Outros")).toHaveLength(1);
+  });
+
+  it("E) mantém todas as categorias existentes para Saída e Entrada", () => {
+    render(<Forecasts />);
+    openForm();
+
+    ["Alimentação", "Transporte", "Lazer", "Outros"].forEach((name) => {
+      expect(screen.getByTestId(`select-item-${name}`)).toBeInTheDocument();
+    });
+
+    selectTypeLabel("Entrada");
+
+    ["Salário", "Freelance", "Outros"].forEach((name) => {
+      expect(screen.getByTestId(`select-item-${name}`)).toBeInTheDocument();
+    });
+  });
+});
+
+describe("Registrar Pagamento cartão de crédito", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockData.bills = [makeBill()];
+    mockData.payments = [];
+    mockData.transactions = [];
+    mockData.accounts = [{ id: "account-1", name: "Conta principal" }];
+    mockData.creditCards = [{ id: "card-1", name: "Nubank" }];
+  });
+
+  const openPayDialog = () => {
+    render(<Forecasts />);
+    fireEvent.click(screen.getByTitle("Marcar como pago"));
+  };
+
+  const confirmButton = () => screen.getByRole("button", { name: "Confirmar Pagamento" });
+
+  const selectPayMethod = (value: string) => fireEvent.click(screen.getByTestId(`select-item-${value}`));
+
+  it("mostra Conta nas formas com conta e troca por Cartão de crédito no cartão", () => {
+    openPayDialog();
+
+    expect(screen.getByText("Conta")).toBeInTheDocument();
+
+    selectPayMethod("Cartão de Crédito");
+    expect(screen.queryByText("Conta")).not.toBeInTheDocument();
+    expect(screen.getByText("Cartão de crédito")).toBeInTheDocument();
+
+    selectPayMethod("Dinheiro");
+    expect(screen.getByText("Conta")).toBeInTheDocument();
+    expect(screen.queryByText("Cartão de crédito")).not.toBeInTheDocument();
+  });
+
+  it("bloqueia a confirmação sem cartão de crédito selecionado", () => {
+    openPayDialog();
+    selectPayMethod("Cartão de Crédito");
+
+    expect(confirmButton()).toBeDisabled();
+  });
+
+  it("confirma o pagamento no cartão com creditCardId e sem conta", () => {
+    openPayDialog();
+    selectPayMethod("Cartão de Crédito");
+    fireEvent.click(screen.getByTestId("select-item-card-1"));
+
+    expect(confirmButton()).toBeEnabled();
+    fireEvent.click(confirmButton());
+
+    expect(mockData.markAsPaid).toHaveBeenCalledTimes(1);
+    const [billArg, monthArg, overrides] = mockData.markAsPaid.mock.calls[0];
+    expect(billArg).toMatchObject({ id: "bill-1" });
+    expect(monthArg).toEqual(expect.any(String));
+    expect(overrides).toMatchObject({
+      amount: 150,
+      paymentMethod: "Cartão de Crédito",
+      accountId: null,
+      creditCardId: "card-1",
+    });
+  });
+
+  it("limpa o cartão selecionado ao trocar a forma de pagamento", () => {
+    openPayDialog();
+    selectPayMethod("Cartão de Crédito");
+    fireEvent.click(screen.getByTestId("select-item-card-1"));
+    expect(confirmButton()).toBeEnabled();
+
+    selectPayMethod("Pix");
+    expect(screen.getByText("Conta")).toBeInTheDocument();
+
+    selectPayMethod("Cartão de Crédito");
+    expect(confirmButton()).toBeDisabled();
   });
 });
