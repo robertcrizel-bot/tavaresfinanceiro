@@ -1,6 +1,7 @@
 import { useState, useMemo } from "react";
 import { useForecast, BillPayment, RecurringBill } from "@/contexts/ForecastContext";
 import { useAccounts } from "@/contexts/AccountContext";
+import { findCashAccount, isCashPaymentMethod } from "@/lib/cash-account";
 import { useCategories } from "@/contexts/CategoryContext";
 import { useFinance } from "@/contexts/FinanceContext";
 import { Card, CardContent } from "@/components/ui/card";
@@ -179,11 +180,13 @@ export default function Forecasts() {
       return;
     }
     setPayCreditCardId("");
+    if (isCashPaymentMethod(nextPaymentMethod)) setPayAccountId(findCashAccount(accounts)?.id ?? "");
   };
 
   const handleConfirmPay = async () => {
     if (!payBill) return;
     if (payIsCreditCard && !payCreditCardId) return;
+    if (isCashPaymentMethod(payMethod) && !payAccountId) return;
     await markAsPaid(payBill, referenceMonth, {
       amount: Number(payAmount),
       date: payDate,
@@ -672,7 +675,7 @@ export default function Forecasts() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPayOpen(false)}>Cancelar</Button>
-            <Button onClick={handleConfirmPay} disabled={!payAmount || !payDate || (payIsCreditCard && !payCreditCardId)}>{payBill?.type === "income" ? "Confirmar Recebimento" : "Confirmar Pagamento"}</Button>
+            <Button onClick={handleConfirmPay} disabled={!payAmount || !payDate || (payIsCreditCard && !payCreditCardId) || (isCashPaymentMethod(payMethod) && !payAccountId)}>{payBill?.type === "income" ? "Confirmar Recebimento" : "Confirmar Pagamento"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
