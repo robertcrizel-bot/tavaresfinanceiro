@@ -41,6 +41,7 @@ vi.mock("@/contexts/CategoryContext", () => ({
 vi.mock("@/hooks/use-toast", () => ({ toast: mocks.toast }));
 vi.mock("@/lib/shared-receipt", () => ({
   takeSharedReceiptWithDiagnostics: mocks.takeSharedReceiptWithDiagnostics,
+  isShareWorkerOutdated: (version: unknown) => typeof version === "string" && version !== "share-v5",
 }));
 vi.mock("@/lib/receipt", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/receipt")>(),

@@ -35,6 +35,7 @@ vi.mock("@/contexts/CategoryContext", () => ({
 vi.mock("@/hooks/use-toast", () => ({ toast: mocks.toast }));
 vi.mock("@/lib/shared-receipt", () => ({
   takeSharedReceiptWithDiagnostics: mocks.takeSharedReceiptWithDiagnostics,
+  isShareWorkerOutdated: (version: unknown) => typeof version === "string" && version !== "share-v5",
 }));
 vi.mock("@/lib/receipt", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/receipt")>(),
@@ -704,6 +705,7 @@ describe("fast OCR main flow (no paid AI)", () => {
   it("shows open diagnostics when the shared file cannot be recovered", async () => {
     const diag = {
       sw: {
+        swVersion: "share-v3",
         contentType: "multipart/form-data; boundary=android-share",
         rawBodyLength: 483221,
         formDataEntryCount: 0,
@@ -724,7 +726,10 @@ describe("fast OCR main flow (no paid AI)", () => {
     render(<ReceiptImport />);
 
     const summary = await screen.findByText("Diagnóstico do compartilhamento: arquivo não encontrado");
-    expect(summary.closest("details")).toHaveAttribute("open");
+    expect(screen.getByText("Não foi possível receber a imagem compartilhada neste aparelho. Use 'Escolher arquivo' abaixo.")).toBeInTheDocument();
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByText("swVersion: share-v3")).toBeInTheDocument();
+    expect(screen.getByText("Service Worker desatualizado")).toBeInTheDocument();
     expect(screen.getByText(/"rawBodyLength": 483221/)).toBeInTheDocument();
     expect(mocks.fastOcrRecognize).not.toHaveBeenCalled();
   });

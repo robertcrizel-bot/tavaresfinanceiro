@@ -1,6 +1,8 @@
 const SHARE_CACHE = "shared-receipt";
 const SHARE_KEY = "/__shared-receipt";
 const DIAG_KEY = "/__shared-receipt-diag";
+export const EXPECTED_SHARE_SW_VERSION = "share-v5";
+let reloadingForNewController = false;
 
 export interface ShareDiagnostics {
   sw: Record<string, unknown> | null;
@@ -68,6 +70,9 @@ export async function takeSharedReceipt(): Promise<File | null> {
   return (await takeSharedReceiptWithDiagnostics()).file;
 }
 
+export const isShareWorkerOutdated = (version: unknown) =>
+  typeof version === "string" && version !== EXPECTED_SHARE_SW_VERSION;
+
 /**
  * True only for the editor preview (iframe / preview hosts).
  * The published app (*.lovable.app without "id-preview--") must NOT be blocked,
@@ -91,6 +96,35 @@ export function isLovablePreview(): boolean {
   );
 }
 
+export async function refreshReceiptServiceWorker() {
+  const registration = await navigator.serviceWorker.register("/sw.js", {
+    scope: "/",
+    updateViaCache: "none",
+  });
+
+  const activateWaitingWorker = () => {
+    registration.waiting?.postMessage({ type: "SKIP_WAITING" });
+  };
+  const watchInstallingWorker = () => {
+    const installing = registration.installing;
+    if (!installing) return;
+    installing.addEventListener("statechange", () => {
+      if (installing.state === "installed") activateWaitingWorker();
+    });
+  };
+
+  registration.addEventListener("updatefound", watchInstallingWorker);
+  watchInstallingWorker();
+  activateWaitingWorker();
+  try {
+    await registration.update();
+  } finally {
+    watchInstallingWorker();
+    activateWaitingWorker();
+  }
+  return registration;
+}
+
 export function registerReceiptServiceWorker() {
   if (typeof window === "undefined" || !("serviceWorker" in navigator)) return;
 
@@ -102,8 +136,14 @@ export function registerReceiptServiceWorker() {
     return;
   }
 
+  navigator.serviceWorker.addEventListener("controllerchange", () => {
+    if (reloadingForNewController) return;
+    reloadingForNewController = true;
+    window.location.reload();
+  });
+
   const register = () => {
-    navigator.serviceWorker.register("/sw.js", { scope: "/" }).catch(() => undefined);
+    void refreshReceiptServiceWorker().catch(() => undefined);
   };
   if (document.readyState === "complete") register();
   else window.addEventListener("load", register, { once: true });

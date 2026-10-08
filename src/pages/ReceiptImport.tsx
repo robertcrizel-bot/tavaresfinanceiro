@@ -9,7 +9,7 @@ import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
-import { takeSharedReceiptWithDiagnostics, type ShareDiagnostics } from "@/lib/shared-receipt";
+import { isShareWorkerOutdated, takeSharedReceiptWithDiagnostics, type ShareDiagnostics } from "@/lib/shared-receipt";
 import { parseReceipt, prepareReceiptForLocalOcr, matchByName, matchCategory, ParsedReceipt, type LocalOcrPreparationMetrics } from "@/lib/receipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
@@ -46,6 +46,7 @@ export default function ReceiptImport() {
   const cameraRequestRef = useRef(0);
   const sharedChecked = useRef(false);
   const [shareDiag, setShareDiag] = useState<ShareDiagnostics | null>(null);
+  const openedByShare = new URLSearchParams(window.location.search).has("shared");
 
   const buildPrefill = useCallback(
     (parsed: ParsedReceipt): Partial<Omit<Transaction, "id">> => {
@@ -293,7 +294,6 @@ export default function ReceiptImport() {
   useEffect(() => {
     if (sharedChecked.current) return;
     sharedChecked.current = true;
-    const openedByShare = new URLSearchParams(window.location.search).has("shared");
     void takeSharedReceiptWithDiagnostics().then(({ file, diag }) => {
       if (openedByShare) setShareDiag(diag);
       if (file) {
@@ -317,6 +317,8 @@ export default function ReceiptImport() {
     card_last_four: "final do cartão",
     purchased_items: "itens comprados",
   };
+  const reportedSwVersion = shareDiag?.sw?.swVersion;
+  const shareWorkerOutdated = isShareWorkerOutdated(reportedSwVersion);
 
   return (
     <div className="space-y-6">
@@ -327,11 +329,19 @@ export default function ReceiptImport() {
         </p>
       </div>
 
+      {openedByShare && shareDiag && !shareDiag.page.found && (
+        <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-foreground">
+          Não foi possível receber a imagem compartilhada neste aparelho. Use 'Escolher arquivo' abaixo.
+        </div>
+      )}
+
       {shareDiag && (
-        <details className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground" open={!shareDiag.page.found}>
+        <details className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
           <summary className="cursor-pointer font-medium text-foreground">
             Diagnóstico do compartilhamento: {shareDiag.page.found ? "arquivo recebido" : "arquivo não encontrado"}
           </summary>
+          <p className="mt-2">swVersion: {typeof reportedSwVersion === "string" ? reportedSwVersion : "indisponível"}</p>
+          {shareWorkerOutdated && <p className="mt-2 font-medium text-destructive">Service Worker desatualizado</p>}
           <pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(shareDiag, null, 2)}</pre>
         </details>
       )}
