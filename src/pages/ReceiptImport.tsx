@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -14,12 +14,12 @@ import { parseReceipt, prepareReceiptForLocalOcr, matchByName, matchCategory, Pa
 import { formatReceiptDescription } from "@/lib/receipt-description";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
+import type { PaddleOcrRegion } from "@/lib/ocr-paddle-test/types";
 import { paddleRecognizeWorker } from "@/lib/paddle-ocr-worker";
 import {
   interpretReceiptLocally,
   toLocalReceiptInput,
   type LocalInterpretationMetrics,
-  type LocalReceiptInput,
 } from "@/lib/local-receipt-ai";
 import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientation";
 import { supabase } from "@/integrations/supabase/client";
@@ -46,10 +46,11 @@ export default function ReceiptImport() {
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [readStatus, setReadStatus] = useState("");
   const [pendingFile, setPendingFile] = useState<File | null>(null);
-  const [localSnapshot, setLocalSnapshot] = useState<{
-    input: LocalReceiptInput;
+  const localSnapshotRef = useRef<{
+    regions: PaddleOcrRegion[];
     fallback: ParsedReceipt;
   } | null>(null);
+  const [localSnapshotAvailable, setLocalSnapshotAvailable] = useState(false);
   const [localLoading, setLocalLoading] = useState(false);
   const [localStatus, setLocalStatus] = useState("");
   const [localMetrics, setLocalMetrics] = useState<LocalInterpretationMetrics | null>(null);
@@ -61,6 +62,10 @@ export default function ReceiptImport() {
   const sharedChecked = useRef(false);
   const [shareDiag, setShareDiag] = useState<ShareDiagnostics | null>(null);
   const openedByShare = new URLSearchParams(window.location.search).has("shared");
+  const prefillAttachments = useMemo(
+    () => receiptFile ? [receiptFile] : undefined,
+    [receiptFile],
+  );
 
   const buildPrefill = useCallback(
     (parsed: ParsedReceipt): Partial<Omit<Transaction, "id">> => {
@@ -95,7 +100,6 @@ export default function ReceiptImport() {
   const processFileFast = useCallback(
     async (file: File) => {
       const totalStart = performance.now();
-      let shouldOpenForm = false;
       let completedRun: {
         initializationMs: number;
         ocrMs: number;
@@ -108,7 +112,8 @@ export default function ReceiptImport() {
       setLoading(true);
       setError(null);
       setDuplicate(false);
-      setLocalSnapshot(null);
+      localSnapshotRef.current = null;
+      setLocalSnapshotAvailable(false);
       setLocalMetrics(null);
       setLocalStatus("");
       setReadStatus("Preparando imagem...");
@@ -134,27 +139,29 @@ export default function ReceiptImport() {
           setError("Essa imagem não parece ser um comprovante. Tente outra foto mais nítida.");
           return;
         }
-        if (parsed.receipt_id) {
-          const { data: existing } = await supabase
-            .from("transactions")
-            .select("id")
-            .eq("receipt_ref", parsed.receipt_id)
-            .limit(1);
-          if (existing && existing.length > 0) setDuplicate(true);
-        }
         setReceiptFile(file);
         setReceiptRef(parsed.receipt_id ?? null);
         setLowConfidence(parsed.low_confidence_fields || []);
         setPrefill(buildPrefill(parsed));
-        setLocalSnapshot({
-          input: toLocalReceiptInput(
-            ocr.regions,
-            allCategoryNames,
-            [...accounts.map((a) => `${a.name} (${a.bank})`), ...creditCards.map((c) => `${c.name} (${c.bank})`)],
-          ),
+        localSnapshotRef.current = {
+          regions: ocr.regions,
           fallback: parsed,
-        });
-        shouldOpenForm = true;
+        };
+        setLocalSnapshotAvailable(true);
+        setFormOpen(true);
+
+        const receiptId = parsed.receipt_id;
+        if (receiptId) {
+          void supabase
+            .from("transactions")
+            .select("id")
+            .eq("receipt_ref", receiptId)
+            .limit(1)
+            .then(({ data: existing }) => {
+              if (localSnapshotRef.current?.fallback !== parsed) return;
+              if (existing && existing.length > 0) setDuplicate(true);
+            });
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Não foi possível concluir a leitura gratuita.");
       } finally {
@@ -179,21 +186,26 @@ export default function ReceiptImport() {
         setLoading(false);
         setReadStatus("");
       }
-      if (shouldOpenForm) setFormOpen(true);
     },
-    [buildPrefill, allCategoryNames, accounts, creditCards],
+    [buildPrefill],
   );
 
   const interpretLocally = useCallback(async () => {
-    if (!localSnapshot || localLoading) return;
+    const snapshot = localSnapshotRef.current;
+    if (!snapshot || localLoading) return;
     const run = localRunId.current + 1;
     localRunId.current = run;
     setLocalLoading(true);
     setError(null);
     setLocalStatus("Preparando interpretação local...");
     try {
-      const parsed = await interpretReceiptLocally(localSnapshot.input, {
-        fallback: localSnapshot.fallback,
+      const input = toLocalReceiptInput(
+        snapshot.regions,
+        allCategoryNames,
+        [...accounts.map((a) => `${a.name} (${a.bank})`), ...creditCards.map((c) => `${c.name} (${c.bank})`)],
+      );
+      const parsed = await interpretReceiptLocally(input, {
+        fallback: snapshot.fallback,
         onProgress: (status) => {
           if (localRunId.current === run) setLocalStatus(status);
         },
@@ -214,7 +226,7 @@ export default function ReceiptImport() {
         },
       });
       if (localRunId.current !== run) return;
-      if (parsed.receipt_id && parsed.receipt_id !== (localSnapshot.fallback.receipt_id ?? null)) {
+      if (parsed.receipt_id && parsed.receipt_id !== (snapshot.fallback.receipt_id ?? null)) {
         const { data: existing } = await supabase
           .from("transactions")
           .select("id")
@@ -235,14 +247,15 @@ export default function ReceiptImport() {
         setLocalStatus("");
       }
     }
-  }, [localSnapshot, localLoading, buildPrefill]);
+  }, [accounts, allCategoryNames, buildPrefill, creditCards, localLoading]);
 
   const processFileWithAi = useCallback(
     async (file: File) => {
       setLoading(true);
       setError(null);
       setDuplicate(false);
-      setLocalSnapshot(null);
+      localSnapshotRef.current = null;
+      setLocalSnapshotAvailable(false);
       setLocalMetrics(null);
       setLocalStatus("");
       try {
@@ -370,7 +383,8 @@ export default function ReceiptImport() {
         lastModified: Date.now(),
       });
       setPendingFile(file);
-      setLocalSnapshot(null);
+      localSnapshotRef.current = null;
+      setLocalSnapshotAvailable(false);
       setLocalMetrics(null);
       setLocalStatus("");
     } catch {
@@ -464,7 +478,8 @@ export default function ReceiptImport() {
                 e.target.value = "";
                 if (f) {
                   setPendingFile(f);
-                  setLocalSnapshot(null);
+                  localSnapshotRef.current = null;
+                  setLocalSnapshotAvailable(false);
                   setLocalMetrics(null);
                   setLocalStatus("");
                 }
@@ -573,9 +588,9 @@ export default function ReceiptImport() {
           open={formOpen}
           onClose={() => setFormOpen(false)}
           prefill={prefill}
-          prefillAttachments={receiptFile ? [receiptFile] : undefined}
+          prefillAttachments={prefillAttachments}
           lowConfidence={lowConfidence}
-          localAiAction={localSnapshot ? {
+          localAiAction={localSnapshotAvailable ? {
             running: localLoading,
             status: localStatus,
             metricsText: !localLoading && localMetrics

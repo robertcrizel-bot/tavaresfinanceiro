@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   buildPaddleReceiptResult: vi.fn(),
   prepareReceiptForLocalOcr: vi.fn(),
   interpretReceiptLocally: vi.fn(),
+  toLocalReceiptInput: vi.fn(),
 }));
 
 vi.mock("react-router-dom", async (importOriginal) => ({
@@ -48,6 +49,7 @@ vi.mock("@/lib/ocr-paddle-test/receiptResult", () => ({
 vi.mock("@/lib/local-receipt-ai", async (importOriginal) => ({
   ...await importOriginal<typeof import("@/lib/local-receipt-ai")>(),
   interpretReceiptLocally: mocks.interpretReceiptLocally,
+  toLocalReceiptInput: mocks.toLocalReceiptInput,
 }));
 vi.mock("@/lib/receipt-image-orientation", () => ({
   correctDocumentOrientation: vi.fn(async (image: File) => image),
@@ -146,6 +148,13 @@ describe("ReceiptImport local AI interpretation", () => {
     mocks.takeSharedReceiptWithDiagnostics.mockResolvedValue({ file: null, diag: null });
     mocks.duplicateLimit.mockResolvedValue({ data: [], error: null });
     mocks.releaseDocumentOrientationSession.mockResolvedValue(undefined);
+    mocks.toLocalReceiptInput.mockReturnValue({
+      regions: OCR_REGIONS,
+      groupedLines: [{ index: 0, text: "PADARIA CONFEITARIA PAO FRANCES", regions: OCR_REGIONS }],
+      rawText: "PADARIA CONFEITARIA\nPAO FRANCES\n0,274KG X 21,99 T12 6,03",
+      categories: ["Alimentação", "Outros"],
+      accounts: [],
+    });
     stubFreeSuccess();
   });
 
@@ -178,6 +187,7 @@ describe("ReceiptImport local AI interpretation", () => {
     expect(await screen.findByTestId("local-prefill-title")).toHaveTextContent("Mercado Central");
     const localButton = await screen.findByRole("button", { name: /Melhorar leitura localmente/ });
     expect(mocks.paddleRecognizeWorker).toHaveBeenCalledTimes(1);
+    expect(mocks.toLocalReceiptInput).not.toHaveBeenCalled();
 
     // Manual paid AI button is untouched and only opens confirmation.
     fireEvent.click(screen.getByRole("button", { name: /Ler com IA/ }));
@@ -187,6 +197,7 @@ describe("ReceiptImport local AI interpretation", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
 
     fireEvent.click(localButton);
+    await waitFor(() => expect(mocks.toLocalReceiptInput).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(mocks.interpretReceiptLocally).toHaveBeenCalledTimes(1));
     const [input, options] = mocks.interpretReceiptLocally.mock.calls[0];
     expect(input.regions).toHaveLength(3);

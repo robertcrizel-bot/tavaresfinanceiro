@@ -250,6 +250,31 @@ function extractReceiptTotal(
   return scan(0);
 }
 
+function normalizeFiscalHeader(text: string): string {
+  return text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isGenericFiscalHeader(text: string): boolean {
+  const normalized = normalizeFiscalHeader(text);
+  if (!normalized) return true;
+
+  if (
+    /^(?:DOCUMENTO AUXILIAR(?: DA NOTA FISCAL)?|NOTA FISCAL(?: DE CONSUMIDOR ELETRONICA)?|NFC-?E|DANFE|CUPOM FISCAL|EXTRATO|SAT|CF-?E|DOCUMENTO FISCAL|CONSUMIDOR(?: FINAL)?)\b/.test(normalized)
+  ) {
+    return true;
+  }
+
+  return /^(?:CNPJ|CPF|IE\b|INSCRICAO ESTADUAL|ENDERECO\b)/.test(normalized)
+    || /^(?:RUA|AVENIDA|AV\.|RODOVIA|ESTRADA|ALAMEDA|TRAVESSA|PRACA)\b/.test(normalized)
+    || /\b(?:ITEM|COD(?:IGO)?)\b.*\bDESCRICAO\b/.test(normalized)
+    || /^(?:VALOR TOTAL|FORMA DE PAGAMENTO)\b/.test(normalized);
+}
+
 function extractMerchant(text: string): string | null {
   const lines = text
     .split("\n")
@@ -257,7 +282,10 @@ function extractMerchant(text: string): string | null {
     .filter(Boolean);
 
   for (const line of lines.slice(0, 8)) {
-    if (/\b(?:ltda|eireli|s\.?a\.?|epp|me)\b/i.test(line)) {
+    if (
+      !isGenericFiscalHeader(line) &&
+      /\b(?:ltda|eireli|s\.?a\.?|epp|me)\b/i.test(line)
+    ) {
       const cleaned = line.replace(/[^\w\s\u00C0-\u024F.,&-]/g, "").trim();
       if (cleaned.length > 3) return cleaned;
     }
@@ -265,6 +293,7 @@ function extractMerchant(text: string): string | null {
 
   for (const line of lines.slice(0, 6)) {
     if (
+      !isGenericFiscalHeader(line) &&
       /[A-Z]{4,}/.test(line) &&
       !/\d{4,}/.test(line) &&
       !/R\$/.test(line) &&

@@ -606,7 +606,7 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
   });
 
-  it("extracts the receipt result and awaits orientation cleanup before opening the form", async () => {
+  it("opens the parsed form before orientation cleanup finishes", async () => {
     let finishOrientationRelease: (() => void) | undefined;
     mocks.releaseDocumentOrientationSession.mockReturnValueOnce(new Promise<void>((resolve) => {
       finishOrientationRelease = resolve;
@@ -619,10 +619,10 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
     await waitFor(() => expect(mocks.releaseDocumentOrientationSession).toHaveBeenCalledTimes(1));
     expect(mocks.buildPaddleReceiptResult.mock.invocationCallOrder[0])
       .toBeLessThan(mocks.releaseDocumentOrientationSession.mock.invocationCallOrder[0]);
-    expect(screen.queryByRole("button", { name: "Confirmar importação" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument();
 
     finishOrientationRelease!();
-    expect(await screen.findByRole("button", { name: "Confirmar importação" })).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument();
   });
 
   it("saves known Fonseca item values without inventing missing values", async () => {

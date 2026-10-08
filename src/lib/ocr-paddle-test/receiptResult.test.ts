@@ -23,6 +23,45 @@ describe("selectEffectiveValue", () => {
   });
 });
 
+describe("buildPaddleReceiptResult merchant filtering", () => {
+  const merchantFrom = (...lines: string[]) => buildPaddleReceiptResult(
+    lines.map((text, index) => ({
+      text,
+      confidence: 0.99,
+      bbox: [[0, index * 30], [500, index * 30], [500, index * 30 + 20], [0, index * 30 + 20]],
+    })),
+  ).merchant;
+
+  it("never uses DOCUMENTO AUXILIAR DA NOTA FISCAL as merchant", () => {
+    expect(merchantFrom(
+      "DOCUMENTO AUXILIAR DA NOTA FISCAL",
+      "CNPJ 05.355.369/0001-30",
+    )).toBeNull();
+  });
+
+  it.each(["NFC-e", "DANFE", "CUPOM FISCAL"])(
+    "ignores the generic fiscal header %s",
+    (header) => {
+      expect(merchantFrom(header, "MERCADO CENTRAL")).toBe("MERCADO CENTRAL");
+    },
+  );
+
+  it("prioritizes a plausible legal name over the first commercial line", () => {
+    expect(merchantFrom(
+      "MERCADO DO BAIRRO",
+      "COMERCIAL ALVORADA LTDA",
+    )).toBe("COMERCIAL ALVORADA LTDA");
+  });
+
+  it("selects the bakery name after the generic fiscal header", () => {
+    expect(merchantFrom(
+      "DOCUMENTO AUXILIAR DA NOTA FISCAL",
+      "PADARIA CONFEITARIA LUIZ ANTONIO RIBEIRO",
+      "CNPJ 05.355.369/0001-30",
+    )).toBe("PADARIA CONFEITARIA LUIZ ANTONIO RIBEIRO");
+  });
+});
+
 describe("buildPaddleReceiptResult Drogal", () => {
   const result = buildPaddleReceiptResult(drogalRegions);
 
