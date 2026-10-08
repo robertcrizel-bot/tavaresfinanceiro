@@ -675,7 +675,7 @@ export default function Forecasts() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setPayOpen(false)}>Cancelar</Button>
-            <Button onClick={handleConfirmPay} disabled={!payAmount || !payDate || (payIsCreditCard && !payCreditCardId)}>{payBill?.type === "income" ? "Confirmar Recebimento" : "Confirmar Pagamento"}</Button>
+            <Button onClick={handleConfirmPay} disabled={!payAmount || !payDate || (payIsCreditCard && !payCreditCardId) || (isCashPaymentMethod(payMethod) && !payAccountId)}>{payBill?.type === "income" ? "Confirmar Recebimento" : "Confirmar Pagamento"}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
