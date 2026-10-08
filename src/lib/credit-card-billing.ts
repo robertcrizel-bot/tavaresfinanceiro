@@ -174,7 +174,7 @@ export const getInvoiceClosingCandidates = (
     candidate.cycleStart === nextCycleStart
   );
 
-  return transactions.flatMap((transaction) => {
+  return transactions.flatMap((transaction): InvoiceClosingCandidate[] => {
     if (!isCardMovement(transaction, invoice.creditCardId) || transaction.date > actualClosedDate) return [];
 
     if (transaction.creditCardInvoiceId === invoice.id) {

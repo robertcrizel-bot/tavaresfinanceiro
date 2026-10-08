@@ -32,7 +32,7 @@ scope.onmessage = async (event: MessageEvent<RecognizeMessage>) => {
       initialize: true,
       ortOptions: {
         backend: "wasm",
-        wasmPaths: ORT_WASM_PATHS,
+        wasmPaths: ORT_WASM_PATHS as unknown as string,
       },
     });
     instance = created as unknown as { dispose: () => void | Promise<void> };
