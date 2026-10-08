@@ -1,10 +1,11 @@
-import { LayoutDashboard, List, Wallet, Tag, CalendarClock, ArrowLeftRight, User, PieChart } from "lucide-react";
+import { LayoutDashboard, List, Wallet, Tag, CalendarClock, ArrowLeftRight, User, PieChart, ReceiptText } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 
 const items = [
   { title: "Painel", url: "/", icon: LayoutDashboard },
   { title: "Análises", url: "/analises-despesas", icon: PieChart },
   { title: "Registros", url: "/records", icon: List },
+  { title: "Extratos", url: "/extratos", icon: ReceiptText },
   { title: "Contas", url: "/accounts", icon: Wallet },
   { title: "Transf.", url: "/transfers", icon: ArrowLeftRight },
   { title: "Categorias", url: "/categories", icon: Tag },
@@ -15,7 +16,7 @@ const items = [
 export function BottomNav() {
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-card/95 backdrop-blur-md safe-area-bottom md:hidden">
-      <div className="grid grid-cols-8 items-center h-14 px-1">
+      <div className="grid grid-cols-9 items-center h-14 px-1">
         {items.map((item) => (
           <NavLink
             key={item.title}
