@@ -1,5 +1,5 @@
 import { forwardRef } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { BottomNav } from "@/components/BottomNav";
@@ -83,5 +83,77 @@ describe("BottomNav", () => {
     expect(nav.className).toMatch(/border-t/);
     expect(nav.className).toMatch(/safe-area-bottom/);
     expect(nav.className).toMatch(/shadow-/);
+  });
+});
+
+describe("BottomNav scroll indicators", () => {
+  const metrics = { scrollLeft: 0, scrollWidth: 648, clientWidth: 360 };
+
+  function renderScrollable() {
+    renderNav("/");
+    const scroller = screen.getByTestId("bottomnav-scroller");
+    Object.defineProperties(scroller, {
+      scrollLeft: {
+        configurable: true,
+        get: () => metrics.scrollLeft,
+        set: (value: number) => {
+          metrics.scrollLeft = value;
+        },
+      },
+      scrollWidth: { configurable: true, get: () => metrics.scrollWidth },
+      clientWidth: { configurable: true, get: () => metrics.clientWidth },
+    });
+    return scroller;
+  }
+
+  function scrollTo(left: number) {
+    metrics.scrollLeft = left;
+    fireEvent.scroll(screen.getByTestId("bottomnav-scroller"));
+  }
+
+  it("shows only the right indicator at the start", async () => {
+    metrics.scrollLeft = 0;
+    renderScrollable();
+    expect(await screen.findByTestId("bottomnav-fade-right")).toBeInTheDocument();
+    expect(screen.queryByTestId("bottomnav-fade-left")).not.toBeInTheDocument();
+  });
+
+  it("shows the left indicator after scrolling and hides it back at the start", async () => {
+    metrics.scrollLeft = 0;
+    renderScrollable();
+    await screen.findByTestId("bottomnav-fade-right");
+
+    scrollTo(100);
+    expect(await screen.findByTestId("bottomnav-fade-left")).toBeInTheDocument();
+    expect(screen.getByTestId("bottomnav-fade-right")).toBeInTheDocument();
+
+    scrollTo(0);
+    await waitFor(() =>
+      expect(screen.queryByTestId("bottomnav-fade-left")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("bottomnav-fade-right")).toBeInTheDocument();
+  });
+
+  it("hides the right indicator at the end", async () => {
+    metrics.scrollLeft = 0;
+    renderScrollable();
+    await screen.findByTestId("bottomnav-fade-right");
+
+    scrollTo(metrics.scrollWidth - metrics.clientWidth);
+    await waitFor(() =>
+      expect(screen.queryByTestId("bottomnav-fade-right")).not.toBeInTheDocument(),
+    );
+    expect(screen.getByTestId("bottomnav-fade-left")).toBeInTheDocument();
+  });
+
+  it("does not block touches and keeps all destinations reachable while scrollable", async () => {
+    metrics.scrollLeft = 0;
+    renderScrollable();
+    const right = await screen.findByTestId("bottomnav-fade-right");
+    expect(right.className).toMatch(/pointer-events-none/);
+    const nav = screen.getByRole("navigation", { name: "Navegação principal" });
+    for (const label of ["Painel", "Perfil"]) {
+      expect(within(nav).getByText(label)).toBeInTheDocument();
+    }
   });
 });

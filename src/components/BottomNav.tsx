@@ -1,7 +1,9 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ArrowLeftRight,
   CalendarClock,
+  ChevronLeft,
+  ChevronRight,
   LayoutDashboard,
   List,
   PieChart,
@@ -29,6 +31,9 @@ const items = [
 export function BottomNav() {
   const { pathname } = useLocation();
   const itemRefs = useRef(new Map<string, HTMLAnchorElement>());
+  const scrollerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState(false);
+  const [canScrollRight, setCanScrollRight] = useState(false);
 
   useEffect(() => {
     itemRefs.current.get(pathname)?.scrollIntoView?.({
@@ -38,12 +43,38 @@ export function BottomNav() {
     });
   }, [pathname]);
 
+  useEffect(() => {
+    const scroller = scrollerRef.current;
+    if (!scroller) return;
+    let frame = 0;
+    const update = () => {
+      cancelAnimationFrame(frame);
+      frame = requestAnimationFrame(() => {
+        const maxLeft = scroller.scrollWidth - scroller.clientWidth;
+        setCanScrollLeft(scroller.scrollLeft > 4);
+        setCanScrollRight(scroller.scrollLeft < maxLeft - 4);
+      });
+    };
+    update();
+    scroller.addEventListener("scroll", update, { passive: true });
+    window.addEventListener("resize", update);
+    return () => {
+      cancelAnimationFrame(frame);
+      scroller.removeEventListener("scroll", update);
+      window.removeEventListener("resize", update);
+    };
+  }, [pathname]);
+
   return (
     <nav
       aria-label="Navegação principal"
       className="fixed bottom-0 left-0 right-0 z-50 border-t border-border/80 bg-[hsl(224_20%_16%)] shadow-[0_-10px_28px_-14px_rgba(0,0,0,0.75)] backdrop-blur-md safe-area-bottom md:hidden"
     >
-      <div className="flex snap-x snap-mandatory gap-0.5 overflow-x-auto px-2 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+      <div
+        ref={scrollerRef}
+        data-testid="bottomnav-scroller"
+        className="flex snap-x snap-mandatory gap-0.5 overflow-x-auto px-2 py-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+      >
         {items.map((item) => {
           const active = item.url === "/" ? pathname === "/" : pathname === item.url;
           return (
@@ -76,6 +107,24 @@ export function BottomNav() {
           );
         })}
       </div>
+      {canScrollLeft && (
+        <div
+          aria-hidden="true"
+          data-testid="bottomnav-fade-left"
+          className="pointer-events-none absolute inset-y-0 left-0 flex w-10 items-center justify-start bg-gradient-to-r from-[hsl(224_20%_16%)] via-[hsl(224_20%_16%/0.85)] to-transparent pl-1"
+        >
+          <ChevronLeft className="h-4 w-4 text-muted-foreground" />
+        </div>
+      )}
+      {canScrollRight && (
+        <div
+          aria-hidden="true"
+          data-testid="bottomnav-fade-right"
+          className="pointer-events-none absolute inset-y-0 right-0 flex w-10 items-center justify-end bg-gradient-to-l from-[hsl(224_20%_16%)] via-[hsl(224_20%_16%/0.85)] to-transparent pr-1"
+        >
+          <ChevronRight className="h-4 w-4 text-muted-foreground" />
+        </div>
+      )}
     </nav>
   );
 }
