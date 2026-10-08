@@ -259,6 +259,33 @@ describe("FinanceContext receipt details", () => {
     });
   });
 
+  it("reverses an invoice payment through the atomic lifecycle RPC", async () => {
+    await renderProvider();
+
+    let result = false;
+    await act(async () => { result = await context!.reverseCardInvoicePayment("invoice-paid"); });
+
+    expect(result).toBe(true);
+    expect(mocks.rpc).toHaveBeenCalledWith("reverse_credit_card_invoice_payment", {
+      p_invoice_id: "invoice-paid",
+    });
+    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Pagamento estornado" }));
+  });
+
+  it("does not report an invalid payment reversal as successful", async () => {
+    mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: "Somente fatura paga pode ter o pagamento estornado" } });
+    await renderProvider();
+
+    let result = true;
+    await act(async () => { result = await context!.reverseCardInvoicePayment("invoice-closed"); });
+
+    expect(result).toBe(false);
+    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Erro ao estornar pagamento",
+      variant: "destructive",
+    }));
+  });
+
   it("does not report a duplicate payment as successful", async () => {
     mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: "Fatura ja paga" } });
     await renderProvider();

@@ -50,7 +50,7 @@ const fmtDateTime = (date: string) => new Date(date).toLocaleDateString("pt-BR")
 
 export default function Accounts() {
   const { accounts, creditCards, addAccount, updateAccount, deleteAccount, addCreditCard, updateCreditCard, deleteCreditCard } = useAccounts();
-  const { transactions, creditCardInvoices, addTransaction, closeCardInvoice, reopenCardInvoice, payCardInvoice } = useFinance();
+  const { transactions, creditCardInvoices, addTransaction, closeCardInvoice, reopenCardInvoice, payCardInvoice, reverseCardInvoicePayment } = useFinance();
   const { transfers, addTransfer } = useTransfers();
 
   const [accFormOpen, setAccFormOpen] = useState(false);
@@ -63,6 +63,7 @@ export default function Accounts() {
   const [closingInvoiceDueDate, setClosingInvoiceDueDate] = useState("");
   const [closingInvoiceExcludedIds, setClosingInvoiceExcludedIds] = useState<string[]>([]);
   const [reopeningInvoice, setReopeningInvoice] = useState<CreditCardInvoice | null>(null);
+  const [reversingPaymentInvoice, setReversingPaymentInvoice] = useState<CreditCardInvoice | null>(null);
   const [payingCard, setPayingCard] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
   const [payAccountId, setPayAccountId] = useState("");
   const [payDate, setPayDate] = useState("");
@@ -307,6 +308,11 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                           <RotateCcw className="h-3.5 w-3.5" /> Reabrir fatura
                         </Button>
                       )}
+                      {status === "PAID" && invoice && (
+                        <Button size="sm" variant="ghost" className="gap-2 text-xs text-muted-foreground" onClick={() => setReversingPaymentInvoice(invoice)}>
+                          <RotateCcw className="h-3.5 w-3.5" /> Estornar pagamento
+                        </Button>
+                      )}
                     </div>
                     {nextOpenInvoice && (
                       <div className="mt-3 rounded-lg border border-dashed border-border p-2 text-xs text-muted-foreground">
@@ -527,6 +533,26 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
               const reopened = await reopenCardInvoice(reopeningInvoice.id);
               if (reopened) setReopeningInvoice(null);
             }}>Reabrir fatura</Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
+      {/* Reverse Invoice Payment Confirmation */}
+      <AlertDialog open={!!reversingPaymentInvoice} onOpenChange={(open) => { if (!open) setReversingPaymentInvoice(null); }}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Estornar pagamento da fatura?</AlertDialogTitle>
+            <AlertDialogDescription>
+              O pagamento será desfeito e a fatura voltará para fechada. Nenhuma compra será excluída.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancelar</AlertDialogCancel>
+            <Button onClick={async () => {
+              if (!reversingPaymentInvoice) return;
+              const reversed = await reverseCardInvoicePayment(reversingPaymentInvoice.id);
+              if (reversed) setReversingPaymentInvoice(null);
+            }}>Estornar pagamento</Button>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -7,6 +7,7 @@ const financeMocks = vi.hoisted(() => ({
   transactions: [] as Record<string, unknown>[],
   creditCardInvoices: [] as Record<string, unknown>[],
   reopenCardInvoice: vi.fn(),
+  reverseCardInvoicePayment: vi.fn(),
 }));
 
 vi.mock("@/contexts/AccountContext", () => ({
@@ -38,6 +39,7 @@ vi.mock("@/contexts/FinanceContext", () => ({
     closeCardInvoice: vi.fn(),
     reopenCardInvoice: financeMocks.reopenCardInvoice,
     payCardInvoice: vi.fn(),
+    reverseCardInvoicePayment: financeMocks.reverseCardInvoicePayment,
     refetch: vi.fn(),
   }),
 }));
@@ -124,6 +126,7 @@ describe("Accounts page", () => {
     financeMocks.transactions = [];
     financeMocks.creditCardInvoices = [];
     financeMocks.reopenCardInvoice.mockResolvedValue(true);
+    financeMocks.reverseCardInvoicePayment.mockResolvedValue(true);
   });
 
   it("shows 'Ver extrato' button on account card", () => {
@@ -183,6 +186,7 @@ describe("Accounts page", () => {
     fireEvent.click(screen.getByText("Cartões"));
 
     expect(screen.getByRole("button", { name: "Reabrir fatura" })).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Estornar pagamento" })).toBeNull();
   });
 
   it("does not offer reopening for a PAID invoice", () => {
@@ -202,5 +206,35 @@ describe("Accounts page", () => {
     fireEvent.click(screen.getByText("Cartões"));
 
     expect(screen.queryByRole("button", { name: "Reabrir fatura" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Estornar pagamento" })).toBeTruthy();
+  });
+
+  it("does not offer payment reversal for an OPEN invoice", () => {
+    financeMocks.creditCardInvoices = [{
+      id: "invoice-open",
+      creditCardId: "cc-1",
+      competence: "2026-09-01",
+      cycleStart: "2026-08-21",
+      cycleEnd: "2026-09-20",
+      dueDate: "2026-09-27",
+      status: "OPEN",
+    }];
+    financeMocks.transactions = [{
+      id: "purchase-1",
+      title: "Mercado",
+      amount: 500,
+      type: "expense",
+      category: "Alimentação",
+      date: "2026-09-10",
+      creditCardId: "cc-1",
+      creditCardInvoiceId: "invoice-open",
+      financialKind: "card_purchase",
+      isPaid: false,
+    }];
+
+    render(<Accounts />);
+    fireEvent.click(screen.getByText("Cartões"));
+
+    expect(screen.queryByRole("button", { name: "Estornar pagamento" })).toBeNull();
   });
 });

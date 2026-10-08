@@ -187,6 +187,63 @@ describe("credit card invoice lifecycle", () => {
     expect(statement.summary.totalPayments).toBe(500);
   });
 
+  it("restores the account balance when the original invoice payment is removed", () => {
+    const payment = purchase({
+      id: "payment",
+      title: "Pagamento de Fatura - Caixa",
+      category: "Fatura Cartão",
+      date: "2026-10-25",
+      accountId: "account-1",
+      financialKind: "card_invoice_payment",
+      isPaid: true,
+    });
+    const obligation = purchase({
+      id: "obligation",
+      title: "Fatura Cartão Caixa - 10/2026",
+      category: "Fatura Cartão",
+      financialKind: "card_invoice_obligation",
+      isPaid: true,
+    });
+    const paidInvoice = invoice({
+      status: "PAID",
+      closedTotal: 500,
+      closedAt: "2026-10-20T23:59:59Z",
+      actualClosedAt: "2026-10-20T23:59:59Z",
+      paidAt: "2026-10-25T12:00:00Z",
+      paymentAccountId: "account-1",
+      paymentTransactionId: payment.id,
+      obligationTransactionId: obligation.id,
+    });
+    const reversedInvoice: CreditCardInvoice = {
+      ...paidInvoice,
+      status: "CLOSED",
+      paidAt: undefined,
+      paymentAccountId: undefined,
+      paymentTransactionId: undefined,
+    };
+    const restoredObligation = { ...obligation, isPaid: false };
+
+    expect(calculateAccountBalances(
+      [{ id: "account-1", initialBalance: 1000 }],
+      [purchase(), obligation, payment],
+      [],
+    )["account-1"]).toBe(500);
+    expect(calculateAccountBalances(
+      [{ id: "account-1", initialBalance: 1000 }],
+      [purchase(), restoredObligation],
+      [],
+    )["account-1"]).toBe(1000);
+    expect(reversedInvoice).toEqual(expect.objectContaining({
+      status: "CLOSED",
+      closedTotal: 500,
+      closedAt: "2026-10-20T23:59:59Z",
+      actualClosedAt: "2026-10-20T23:59:59Z",
+      dueDate: "2026-10-27",
+      obligationTransactionId: obligation.id,
+    }));
+    expect(getInvoiceAmount([purchase(), restoredObligation], reversedInvoice)).toBe(500);
+  });
+
   it("marks the obligation paid independently from the original categorized purchase", () => {
     const original = purchase();
     const paidObligation = purchase({

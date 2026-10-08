@@ -539,6 +539,10 @@ export type Database = {
         Args: { p_invoice_id: string }
         Returns: string
       }
+      reverse_credit_card_invoice_payment: {
+        Args: { p_invoice_id: string }
+        Returns: string
+      }
     }
     Enums: {
       [_ in never]: never

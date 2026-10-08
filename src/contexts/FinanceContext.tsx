@@ -15,6 +15,7 @@ interface FinanceContextType {
   closeCardInvoice: (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[], dueDate?: string) => Promise<boolean>;
   reopenCardInvoice: (invoiceId: string) => Promise<boolean>;
   payCardInvoice: (invoiceId: string, accountId: string, date?: string, paymentMethod?: string) => Promise<boolean>;
+  reverseCardInvoicePayment: (invoiceId: string) => Promise<boolean>;
   refetch: () => void;
 }
 
@@ -319,8 +320,21 @@ const closeCardInvoice = useCallback(async (invoiceId: string, actualClosedDate?
     return true;
   }, [fetchTransactions]);
 
+  const reverseCardInvoicePayment = useCallback(async (invoiceId: string) => {
+    const { error } = await supabase.rpc("reverse_credit_card_invoice_payment", {
+      p_invoice_id: invoiceId,
+    });
+    if (error) {
+      toast({ title: "Erro ao estornar pagamento", description: error.message, variant: "destructive" });
+      return false;
+    }
+    toast({ title: "Pagamento estornado", description: "A fatura voltou para fechada." });
+    await fetchTransactions();
+    return true;
+  }, [fetchTransactions]);
+
   return (
-    <FinanceContext.Provider value={{ transactions, creditCardInvoices, loading, addTransaction, updateTransaction, deleteTransaction, closeCardInvoice, reopenCardInvoice, payCardInvoice, refetch: fetchTransactions }}>
+    <FinanceContext.Provider value={{ transactions, creditCardInvoices, loading, addTransaction, updateTransaction, deleteTransaction, closeCardInvoice, reopenCardInvoice, payCardInvoice, reverseCardInvoicePayment, refetch: fetchTransactions }}>
       {children}
     </FinanceContext.Provider>
   );

@@ -18,6 +18,10 @@ const reopenMigration = readFileSync(
   join(process.cwd(), "supabase/migrations/20261007170000_reopen_closed_credit_card_invoice.sql"),
   "utf8",
 );
+const reversePaymentMigration = readFileSync(
+  join(process.cwd(), "supabase/migrations/20261007180000_reverse_credit_card_invoice_payment.sql"),
+  "utf8",
+);
 
 describe("credit card invoice database contract", () => {
   it("creates a persisted invoice model and safely backfills existing data", () => {
@@ -105,5 +109,65 @@ describe("credit card invoice database contract", () => {
     expect(reopenMigration).toContain("IF NOT FOUND THEN");
     expect(reopenMigration).toContain("RAISE EXCEPTION 'Fatura nao pode ser reaberta'");
     expect(reopenMigration).toContain("COMMIT;");
+  });
+
+  it("reverses only a structurally valid PAID invoice payment", () => {
+    expect(reversePaymentMigration).toContain("CREATE OR REPLACE FUNCTION public.reverse_credit_card_invoice_payment");
+    expect(reversePaymentMigration).toContain("FOR UPDATE");
+    expect(reversePaymentMigration).toContain("v_invoice.user_id <> auth.uid()");
+    expect(reversePaymentMigration).toContain("v_invoice.status <> 'PAID'");
+    expect(reversePaymentMigration).toContain("v_invoice.payment_transaction_id IS NULL");
+    expect(reversePaymentMigration).toContain("v_invoice.paid_at IS NULL");
+    expect(reversePaymentMigration).toContain("payment_account.user_id = v_invoice.user_id");
+    expect(reversePaymentMigration).toContain("v_payment.credit_card_invoice_id IS DISTINCT FROM v_invoice.id");
+    expect(reversePaymentMigration).toContain("v_payment.financial_kind <> 'card_invoice_payment'");
+    expect(reversePaymentMigration).toContain("v_payment.account_id IS DISTINCT FROM v_invoice.payment_account_id");
+  });
+
+  it("removes only the invoice payment and restores its obligation", () => {
+    expect(reversePaymentMigration).toMatch(/DELETE FROM public\.transactions\s+WHERE id = v_payment\.id/);
+    expect(reversePaymentMigration).toContain("AND credit_card_invoice_id = v_invoice.id");
+    expect(reversePaymentMigration).toContain("AND financial_kind = 'card_invoice_payment'");
+    expect(reversePaymentMigration).toContain("SET is_paid = false");
+    expect(reversePaymentMigration).toContain("WHERE id = v_obligation.id");
+    expect(reversePaymentMigration).toContain("v_obligation.credit_card_invoice_id IS DISTINCT FROM v_invoice.id");
+    expect(reversePaymentMigration).toContain("v_obligation.financial_kind <> 'card_invoice_obligation'");
+    expect(reversePaymentMigration).toContain("obligation.id <> v_obligation.id");
+  });
+
+  it("returns the invoice to CLOSED and preserves its closing snapshot", () => {
+    expect(reversePaymentMigration).toContain("SET status = 'CLOSED'");
+    expect(reversePaymentMigration).toContain("paid_at = NULL");
+    expect(reversePaymentMigration).toContain("payment_account_id = NULL");
+    expect(reversePaymentMigration).toContain("payment_transaction_id = NULL");
+    expect(reversePaymentMigration).not.toContain("closed_total =");
+    expect(reversePaymentMigration).not.toContain("closed_at =");
+    expect(reversePaymentMigration).not.toContain("actual_closed_at =");
+    expect(reversePaymentMigration).not.toContain("due_date =");
+    expect(reversePaymentMigration).not.toContain("obligation_transaction_id =");
+  });
+
+  it("leaves the reversed invoice eligible for payment or reopening", () => {
+    expect(reversePaymentMigration).toContain("SET status = 'CLOSED'");
+    expect(reversePaymentMigration).toContain("SET is_paid = false");
+    expect(migration).toContain("IF v_invoice.status <> 'CLOSED' THEN RAISE EXCEPTION 'Somente fatura fechada pode ser paga'");
+    expect(reopenMigration).toContain("IF v_invoice.status <> 'CLOSED' THEN");
+    expect(reopenMigration).toContain("OR v_obligation.is_paid THEN");
+  });
+
+  it("does not reassign or remove purchases while reversing payment", () => {
+    expect(reversePaymentMigration).not.toContain("SET credit_card_invoice_id");
+    expect(reversePaymentMigration).not.toMatch(/DELETE FROM public\.transactions[\s\S]*financial_kind = 'card_purchase'/);
+    expect(reversePaymentMigration).toContain("payment.id <> v_payment.id");
+  });
+
+  it("keeps invalid payment reversals atomic and protected", () => {
+    expect(reversePaymentMigration).toContain("PERFORM set_config('app.invoice_operation', 'reverse_payment', true)");
+    expect(reversePaymentMigration).toContain("v_operation IN ('pay', 'reverse_payment')");
+    expect(reversePaymentMigration).toContain("OLD.financial_kind = 'card_invoice_payment' AND v_operation = 'reverse_payment'");
+    expect(reversePaymentMigration).toContain("RAISE EXCEPTION 'Pagamento da fatura invalido'");
+    expect(reversePaymentMigration).toContain("RAISE EXCEPTION 'Fatura possui pagamentos inconsistentes'");
+    expect(reversePaymentMigration).toContain("BEGIN;");
+    expect(reversePaymentMigration).toContain("COMMIT;");
   });
 });
