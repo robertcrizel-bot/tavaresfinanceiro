@@ -75,7 +75,7 @@ export default function Accounts() {
   const [transferAmount, setTransferAmount] = useState("");
   const [transferDesc, setTransferDesc] = useState("");
   const [statementAccount, setStatementAccount] = useState<{ id: string; name: string; initialBalance: number } | null>(null);
-  const [statementCard, setStatementCard] = useState<{ id: string; name: string; limit: number; closingDay: number; dueDay: number; invoice?: CreditCardInvoice } | null>(null);
+  const [statementCard, setStatementCard] = useState<{ id: string; name: string; bank: string; color: string; limit: number; closingDay: number; dueDay: number; invoice?: CreditCardInvoice } | null>(null);
 
   const accountBalances = calculateAccountBalances(accounts, transactions, transfers);
 const getOpenInvoice = (cardId: string) => creditCardInvoices
@@ -266,7 +266,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                         variant="ghost"
                         size="sm"
                         className="gap-2 text-xs text-muted-foreground hover:text-foreground"
-                        onClick={() => setStatementCard({ id: cc.id, name: cc.name, limit: cc.limit, closingDay: cc.closingDay, dueDay: cc.dueDay, invoice })}
+                        onClick={() => setStatementCard({ id: cc.id, name: cc.name, bank: cc.bank, color: cc.color, limit: cc.limit, closingDay: cc.closingDay, dueDay: cc.dueDay, invoice })}
                       >
                         <FileText className="h-3.5 w-3.5" /> Ver compras
                       </Button>
@@ -310,7 +310,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                       <div className="mt-3 rounded-lg border border-dashed border-border p-2 text-xs text-muted-foreground">
                         <p>Próxima fatura aberta: <strong>{fmt(getInvoiceAmount(transactions, nextOpenInvoice))}</strong></p>
                         <div className="mt-2 flex gap-2">
-                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setStatementCard({ id: cc.id, name: cc.name, limit: cc.limit, closingDay: cc.closingDay, dueDay: cc.dueDay, invoice: nextOpenInvoice })}>
+                          <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => setStatementCard({ id: cc.id, name: cc.name, bank: cc.bank, color: cc.color, limit: cc.limit, closingDay: cc.closingDay, dueDay: cc.dueDay, invoice: nextOpenInvoice })}>
                             Ver compras
                           </Button>
 {nextOpenInvoice.cycleStart <= today && (
@@ -739,7 +739,6 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
           onClose={() => setStatementCard(null)}
           card={statementCard}
           transactions={transactions}
-          invoice={statementCard.invoice}
           invoices={creditCardInvoices}
         />
       )}
