@@ -14,7 +14,7 @@ import { parseReceipt, prepareReceiptForLocalOcr, matchByName, matchCategory, Pa
 import { formatReceiptDescription } from "@/lib/receipt-description";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
-import { fastOcrRecognize } from "@/lib/fast-ocr";
+import { paddleRecognizeWorker } from "@/lib/paddle-ocr-worker";
 import {
   interpretReceiptLocally,
   toLocalReceiptInput,
@@ -101,6 +101,8 @@ export default function ReceiptImport() {
         ocrMs: number;
         parserMs: number;
         preparation: LocalOcrPreparationMetrics;
+        regionCount: number;
+        itemCount: number;
       } | null = null;
       setPendingFile(file);
       setLoading(true);
@@ -112,8 +114,9 @@ export default function ReceiptImport() {
       setReadStatus("Preparando imagem...");
       try {
         const localImage = await prepareReceiptForLocalOcr(file);
-        setReadStatus("Carregando modelo de OCR rápido...");
-        const ocr = await fastOcrRecognize(localImage.image, (status) => setReadStatus(status));
+        setReadStatus("Carregando OCR...");
+        const ocr = await paddleRecognizeWorker(localImage.image, (status) => setReadStatus(status));
+        setReadStatus("Extraindo dados...");
         const parserStart = performance.now();
         const receiptResult = buildPaddleReceiptResult(ocr.regions);
         const parsed = paddleToParsedReceipt(receiptResult);
@@ -123,6 +126,8 @@ export default function ReceiptImport() {
           ocrMs: ocr.ocrMs,
           parserMs,
           preparation: localImage.metrics,
+          regionCount: ocr.regions.length,
+          itemCount: receiptResult.items.length,
         };
 
         if (!parsed.is_receipt) {
@@ -151,7 +156,7 @@ export default function ReceiptImport() {
         });
         shouldOpenForm = true;
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com o OCR rápido.");
+        setError(e instanceof Error ? e.message : "Não foi possível concluir a leitura gratuita.");
       } finally {
         try {
           await releaseDocumentOrientationSession();
@@ -159,11 +164,13 @@ export default function ReceiptImport() {
           console.warn("[receipt-import] failed to release document orientation session", releaseError);
         }
         if (completedRun && import.meta.env.MODE !== "test") {
-          console.info("[receipt-import] fast OCR metrics", {
+          console.info("[receipt-import] full OCR metrics", {
             initializationMs: Math.round(completedRun.initializationMs),
             ocrMs: Math.round(completedRun.ocrMs),
             parserMs: Math.round(completedRun.parserMs),
             totalMs: Math.round(performance.now() - totalStart),
+            regionCount: completedRun.regionCount,
+            itemCount: completedRun.itemCount,
             originalDimensions: completedRun.preparation.originalDimensions,
             ocrInputDimensions: completedRun.preparation.outputDimensions,
             normalization: completedRun.preparation.normalization,

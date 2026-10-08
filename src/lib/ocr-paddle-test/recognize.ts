@@ -63,7 +63,17 @@ export async function dataUrlToBlob(dataUrl: string): Promise<Blob> {
   return res.blob();
 }
 
-function sortRegionsByPosition(regions: PaddleOcrRegion[]) {
+export function mapPaddleItemsToRegions(
+  items: Array<{ poly: [number, number][]; text: string; score: number }>,
+): PaddleOcrRegion[] {
+  return items.map((item) => ({
+    text: item.text,
+    confidence: Math.round(item.score * 100) / 100,
+    bbox: item.poly,
+  }));
+}
+
+export function sortRegionsByPosition(regions: PaddleOcrRegion[]) {
   return [...regions].sort((a, b) => {
     const aY = a.bbox.length > 0 ? Math.min(...a.bbox.map((p) => p[1])) : 0;
     const bY = b.bbox.length > 0 ? Math.min(...b.bbox.map((p) => p[1])) : 0;
@@ -118,11 +128,7 @@ export async function paddleRecognize(
     const items: Array<{ poly: [number, number][]; text: string; score: number }> =
       firstResult.items ?? [];
 
-    const regions = items.map((item) => ({
-      text: item.text,
-      confidence: Math.round(item.score * 100) / 100,
-      bbox: item.poly,
-    }));
+    const regions = mapPaddleItemsToRegions(items);
 
     const sorted = sortRegionsByPosition(regions);
     const text = sorted.map((r) => r.text).join("\n");
