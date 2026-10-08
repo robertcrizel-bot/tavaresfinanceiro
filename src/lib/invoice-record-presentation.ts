@@ -15,7 +15,7 @@ export const getInvoiceRecordTitle = (
 
   const [year, month] = invoice.competence.split("-");
   if (!year || !month) return transaction.title;
-  return `Fatura ${card.name} - ${month}/${year}`;
+  return `${card.name} - ${month}/${year}`;
 };
 
 export const getInvoiceRecordTypeLabel = (transaction: Transaction) => {

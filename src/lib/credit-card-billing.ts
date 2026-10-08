@@ -76,7 +76,7 @@ export const getInvoiceAmount = (
   transactions: CardTransaction[],
   invoice: CreditCardInvoice,
 ) => {
-  if (invoice.status !== "OPEN") return invoice.closedTotal ?? 0;
+  if (invoice.status === "CLOSED" || invoice.status === "PAID") return invoice.closedTotal ?? 0;
   return transactions.reduce(
     (total, transaction) => total + (
       transaction.creditCardInvoiceId === invoice.id && isCardMovement(transaction, invoice.creditCardId)
@@ -92,16 +92,21 @@ export const getCardCommittedAmount = (
   creditCardId: string,
   invoices: CreditCardInvoice[] = [],
 ) => {
-  const invoiceStatus = new Map(invoices.map((invoice) => [invoice.id, invoice.status]));
-  return transactions.reduce((total, transaction) => {
+  const cardInvoices = invoices.filter((invoice) => invoice.creditCardId === creditCardId);
+  const invoiceStatus = new Map(cardInvoices.map((invoice) => [invoice.id, invoice.status]));
+  const movementTotal = transactions.reduce((total, transaction) => {
     if (!isCardMovement(transaction, creditCardId)) return total;
     if (transaction.creditCardInvoiceId) {
-      return invoiceStatus.get(transaction.creditCardInvoiceId) === "PAID"
-        ? total
-        : total + signedAmount(transaction);
+      const status = invoiceStatus.get(transaction.creditCardInvoiceId);
+      return status === "PAID" || status === "CLOSED" ? total : total + signedAmount(transaction);
     }
     return transaction.isPaid ? total : total + signedAmount(transaction);
   }, 0);
+
+  return cardInvoices.reduce(
+    (total, invoice) => total + (invoice.status === "CLOSED" ? invoice.closedTotal ?? 0 : 0),
+    movementTotal,
+  );
 };
 
 export const selectCardInvoice = (
@@ -154,7 +159,7 @@ export const getInvoicePreviewAmount = (
   creditCardInvoices: CreditCardInvoice[],
   actualClosedDate: string,
 ): number => {
-  if (invoice.status !== "OPEN") return invoice.closedTotal ?? 0;
+  if (invoice.status === "CLOSED" || invoice.status === "PAID") return invoice.closedTotal ?? 0;
 
   const predictedCycleEnd = invoice.cycleEnd;
   const isPostponed = actualClosedDate > predictedCycleEnd;

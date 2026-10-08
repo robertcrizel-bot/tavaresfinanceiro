@@ -107,7 +107,7 @@ describe("credit card invoice lifecycle", () => {
     expect(selectCardInvoice([closed, next], [purchase(), laterPurchase], "card-1")).toEqual(closed);
   });
 
-  it("restores OPEN calculation without pulling purchases back from the next invoice", () => {
+  it("restores dynamic OPEN calculation even when the old closing snapshot is still present", () => {
     const closed = invoice({
       status: "CLOSED",
       closedTotal: 700,
@@ -117,7 +117,6 @@ describe("credit card invoice lifecycle", () => {
     const reopened: CreditCardInvoice = {
       ...closed,
       status: "OPEN",
-      closedTotal: undefined,
       closedAt: undefined,
       actualClosedAt: undefined,
       obligationTransactionId: undefined,
@@ -141,7 +140,22 @@ describe("credit card invoice lifecycle", () => {
     expect(getInvoiceAmount(transactions, reopened)).toBe(500);
     expect(getInvoiceAmount(transactions, next)).toBe(200);
     expect(getInvoicePreviewAmount(transactions, reopened, [reopened, next], reopened.cycleEnd)).toBe(500);
+    expect(getCardCommittedAmount(transactions, "card-1", [reopened, next])).toBe(700);
+    expect(selectCardInvoice([reopened, next], transactions, "card-1")).toEqual(reopened);
     expect(transactions).toEqual([originalPurchase, nextInvoicePurchase]);
+  });
+
+  it("recalculates an OPEN invoice when purchases are edited, removed or added", () => {
+    const reopened = invoice({ closedTotal: 1174.33 });
+    const original = purchase({ amount: 640.05 });
+    const added = purchase({ id: "purchase-added", amount: 125 });
+
+    expect(getInvoiceAmount([original], reopened)).toBe(640.05);
+    expect(getInvoiceAmount([{ ...original, amount: 300 }], reopened)).toBe(300);
+    expect(getInvoiceAmount([], reopened)).toBe(0);
+    expect(getInvoiceAmount([original, added], reopened)).toBe(765.05);
+    expect(getInvoicePreviewAmount([original], reopened, [reopened], reopened.cycleEnd)).toBe(640.05);
+    expect(getCardCommittedAmount([original], "card-1", [reopened])).toBe(640.05);
   });
 
   it("treats the closed-invoice obligation as financially neutral everywhere", () => {
@@ -318,9 +332,12 @@ describe("credit card invoice lifecycle", () => {
   it("releases the card limit only when the invoice is paid", () => {
     const closed = invoice({ status: "CLOSED", closedTotal: 500 });
     const paid = invoice({ status: "PAID", closedTotal: 500, paidAt: "2026-10-25T12:00:00Z" });
+    const changedPurchase = purchase({ amount: 900 });
 
-    expect(getCardCommittedAmount([purchase()], "card-1", [closed])).toBe(500);
-    expect(getCardCommittedAmount([purchase()], "card-1", [paid])).toBe(0);
+    expect(getInvoiceAmount([changedPurchase], closed)).toBe(500);
+    expect(getInvoiceAmount([changedPurchase], paid)).toBe(500);
+    expect(getCardCommittedAmount([changedPurchase], "card-1", [closed])).toBe(500);
+    expect(getCardCommittedAmount([changedPurchase], "card-1", [paid])).toBe(0);
   });
 
   describe("getInvoicePreviewAmount", () => {

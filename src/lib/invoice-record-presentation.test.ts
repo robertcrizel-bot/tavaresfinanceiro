@@ -82,9 +82,18 @@ describe("invoice record presentation", () => {
       financialKind: "card_invoice_payment",
     });
 
-    expect(getInvoiceRecordTitle(oldPayment, [invoice()], [card])).toBe("Fatura Caixa Master Camila - 09/2026");
+    expect(getInvoiceRecordTitle(oldPayment, [invoice()], [card])).toBe("Caixa Master Camila - 09/2026");
     expect(getInvoiceRecordTypeLabel(oldPayment)).toBe("Pagamento");
     expect(oldPayment.title).toBe("Pagamento de Fatura - Caixa Master Camila");
+  });
+
+  it("uses the same title for a pending obligation without changing persisted data", () => {
+    const pendingObligation = transaction({ isPaid: false });
+
+    expect(getInvoiceRecordTitle(pendingObligation, [invoice({ status: "CLOSED" })], [card])).toBe("Caixa Master Camila - 09/2026");
+    expect(getInvoiceRecordTypeLabel(pendingObligation)).toBe("Fatura · A pagar");
+    expect(pendingObligation.title).toBe("Fatura Cartão Caixa Master Camila - 09/2026");
+    expect(pendingObligation.amount).toBe(1174.33);
   });
 
   it("does not change balances or financial totals when applying the visual filter", () => {

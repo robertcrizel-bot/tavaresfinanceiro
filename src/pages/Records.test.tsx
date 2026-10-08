@@ -91,7 +91,7 @@ describe("Records invoice presentation", () => {
 
     renderRecords();
 
-    expect(screen.getAllByText("Fatura Caixa Master Camila - 09/2026").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Caixa Master Camila - 09/2026").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Pagamento").length).toBeGreaterThan(0);
     expect(screen.queryByText("Pagamento de Fatura - Caixa Master Camila")).toBeNull();
     expect(screen.queryByText("Fatura Cartão Caixa Master Camila - 09/2026")).toBeNull();
@@ -104,7 +104,7 @@ describe("Records invoice presentation", () => {
 
     renderRecords();
 
-    expect(screen.getAllByText("Fatura Caixa Master Camila - 09/2026").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Caixa Master Camila - 09/2026").length).toBeGreaterThan(0);
     expect(screen.getAllByText("Fatura · A pagar").length).toBeGreaterThan(0);
     expect(screen.queryByText("Pagamento de Fatura - Caixa Master Camila")).toBeNull();
   });

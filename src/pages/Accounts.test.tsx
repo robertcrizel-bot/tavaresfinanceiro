@@ -281,6 +281,41 @@ describe("Accounts page", () => {
     expect(screen.getByRole("button", { name: "Histórico de faturas" })).toBeTruthy();
   });
 
+  it("shows the dynamic reopened amount on the card, limit and close modal", () => {
+    financeMocks.creditCardInvoices = [{
+      id: "invoice-reopened",
+      creditCardId: "cc-1",
+      competence: "2026-10-01",
+      cycleStart: "2026-09-21",
+      cycleEnd: "2026-10-20",
+      dueDate: "2026-10-27",
+      status: "OPEN",
+      closedTotal: 1174.33,
+    }];
+    financeMocks.transactions = [{
+      id: "purchase-1",
+      title: "Mercado",
+      amount: 640.05,
+      type: "expense",
+      category: "Alimentação",
+      date: "2026-10-10",
+      creditCardId: "cc-1",
+      creditCardInvoiceId: "invoice-reopened",
+      financialKind: "card_purchase",
+      isPaid: false,
+    }];
+
+    render(<Accounts />);
+
+    expect(screen.getAllByText(/640,05/).length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText(/1\.174,33/)).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Fechar fatura" }));
+
+    expect(screen.getAllByText(/640,05/).length).toBeGreaterThanOrEqual(3);
+    expect(screen.queryByText(/1\.174,33/)).toBeNull();
+  });
+
   it("shows paid invoices and status actions in invoice history", () => {
     const onReversePayment = vi.fn();
     const { rerender } = render(

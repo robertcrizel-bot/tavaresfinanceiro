@@ -58,7 +58,7 @@ export default function Accounts() {
   const [ccFormOpen, setCcFormOpen] = useState(false);
   const [editingCc, setEditingCc] = useState<CreditCard | undefined>();
   const [deleting, setDeleting] = useState<{ type: "account" | "card"; id: string } | null>(null);
-  const [closingInvoice, setClosingInvoice] = useState<{ card: CreditCard; invoice: CreditCardInvoice; amount: number } | null>(null);
+  const [closingInvoice, setClosingInvoice] = useState<{ card: CreditCard; invoice: CreditCardInvoice } | null>(null);
   const [closingInvoiceActualDate, setClosingInvoiceActualDate] = useState("");
   const [closingInvoiceDueDate, setClosingInvoiceDueDate] = useState("");
   const [closingInvoiceExcludedIds, setClosingInvoiceExcludedIds] = useState<string[]>([]);
@@ -117,14 +117,8 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
   const getPreviewAmount = () => {
     if (!closingInvoice) return 0;
     const actualDate = closingInvoiceActualDate || closingInvoice.invoice.cycleEnd;
-    const currentTx = getInvoiceTransactions(closingInvoice.invoice, actualDate);
-    const nextTx = getNextInvoiceTransactions(closingInvoice.invoice, actualDate);
-    const allTx = [...currentTx, ...nextTx];
-    const filtered = allTx.filter((t) => !closingInvoiceExcludedIds.includes(t.id));
-    return filtered.reduce((sum, t) => {
-      const amount = t.type === "income" ? -t.amount : t.amount;
-      return sum + amount;
-    }, 0);
+    const includedTransactions = transactions.filter((transaction) => !closingInvoiceExcludedIds.includes(transaction.id));
+    return getInvoicePreviewAmount(includedTransactions, closingInvoice.invoice, creditCardInvoices, actualDate);
   };
 
   return (
@@ -300,7 +294,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                         </Button>
                       )}
 {status === "OPEN" && invoice && invoice.cycleStart <= today && hasMovements(invoice) && (
-                        <Button size="sm" variant="outline" onClick={() => { setClosingInvoice({ card: cc, invoice, amount: currentInvoice }); setClosingInvoiceActualDate(invoice.cycleEnd); setClosingInvoiceDueDate(invoice.dueDate); }}>
+                        <Button size="sm" variant="outline" onClick={() => { setClosingInvoice({ card: cc, invoice }); setClosingInvoiceActualDate(invoice.cycleEnd); setClosingInvoiceDueDate(invoice.dueDate); }}>
                           Fechar fatura
                         </Button>
                       )}
@@ -333,7 +327,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                             Ver compras
                           </Button>
 {nextOpenInvoice.cycleStart <= today && (
-                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setClosingInvoice({ card: cc, invoice: nextOpenInvoice, amount: getInvoiceAmount(transactions, nextOpenInvoice) }); setClosingInvoiceActualDate(nextOpenInvoice.cycleEnd); setClosingInvoiceDueDate(nextOpenInvoice.dueDate); }}>
+                            <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => { setClosingInvoice({ card: cc, invoice: nextOpenInvoice }); setClosingInvoiceActualDate(nextOpenInvoice.cycleEnd); setClosingInvoiceDueDate(nextOpenInvoice.dueDate); }}>
                               Fechar próxima
                             </Button>
                           )}
