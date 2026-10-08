@@ -11,7 +11,7 @@ const mocks = vi.hoisted(() => ({
   addTransaction: vi.fn(),
   navigate: vi.fn(),
   toast: vi.fn(),
-  paddleRecognizeWorker: vi.fn(),
+  legacyPaddleRecognize: vi.fn(),
   paddleRecognize: vi.fn(),
   takeSharedReceiptWithDiagnostics: vi.fn(),
   disposePaddleRecognizer: vi.fn(),
@@ -50,10 +50,10 @@ vi.mock("@/lib/receipt", async (importOriginal) => ({
   prepareReceiptForLocalOcr: mocks.prepareReceiptForLocalOcr,
 }));
 vi.mock("@/lib/ocr-paddle-test/recognize", () => ({
-  paddleRecognize: mocks.paddleRecognize,
+  paddleRecognize: mocks.legacyPaddleRecognize,
   disposePaddleRecognizer: mocks.disposePaddleRecognizer,
 }));
-vi.mock("@/lib/paddle-ocr-worker", () => ({ paddleRecognizeWorker: mocks.paddleRecognizeWorker }));
+vi.mock("@/lib/paddle-ocr-worker", () => ({ paddleRecognize: mocks.paddleRecognize }));
 vi.mock("@/lib/receipt-image-orientation", () => ({
   correctDocumentOrientation: vi.fn(async (image: File) => image),
   releaseDocumentOrientationSession: mocks.releaseDocumentOrientationSession,
@@ -196,7 +196,7 @@ describe("mobile OCR values reach the TransactionForm", () => {
         totalMs: 20,
       },
     }));
-    mocks.paddleRecognizeWorker.mockResolvedValue({
+    mocks.paddleRecognize.mockResolvedValue({
       regions: androidRegions(),
       text: "",
       confidence: 0.9,
@@ -260,7 +260,7 @@ describe("mobile OCR values reach the TransactionForm", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Ler gratuitamente" }));
 
     await waitFor(() =>
-      expect(mocks.paddleRecognizeWorker).toHaveBeenCalledWith(file, expect.any(Function)),
+      expect(mocks.paddleRecognize).toHaveBeenCalledWith(file, expect.any(Function)),
     );
 
     const textarea = (await screen.findByPlaceholderText("Detalhes...")) as HTMLTextAreaElement;

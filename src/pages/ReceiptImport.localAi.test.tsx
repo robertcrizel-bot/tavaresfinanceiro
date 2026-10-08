@@ -9,7 +9,7 @@ const mocks = vi.hoisted(() => ({
   takeSharedReceiptWithDiagnostics: vi.fn(),
   duplicateLimit: vi.fn(),
   toast: vi.fn(),
-  paddleRecognizeWorker: vi.fn(),
+  paddleRecognize: vi.fn(),
   releaseDocumentOrientationSession: vi.fn(),
   buildPaddleReceiptResult: vi.fn(),
   prepareReceiptForLocalOcr: vi.fn(),
@@ -41,7 +41,7 @@ vi.mock("@/lib/receipt", async (importOriginal) => ({
   prepareReceiptForLocalOcr: mocks.prepareReceiptForLocalOcr,
 }));
 vi.mock("@/lib/paddle-ocr-worker", () => ({
-  paddleRecognizeWorker: mocks.paddleRecognizeWorker,
+  paddleRecognize: mocks.paddleRecognize,
 }));
 vi.mock("@/lib/ocr-paddle-test/receiptResult", () => ({
   buildPaddleReceiptResult: mocks.buildPaddleReceiptResult,
@@ -103,7 +103,7 @@ const OCR_REGIONS = [
 
 function stubFreeSuccess() {
   mocks.prepareReceiptForLocalOcr.mockImplementation(async (file: File) => ({ image: file, metrics: {} }));
-  mocks.paddleRecognizeWorker.mockResolvedValue({ regions: OCR_REGIONS, rawLines: [], initializationMs: 1, ocrMs: 2 });
+  mocks.paddleRecognize.mockResolvedValue({ regions: OCR_REGIONS, rawLines: [], initializationMs: 1, ocrMs: 2 });
   mocks.buildPaddleReceiptResult.mockReturnValue({
     merchant: "Mercado Central",
     cnpj: null,
@@ -186,7 +186,7 @@ describe("ReceiptImport local AI interpretation", () => {
     expect(await screen.findByTestId("review-form")).toBeInTheDocument();
     expect(await screen.findByTestId("local-prefill-title")).toHaveTextContent("Mercado Central");
     const localButton = await screen.findByRole("button", { name: /Melhorar leitura localmente/ });
-    expect(mocks.paddleRecognizeWorker).toHaveBeenCalledTimes(1);
+    expect(mocks.paddleRecognize).toHaveBeenCalledTimes(1);
     expect(mocks.toLocalReceiptInput).not.toHaveBeenCalled();
 
     // Manual paid AI button is untouched and only opens confirmation.
@@ -204,7 +204,7 @@ describe("ReceiptImport local AI interpretation", () => {
     expect(input.groupedLines.length).toBeGreaterThan(0);
     expect(input.rawText).toContain("PAO FRANCES");
     expect(options.fallback).toMatchObject({ title: "Mercado Central", amount: 120 });
-    expect(mocks.paddleRecognizeWorker).toHaveBeenCalledTimes(1);
+    expect(mocks.paddleRecognize).toHaveBeenCalledTimes(1);
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
 
     // The open form is updated in place with the local result and metrics.
@@ -226,7 +226,7 @@ describe("ReceiptImport local AI interpretation", () => {
     expect(await screen.findByTestId("local-prefill-title")).toHaveTextContent("Mercado Central");
     expect(await screen.findByText("Interpretação local demorou demais; mantido resultado original.")).toBeInTheDocument();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
-    expect(mocks.paddleRecognizeWorker).toHaveBeenCalledTimes(1);
+    expect(mocks.paddleRecognize).toHaveBeenCalledTimes(1);
   });
 
   it("clears the previous receipt snapshot when a new photo is captured", async () => {
