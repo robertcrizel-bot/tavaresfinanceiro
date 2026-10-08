@@ -1,0 +1,25 @@
+import type { PaddleRuntimeRegion } from "./runtime-region";
+
+export const padaria785Regions: PaddleRuntimeRegion[] = [
+  { text: "PADARIA CONFEITARIA LUIZ ANTONIO RIBEIRO", confidence: 0.99, bbox: [[85, 39], [696, 39], [696, 78], [85, 78]] },
+  { text: "CNPJ-05.355.369/0001-30", confidence: 0.99, bbox: [[86, 82], [469, 82], [469, 115], [86, 115]] },
+  { text: "DOCUMENTO AUXILIAR DA NOTA FISCAL", confidence: 0.99, bbox: [[188, 180], [690, 180], [690, 216], [188, 216]] },
+  { text: "#|COD|DESCRICAO|QTD|UN|VL UN|VL TOTAL", confidence: 0.98, bbox: [[89, 300], [640, 300], [640, 334], [89, 334]] },
+  { text: "001 3917 PAO FRANCES", confidence: 0.99, bbox: [[90, 350], [392, 350], [392, 380], [90, 380]] },
+  { text: "0,274KG X", confidence: 0.99, bbox: [[149, 390], [290, 390], [290, 420], [149, 420]] },
+  { text: "21,99", confidence: 0.99, bbox: [[366, 390], [453, 390], [453, 420], [366, 420]] },
+  { text: "T12", confidence: 0.99, bbox: [[487, 390], [539, 390], [539, 420], [487, 420]] },
+  { text: "6,03", confidence: 0.99, bbox: [[732, 390], [801, 390], [801, 420], [732, 420]] },
+  { text: "002 3904 PAO DE QUEIJO", confidence: 0.99, bbox: [[91, 440], [464, 440], [464, 470], [91, 470]] },
+  { text: "0,052KG X", confidence: 0.99, bbox: [[152, 480], [291, 480], [291, 510], [152, 510]] },
+  { text: "35,00", confidence: 0.99, bbox: [[367, 480], [452, 480], [452, 510], [367, 510]] },
+  { text: "T18", confidence: 0.99, bbox: [[484, 480], [538, 480], [538, 510], [484, 510]] },
+  { text: "1,82", confidence: 0.99, bbox: [[732, 480], [800, 480], [800, 510], [732, 510]] },
+  { text: "QTDE.", confidence: 0.99, bbox: [[92, 550], [190, 550], [190, 578], [92, 578]] },
+  { text: "TOTAL DE", confidence: 0.99, bbox: [[92, 590], [230, 590], [230, 618], [92, 618]] },
+  { text: "ITENS", confidence: 0.99, bbox: [[92, 630], [180, 630], [180, 658], [92, 658]] },
+  { text: "002", confidence: 0.99, bbox: [[745, 630], [798, 630], [798, 658], [745, 658]] },
+  { text: "VALOR TOTAL R$", confidence: 0.99, bbox: [[92, 680], [305, 680], [305, 710], [92, 710]] },
+  { text: "7,85", confidence: 0.99, bbox: [[729, 680], [798, 680], [798, 710], [729, 710]] },
+  { text: "Emissao: 07/10/2026 07:09:53 - Via Consumidor", confidence: 0.99, bbox: [[108, 760], [767, 760], [767, 795], [108, 795]] },
+];

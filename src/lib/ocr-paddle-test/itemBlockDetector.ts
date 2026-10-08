@@ -23,6 +23,7 @@ export interface ItemBlockDetectionResult {
 
 const ITEM_COUNT_SUMMARY_RE =
   /(?:qtde|quantidade|qtd)\.?\s*total\s*de\s*itens|total\s*de\s*itens/i;
+const RECEIPT_TOTAL_SUMMARY_RE = /valor\s*(?:total|[aà]\s*pagar)\s*(?:r\$|rs)?/i;
 
 function isFragmentedItemCountSummary(text: string): boolean {
   const tokens = text
@@ -83,6 +84,17 @@ function lineText(line: GridLine): string {
 function isSummaryLine(line: GridLine): boolean {
   const text = lineText(line);
   return ITEM_COUNT_SUMMARY_RE.test(text) || isFragmentedItemCountSummary(text);
+}
+
+function startsStandaloneQuantitySummary(lines: GridLine[], startIndex: number): boolean {
+  const firstText = lineText(lines[startIndex]);
+  if (!/^\s*(?:qtde|quantidade|qtd)\.?\s*:?\s*$/i.test(firstText)) return false;
+
+  const text = lines
+    .slice(startIndex, startIndex + 3)
+    .map(lineText)
+    .join(" ");
+  return isFragmentedItemCountSummary(text);
 }
 
 function isComplementLine(line: GridLine): boolean {
@@ -333,10 +345,15 @@ export function detectItemBlocks(
 
   let summaryIndex = -1;
   for (let i = areaStart; i < lines.length; i++) {
-    if (isSummaryLine(lines[i])) {
+    if (isSummaryLine(lines[i]) || startsStandaloneQuantitySummary(lines, i)) {
       summaryIndex = i;
       break;
     }
+  }
+  if (summaryIndex < 0) {
+    summaryIndex = lines.findIndex((line, index) =>
+      index >= areaStart && RECEIPT_TOTAL_SUMMARY_RE.test(lineText(line))
+    );
   }
   if (summaryIndex < 0) return { blocks: [], areaStart, areaEnd: null };
 
