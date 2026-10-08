@@ -6,8 +6,10 @@ import type { Transaction } from "@/lib/types";
 
 const mocks = vi.hoisted(() => ({
   transactions: [] as Transaction[],
-  writeFile: vi.fn(),
-  jsonRows: [] as Record<string, string | number>[],
+  pdfSave: vi.fn(),
+  pdfTable: vi.fn(),
+  csvBlobs: [] as { parts: BlobPart[] }[],
+  csvFilenames: [] as string[],
 }));
 
 vi.mock("@/contexts/FinanceContext", () => ({
@@ -26,23 +28,66 @@ vi.mock("@/components/TransactionDetail", () => ({
   TransactionDetail: ({ transaction, open }: { transaction: Transaction | null; open: boolean }) =>
     open && transaction ? <div data-testid="transaction-detail">{transaction.title}</div> : null,
 }));
-vi.mock("xlsx", () => ({
-  utils: {
-    json_to_sheet: vi.fn((rows: Record<string, string | number>[]) => {
-      mocks.jsonRows = rows;
-      return {};
-    }),
-    book_new: vi.fn(() => ({})),
-    book_append_sheet: vi.fn(),
-    decode_range: vi.fn(() => ({})),
-    encode_range: vi.fn(() => "A1"),
-  },
-  writeFile: (...args: unknown[]) => mocks.writeFile(...args),
+vi.mock("@/components/ui/dropdown-menu", () => {
+  const Container = ({ children }: { children?: ReactNode }) => <>{children}</>;
+  return {
+    DropdownMenu: Container,
+    DropdownMenuTrigger: Container,
+    DropdownMenuContent: Container,
+    DropdownMenuItem: ({ children, onClick }: { children?: ReactNode; onClick?: () => void }) => (
+      <button type="button" onClick={onClick}>{children}</button>
+    ),
+  };
+});
+vi.mock("exceljs", () => {
+  const createCell = () => ({ value: null as unknown, font: null, fill: null, alignment: null, numFmt: "" });
+  const rows = new Map<number, Map<number, ReturnType<typeof createCell>>>();
+  const getCell = (row: number, col: number) => {
+    if (!rows.has(row)) rows.set(row, new Map());
+    const cells = rows.get(row)!;
+    if (!cells.has(col)) cells.set(col, createCell());
+    return cells.get(col)!;
+  };
+  const ws = {
+    columns: [] as unknown[],
+    mergeCells: vi.fn(),
+    getRow: vi.fn(() => ({ height: null as number | null })),
+    getCell,
+    autoFilter: null as unknown,
+    views: [] as unknown[],
+  };
+  return {
+    default: {
+      Workbook: vi.fn(() => ({
+        addWorksheet: vi.fn(() => ws),
+        xlsx: { writeBuffer: vi.fn(() => Promise.resolve(new ArrayBuffer(8))) },
+      })),
+    },
+  };
+});
+vi.mock("jspdf", () => ({
+  default: vi.fn().mockImplementation(() => ({
+    internal: { pageSize: { getWidth: () => 297, getHeight: () => 210 } },
+    setFont: vi.fn(),
+    setFontSize: vi.fn(),
+    setTextColor: vi.fn(),
+    setDrawColor: vi.fn(),
+    setFillColor: vi.fn(),
+    text: vi.fn(),
+    roundedRect: vi.fn(),
+    save: mocks.pdfSave,
+    getNumberOfPages: vi.fn(() => 1),
+  })),
+}));
+vi.mock("jspdf-autotable", () => ({
+  default: mocks.pdfTable,
 }));
 vi.mock("recharts", () => {
   const Container = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
   const Empty = () => null;
   return {
+    Area: Empty,
+    AreaChart: Empty,
     Bar: Empty,
     BarChart: Container,
     CartesianGrid: Empty,
@@ -101,7 +146,36 @@ describe("Statements page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
     mocks.transactions = [];
-    mocks.jsonRows = [];
+    mocks.csvBlobs = [];
+    mocks.csvFilenames = [];
+    vi.stubGlobal(
+      "Blob",
+      vi.fn((parts: BlobPart[]) => {
+        const blob = { parts };
+        mocks.csvBlobs.push(blob);
+        return blob;
+      }),
+    );
+    vi.stubGlobal(
+      "URL",
+      Object.assign(URL, { createObjectURL: vi.fn(() => "blob:mock"), revokeObjectURL: vi.fn() }),
+    );
+    const realCreateElement = document.createElement.bind(document);
+    vi.stubGlobal(
+      "document",
+      Object.assign(document, {
+        createElement: vi.fn((tag: string, ...args: unknown[]) => {
+          if (tag !== "a") return (realCreateElement as (...a: unknown[]) => unknown)(tag, ...args);
+          return {
+            href: "",
+            download: "",
+            click: vi.fn(function (this: { download: string }) {
+              mocks.csvFilenames.push(this.download);
+            }),
+          };
+        }),
+      }),
+    );
   });
 
   it("shows account inflow, outflow and period balance", () => {
@@ -160,7 +234,7 @@ describe("Statements page", () => {
     expect(screen.queryByText("Por categoria")).not.toBeInTheDocument();
   });
 
-  it("opens details from a top movement and exports exactly the filtered rows", () => {
+  it("opens details from a top movement and exports exactly the filtered rows", async () => {
     mocks.transactions = [purchaseA, purchaseB];
     const { container } = render(<Statements />);
     setPeriod(container, "2026-09-01", "2026-09-30");
@@ -169,13 +243,25 @@ describe("Statements page", () => {
     expect(screen.getByTestId("transaction-detail")).toHaveTextContent("Supermercado");
 
     fireEvent.click(categoryLegend().getByRole("button", { name: /Alimentação/ }));
-    fireEvent.click(screen.getByRole("button", { name: /Exportar/ }));
-    expect(mocks.writeFile).toHaveBeenCalledWith(
-      expect.anything(),
-      "FinanceControl_Extrato_2026-09-01_2026-09-30.xlsx",
+    fireEvent.click(screen.getByRole("button", { name: /Exportar Excel/ }));
+    await vi.waitFor(() => expect(mocks.csvFilenames.length).toBe(1));
+    expect(mocks.csvFilenames[0]).toBe("FinanceControl_Extrato_Todas_2026-09-01_2026-09-30.xlsx");
+
+    fireEvent.click(screen.getByRole("button", { name: /Exportar CSV/ }));
+    await vi.waitFor(() => expect(mocks.csvFilenames.length).toBe(2));
+    expect(mocks.csvFilenames[1]).toBe("FinanceControl_Extrato_Todas_2026-09-01_2026-09-30.csv");
+    const csv = String(mocks.csvBlobs[1].parts[0]);
+    expect(csv).toContain("Supermercado");
+    expect(csv).not.toContain("Farmácia");
+
+    fireEvent.click(screen.getByRole("button", { name: /Exportar PDF/ }));
+    await vi.waitFor(() => expect(mocks.pdfSave).toHaveBeenCalledTimes(1));
+    expect(mocks.pdfSave).toHaveBeenCalledWith(
+      "FinanceControl_Extrato_Todas_2026-09-01_2026-09-30.pdf",
     );
-    expect(mocks.jsonRows).toHaveLength(1);
-    expect(mocks.jsonRows[0]).toMatchObject({ Descrição: "Supermercado", Valor: -100 });
+    const body = mocks.pdfTable.mock.calls[0][1].body as string[][];
+    expect(body).toHaveLength(1);
+    expect(body[0][1]).toBe("Supermercado");
   });
 
   it("searches by title and merchant", () => {

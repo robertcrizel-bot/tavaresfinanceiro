@@ -1,11 +1,11 @@
 import { useCallback, useMemo, useState } from "react";
 import {
+  Area,
+  AreaChart,
   Bar,
   BarChart,
   CartesianGrid,
   Cell,
-  Line,
-  LineChart,
   Pie,
   PieChart as RechartsPieChart,
   ResponsiveContainer,
@@ -13,8 +13,7 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import * as XLSX from "xlsx";
-import { Download, Eye, Hash, ListFilter, Search, TrendingDown, TrendingUp, Wallet, X } from "lucide-react";
+import { Download, Eye, FileSpreadsheet, FileText, Hash, ListFilter, Search, TrendingDown, TrendingUp, Wallet, X } from "lucide-react";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { useFinance } from "@/contexts/FinanceContext";
@@ -23,6 +22,7 @@ import { KpiCard } from "@/components/KpiCard";
 import { TransactionDetail } from "@/components/TransactionDetail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
@@ -37,7 +37,6 @@ import {
   originKey,
   originLabel,
   signedAmount,
-  statementExportFilename,
   statementTypeLabel,
   summarizeAccount,
   summarizeByCategory,
@@ -49,11 +48,18 @@ import {
 } from "@/lib/statements";
 import type { Transaction } from "@/lib/types";
 import { PAYMENT_METHODS } from "@/lib/types";
+import {
+  exportStatementsToCsv,
+  exportStatementsToExcel,
+  exportStatementsToPdf,
+  statementExportFileName,
+  type StatementsExportPayload,
+} from "@/lib/statements-export";
 
 const DONUT_COLORS = [
-  "hsl(160 84% 39%)", "hsl(160 62% 34%)", "hsl(168 50% 42%)", "hsl(150 42% 46%)",
-  "hsl(195 55% 46%)", "hsl(215 45% 52%)", "hsl(180 35% 45%)", "hsl(140 35% 40%)",
-  "hsl(170 28% 52%)", "hsl(200 30% 44%)",
+  "hsl(172 66% 45%)", "hsl(217 80% 62%)", "hsl(262 68% 68%)", "hsl(36 92% 58%)",
+  "hsl(340 70% 62%)", "hsl(150 60% 45%)", "hsl(200 78% 55%)", "hsl(288 62% 66%)",
+  "hsl(24 86% 60%)", "hsl(190 72% 48%)",
 ];
 const colorForIndex = (index: number) => DONUT_COLORS[index % DONUT_COLORS.length];
 
@@ -67,7 +73,7 @@ const tooltipStyle = {
   borderRadius: 8,
   color: "#f1f5f9",
 };
-const axisTick = { fontSize: 10, fill: "hsl(215 15% 52%)" };
+const axisTick = { fontSize: 11, fill: "hsl(215 20% 65%)" };
 
 type PeriodShortcut = "today" | "7d" | "month" | "prevMonth" | "30d" | "90d" | "year";
 
@@ -164,16 +170,56 @@ export default function Statements() {
     [accounts, creditCards, creditCardInvoices],
   );
 
-  const exportToXlsx = useCallback(() => {
-    const data = buildStatementExportRows(rows, exportContext);
-    const ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = [{ wch: 12 }, { wch: 32 }, { wch: 18 }, { wch: 22 }, { wch: 18 }, { wch: 18 }, { wch: 15 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Extrato");
-    const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
-    ws["!autofilter"] = { ref: XLSX.utils.encode_range(range) };
-    XLSX.writeFile(wb, statementExportFilename(start, end));
-  }, [rows, exportContext, start, end]);
+  const originOptions = useMemo(() => [
+    { key: STATEMENT_ALL, label: "Todas" },
+    ...accounts.map((account) => ({ key: originKey({ kind: "account" as const, accountId: account.id }), label: account.name })),
+    ...(showCash ? [{ key: "cash", label: "Dinheiro" }] : []),
+    ...creditCards.map((card) => ({ key: originKey({ kind: "card" as const, cardId: card.id }), label: `${card.name} (Cartão)` })),
+  ], [accounts, creditCards, showCash]);
+
+  const originName = originOptions.find((option) => option.key === origin)?.label ?? "Todas";
+
+  const exportData: StatementsExportPayload = useMemo(() => {
+    const summary = isCardMode
+      ? [
+        { label: "Compras", value: money(cardSummary.purchases) },
+        { label: "Estornos / Créditos", value: money(cardSummary.refunds) },
+        { label: "Total líquido", value: money(cardSummary.net) },
+        { label: "Quantidade de compras", value: String(cardSummary.count) },
+      ]
+      : [
+        { label: "Entradas", value: money(accountSummary.income) },
+        { label: "Saídas", value: money(accountSummary.expense) },
+        { label: "Saldo do período", value: money(accountSummary.balance) },
+        { label: "Quantidade de movimentações", value: String(accountSummary.count) },
+      ];
+    const appliedFilters: string[] = [];
+    if (typeFilter !== "all") appliedFilters.push(`Tipo: ${typeFilter === "income" ? "Entradas" : "Saídas"}`);
+    if (category !== STATEMENT_ALL) appliedFilters.push(`Categoria: ${category}`);
+    if (paymentMethod !== STATEMENT_ALL) appliedFilters.push(`Pagamento: ${paymentMethod}`);
+    if (search.trim() !== "") appliedFilters.push(`Busca: ${search.trim()}`);
+    if (minAmount !== "") appliedFilters.push(`Valor mín.: ${money(Number(minAmount))}`);
+    if (maxAmount !== "") appliedFilters.push(`Valor máx.: ${money(Number(maxAmount))}`);
+    return {
+      originLabel: originName,
+      start,
+      end,
+      appliedFilters,
+      summary,
+      categories: categories.map((slice) => ({ category: slice.category, total: slice.total, share: slice.share })),
+      rows: buildStatementExportRows(rows, exportContext),
+    };
+  }, [isCardMode, cardSummary, accountSummary, typeFilter, category, paymentMethod, search, minAmount, maxAmount, originName, start, end, categories, rows, exportContext]);
+
+  const handleExportExcel = useCallback(() => {
+    void exportStatementsToExcel(exportData);
+  }, [exportData]);
+  const handleExportCsv = useCallback(() => {
+    exportStatementsToCsv(exportData);
+  }, [exportData]);
+  const handleExportPdf = useCallback(() => {
+    void exportStatementsToPdf(exportData);
+  }, [exportData]);
 
   const clearSecondary = useCallback(() => {
     setTypeFilter("all");
@@ -183,15 +229,6 @@ export default function Statements() {
     setMinAmount("");
     setMaxAmount("");
   }, []);
-
-  const originOptions = useMemo(() => [
-    { key: STATEMENT_ALL, label: "Todas" },
-    ...accounts.map((account) => ({ key: originKey({ kind: "account" as const, accountId: account.id }), label: account.name })),
-    ...(showCash ? [{ key: "cash", label: "Dinheiro" }] : []),
-    ...creditCards.map((card) => ({ key: originKey({ kind: "card" as const, cardId: card.id }), label: `${card.name} (Cartão)` })),
-  ], [accounts, creditCards, showCash]);
-
-  const originName = originOptions.find((option) => option.key === origin)?.label ?? "Todas";
 
   const renderTypeBadge = (transaction: Transaction) => {
     if (transaction.financialKind === "card_invoice_payment") return <Badge variant="secondary">Pagamento de Fatura</Badge>;
@@ -209,10 +246,25 @@ export default function Statements() {
             Movimentações reais por origem, período e categoria.
           </p>
         </div>
-        <Button variant="outline" onClick={exportToXlsx} disabled={rows.length === 0} className="gap-2">
-          <Download className="h-4 w-4 shrink-0" />
-          <span className="hidden sm:inline">Exportar</span>
-        </Button>
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button variant="outline" disabled={rows.length === 0} className="gap-2">
+              <Download className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Exportar</span>
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="end">
+            <DropdownMenuItem onClick={handleExportPdf}>
+              <FileText className="h-4 w-4" /> Exportar PDF
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleExportExcel}>
+              <FileSpreadsheet className="h-4 w-4" /> Exportar Excel (.xlsx)
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleExportCsv}>
+              <FileText className="h-4 w-4" /> Exportar CSV
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="dashboard-card p-4 sm:p-5 space-y-3">
@@ -338,17 +390,17 @@ export default function Statements() {
 
       {isCardMode ? (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <KpiCard title="Compras" value={money(cardSummary.purchases)} icon={TrendingDown} color="red" />
-          <KpiCard title="Estornos / Créditos" value={money(cardSummary.refunds)} icon={TrendingUp} color="green" />
-          <KpiCard title="Total líquido" value={money(cardSummary.net)} icon={Wallet} color="balance" negativeValue={cardSummary.net < 0} />
-          <KpiCard title="Qtd. compras" value={String(cardSummary.count)} icon={Hash} color="neutral" />
+          <KpiCard title="Compras" value={money(cardSummary.purchases)} icon={TrendingDown} color="red" className="bg-expense/[0.06] shadow-[0_0_28px_-10px_hsl(var(--expense)/0.45)]" />
+          <KpiCard title="Estornos / Créditos" value={money(cardSummary.refunds)} icon={TrendingUp} color="green" className="bg-income/[0.06] shadow-[0_0_28px_-10px_hsl(var(--income)/0.45)]" />
+          <KpiCard title="Total líquido" value={money(cardSummary.net)} icon={Wallet} color="balance" negativeValue={cardSummary.net < 0} className="bg-primary/[0.07] shadow-[0_0_28px_-10px_hsl(var(--primary)/0.5)]" />
+          <KpiCard title="Qtd. compras" value={String(cardSummary.count)} icon={Hash} color="neutral" className="bg-sky-500/[0.06] shadow-[0_0_28px_-12px_hsl(200_80%_55%/0.5)]" />
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <KpiCard title="Entradas" value={money(accountSummary.income)} icon={TrendingUp} color="green" />
-          <KpiCard title="Saídas" value={money(accountSummary.expense)} icon={TrendingDown} color="red" />
-          <KpiCard title="Saldo do período" value={money(accountSummary.balance)} icon={Wallet} color="balance" negativeValue={accountSummary.balance < 0} />
-          <KpiCard title="Movimentações" value={String(accountSummary.count)} icon={Hash} color="neutral" />
+          <KpiCard title="Entradas" value={money(accountSummary.income)} icon={TrendingUp} color="green" className="bg-income/[0.06] shadow-[0_0_28px_-10px_hsl(var(--income)/0.45)]" />
+          <KpiCard title="Saídas" value={money(accountSummary.expense)} icon={TrendingDown} color="red" className="bg-expense/[0.06] shadow-[0_0_28px_-10px_hsl(var(--expense)/0.45)]" />
+          <KpiCard title="Saldo do período" value={money(accountSummary.balance)} icon={Wallet} color="balance" negativeValue={accountSummary.balance < 0} className="bg-primary/[0.07] shadow-[0_0_28px_-10px_hsl(var(--primary)/0.5)]" />
+          <KpiCard title="Movimentações" value={String(accountSummary.count)} icon={Hash} color="neutral" className="bg-sky-500/[0.06] shadow-[0_0_28px_-12px_hsl(200_80%_55%/0.5)]" />
         </div>
       )}
 
@@ -411,33 +463,47 @@ export default function Statements() {
             </ChartCard>
 
             <ChartCard title="Evolução no tempo">
-              <ResponsiveContainer width="100%" height={220}>
-                <LineChart data={daily}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" />
-                  <XAxis dataKey="label" tick={axisTick} interval="preserveStartEnd" minTickGap={24} />
-                  <YAxis tick={axisTick} width={48} />
+              <ResponsiveContainer width="100%" height={230}>
+                <AreaChart data={daily} margin={{ left: 4, right: 12, top: 8 }}>
+                  <defs>
+                    <linearGradient id="statementIncomeFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(160 84% 39%)" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="hsl(160 84% 39%)" stopOpacity={0.02} />
+                    </linearGradient>
+                    <linearGradient id="statementExpenseFill" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="hsl(0 72% 51%)" stopOpacity={0.32} />
+                      <stop offset="100%" stopColor="hsl(0 72% 51%)" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" vertical={false} />
+                  <XAxis dataKey="label" tick={axisTick} interval="preserveStartEnd" minTickGap={28} tickMargin={8} />
+                  <YAxis tick={axisTick} width={56} tickFormatter={(value: number) => value >= 1000 ? `${Math.round(value / 100) / 10}k` : `${value}`} />
                   <Tooltip
                     contentStyle={tooltipStyle}
                     labelStyle={{ color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}
                     formatter={(value: number, name: string) => [money(Number(value)), name]}
                   />
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="income"
                     name={isCardMode ? "Estornos" : "Entradas"}
                     stroke="hsl(160 84% 39%)"
-                    strokeWidth={2}
+                    strokeWidth={2.5}
+                    fill="url(#statementIncomeFill)"
                     dot={false}
+                    activeDot={{ r: 4, fill: "hsl(160 84% 39%)", strokeWidth: 0 }}
                   />
-                  <Line
+                  <Area
                     type="monotone"
                     dataKey="expense"
                     name={isCardMode ? "Compras" : "Saídas"}
                     stroke="hsl(0 72% 51%)"
-                    strokeWidth={2}
+                    strokeWidth={2.5}
+                    fill="url(#statementExpenseFill)"
                     dot={false}
+                    activeDot={{ r: 4, fill: "hsl(0 72% 51%)", strokeWidth: 0 }}
                   />
-                </LineChart>
+                </AreaChart>
               </ResponsiveContainer>
             </ChartCard>
 
@@ -450,13 +516,18 @@ export default function Statements() {
                       key={transaction.id}
                       type="button"
                       onClick={() => setViewing(transaction)}
-                      className="flex w-full items-center gap-3 py-2 text-left hover:bg-accent/40"
+                      className="flex w-full items-center gap-3 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-accent/50"
                     >
+                      <span className={`h-8 w-1 shrink-0 rounded-full ${signed >= 0 ? "bg-income/70" : "bg-expense/70"}`} />
                       <span className="flex-1 min-w-0">
                         <span className="block truncate text-sm font-medium">{transaction.title}</span>
-                        <span className="block text-xs text-muted-foreground">{formatDateBR(transaction.date)}</span>
+                        <span className="mt-0.5 flex items-center gap-1.5 text-xs text-muted-foreground">
+                          {formatDateBR(transaction.date)}
+                          <span aria-hidden="true">·</span>
+                          <span className="truncate">{transaction.category}</span>
+                        </span>
                       </span>
-                      <span className={`text-sm font-semibold ${signed >= 0 ? "text-income" : "text-expense"}`}>
+                      <span className={`text-sm font-bold tabular-nums ${signed >= 0 ? "text-income" : "text-expense"}`}>
                         {signed >= 0 ? `+ ${money(signed)}` : `- ${money(Math.abs(signed))}`}
                       </span>
                     </button>
@@ -471,13 +542,13 @@ export default function Statements() {
                   <p className="text-sm text-muted-foreground">Sem movimentações no período.</p>
                 ) : (
                   <>
-                    <ResponsiveContainer width="100%" height={200}>
-                      <BarChart data={byOrigin} layout="vertical" margin={{ left: 8, right: 16 }}>
+                    <ResponsiveContainer width="100%" height={Math.max(200, byOrigin.length * 46)}>
+                      <BarChart data={byOrigin} layout="vertical" margin={{ left: 8, right: 20, top: 4, bottom: 4 }} barCategoryGap="28%">
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" horizontal={false} />
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="label" tick={{ ...axisTick, fontSize: 11 }} width={120} />
-                        <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [money(Number(value)), "Movimentado"]} />
-                        <Bar dataKey="volume" radius={[0, 6, 6, 0]}>
+                        <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [money(Number(value)), "Movimentado"]} cursor={{ fill: "hsl(224 14% 22% / 0.35)" }} />
+                        <Bar dataKey="volume" radius={[4, 8, 8, 4]} background={{ fill: "hsl(224 14% 16%)", radius: 8 } as never}>
                           {byOrigin.map((slice, index) => (
                             <Cell
                               key={slice.key}
@@ -514,13 +585,13 @@ export default function Statements() {
                 <p className="text-sm text-muted-foreground">Sem movimentações no período.</p>
               ) : (
                 <>
-                  <ResponsiveContainer width="100%" height={200}>
-                    <BarChart data={byPayment} layout="vertical" margin={{ left: 8, right: 16 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" horizontal={false} />
-                      <XAxis type="number" hide />
-                      <YAxis type="category" dataKey="method" tick={{ ...axisTick, fontSize: 11 }} width={120} />
-                      <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [money(Number(value)), "Movimentado"]} />
-                      <Bar dataKey="volume" radius={[0, 6, 6, 0]}>
+                    <ResponsiveContainer width="100%" height={Math.max(200, byPayment.length * 46)}>
+                      <BarChart data={byPayment} layout="vertical" margin={{ left: 8, right: 20, top: 4, bottom: 4 }} barCategoryGap="28%">
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" horizontal={false} />
+                        <XAxis type="number" hide />
+                        <YAxis type="category" dataKey="method" tick={{ ...axisTick, fontSize: 11 }} width={120} />
+                        <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [money(Number(value)), "Movimentado"]} cursor={{ fill: "hsl(224 14% 22% / 0.35)" }} />
+                        <Bar dataKey="volume" radius={[4, 8, 8, 4]} background={{ fill: "hsl(224 14% 16%)", radius: 8 } as never}>
                         {byPayment.map((slice, index) => (
                           <Cell
                             key={slice.method}
@@ -577,8 +648,8 @@ export default function Statements() {
                       </span>
                     </div>
                     <p className="truncate text-sm font-semibold">{transaction.title}</p>
-                    <div className="flex flex-wrap gap-1.5 text-xs text-muted-foreground">
-                      <Badge variant="outline">{transaction.category}</Badge>
+                    <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                      <Badge variant="outline" className="border-primary/30 bg-primary/[0.06]">{transaction.category}</Badge>
                       <span>{label}</span>
                     </div>
                   </button>
@@ -586,17 +657,17 @@ export default function Statements() {
               })}
             </div>
 
-            <div className="hidden md:block overflow-x-auto" data-testid="statement-table">
-              <Table>
+            <div className="hidden md:block overflow-x-auto rounded-lg border border-border/60" data-testid="statement-table">
+              <Table className="[&_thead]:bg-muted/50">
                 <TableHeader>
-                  <TableRow>
-                    <TableHead>Data</TableHead>
-                    <TableHead>Descrição</TableHead>
-                    <TableHead>Categoria</TableHead>
-                    <TableHead>Origem</TableHead>
-                    <TableHead>Tipo</TableHead>
-                    <TableHead>Pagamento</TableHead>
-                    <TableHead className="text-right">Valor</TableHead>
+                  <TableRow className="hover:bg-transparent">
+                    <TableHead className="text-xs uppercase tracking-wide">Data</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide">Descrição</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide">Categoria</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide">Origem</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide">Tipo</TableHead>
+                    <TableHead className="text-xs uppercase tracking-wide">Pagamento</TableHead>
+                    <TableHead className="text-right text-xs uppercase tracking-wide">Valor</TableHead>
                     <TableHead className="w-10" />
                   </TableRow>
                 </TableHeader>
@@ -605,18 +676,20 @@ export default function Statements() {
                     const signed = signedAmount(transaction);
                     const { label } = originLabel(transaction, accounts, creditCards);
                     return (
-                      <TableRow key={transaction.id}>
-                        <TableCell className="whitespace-nowrap">{formatDateBR(transaction.date)}</TableCell>
+                      <TableRow key={transaction.id} className="transition-colors hover:bg-accent/40">
+                        <TableCell className="whitespace-nowrap tabular-nums">{formatDateBR(transaction.date)}</TableCell>
                         <TableCell>
                           <button type="button" onClick={() => setViewing(transaction)} className="font-medium hover:underline text-left">
                             {transaction.title}
                           </button>
                         </TableCell>
-                        <TableCell><Badge variant="outline">{transaction.category}</Badge></TableCell>
-                        <TableCell className="whitespace-nowrap">{label}</TableCell>
+                        <TableCell><Badge variant="outline" className="border-primary/30 bg-primary/[0.06] font-medium">{transaction.category}</Badge></TableCell>
+                        <TableCell className="whitespace-nowrap">
+                          <Badge variant="secondary" className="font-normal">{label}</Badge>
+                        </TableCell>
                         <TableCell>{renderTypeBadge(transaction)}</TableCell>
-                        <TableCell className="whitespace-nowrap">{transaction.paymentMethod ?? "—"}</TableCell>
-                        <TableCell className={`text-right font-semibold whitespace-nowrap ${signed >= 0 ? "text-income" : "text-expense"}`}>
+                        <TableCell className="whitespace-nowrap text-muted-foreground">{transaction.paymentMethod ?? "—"}</TableCell>
+                        <TableCell className={`text-right font-bold tabular-nums whitespace-nowrap ${signed >= 0 ? "text-income" : "text-expense"}`}>
                           {signed >= 0 ? `+ ${money(signed)}` : `- ${money(Math.abs(signed))}`}
                         </TableCell>
                         <TableCell>

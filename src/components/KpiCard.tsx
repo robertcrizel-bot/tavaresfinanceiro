@@ -42,14 +42,15 @@ interface KpiCardProps {
   trendUp?: boolean;
   color?: KpiColor;
   negativeValue?: boolean;
+  className?: string;
 }
 
-export function KpiCard({ title, value, icon: Icon, trend, trendUp, color, negativeValue }: KpiCardProps) {
+export function KpiCard({ title, value, icon: Icon, trend, trendUp, color, negativeValue, className }: KpiCardProps) {
   const c = colorMap[color ?? "neutral"];
   const valueColor = negativeValue ? "text-expense" : c.value;
 
   return (
-    <div className={cn("dashboard-card border-l-4 p-3 sm:p-5 h-full flex flex-col justify-between", c.accent, c.surface)}>
+    <div className={cn("dashboard-card border-l-4 p-3 sm:p-5 h-full flex flex-col justify-between", c.accent, c.surface, className)}>
       <div className="flex items-center justify-between mb-2 sm:mb-3 gap-2">
         <span className={cn("text-xs sm:text-sm font-semibold line-clamp-1", c.title)}>{title}</span>
         <Icon className={cn("h-4 w-4 sm:h-5 sm:w-5 shrink-0", c.icon)} />
