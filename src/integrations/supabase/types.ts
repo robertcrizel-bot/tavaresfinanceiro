@@ -125,45 +125,6 @@ export type Database = {
         }
         Relationships: []
       }
-      credit_cards: {
-        Row: {
-          bank: string
-          closing_day: number
-          color: string
-          created_at: string
-          credit_limit: number
-          due_day: number
-          id: string
-          name: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          bank: string
-          closing_day?: number
-          color?: string
-          created_at?: string
-          credit_limit?: number
-          due_day?: number
-          id?: string
-          name: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          bank?: string
-          closing_day?: number
-          color?: string
-          created_at?: string
-          credit_limit?: number
-          due_day?: number
-          id?: string
-          name?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       credit_card_invoices: {
         Row: {
           actual_closed_at: string | null
@@ -252,6 +213,45 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      credit_cards: {
+        Row: {
+          bank: string
+          closing_day: number
+          color: string
+          created_at: string
+          credit_limit: number
+          due_day: number
+          id: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          bank: string
+          closing_day?: number
+          color?: string
+          created_at?: string
+          credit_limit?: number
+          due_day?: number
+          id?: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          bank?: string
+          closing_day?: number
+          color?: string
+          created_at?: string
+          credit_limit?: number
+          due_day?: number
+          id?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
       }
       profiles: {
         Row: {
@@ -379,8 +379,8 @@ export type Database = {
           credit_card_invoice_id: string | null
           date: string
           description: string | null
-          id: string
           financial_kind: string
+          id: string
           installment_number: number | null
           installments: number | null
           is_paid: boolean
@@ -402,8 +402,8 @@ export type Database = {
           credit_card_invoice_id?: string | null
           date?: string
           description?: string | null
-          id?: string
           financial_kind?: string
+          id?: string
           installment_number?: number | null
           installments?: number | null
           is_paid?: boolean
@@ -425,8 +425,8 @@ export type Database = {
           credit_card_invoice_id?: string | null
           date?: string
           description?: string | null
-          id?: string
           financial_kind?: string
+          id?: string
           installment_number?: number | null
           installments?: number | null
           is_paid?: boolean
@@ -448,17 +448,17 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
-            foreignKeyName: "transactions_credit_card_invoice_id_fkey"
-            columns: ["credit_card_invoice_id"]
-            isOneToOne: false
-            referencedRelation: "credit_card_invoices"
-            referencedColumns: ["id"]
-          },
-          {
             foreignKeyName: "transactions_credit_card_id_fkey"
             columns: ["credit_card_id"]
             isOneToOne: false
             referencedRelation: "credit_cards"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "transactions_credit_card_invoice_id_fkey"
+            columns: ["credit_card_invoice_id"]
+            isOneToOne: false
+            referencedRelation: "credit_card_invoices"
             referencedColumns: ["id"]
           },
         ]
@@ -520,7 +520,11 @@ export type Database = {
             Returns: string
           }
       credit_card_cycle_dates: {
-        Args: { p_closing_day: number; p_due_day: number; p_reference_date: string }
+        Args: {
+          p_closing_day: number
+          p_due_day: number
+          p_reference_date: string
+        }
         Returns: {
           competence: string
           cycle_end: string
