@@ -3,7 +3,7 @@
 import { PaddleOCR } from "@paddleocr/paddleocr-js";
 import { configureOrtWasm } from "@/lib/ocr-runtime";
 import {
-  imageBufferToPaddleMat,
+  rgbaToPaddleMat,
   type PaddleMat,
   type PaddleOpenCv,
 } from "@/lib/paddle-ocr-worker-image";
@@ -13,7 +13,9 @@ import {
 } from "@/lib/ocr-paddle-test/recognize";
 
 interface RecognizeMessage {
-  image: ArrayBuffer;
+  pixels: ArrayBuffer;
+  width: number;
+  height: number;
 }
 
 type OcrStage =
@@ -37,12 +39,12 @@ function debugStage(stage: OcrStage): void {
 }
 
 scope.onmessage = async (event: MessageEvent<RecognizeMessage>) => {
-  const { image } = event.data;
+  const { pixels, width, height } = event.data;
   let stage: OcrStage = "worker-start";
   let instance: { dispose: () => void | Promise<void> } | null = null;
   debugStage(stage);
   try {
-    scope.postMessage({ type: "progress", message: "Carregando OCR..." });
+    scope.postMessage({ type: "progress", stage: "paddle-create-start", message: "Inicializando OCR..." });
     configureOrtWasm();
     stage = "ort-configured";
     debugStage(stage);
@@ -65,7 +67,7 @@ scope.onmessage = async (event: MessageEvent<RecognizeMessage>) => {
     stage = "paddle-create-ok";
     debugStage(stage);
 
-    scope.postMessage({ type: "progress", message: "Lendo comprovante..." });
+    scope.postMessage({ type: "progress", stage: "predict-start", message: "Reconhecendo texto..." });
     stage = "predict-start";
     debugStage(stage);
     const ocrStart = performance.now();
@@ -74,7 +76,7 @@ scope.onmessage = async (event: MessageEvent<RecognizeMessage>) => {
       predict(input: PaddleMat): Promise<Awaited<ReturnType<typeof created.predict>>>;
     };
     if (!directOcr.cv) throw new Error("OpenCV não foi inicializado pelo PaddleOCR.");
-    const sourceMat = await imageBufferToPaddleMat(image, directOcr.cv);
+    const sourceMat = rgbaToPaddleMat({ pixels, width, height }, directOcr.cv);
     let results: Awaited<ReturnType<typeof created.predict>>;
     try {
       results = await directOcr.predict(sourceMat);
