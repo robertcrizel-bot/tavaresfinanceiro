@@ -1,10 +1,14 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { imageBufferToPaddleMat } from "@/lib/paddle-ocr-worker-image";
 
 const paddleMocks = vi.hoisted(() => ({
   create: vi.fn(),
   predict: vi.fn(),
   dispose: vi.fn(),
   configureOrtWasm: vi.fn(),
+  matFromArray: vi.fn(),
+  matDelete: vi.fn(),
+  bitmapClose: vi.fn(),
 }));
 
 vi.mock("@paddleocr/paddleocr-js", () => ({
@@ -15,6 +19,10 @@ vi.mock("@/lib/ocr-runtime", () => ({
   configureOrtWasm: paddleMocks.configureOrtWasm,
   ORT_WASM_PATHS: { mjs: "mock.mjs", wasm: "mock.wasm" },
 }));
+
+const actualPaddle = await vi.importActual<typeof import("@paddleocr/paddleocr-js")>(
+  "@paddleocr/paddleocr-js",
+);
 
 const posted: unknown[] = [];
 let closedCount = 0;
@@ -47,12 +55,38 @@ describe("paddle-ocr.worker", () => {
   beforeEach(async () => {
     vi.clearAllMocks();
     installScopeSpies();
+    paddleMocks.matFromArray.mockReturnValue({ delete: paddleMocks.matDelete });
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({
+      width: 2,
+      height: 1,
+      close: paddleMocks.bitmapClose,
+    })));
+    vi.stubGlobal("OffscreenCanvas", class {
+      getContext() {
+        return {
+          drawImage: vi.fn(),
+          getImageData: vi.fn(() => ({
+            width: 2,
+            height: 1,
+            data: new Uint8ClampedArray(8),
+          })),
+        };
+      }
+    });
     paddleMocks.predict.mockResolvedValue(predictResult());
     paddleMocks.create.mockResolvedValue({
+      cv: {
+        CV_8UC4: 24,
+        matFromArray: paddleMocks.matFromArray,
+      },
       predict: paddleMocks.predict,
       dispose: paddleMocks.dispose,
     });
     await import("@/lib/paddle-ocr.worker");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
   });
 
   function runWorker(image = new ArrayBuffer(8)) {
@@ -95,6 +129,11 @@ describe("paddle-ocr.worker", () => {
     expect(result.text).toBe("PAO FRANCES\n6,03");
     expect(typeof result.initializationMs).toBe("number");
     expect(typeof result.ocrMs).toBe("number");
+    expect(paddleMocks.predict).toHaveBeenCalledWith(
+      expect.objectContaining({ delete: paddleMocks.matDelete }),
+    );
+    expect(paddleMocks.matDelete).toHaveBeenCalledTimes(1);
+    expect(paddleMocks.bitmapClose).toHaveBeenCalledTimes(1);
     expect(paddleMocks.dispose).toHaveBeenCalledTimes(1);
     expect(closedCount).toBe(1);
   });
@@ -110,5 +149,89 @@ describe("paddle-ocr.worker", () => {
     expect(error?.message).toContain("predict explodiu");
     expect(paddleMocks.dispose).toHaveBeenCalled();
     expect(closedCount).toBe(1);
+  });
+});
+
+describe("worker-safe PaddleOCR input", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  it("runs the package's real cv.Mat normalization without global.document", async () => {
+    const ocr = await actualPaddle.PaddleOCR.create({
+      worker: false,
+      lang: "pt",
+      ocrVersion: "PP-OCRv6",
+      initialize: false,
+      ortOptions: { backend: "wasm" },
+    });
+
+    class FakeMat {
+      rows = 1;
+      cols = 2;
+      delete = vi.fn();
+
+      clone() {
+        return new FakeMat();
+      }
+    }
+
+    const cv = {
+      Mat: FakeMat,
+      CV_8UC4: 24,
+      matFromArray: vi.fn(() => new FakeMat()),
+    };
+    Object.assign(ocr, {
+      cv,
+      ort: {},
+      detModel: {
+        provider: "wasm",
+        predict: vi.fn(async () => [{ boxes: [] }]),
+        dispose: vi.fn(),
+      },
+      recModel: {
+        provider: "wasm",
+        predict: vi.fn(async () => []),
+        dispose: vi.fn(),
+      },
+      webgpuState: { available: false, reason: "test" },
+    });
+
+    const bitmapClose = vi.fn();
+    vi.stubGlobal("createImageBitmap", vi.fn(async () => ({
+      width: 2,
+      height: 1,
+      close: bitmapClose,
+    })));
+    vi.stubGlobal("OffscreenCanvas", class {
+      getContext() {
+        return {
+          drawImage: vi.fn(),
+          getImageData: vi.fn(() => ({
+            width: 2,
+            height: 1,
+            data: new Uint8ClampedArray(8),
+          })),
+        };
+      }
+    });
+
+    const documentDescriptor = Object.getOwnPropertyDescriptor(globalThis, "document");
+    expect(Reflect.deleteProperty(globalThis, "document")).toBe(true);
+    expect("document" in globalThis).toBe(false);
+    try {
+      const input = await imageBufferToPaddleMat(new ArrayBuffer(8), cv);
+      const results = await ocr.predict(input);
+
+      expect(results).toHaveLength(1);
+      expect(results[0].image).toEqual({ width: 2, height: 1 });
+      expect(cv.matFromArray).toHaveBeenCalledWith(1, 2, 24, expect.any(Uint8ClampedArray));
+      expect(bitmapClose).toHaveBeenCalledTimes(1);
+    } finally {
+      if (documentDescriptor) {
+        Object.defineProperty(globalThis, "document", documentDescriptor);
+      }
+      await ocr.dispose();
+    }
   });
 });

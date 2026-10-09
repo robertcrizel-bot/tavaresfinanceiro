@@ -3,6 +3,11 @@
 import { PaddleOCR } from "@paddleocr/paddleocr-js";
 import { configureOrtWasm } from "@/lib/ocr-runtime";
 import {
+  imageBufferToPaddleMat,
+  type PaddleMat,
+  type PaddleOpenCv,
+} from "@/lib/paddle-ocr-worker-image";
+import {
   mapPaddleItemsToRegions,
   sortRegionsByPosition,
 } from "@/lib/ocr-paddle-test/recognize";
@@ -61,13 +66,21 @@ scope.onmessage = async (event: MessageEvent<RecognizeMessage>) => {
     debugStage(stage);
 
     scope.postMessage({ type: "progress", message: "Lendo comprovante..." });
-    const blob = new Blob([image], { type: "image/jpeg" });
     stage = "predict-start";
     debugStage(stage);
     const ocrStart = performance.now();
-    /* eslint-disable @typescript-eslint/no-explicit-any */
-    const results = await (created as any).predict(blob);
-    /* eslint-enable @typescript-eslint/no-explicit-any */
+    const directOcr = created as unknown as {
+      cv: PaddleOpenCv | null;
+      predict(input: PaddleMat): Promise<Awaited<ReturnType<typeof created.predict>>>;
+    };
+    if (!directOcr.cv) throw new Error("OpenCV não foi inicializado pelo PaddleOCR.");
+    const sourceMat = await imageBufferToPaddleMat(image, directOcr.cv);
+    let results: Awaited<ReturnType<typeof created.predict>>;
+    try {
+      results = await directOcr.predict(sourceMat);
+    } finally {
+      sourceMat.delete();
+    }
     const ocrMs = Math.round(performance.now() - ocrStart);
     stage = "predict-ok";
     debugStage(stage);
