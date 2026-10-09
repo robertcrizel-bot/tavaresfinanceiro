@@ -133,9 +133,9 @@ export default function Dashboard() {
   }, [filtered, topCategory, totalExpense, totalIncome, avgDaily]);
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-2 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-        <h1 className="whitespace-nowrap text-lg font-extrabold tracking-tight text-primary sm:text-2xl sm:font-bold sm:tracking-normal">Painel de Controle</h1>
+    <div className="max-w-7xl space-y-5 sm:space-y-6">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-3 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-3">
+        <h1 className="whitespace-nowrap text-lg font-extrabold leading-none tracking-tight text-primary sm:text-2xl sm:font-bold sm:tracking-normal">Painel de Controle</h1>
         <div className="contents sm:flex sm:w-auto sm:flex-row sm:items-center sm:gap-2">
           <DashboardPeriodFilter
             period={period}
@@ -144,7 +144,7 @@ export default function Dashboard() {
             onDateRangeChange={setDateRange}
           />
           <div className="order-3 col-span-2 flex w-full items-center gap-2 sm:order-none sm:w-auto">
-            <Button variant="outline" asChild className="h-9 flex-1 justify-center gap-1.5 sm:h-10 sm:flex-none sm:gap-2">
+            <Button variant="outline" asChild className="h-9 flex-1 justify-center gap-1.5 border-border/70 bg-card/40 sm:h-10 sm:flex-none sm:gap-2">
               <Link to="/receipt">
                 <ScanLine className="h-4 w-4 shrink-0" />
                 <span className="sm:hidden">Comprovante</span>
@@ -161,36 +161,39 @@ export default function Dashboard() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
         <KpiCard title="Total de Entradas" value={fmt(totalIncome)} icon={TrendingUp} color="green" />
         <KpiCard title="Total de Saídas" value={fmt(totalExpense)} icon={TrendingDown} color="red" />
         <KpiCard title="Saldo do Período" value={fmt(balance)} icon={Wallet} color="balance" negativeValue={balance < 0} />
         <KpiCard title="Gasto Médio Diário" value={fmt(avgDaily)} icon={CalendarDays} color="neutral" />
-        <div className="col-span-2 md:col-span-1 xl:col-span-1">
-          <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} color="neutral" />
+        <div className="col-span-2 xl:col-span-1">
+          <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} color="category" />
         </div>
       </div>
 
       {/* Accounts & Cards */}
       {(accounts.length > 0 || creditCards.length > 0) && (
         <div>
-          <h2 className="relative mb-2 pl-3 text-base font-bold text-primary before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-primary sm:before:hidden">Contas & Cartões</h2>
+          <h2 className="relative mb-3 pl-3 text-sm font-semibold tracking-tight text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-['']">Contas & Cartões</h2>
           <div className="grid grid-cols-2 gap-3 sm:gap-4">
             {accounts.map((acc) => {
               const balance = accountBalances[acc.id];
               return (
                 <div
                   key={acc.id}
-                  className="dashboard-card p-4 border-l-4 border-l-border flex flex-col justify-between min-h-[128px]"
+                  className="dashboard-card flex h-[142px] flex-col justify-between border-border/70 bg-card/90 p-3.5 shadow-sm shadow-black/10 sm:h-[150px] sm:p-4"
                 >
-                  <div className="flex items-center gap-2 mb-2">
-                    <Landmark className="h-4 w-4 shrink-0 text-primary" />
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-inset ring-primary/20">
+                      <Landmark className="h-4 w-4 text-primary" />
+                    </span>
                     <span className="truncate text-sm font-semibold text-foreground">{acc.name}</span>
                   </div>
-                  <div>
-                    <p className={`text-xl font-bold ${balance > 0 ? "text-income" : balance < 0 ? "text-expense" : "text-foreground"}`}>{fmt(balance)}</p>
+                  <div className="min-w-0">
+                    <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Saldo atual</p>
+                    <p className={`break-words text-lg font-bold leading-tight tracking-tight sm:text-xl ${balance > 0 ? "text-income" : balance < 0 ? "text-expense" : "text-foreground"}`}>{fmt(balance)}</p>
                   </div>
-                  <p className="mt-2 text-xs text-muted-foreground/80">{acc.bank} · {acc.type === "checking" ? "Corrente" : "Poupança"}</p>
+                  <p className="truncate text-[11px] text-muted-foreground/80">{acc.bank} · {acc.type === "checking" ? "Corrente" : "Poupança"}</p>
                 </div>
               );
             })}
@@ -201,22 +204,25 @@ export default function Dashboard() {
               return (
                 <div
                   key={cc.id}
-                  className="dashboard-card p-4 border-l-4 border-l-border flex flex-col justify-between min-h-[128px]"
+                  className="dashboard-card flex h-[142px] flex-col justify-between border-border/70 bg-secondary/25 p-3.5 shadow-sm shadow-black/10 sm:h-[150px] sm:p-4"
                 >
-                  <div>
-                    <div className="flex items-center gap-2 mb-2">
-                      <CreditCard className="h-4 w-4 shrink-0 text-primary" />
-                      <span className="truncate text-sm font-semibold text-foreground">{cc.name}</span>
-                    </div>
-                    <p className="text-xl font-bold text-expense">{fmt(used)}</p>
+                  <div className="flex min-w-0 items-center gap-2.5">
+                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-expense/10 ring-1 ring-inset ring-expense/20">
+                      <CreditCard className="h-4 w-4 text-expense" />
+                    </span>
+                    <span className="truncate text-sm font-semibold text-foreground">{cc.name}</span>
                   </div>
-                  <div className="mt-2 space-y-1.5">
-                    <div className="w-full h-1.5 rounded-full bg-muted overflow-hidden">
-                      <div className="h-full rounded-full bg-expense transition-all" style={{ width: `${pct}%` }} />
+                  <div className="min-w-0">
+                    <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Utilizado</p>
+                    <p className="break-words text-lg font-bold leading-tight tracking-tight text-expense sm:text-xl">{fmt(used)}</p>
+                  </div>
+                  <div className="space-y-1.5">
+                    <div className="h-1 w-full overflow-hidden rounded-full bg-border/70">
+                      <div className="h-full rounded-full bg-expense/80" style={{ width: `${pct}%` }} />
                     </div>
-                    <div className="flex justify-between text-xs text-muted-foreground">
-                      <span>Disponível: {fmt(available)}</span>
-                      <span>Limite: {fmt(cc.limit)}</span>
+                    <div className="flex justify-between gap-2 text-[10px] leading-none text-muted-foreground">
+                      <span className="truncate">Disp. {fmt(available)}</span>
+                      <span className="shrink-0">Lim. {fmt(cc.limit)}</span>
                     </div>
                   </div>
                 </div>
@@ -227,7 +233,7 @@ export default function Dashboard() {
       )}
 
       {/* Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
         <ChartCard title="Gastos por Dia">
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={lineData}>
@@ -283,8 +289,8 @@ export default function Dashboard() {
 
       {/* Insights */}
       <div>
-        <h2 className="relative mb-2 pl-3 text-base font-bold text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-foreground sm:before:hidden">Insights</h2>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+        <h2 className="relative mb-3 pl-3 text-sm font-semibold tracking-tight text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-['']">Insights</h2>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
           {insights.map((text, i) => (
             <InsightCard key={i} text={text} />
           ))}
