@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { imageBufferToPaddleMat } from "@/lib/paddle-ocr-worker-image";
+import { rgbaToPaddleMat } from "@/lib/paddle-ocr-worker-image";
 
 const paddleMocks = vi.hoisted(() => ({
   create: vi.fn(),
@@ -89,13 +89,28 @@ describe("paddle-ocr.worker", () => {
     vi.unstubAllGlobals();
   });
 
-  function runWorker(image = new ArrayBuffer(8)) {
+  function runWorker(pixels = new ArrayBuffer(8)) {
     const handler = (window as unknown as {
-      onmessage: ((event: { data: { image: ArrayBuffer } }) => Promise<void>) | null;
+      onmessage: ((event: { data: { pixels: ArrayBuffer; width: number; height: number } }) => Promise<void>) | null;
     }).onmessage;
     if (!handler) throw new Error("worker onmessage not installed");
-    return handler({ data: { image } });
+    return handler({ data: { pixels, width: 2, height: 1 } });
   }
+
+  it("never touches document, createImageBitmap or OffscreenCanvas", async () => {
+    const bitmapSpy = vi.fn();
+    vi.stubGlobal("createImageBitmap", bitmapSpy);
+    const descriptor = Object.getOwnPropertyDescriptor(globalThis, "document");
+    Reflect.deleteProperty(globalThis, "document");
+    try {
+      await runWorker();
+    } finally {
+      if (descriptor) Object.defineProperty(globalThis, "document", descriptor);
+    }
+    expect(bitmapSpy).not.toHaveBeenCalled();
+    expect(posted.some((m) => (m as { type?: string }).type === "result")).toBe(true);
+    expect(paddleMocks.matFromArray).toHaveBeenCalledWith(1, 2, 24, expect.any(Uint8Array));
+  });
 
   it("creates PaddleOCR directly inside the worker without worker:true or wasmPaths", async () => {
     await runWorker();
@@ -133,7 +148,6 @@ describe("paddle-ocr.worker", () => {
       expect.objectContaining({ delete: paddleMocks.matDelete }),
     );
     expect(paddleMocks.matDelete).toHaveBeenCalledTimes(1);
-    expect(paddleMocks.bitmapClose).toHaveBeenCalledTimes(1);
     expect(paddleMocks.dispose).toHaveBeenCalledTimes(1);
     expect(closedCount).toBe(1);
   });
@@ -220,13 +234,12 @@ describe("worker-safe PaddleOCR input", () => {
     expect(Reflect.deleteProperty(globalThis, "document")).toBe(true);
     expect("document" in globalThis).toBe(false);
     try {
-      const input = await imageBufferToPaddleMat(new ArrayBuffer(8), cv);
+      const input = rgbaToPaddleMat({ pixels: new ArrayBuffer(8), width: 2, height: 1 }, cv);
       const results = await ocr.predict(input);
 
       expect(results).toHaveLength(1);
       expect(results[0].image).toEqual({ width: 2, height: 1 });
-      expect(cv.matFromArray).toHaveBeenCalledWith(1, 2, 24, expect.any(Uint8ClampedArray));
-      expect(bitmapClose).toHaveBeenCalledTimes(1);
+      expect(cv.matFromArray).toHaveBeenCalledWith(1, 2, 24, expect.any(Uint8Array));
     } finally {
       if (documentDescriptor) {
         Object.defineProperty(globalThis, "document", documentDescriptor);

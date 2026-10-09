@@ -2,8 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   PADDLE_OCR_TIMEOUT_MESSAGE,
   PADDLE_OCR_TIMEOUT_MS,
+  PaddleOcrError,
   paddleRecognizeWorker,
 } from "@/lib/paddle-ocr-worker";
+
+const decode = async () => ({ pixels: new ArrayBuffer(8), width: 2, height: 1 });
 
 class FakeWorker {
   static instances: FakeWorker[] = [];
@@ -63,17 +66,44 @@ describe("paddleRecognizeWorker", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses a 35s safety timeout", () => {
-    expect(PADDLE_OCR_TIMEOUT_MS).toBe(35_000);
+  it("uses a 90s safety timeout for slow Android devices", () => {
+    expect(PADDLE_OCR_TIMEOUT_MS).toBe(90_000);
+  });
+
+  it("does not time out early on a slow device (default timeout)", async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = paddleRecognizeWorker(makeFile(), undefined, { createWorker, decode });
+      let worker: FakeWorker | undefined;
+      for (let i = 0; i < 50 && !worker; i += 1) {
+        await Promise.resolve();
+        worker = FakeWorker.instances[FakeWorker.instances.length - 1];
+      }
+      await vi.advanceTimersByTimeAsync(60_000);
+      expect(worker!.terminated).toBe(false);
+      worker!.onmessage?.({ data: resultPayload(1) });
+      await expect(pending).resolves.toMatchObject({ text: "PAO FRANCES" });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("attaches a diagnostic with stage on failure", async () => {
+    const pending = paddleRecognizeWorker(makeFile(), undefined, { createWorker, decode, timeoutMs: 1000 });
+    const worker = await lastWorker();
+    worker.onmessage?.({ data: { type: "error", stage: "predict-start", message: "boom" } });
+    const error = await pending.catch((e) => e);
+    expect(error).toBeInstanceOf(PaddleOcrError);
+    expect(error.diagnostic).toMatchObject({ stage: "predict-start", ocrDimensions: "2x1", error: "boom" });
   });
 
   it("returns regions and terminates the worker after success", async () => {
     const file = makeFile();
     const onProgress = vi.fn();
-    const pending = paddleRecognizeWorker(file, onProgress, { createWorker, timeoutMs: 1000 });
+    const pending = paddleRecognizeWorker(file, onProgress, { createWorker, decode, timeoutMs: 1000 });
     const worker = await lastWorker();
     expect(worker.posted).toHaveLength(1);
-    expect((worker.posted[0] as { image: unknown }).image).toBeInstanceOf(ArrayBuffer);
+    expect((worker.posted[0] as { pixels: unknown }).pixels).toBeInstanceOf(ArrayBuffer);
 
     worker.onmessage?.({ data: { id: 1, type: "progress", message: "Carregando OCR..." } });
     expect(onProgress).toHaveBeenCalledWith("Carregando OCR...");
@@ -90,7 +120,7 @@ describe("paddleRecognizeWorker", () => {
 
   it("terminates the worker after an error message", async () => {
     const file = makeFile();
-    const pending = paddleRecognizeWorker(file, undefined, { createWorker, timeoutMs: 1000 });
+    const pending = paddleRecognizeWorker(file, undefined, { createWorker, decode, timeoutMs: 1000 });
     const worker = await lastWorker();
     worker.onmessage?.({ data: { id: 1, type: "error", message: "Falha no OCR." } });
     await expect(pending).rejects.toThrow("Falha no OCR.");
@@ -99,7 +129,7 @@ describe("paddleRecognizeWorker", () => {
 
   it("terminates the worker after a worker-level error", async () => {
     const file = makeFile();
-    const pending = paddleRecognizeWorker(file, undefined, { createWorker, timeoutMs: 1000 });
+    const pending = paddleRecognizeWorker(file, undefined, { createWorker, decode, timeoutMs: 1000 });
     const worker = await lastWorker();
     worker.onerror?.({ message: "Falha no worker do OCR." });
     await expect(pending).rejects.toThrow("Falha no worker do OCR.");
@@ -110,7 +140,7 @@ describe("paddleRecognizeWorker", () => {
     const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
     try {
       const file = makeFile();
-      const pending = paddleRecognizeWorker(file, undefined, { createWorker, timeoutMs: 200 });
+      const pending = paddleRecognizeWorker(file, undefined, { createWorker, decode, timeoutMs: 200 });
       const assertion = expect(pending).rejects.toThrow(PADDLE_OCR_TIMEOUT_MESSAGE);
       let worker: FakeWorker | undefined;
       for (let i = 0; i < 100 && !worker; i += 1) {
@@ -132,10 +162,10 @@ describe("paddleRecognizeWorker", () => {
 
   it("creates one worker per read", async () => {
     const file = makeFile();
-    const first = paddleRecognizeWorker(file, undefined, { createWorker, timeoutMs: 1000 });
+    const first = paddleRecognizeWorker(file, undefined, { createWorker, decode, timeoutMs: 1000 });
     (await lastWorker()).onmessage?.({ data: resultPayload(1) });
     await first;
-    const second = paddleRecognizeWorker(file, undefined, { createWorker, timeoutMs: 1000 });
+    const second = paddleRecognizeWorker(file, undefined, { createWorker, decode, timeoutMs: 1000 });
     await vi.waitFor(() => expect(FakeWorker.instances.length).toBe(2));
     FakeWorker.instances[1].onmessage?.({ data: resultPayload(2) });
     await second;
