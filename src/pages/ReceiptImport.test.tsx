@@ -48,6 +48,8 @@ vi.mock("@/lib/ocr-paddle-test/recognize", () => ({
   disposePaddleRecognizer: mocks.disposePaddleRecognizer,
 }));
 vi.mock("@/lib/paddle-ocr-worker", () => ({
+  PaddleOcrError: class PaddleOcrError extends Error {},
+  formatOcrDiagnostic: () => "",
   paddleRecognizeWorker: mocks.paddleRecognizeWorker,
 }));
 vi.mock("@/lib/ocr-paddle-test/receiptResult", () => ({

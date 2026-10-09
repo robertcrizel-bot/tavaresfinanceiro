@@ -41,6 +41,8 @@ vi.mock("@/lib/receipt", async (importOriginal) => ({
   prepareReceiptForLocalOcr: mocks.prepareReceiptForLocalOcr,
 }));
 vi.mock("@/lib/paddle-ocr-worker", () => ({
+  PaddleOcrError: class PaddleOcrError extends Error {},
+  formatOcrDiagnostic: () => "",
   paddleRecognizeWorker: mocks.paddleRecognizeWorker,
 }));
 vi.mock("@/lib/ocr-paddle-test/receiptResult", () => ({
