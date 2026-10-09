@@ -451,8 +451,8 @@ export default function ExpenseAnalytics() {
       {!invalidCustom && (
         <>
           {/* KPIs */}
-          <section aria-label="Indicadores do período" className="grid grid-cols-2 gap-3 md:grid-cols-6 xl:grid-cols-12">
-            <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(var(--expense)/.82),hsl(348_50%_30%))] p-4 text-white md:col-span-6 lg:p-5 xl:col-span-4">
+          <section aria-label="Indicadores do período" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+            <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(var(--expense)/.82),hsl(348_50%_30%))] p-4 text-white lg:p-5">
               <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-white/5" />
               <div className="relative flex items-center justify-between gap-3">
                 <span className="text-[13px] font-bold uppercase tracking-[0.18em] text-white/75">
@@ -471,7 +471,7 @@ export default function ExpenseAnalytics() {
               </p>
             </article>
 
-            <article className="dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 md:col-span-2 lg:min-h-[132px] lg:p-5 xl:col-span-3">
+            <article className="dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:min-h-[132px] lg:p-5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] font-semibold text-muted-foreground">Média por Dia</span>
                 <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
@@ -484,7 +484,7 @@ export default function ExpenseAnalytics() {
               </p>
             </article>
 
-            <article className="dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 md:col-span-2 lg:min-h-[132px] lg:p-5 xl:col-span-3">
+            <article className="dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:min-h-[132px] lg:p-5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] font-semibold text-muted-foreground">Maior Categoria</span>
                 <Tag className="h-4 w-4 shrink-0 text-primary" />
@@ -499,7 +499,7 @@ export default function ExpenseAnalytics() {
               </p>
             </article>
 
-            <article className="dashboard-card col-span-2 flex min-h-[116px] flex-col justify-center gap-2 p-4 md:col-span-2 lg:min-h-[132px] lg:p-5 xl:col-span-2">
+            <article className="dashboard-card col-span-2 flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:col-span-1 lg:min-h-[132px] lg:p-5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] font-semibold text-muted-foreground">Variação</span>
                 <Percent className="h-4 w-4 shrink-0 text-primary" />

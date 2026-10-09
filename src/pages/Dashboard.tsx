@@ -301,8 +301,8 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <section aria-label="Indicadores do período" className="grid grid-cols-2 gap-3 md:grid-cols-6 xl:grid-cols-12">
-        <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(168_52%_20%),hsl(216_28%_11%))] p-4 text-white md:col-span-6 lg:p-5 xl:col-span-4">
+      <section aria-label="Indicadores do período" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(168_52%_20%),hsl(216_28%_11%))] p-4 text-white lg:p-5">
           <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-white/5" />
           <div className="relative flex items-center justify-between gap-3">
             <span className="text-[13px] font-bold uppercase tracking-[0.18em] text-white/75">
@@ -325,7 +325,7 @@ export default function Dashboard() {
           </p>
         </article>
 
-        <article className={KPI_CARD}>
+        <article className={cn(KPI_CARD, "col-span-1")}>
           <div className="flex items-center justify-between gap-2">
             <span className={KPI_LABEL}>Total de Entradas</span>
             <ArrowUpRight className="h-4 w-4 shrink-0 text-income" />
@@ -334,7 +334,7 @@ export default function Dashboard() {
           <p className={KPI_NOTE}>{incomeCount} lançamento{incomeCount === 1 ? "" : "s"}</p>
         </article>
 
-        <article className={KPI_CARD}>
+        <article className={cn(KPI_CARD, "col-span-1")}>
           <div className="flex items-center justify-between gap-2">
             <span className={KPI_LABEL}>Total de Saídas</span>
             <ArrowDownRight className="h-4 w-4 shrink-0 text-expense" />
@@ -343,7 +343,7 @@ export default function Dashboard() {
           <p className={KPI_NOTE}>{expenseCount} lançamento{expenseCount === 1 ? "" : "s"}</p>
         </article>
 
-        <article className={KPI_CARD}>
+        <article className={cn(KPI_CARD, "col-span-1")}>
           <div className="flex items-center justify-between gap-2">
             <span className={KPI_LABEL}>Gasto Médio Diário</span>
             <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
@@ -352,7 +352,7 @@ export default function Dashboard() {
           <p className={KPI_NOTE}>Média de {days} dia{days === 1 ? "" : "s"} no período</p>
         </article>
 
-        <article className={KPI_CARD}>
+        <article className={cn(KPI_CARD, "col-span-1")}>
           <div className="flex items-center justify-between gap-2">
             <span className={KPI_LABEL}>Maior Categoria</span>
             <Tag className="h-4 w-4 shrink-0 text-primary" />
@@ -363,6 +363,29 @@ export default function Dashboard() {
           <p className={cn(KPI_NOTE, "truncate")}>
             {fmt(topCategory.val)} · {topCategoryShare}% do total
           </p>
+        </article>
+
+        <article className="dashboard-card col-span-2 flex flex-wrap items-center gap-x-7 gap-y-3 p-4 lg:p-5">
+          <div className="flex items-baseline gap-2">
+            <span className="text-[12px] text-muted-foreground">Lançamentos</span>
+            <span className="text-[15px] font-bold tabular-nums text-foreground">{filtered.length}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[12px] text-muted-foreground">Dias no período</span>
+            <span className="text-[15px] font-bold tabular-nums text-foreground">{days}</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="text-[12px] text-muted-foreground">Ticket médio de saída</span>
+            <span className="text-[15px] font-bold tabular-nums text-foreground">
+              {fmt(expenseCount > 0 ? totalExpense / expenseCount : 0)}
+            </span>
+          </div>
+          {holdings > 0 && (
+            <div className="flex items-baseline gap-2">
+              <span className="text-[12px] text-muted-foreground">Contas & cartões</span>
+              <span className="text-[15px] font-bold tabular-nums text-foreground">{holdings}</span>
+            </div>
+          )}
         </article>
       </section>
 
