@@ -3,13 +3,12 @@ import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useTransfers } from "@/contexts/TransferContext";
 import { Transaction } from "@/lib/types";
-import { KpiCard } from "@/components/KpiCard";
 import { ChartCard } from "@/components/ChartCard";
 import { InsightCard } from "@/components/InsightCard";
 import { TransactionForm } from "@/components/TransactionForm";
 import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
 import { Button } from "@/components/ui/button";
-import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet, ScanLine } from "lucide-react";
+import { TrendingUp, TrendingDown, CalendarDays, Tag, Landmark, CreditCard, Plus, Wallet, ScanLine, ArrowUpRight, ArrowDownRight } from "lucide-react";
 import { Link } from "react-router-dom";
 import { isFinancialNeutralTransaction } from "@/lib/transaction-classification";
 import { chartColor } from "@/lib/chart-theme";
@@ -133,117 +132,93 @@ export default function Dashboard() {
   }, [filtered, topCategory, totalExpense, totalIncome, avgDaily]);
 
   return (
-    <div className="max-w-7xl space-y-5 sm:space-y-6">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-2 gap-y-3 sm:flex sm:flex-row sm:items-center sm:justify-between sm:gap-3">
-        <h1 className="whitespace-nowrap text-lg font-extrabold leading-none tracking-tight text-primary sm:text-2xl sm:font-bold sm:tracking-normal">Painel de Controle</h1>
-        <div className="contents sm:flex sm:w-auto sm:flex-row sm:items-center sm:gap-2">
-          <DashboardPeriodFilter
-            period={period}
-            dateRange={dateRange}
-            onPeriodChange={setPeriod}
-            onDateRangeChange={setDateRange}
-          />
-          <div className="order-3 col-span-2 flex w-full items-center gap-2 sm:order-none sm:w-auto">
-            <Button variant="outline" asChild className="h-9 flex-1 justify-center gap-1.5 border-border/70 bg-card/40 sm:h-10 sm:flex-none sm:gap-2">
-              <Link to="/receipt">
-                <ScanLine className="h-4 w-4 shrink-0" />
-                <span className="sm:hidden">Comprovante</span>
-                <span className="hidden sm:inline">Ler comprovante</span>
-              </Link>
-            </Button>
-            <Button onClick={() => setFormOpen(true)} className="h-9 flex-1 justify-center gap-1.5 sm:h-10 sm:flex-none sm:gap-2">
-              <Plus className="h-4 w-4 shrink-0" />
-              <span className="sm:hidden">Novo</span>
-              <span className="hidden sm:inline">Novo Registro</span>
-            </Button>
+    <div className="mx-auto max-w-[1500px] space-y-5 sm:space-y-7">
+      <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+        <div>
+          <p className="eyebrow">Visão financeira</p>
+          <h1 className="mt-2 font-display text-3xl font-bold tracking-[-0.04em] text-foreground sm:text-5xl">Seu dinheiro, com clareza.</h1>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground">Acompanhe o que entrou, o que saiu e onde agir agora.</p>
+        </div>
+        <div className="flex gap-2">
+          <Button variant="outline" asChild className="h-11 flex-1 gap-2 rounded-xl bg-card sm:flex-none">
+            <Link to="/receipt"><ScanLine className="h-4 w-4" /><span className="hidden sm:inline">Ler comprovante</span><span className="sm:hidden">Comprovante</span></Link>
+          </Button>
+          <Button onClick={() => setFormOpen(true)} className="h-11 flex-1 gap-2 rounded-xl sm:flex-none">
+            <Plus className="h-4 w-4" /><span>Novo registro</span>
+          </Button>
+        </div>
+      </header>
+
+      <section className="workspace-panel overflow-hidden">
+        <div className="border-b border-border/70 bg-card/70 p-3 sm:p-4">
+          <DashboardPeriodFilter period={period} dateRange={dateRange} onPeriodChange={setPeriod} onDateRangeChange={setDateRange} />
+        </div>
+        <div className="grid lg:grid-cols-[1.35fr_1fr]">
+          <div className="dashboard-card relative min-h-[260px] overflow-hidden rounded-none border-0 bg-sidebar p-6 text-white shadow-none sm:min-h-[310px] sm:p-9">
+            <div className="absolute -right-20 -top-24 h-64 w-64 rounded-full border-[38px] border-sidebar-primary/10" />
+            <div className="relative flex h-full flex-col justify-between gap-12">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-sidebar-foreground">Saldo do Período</span>
+                <span className="flex h-9 w-9 items-center justify-center rounded-full border border-white/10 bg-white/5"><Wallet className="h-4 w-4 text-sidebar-primary" /></span>
+              </div>
+              <div>
+                <p className={`font-display text-4xl font-bold tracking-[-0.05em] sm:text-6xl ${balance < 0 ? "text-red-300" : "text-white"}`}>{fmt(balance)}</p>
+                <p className="mt-3 text-xs text-sidebar-foreground/70">Resultado líquido do período selecionado</p>
+              </div>
+              <div className="grid grid-cols-2 gap-4 border-t border-white/10 pt-5">
+                <div><span className="text-[9px] font-bold uppercase tracking-widest text-sidebar-foreground/55">Entradas</span><p className="mt-1 text-sm font-bold text-sidebar-primary">{fmt(totalIncome)}</p></div>
+                <div><span className="text-[9px] font-bold uppercase tracking-widest text-sidebar-foreground/55">Saídas</span><p className="mt-1 text-sm font-bold text-red-300">{fmt(totalExpense)}</p></div>
+              </div>
+            </div>
+          </div>
+          <div className="grid grid-cols-2 bg-card">
+            <div className="dashboard-card flex min-h-[145px] flex-col justify-between rounded-none border-0 border-b border-r border-border/70 p-5 shadow-none sm:p-6">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-income/10 text-income"><ArrowUpRight className="h-4 w-4" /></span>
+              <div><span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total de Entradas</span><p className="mt-1 font-display text-xl font-bold tracking-tight text-income sm:text-2xl">{fmt(totalIncome)}</p></div>
+            </div>
+            <div className="dashboard-card flex min-h-[145px] flex-col justify-between rounded-none border-0 border-b border-border/70 p-5 shadow-none sm:p-6">
+              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-expense/10 text-expense"><ArrowDownRight className="h-4 w-4" /></span>
+              <div><span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Total de Saídas</span><p className="mt-1 font-display text-xl font-bold tracking-tight text-expense sm:text-2xl">{fmt(totalExpense)}</p></div>
+            </div>
+            <div className="dashboard-card flex min-h-[145px] flex-col justify-between rounded-none border-0 border-r border-border/70 p-5 shadow-none sm:p-6">
+              <CalendarDays className="h-5 w-5 text-primary" />
+              <div><span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Gasto Médio Diário</span><p className="mt-1 font-display text-xl font-bold tracking-tight sm:text-2xl">{fmt(avgDaily)}</p></div>
+            </div>
+            <div className="dashboard-card flex min-h-[145px] flex-col justify-between rounded-none border-0 p-5 shadow-none sm:p-6">
+              <Tag className="h-5 w-5 text-primary" />
+              <div><span className="text-[10px] font-bold uppercase tracking-wider text-muted-foreground">Maior Categoria</span><p className="mt-1 truncate font-display text-xl font-bold tracking-tight sm:text-2xl">{topCategory}</p></div>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* KPIs */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 xl:grid-cols-5">
-        <KpiCard title="Total de Entradas" value={fmt(totalIncome)} icon={TrendingUp} color="green" />
-        <KpiCard title="Total de Saídas" value={fmt(totalExpense)} icon={TrendingDown} color="red" />
-        <KpiCard title="Saldo do Período" value={fmt(balance)} icon={Wallet} color="balance" negativeValue={balance < 0} />
-        <KpiCard title="Gasto Médio Diário" value={fmt(avgDaily)} icon={CalendarDays} color="neutral" />
-        <div className="col-span-2 xl:col-span-1">
-          <KpiCard title="Maior Categoria" value={topCategory} icon={Tag} color="category" />
-        </div>
-      </div>
-
-      {/* Accounts & Cards */}
       {(accounts.length > 0 || creditCards.length > 0) && (
-        <div>
-          <h2 className="relative mb-3 pl-3 text-sm font-semibold tracking-tight text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-['']">Contas & Cartões</h2>
-          <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <section>
+          <div className="mb-3 flex items-end justify-between"><div><p className="eyebrow">Patrimônio</p><h2 className="mt-1 text-xl font-bold tracking-tight">Contas & cartões</h2></div><Link to="/accounts" className="text-xs font-bold text-primary hover:underline">Ver todos</Link></div>
+          <div className="flex snap-x gap-3 overflow-x-auto pb-2 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {accounts.map((acc) => {
-              const balance = accountBalances[acc.id];
-              return (
-                <div
-                  key={acc.id}
-                  className="dashboard-card flex h-[142px] flex-col justify-between border-border/70 bg-card/90 p-3.5 shadow-sm shadow-black/10 sm:h-[150px] sm:p-4"
-                >
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 ring-1 ring-inset ring-primary/20">
-                      <Landmark className="h-4 w-4 text-primary" />
-                    </span>
-                    <span className="truncate text-sm font-semibold text-foreground">{acc.name}</span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Saldo atual</p>
-                    <p className={`break-words text-lg font-bold leading-tight tracking-tight sm:text-xl ${balance > 0 ? "text-income" : balance < 0 ? "text-expense" : "text-foreground"}`}>{fmt(balance)}</p>
-                  </div>
-                  <p className="truncate text-[11px] text-muted-foreground/80">{acc.bank} · {acc.type === "checking" ? "Corrente" : "Poupança"}</p>
-                </div>
-              );
+              const accountBalance = accountBalances[acc.id];
+              return <article key={acc.id} className="workspace-panel min-w-[250px] snap-start p-5 sm:min-w-[285px]"><div className="flex items-center justify-between"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-primary/10 text-primary"><Landmark className="h-4 w-4" /></span><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{acc.type === "checking" ? "Corrente" : "Poupança"}</span></div><p className="mt-5 truncate text-sm font-bold">{acc.name}</p><p className={`mt-1 font-display text-2xl font-bold tracking-tight ${accountBalance < 0 ? "text-expense" : "text-foreground"}`}>{fmt(accountBalance)}</p><p className="mt-3 text-[11px] text-muted-foreground">{acc.bank}</p></article>;
             })}
             {creditCards.map((cc) => {
-              const used = getCardUsed(cc.id);
-              const available = cc.limit - used;
-              const pct = cc.limit > 0 ? Math.min((used / cc.limit) * 100, 100) : 0;
-              return (
-                <div
-                  key={cc.id}
-                  className="dashboard-card flex h-[142px] flex-col justify-between border-border/70 bg-secondary/25 p-3.5 shadow-sm shadow-black/10 sm:h-[150px] sm:p-4"
-                >
-                  <div className="flex min-w-0 items-center gap-2.5">
-                    <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-expense/10 ring-1 ring-inset ring-expense/20">
-                      <CreditCard className="h-4 w-4 text-expense" />
-                    </span>
-                    <span className="truncate text-sm font-semibold text-foreground">{cc.name}</span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="mb-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">Utilizado</p>
-                    <p className="break-words text-lg font-bold leading-tight tracking-tight text-expense sm:text-xl">{fmt(used)}</p>
-                  </div>
-                  <div className="space-y-1.5">
-                    <div className="h-1 w-full overflow-hidden rounded-full bg-border/70">
-                      <div className="h-full rounded-full bg-expense/80" style={{ width: `${pct}%` }} />
-                    </div>
-                    <div className="flex justify-between gap-2 text-[10px] leading-none text-muted-foreground">
-                      <span className="truncate">Disp. {fmt(available)}</span>
-                      <span className="shrink-0">Lim. {fmt(cc.limit)}</span>
-                    </div>
-                  </div>
-                </div>
-              );
+              const used = getCardUsed(cc.id); const available = cc.limit - used; const pct = cc.limit > 0 ? Math.min((used / cc.limit) * 100, 100) : 0;
+              return <article key={cc.id} className="min-w-[250px] snap-start rounded-[1.35rem] bg-[#ded7c7] p-5 sm:min-w-[285px]"><div className="flex items-center justify-between"><span className="flex h-9 w-9 items-center justify-center rounded-xl bg-foreground text-background"><CreditCard className="h-4 w-4" /></span><span className="text-[9px] font-bold uppercase tracking-widest text-foreground/50">Crédito</span></div><p className="mt-5 truncate text-sm font-bold">{cc.name}</p><p className="mt-1 font-display text-2xl font-bold tracking-tight">{fmt(used)}</p><div className="mt-4 h-1.5 overflow-hidden rounded-full bg-black/10"><div className="h-full rounded-full bg-expense" style={{ width: `${pct}%` }} /></div><div className="mt-2 flex justify-between text-[10px] text-foreground/55"><span>Disponível {fmt(available)}</span><span>{fmt(cc.limit)}</span></div></article>;
             })}
           </div>
-        </div>
+        </section>
       )}
 
-      {/* Charts */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-4 lg:grid-cols-2">
-        <ChartCard title="Gastos por Dia">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_0.9fr]">
+        <ChartCard title="Ritmo de gastos">
           <ResponsiveContainer width="100%" height={220}>
             <LineChart data={lineData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 20%)" vertical={false} />
-              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "hsl(215 20% 66%)" }} tickMargin={8} />
-              <YAxis tick={{ fontSize: 11, fill: "hsl(215 20% 66%)" }} width={52} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(43 14% 82%)" vertical={false} />
+              <XAxis dataKey="date" tick={{ fontSize: 11, fill: "hsl(157 8% 43%)" }} tickMargin={8} />
+              <YAxis tick={{ fontSize: 11, fill: "hsl(157 8% 43%)" }} width={52} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(224 18% 13%)",
-                  border: "1px solid hsl(224 14% 22%)",
+                  backgroundColor: "hsl(158 35% 11%)",
+                  border: "1px solid hsl(157 24% 24%)",
                   borderRadius: 8,
                   color: "#f1f5f9",
                   boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
@@ -253,21 +228,21 @@ export default function Dashboard() {
                 cursor={{ stroke: "hsl(215 15% 52%)", strokeWidth: 1, strokeDasharray: "3 3" }}
                 formatter={(value: number) => [fmt(value), "Total"]}
               />
-              <Line type="monotone" dataKey="total" stroke="hsl(0 72% 58%)" strokeWidth={2.5} dot={{ r: 3, fill: "hsl(0 72% 58%)", strokeWidth: 0 }} activeDot={{ r: 4, fill: "hsl(0 72% 58%)", strokeWidth: 0 }} />
+              <Line type="monotone" dataKey="total" stroke="hsl(5 67% 50%)" strokeWidth={2.5} dot={{ r: 3, fill: "hsl(5 67% 50%)", strokeWidth: 0 }} activeDot={{ r: 4, fill: "hsl(5 67% 50%)", strokeWidth: 0 }} />
             </LineChart>
           </ResponsiveContainer>
         </ChartCard>
 
-        <ChartCard title="Despesas por Categoria">
+        <ChartCard title="Categorias que mais pesam">
           <ResponsiveContainer width="100%" height={220}>
             <BarChart data={barData} margin={{ left: 4, right: 12 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 20%)" vertical={false} />
-              <XAxis dataKey="category" tick={{ fontSize: 11, fill: "hsl(215 20% 66%)" }} tickMargin={8} interval={0} angle={-18} dy={8} height={52} />
-              <YAxis tick={{ fontSize: 11, fill: "hsl(215 20% 66%)" }} width={52} />
+              <CartesianGrid strokeDasharray="3 3" stroke="hsl(43 14% 82%)" vertical={false} />
+              <XAxis dataKey="category" tick={{ fontSize: 11, fill: "hsl(157 8% 43%)" }} tickMargin={8} interval={0} angle={-18} dy={8} height={52} />
+              <YAxis tick={{ fontSize: 11, fill: "hsl(157 8% 43%)" }} width={52} />
               <Tooltip
                 contentStyle={{
-                  backgroundColor: "hsl(224 18% 13%)",
-                  border: "1px solid hsl(224 14% 22%)",
+                  backgroundColor: "hsl(158 35% 11%)",
+                  border: "1px solid hsl(157 24% 24%)",
                   borderRadius: 8,
                   color: "#f1f5f9",
                   boxShadow: "0 4px 12px rgba(0,0,0,0.5)",
@@ -277,7 +252,7 @@ export default function Dashboard() {
                 cursor={{ fill: "hsl(224 14% 22% / 0.4)" }}
                 formatter={(value: number) => [fmt(value), "Total"]}
               />
-              <Bar dataKey="total" radius={[6, 6, 6, 6]} background={{ fill: "hsl(224 14% 16%)", radius: 6 } as never}>
+              <Bar dataKey="total" radius={[6, 6, 6, 6]} background={{ fill: "hsl(42 18% 91%)", radius: 6 } as never}>
                 {barData.map((entry, index) => (
                   <Cell key={index} fill={entry.fill} />
                 ))}
@@ -287,16 +262,14 @@ export default function Dashboard() {
         </ChartCard>
       </div>
 
-      {/* Insights */}
-      <div>
-        <h2 className="relative mb-3 pl-3 text-sm font-semibold tracking-tight text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-['']">Insights</h2>
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3">
+      <section className="workspace-panel overflow-hidden p-5 sm:p-6">
+        <div className="mb-4 flex items-center justify-between"><div><p className="eyebrow">Leitura rápida</p><h2 className="mt-1 text-lg font-bold">Sinais do período</h2></div><TrendingUp className="h-5 w-5 text-primary" /></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
           {insights.map((text, i) => (
             <InsightCard key={i} text={text} />
           ))}
         </div>
-      </div>
-      {/* Transaction Form */}
+      </section>
       <TransactionForm
         open={formOpen}
         onClose={() => setFormOpen(false)}

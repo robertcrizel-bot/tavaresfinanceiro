@@ -9,21 +9,21 @@ const colorMap: Record<KpiColor, { icon: string; iconSurface: string; title: str
     iconSurface: "bg-income/10 ring-income/20",
     title: "text-muted-foreground",
     value: "text-income",
-    surface: "border-income/20 bg-income/[0.055]",
+    surface: "border-income/20 bg-card",
   },
   red: {
     icon: "text-expense",
     iconSurface: "bg-expense/10 ring-expense/20",
     title: "text-muted-foreground",
     value: "text-expense",
-    surface: "border-expense/20 bg-expense/[0.05]",
+    surface: "border-expense/20 bg-card",
   },
   balance: {
     icon: "text-primary",
     iconSurface: "bg-primary/10 ring-primary/20",
-    title: "text-foreground/80",
-    value: "text-income",
-    surface: "border-primary/25 bg-primary/[0.09] shadow-[0_10px_30px_-24px_hsl(var(--primary))]",
+    title: "text-primary-foreground/70",
+    value: "text-primary-foreground",
+    surface: "border-primary/25 bg-primary shadow-[0_18px_40px_-28px_hsl(var(--primary))]",
   },
   neutral: {
     icon: "text-primary",
@@ -58,7 +58,7 @@ export function KpiCard({ title, value, icon: Icon, trend, trendUp, color, negat
 
   return (
     <div className={cn(
-      "dashboard-card flex h-[116px] flex-col justify-between p-3.5 shadow-sm shadow-black/10 sm:h-[126px] sm:p-4",
+      "dashboard-card flex min-h-[118px] flex-col justify-between p-4 sm:min-h-[132px] sm:p-5",
       c.surface,
       className,
     )}>

@@ -6,7 +6,6 @@ import type { DateRange } from "react-day-picker";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
-import { KpiCard } from "@/components/KpiCard";
 import { ChartCard } from "@/components/ChartCard";
 import { InsightCard } from "@/components/InsightCard";
 import { Button } from "@/components/ui/button";
@@ -318,40 +317,40 @@ export default function ExpenseAnalytics() {
     : periodSummary.total;
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl pb-4">
+    <div className="mx-auto max-w-[1500px] space-y-5 pb-4 sm:space-y-7">
       {/* Header + period */}
-      <div className="space-y-3">
-        <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+      <div className="space-y-4">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
-            <h1 className="text-lg font-extrabold tracking-tight text-primary sm:text-2xl sm:font-bold sm:tracking-normal">
-              Análises de Despesas
-            </h1>
+            <p className="eyebrow">Inteligência de gastos</p>
+            <h1 className="sr-only">Análises de Despesas</h1>
+            <h2 className="mt-2 text-3xl font-bold tracking-[-0.04em] text-foreground sm:text-5xl">Para onde seu dinheiro está indo?</h2>
             {range && (
-              <p className="mt-0.5 text-xs text-muted-foreground sm:text-sm">
-                {shortDate(range.start)} – {shortDate(range.end)}
+              <p className="mt-2 text-sm text-muted-foreground">
+                Análises de Despesas · {shortDate(range.start)} – {shortDate(range.end)}
               </p>
             )}
           </div>
 
           {!invalidCustom && period !== "custom" && range && (
-            <div className="flex items-center gap-1 self-start sm:self-auto">
+            <div className="flex items-center gap-1 self-start rounded-2xl border border-border bg-card p-1 shadow-sm lg:self-auto">
               <Button
                 size="sm"
                 variant="outline"
-                className="h-8 w-8 p-0"
+                className="h-9 w-9 rounded-xl border-0 p-0 shadow-none"
                 aria-label="Período anterior"
                 onClick={() => shiftAnchor(-1)}
               >
                 <ChevronLeft className="h-4 w-4" />
               </Button>
-              <span className="min-w-[7.5rem] rounded-md border border-input bg-muted/40 px-2 py-1 text-center text-xs font-medium text-foreground">
+              <span className="min-w-[8.5rem] px-2 py-1 text-center text-xs font-bold text-foreground">
                 {format(parseLocalDate(range.start), "dd/MM/yy")} –{" "}
                 {format(parseLocalDate(range.end), "dd/MM/yy")}
               </span>
               <Button
                 size="sm"
                 variant="outline"
-                className="h-8 w-8 p-0"
+                className="h-9 w-9 rounded-xl border-0 p-0 shadow-none"
                 aria-label="Próximo período"
                 disabled={!canGoNext}
                 onClick={() => shiftAnchor(1)}
@@ -362,14 +361,14 @@ export default function ExpenseAnalytics() {
           )}
         </div>
 
-        <div className="flex flex-wrap items-center gap-1.5">
-          <div className="grid w-full grid-cols-2 gap-1 sm:w-auto sm:grid-cols-4">
+        <div className="workspace-panel flex flex-wrap items-center gap-2 p-2 sm:p-3">
+          <div className="grid flex-1 grid-cols-2 gap-1 sm:flex sm:flex-none">
             {PERIOD_OPTIONS.map((option) => (
               <Button
                 key={option.value}
                 size="sm"
                 variant={period === option.value ? "default" : "outline"}
-                className="h-8 px-2 text-xs"
+                className="h-9 rounded-xl px-4 text-xs shadow-none"
                 onClick={() => handlePeriodChange(option.value)}
               >
                 {option.label}
@@ -382,7 +381,7 @@ export default function ExpenseAnalytics() {
               <Button
                 size="sm"
                 variant={period === "custom" ? "default" : "outline"}
-                className="h-8 gap-1.5 px-3 text-xs"
+                className="h-9 gap-1.5 rounded-xl px-4 text-xs shadow-none"
                 onClick={() => {
                   if (period !== "custom") {
                     setPeriod("custom");
@@ -445,41 +444,24 @@ export default function ExpenseAnalytics() {
       {!invalidCustom && (
         <>
           {/* KPIs */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-            <KpiCard title="Gasto Total" value={money(visibleSummary.total)} icon={Wallet} color="red" />
-            <KpiCard
-              title="Média por Dia"
-              value={money(computeDailyAverage(visibleSummary.total, visibleDays))}
-              icon={CalendarDays}
-              color="neutral"
-            />
-            <KpiCard
-              title="Maior Categoria"
-              value={topCategory ? topCategory.category : "—"}
-              icon={Tag}
-              color="neutral"
-              trend={
-                topCategory
-                  ? `${money(topCategory.total)} · ${percent(Math.round(topCategory.percentage))}`
-                  : undefined
-              }
-              trendUp
-            />
-            <KpiCard
-              title="Variação"
-              value={variationValue}
-              icon={Percent}
-              color={
-                !variation || variation.direction === "flat"
-                  ? "neutral"
-                  : variation.direction === "up"
-                    ? "red"
-                    : "green"
-              }
-              trend={variation ? previousComparisonLabel : "Sem base de comparação"}
-              trendUp={variation ? variation.direction === "down" : true}
-            />
-          </div>
+          <section className="workspace-panel grid overflow-hidden lg:grid-cols-[1.15fr_1fr]">
+            <div className="dashboard-card relative flex min-h-[230px] flex-col justify-between overflow-hidden rounded-none border-0 bg-[#d94f3d] p-6 text-white shadow-none sm:p-8">
+              <div className="absolute -right-10 -top-16 h-48 w-48 rounded-full border-[30px] border-white/10" />
+              <div className="relative flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-white/70">Gasto Total</span><Wallet className="h-5 w-5" /></div>
+              <div className="relative"><p className="font-display text-4xl font-bold tracking-[-0.05em] sm:text-5xl">{money(visibleSummary.total)}</p><span className="mt-3 block text-xs text-white/70">{visibleExpenses.length} lançamentos no recorte atual</span></div>
+            </div>
+            <div className="grid grid-cols-3 bg-card">
+              <div className="dashboard-card flex min-h-[115px] flex-col justify-between rounded-none border-0 border-b border-r border-border/70 p-4 shadow-none sm:p-6 lg:col-span-3">
+                <CalendarDays className="h-4 w-4 text-primary" /><div><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Média por Dia</span><p className="mt-1 font-display text-xl font-bold sm:text-2xl">{money(computeDailyAverage(visibleSummary.total, visibleDays))}</p></div>
+              </div>
+              <div className="dashboard-card col-span-2 flex min-h-[115px] flex-col justify-between rounded-none border-0 border-r border-border/70 p-4 shadow-none sm:p-6">
+                <Tag className="h-4 w-4 text-primary" /><div><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Maior Categoria</span><p className="mt-1 truncate font-display text-lg font-bold">{topCategory ? topCategory.category : "—"}</p>{topCategory && <span className="text-[10px] text-muted-foreground">{money(topCategory.total)} · {percent(Math.round(topCategory.percentage))}</span>}</div>
+              </div>
+              <div className="dashboard-card flex min-h-[115px] flex-col justify-between rounded-none border-0 p-4 shadow-none sm:p-6">
+                <Percent className="h-4 w-4 text-primary" /><div><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Variação</span><p className={cn("mt-1 font-display text-lg font-bold", variation?.direction === "up" ? "text-expense" : variation?.direction === "down" ? "text-income" : "text-foreground")}>{variationValue}</p><span className="text-[10px] text-muted-foreground">{variation ? previousComparisonLabel : "Sem comparação"}</span></div>
+              </div>
+            </div>
+          </section>
 
           {periodExpenses.length === 0 ? (
             <div className="dashboard-card flex flex-col items-center justify-center px-6 py-12 text-center">
@@ -505,7 +487,7 @@ export default function ExpenseAnalytics() {
           ) : (
             <>
               {/* Distribution + evolution */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.82fr_1.18fr]">
                 <ChartCard title="Gastos por Categoria">
                   <div className="relative">
                     <ResponsiveContainer width="100%" height={240}>
@@ -517,7 +499,7 @@ export default function ExpenseAnalytics() {
                           innerRadius={58}
                           outerRadius={92}
                           paddingAngle={2}
-                          stroke="hsl(224 18% 11%)"
+                          stroke="hsl(44 33% 98%)"
                           strokeWidth={2}
                         >
                           {donutData.map((entry, index) => (
@@ -535,8 +517,8 @@ export default function ExpenseAnalytics() {
                         </Pie>
                         <Tooltip
                           contentStyle={{
-                            backgroundColor: "hsl(224 18% 13%)",
-                            border: "1px solid hsl(224 14% 22%)",
+                            backgroundColor: "hsl(158 35% 11%)",
+                            border: "1px solid hsl(157 24% 24%)",
                             borderRadius: 8,
                             color: "#f1f5f9",
                           }}
@@ -608,19 +590,19 @@ export default function ExpenseAnalytics() {
                       )}
                       <ResponsiveContainer width="100%" height={240}>
                         <LineChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 20%)" vertical={false} />
+                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(43 14% 82%)" vertical={false} />
                           <XAxis
                             dataKey="label"
-                            tick={{ fontSize: 11, fill: "hsl(215 20% 66%)" }}
+                            tick={{ fontSize: 11, fill: "hsl(157 8% 43%)" }}
                             interval="preserveStartEnd"
                             minTickGap={16}
                             tickMargin={8}
                           />
-                          <YAxis tick={{ fontSize: 11, fill: "hsl(215 20% 66%)" }} width={52} />
+                          <YAxis tick={{ fontSize: 11, fill: "hsl(157 8% 43%)" }} width={52} />
                           <Tooltip
                             contentStyle={{
-                              backgroundColor: "hsl(224 18% 13%)",
-                              border: "1px solid hsl(224 14% 22%)",
+                              backgroundColor: "hsl(158 35% 11%)",
+                              border: "1px solid hsl(157 24% 24%)",
                               borderRadius: 8,
                               color: "#f1f5f9",
                             }}
@@ -634,7 +616,7 @@ export default function ExpenseAnalytics() {
                             <Line
                               type="monotone"
                               dataKey="previous"
-                              stroke="hsl(215 15% 55%)"
+                              stroke="hsl(157 8% 55%)"
                               strokeWidth={1.5}
                               strokeDasharray="4 3"
                               dot={false}
@@ -643,10 +625,10 @@ export default function ExpenseAnalytics() {
                           <Line
                             type="monotone"
                             dataKey="total"
-                            stroke="hsl(168 70% 45%)"
+                            stroke="hsl(153 72% 27%)"
                             strokeWidth={2.5}
                             dot={false}
-                            activeDot={{ r: 4, fill: "hsl(168 70% 45%)", strokeWidth: 0 }}
+                            activeDot={{ r: 4, fill: "hsl(153 72% 27%)", strokeWidth: 0 }}
                           />
                         </LineChart>
                       </ResponsiveContainer>

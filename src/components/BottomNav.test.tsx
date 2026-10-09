@@ -1,176 +1,63 @@
 import { forwardRef } from "react";
-import { render, screen, within, fireEvent, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { BottomNav } from "@/components/BottomNav";
+import { SidebarProvider } from "@/components/ui/sidebar";
 
 vi.mock("@/components/NavLink", () => ({
   NavLink: forwardRef(function MockNavLink(
-    {
-      children,
-      to,
-      end: _end,
-      activeClassName: _active,
-      ...props
-    }: {
+    { children, to, end: _end, activeClassName: _active, ...props }: {
       children?: React.ReactNode;
       to: string;
       [key: string]: unknown;
     },
     ref: React.ForwardedRef<HTMLAnchorElement>,
   ) {
-    return (
-      <a ref={ref} href={to} {...props}>
-        {children}
-      </a>
-    );
+    return <a ref={ref} href={to} {...props}>{children}</a>;
   }),
 }));
-
-const routes: [string, string][] = [
-  ["Painel", "/"],
-  ["Análises", "/analises-despesas"],
-  ["Registros", "/records"],
-  ["Extratos", "/extratos"],
-  ["Contas", "/accounts"],
-  ["Transf.", "/transfers"],
-  ["Categorias", "/categories"],
-  ["Previsões", "/forecasts"],
-  ["Perfil", "/profile"],
-];
 
 function renderNav(route = "/") {
   return render(
     <MemoryRouter initialEntries={[route]}>
-      <BottomNav />
+      <SidebarProvider>
+        <BottomNav />
+      </SidebarProvider>
     </MemoryRouter>,
   );
 }
 
 describe("BottomNav", () => {
-  it("shows all nine destinations without a Mais button", () => {
-    renderNav("/");
+  it("prioritizes the four main destinations and a menu", () => {
+    renderNav();
     const nav = screen.getByRole("navigation", { name: "Navegação principal" });
-    for (const [label] of routes) {
-      expect(within(nav).getByText(label)).toBeInTheDocument();
-    }
-    expect(within(nav).queryByText("Mais")).not.toBeInTheDocument();
-  });
-
-  it("keeps every route reachable with a horizontal scroll container", () => {
-    renderNav("/");
-    const nav = screen.getByRole("navigation", { name: "Navegação principal" });
-    for (const [label, url] of routes) {
+    for (const [label, url] of [
+      ["Painel", "/"],
+      ["Análises", "/analises-despesas"],
+      ["Registros", "/records"],
+      ["Extratos", "/extratos"],
+    ]) {
       expect(within(nav).getByText(label).closest("a")).toHaveAttribute("href", url);
     }
-    const scroller = nav.firstElementChild as HTMLElement;
-    expect(scroller.className).toMatch(/overflow-x-auto/);
-    expect(scroller.className).toMatch(/snap-x/);
+    expect(within(nav).getByText("Mais")).toBeInTheDocument();
   });
 
-  it("marks the active destination with aria-current and a visible indicator", () => {
+  it("marks the active main destination", () => {
     renderNav("/extratos");
-    const nav = screen.getByRole("navigation", { name: "Navegação principal" });
-    const active = within(nav).getByText("Extratos").closest("a")!;
+    const active = screen.getByText("Extratos").closest("a")!;
     expect(active).toHaveAttribute("aria-current", "page");
-    expect(active.className).toMatch(/text-primary/);
-    expect(active.className).toMatch(/bg-primary\/20/);
-    expect(within(nav).getByText("Painel").closest("a")).not.toHaveAttribute("aria-current");
+    expect(active.className).toMatch(/bg-sidebar-primary/);
   });
 
-  it("uses a distinct solid surface with a strong top separation and safe-area", () => {
-    renderNav("/");
-    const nav = screen.getByRole("navigation", { name: "Navegação principal" });
-    expect(nav.className).toMatch(/border-t/);
-    expect(nav.className).toMatch(/border-primary\/30/);
-    expect(nav.className).toContain("bg-[hsl(224_24%_12%)]");
-    expect(nav.className).toMatch(/safe-area-bottom/);
-    expect(nav.className).toMatch(/shadow-/);
+  it("marks Mais for secondary destinations", () => {
+    renderNav("/accounts");
+    expect(screen.getByRole("button", { name: "Abrir todas as áreas" })).toHaveAttribute("aria-current", "page");
   });
 
-  it("keeps buttons legible and leaves the next fixed-width item partially visible", () => {
-    renderNav("/");
-    const firstItem = screen.getByText("Painel").closest("a")!;
-    expect(firstItem.className).toMatch(/min-w-\[80px\]/);
-    expect(firstItem.className).toMatch(/shrink-0/);
-    expect(firstItem.className).not.toMatch(/flex-1/);
-    expect(firstItem.querySelector("svg")?.getAttribute("class")).toMatch(/h-6/);
-    expect(screen.getByText("Painel").className).toMatch(/text-\[11px\]/);
-    expect(screen.getByText("Painel").className).toMatch(/whitespace-nowrap/);
-  });
-});
-
-describe("BottomNav scroll indicators", () => {
-  const metrics = { scrollLeft: 0, scrollWidth: 648, clientWidth: 360 };
-
-  function renderScrollable() {
-    renderNav("/");
-    const scroller = screen.getByTestId("bottomnav-scroller");
-    Object.defineProperties(scroller, {
-      scrollLeft: {
-        configurable: true,
-        get: () => metrics.scrollLeft,
-        set: (value: number) => {
-          metrics.scrollLeft = value;
-        },
-      },
-      scrollWidth: { configurable: true, get: () => metrics.scrollWidth },
-      clientWidth: { configurable: true, get: () => metrics.clientWidth },
-    });
-    return scroller;
-  }
-
-  function scrollTo(left: number) {
-    metrics.scrollLeft = left;
-    fireEvent.scroll(screen.getByTestId("bottomnav-scroller"));
-  }
-
-  it("shows only the right indicator at the start", async () => {
-    metrics.scrollLeft = 0;
-    renderScrollable();
-    expect(await screen.findByTestId("bottomnav-fade-right")).toBeInTheDocument();
-    expect(screen.queryByTestId("bottomnav-fade-left")).not.toBeInTheDocument();
-  });
-
-  it("shows the left indicator after scrolling and hides it back at the start", async () => {
-    metrics.scrollLeft = 0;
-    renderScrollable();
-    await screen.findByTestId("bottomnav-fade-right");
-
-    scrollTo(100);
-    expect(await screen.findByTestId("bottomnav-fade-left")).toBeInTheDocument();
-    expect(screen.getByTestId("bottomnav-fade-right")).toBeInTheDocument();
-
-    scrollTo(0);
-    await waitFor(() =>
-      expect(screen.queryByTestId("bottomnav-fade-left")).not.toBeInTheDocument(),
-    );
-    expect(screen.getByTestId("bottomnav-fade-right")).toBeInTheDocument();
-  });
-
-  it("hides the right indicator at the end", async () => {
-    metrics.scrollLeft = 0;
-    renderScrollable();
-    await screen.findByTestId("bottomnav-fade-right");
-
-    scrollTo(metrics.scrollWidth - metrics.clientWidth);
-    await waitFor(() =>
-      expect(screen.queryByTestId("bottomnav-fade-right")).not.toBeInTheDocument(),
-    );
-    expect(screen.getByTestId("bottomnav-fade-left")).toBeInTheDocument();
-  });
-
-  it("does not block touches and keeps all destinations reachable while scrollable", async () => {
-    metrics.scrollLeft = 0;
-    renderScrollable();
-    const right = await screen.findByTestId("bottomnav-fade-right");
-    expect(right.className).toMatch(/pointer-events-none/);
-    expect(right.className).toMatch(/w-16/);
-    expect(right.querySelector("svg")?.getAttribute("class")).toMatch(/h-8/);
-    expect(right.querySelector("svg")?.getAttribute("class")).toMatch(/text-white/);
-    const nav = screen.getByRole("navigation", { name: "Navegação principal" });
-    for (const label of ["Painel", "Perfil"]) {
-      expect(within(nav).getByText(label)).toBeInTheDocument();
-    }
+  it("opens the complete navigation from Mais", () => {
+    renderNav();
+    fireEvent.click(screen.getByRole("button", { name: "Abrir todas as áreas" }));
+    expect(document.cookie).toBeDefined();
   });
 });

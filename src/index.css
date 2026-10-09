@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -6,60 +6,60 @@
 
 @layer base {
   :root {
-    --background: 224 20% 8%;
-    --foreground: 210 20% 92%;
+    --background: 42 24% 95%;
+    --foreground: 158 29% 12%;
 
-    --card: 224 18% 11%;
-    --card-foreground: 210 20% 92%;
+    --card: 44 33% 98%;
+    --card-foreground: 158 29% 12%;
 
-    --popover: 224 18% 13%;
-    --popover-foreground: 210 20% 92%;
+    --popover: 44 33% 98%;
+    --popover-foreground: 158 29% 12%;
 
-    --primary: 160 84% 39%;
-    --primary-foreground: 224 20% 8%;
+    --primary: 153 72% 27%;
+    --primary-foreground: 44 45% 97%;
 
-    --secondary: 224 14% 16%;
-    --secondary-foreground: 210 20% 85%;
+    --secondary: 42 21% 90%;
+    --secondary-foreground: 158 25% 17%;
 
-    --muted: 224 14% 14%;
-    --muted-foreground: 215 15% 52%;
+    --muted: 42 18% 91%;
+    --muted-foreground: 157 8% 43%;
 
-    --accent: 224 14% 18%;
-    --accent-foreground: 210 20% 92%;
+    --accent: 148 25% 88%;
+    --accent-foreground: 157 31% 15%;
 
-    --destructive: 0 72% 51%;
-    --destructive-foreground: 210 40% 98%;
+    --destructive: 5 67% 50%;
+    --destructive-foreground: 44 45% 97%;
 
-    --success: 160 84% 39%;
-    --success-foreground: 224 20% 8%;
+    --success: 153 72% 27%;
+    --success-foreground: 44 45% 97%;
 
-    --warning: 38 92% 50%;
-    --warning-foreground: 224 20% 8%;
+    --warning: 35 89% 48%;
+    --warning-foreground: 158 29% 12%;
 
-    --income: 160 84% 39%;
-    --expense: 0 72% 51%;
-    --info: 210 76% 52%;
+    --income: 153 72% 27%;
+    --expense: 5 67% 50%;
+    --info: 199 69% 38%;
 
-    --border: 224 14% 18%;
-    --input: 224 14% 18%;
-    --ring: 160 84% 39%;
+    --border: 43 14% 82%;
+    --input: 43 14% 78%;
+    --ring: 153 72% 27%;
 
-    --radius: 0.75rem;
+    --radius: 1rem;
 
-    --sidebar-background: 224 20% 6%;
-    --sidebar-foreground: 210 20% 75%;
-    --sidebar-primary: 160 84% 39%;
-    --sidebar-primary-foreground: 224 20% 8%;
-    --sidebar-accent: 224 14% 12%;
-    --sidebar-accent-foreground: 210 20% 92%;
-    --sidebar-border: 224 14% 14%;
-    --sidebar-ring: 160 84% 39%;
+    --sidebar-background: 158 35% 11%;
+    --sidebar-foreground: 142 13% 77%;
+    --sidebar-primary: 83 82% 64%;
+    --sidebar-primary-foreground: 158 35% 11%;
+    --sidebar-accent: 157 29% 17%;
+    --sidebar-accent-foreground: 44 45% 97%;
+    --sidebar-border: 157 24% 20%;
+    --sidebar-ring: 83 82% 64%;
 
-    --chart-1: 160 84% 39%;
-    --chart-2: 210 76% 52%;
-    --chart-3: 280 65% 60%;
-    --chart-4: 38 92% 50%;
-    --chart-5: 340 75% 55%;
+    --chart-1: 153 72% 27%;
+    --chart-2: 199 69% 38%;
+    --chart-3: 262 48% 52%;
+    --chart-4: 35 89% 48%;
+    --chart-5: 5 67% 50%;
   }
 }
 
@@ -69,17 +69,32 @@
   }
 
   html {
-    color-scheme: dark;
+    color-scheme: light;
+    background: hsl(var(--background));
   }
 
   body {
     @apply bg-background text-foreground font-sans antialiased;
+    min-width: 320px;
+    background-image:
+      radial-gradient(circle at 78% -10%, hsl(83 82% 64% / 0.13), transparent 28rem),
+      linear-gradient(hsl(var(--border) / 0.16) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(var(--border) / 0.16) 1px, transparent 1px);
+    background-size: auto, 40px 40px, 40px 40px;
+  }
+
+  h1, h2, h3 {
+    @apply font-display;
+  }
+
+  ::selection {
+    @apply bg-primary text-primary-foreground;
   }
 }
 
 @layer utilities {
   .glass-card {
-    @apply bg-card/80 backdrop-blur-sm border border-border/50 shadow-lg shadow-black/10;
+    @apply border border-white/70 bg-card/80 backdrop-blur-xl shadow-[0_18px_60px_-35px_rgba(20,46,35,0.28)];
   }
 
   .safe-area-bottom {
@@ -97,21 +112,29 @@
   }
 
   .dashboard-card {
-    @apply rounded-xl border border-border bg-card animate-fade-in;
+    @apply rounded-2xl border border-border/80 bg-card animate-fade-in shadow-[0_18px_55px_-38px_rgba(20,46,35,0.45)];
   }
 
   .dashboard-card-balance {
-    @apply border-primary/30 bg-primary/10;
+    @apply border-primary/20 bg-primary/[0.06];
+  }
+
+  .workspace-panel {
+    @apply rounded-[1.35rem] border border-border/80 bg-card shadow-[0_20px_60px_-42px_rgba(20,46,35,0.45)];
+  }
+
+  .eyebrow {
+    @apply text-[10px] font-extrabold uppercase tracking-[0.22em] text-primary;
   }
 }
 
-/* Recharts tooltip dark theme overrides */
+/* Recharts tooltip */
 .recharts-default-tooltip {
-  background-color: hsl(224 18% 13%) !important;
-  border: 1px solid hsl(224 14% 22%) !important;
-  border-radius: 8px !important;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5) !important;
-  color: #f1f5f9 !important;
+  background-color: hsl(158 35% 11%) !important;
+  border: 1px solid hsl(157 24% 24%) !important;
+  border-radius: 12px !important;
+  box-shadow: 0 16px 40px rgba(20, 46, 35, 0.25) !important;
+  color: #f8f7f2 !important;
 }
 
 .recharts-tooltip-label {

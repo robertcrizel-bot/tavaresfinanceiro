@@ -13,12 +13,11 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
-import { Download, Eye, FileSpreadsheet, FileText, Hash, ListFilter, Search, TrendingDown, TrendingUp, Wallet, X } from "lucide-react";
+import { ChevronDown, Download, Eye, FileSpreadsheet, FileText, Hash, ListFilter, Search, SlidersHorizontal, TrendingDown, TrendingUp, Wallet, X } from "lucide-react";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { useFinance } from "@/contexts/FinanceContext";
 import { ChartCard } from "@/components/ChartCard";
-import { KpiCard } from "@/components/KpiCard";
 import { TransactionDetail } from "@/components/TransactionDetail";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -64,12 +63,12 @@ const percent = (value: number) => `${value.toLocaleString("pt-BR", { maximumFra
 const formatDateBR = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR");
 
 const tooltipStyle = {
-  backgroundColor: "hsl(224 18% 13%)",
-  border: "1px solid hsl(224 14% 22%)",
+  backgroundColor: "hsl(158 35% 11%)",
+  border: "1px solid hsl(157 24% 24%)",
   borderRadius: 8,
   color: "#f1f5f9",
 };
-const axisTick = { fontSize: 11, fill: "hsl(215 20% 65%)" };
+const axisTick = { fontSize: 11, fill: "hsl(157 8% 43%)" };
 
 type PeriodShortcut = "today" | "7d" | "month" | "prevMonth" | "30d" | "90d" | "year";
 
@@ -98,6 +97,7 @@ export default function Statements() {
   const [maxAmount, setMaxAmount] = useState("");
   const [sort, setSort] = useState<"date-desc" | "date-asc" | "amount-desc" | "amount-asc">("date-desc");
   const [viewing, setViewing] = useState<Transaction | null>(null);
+  const [filtersOpen, setFiltersOpen] = useState(false);
 
   const applyShortcut = useCallback((shortcut: PeriodShortcut) => {
     const now = new Date();
@@ -234,17 +234,16 @@ export default function Statements() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl pb-4">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] gap-3 sm:flex sm:items-center sm:justify-between">
+    <div className="mx-auto max-w-[1500px] space-y-5 pb-4 sm:space-y-7">
+      <div className="flex items-end justify-between gap-3">
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-primary">Extratos</h1>
-          <p className="text-muted-foreground mt-1 text-sm">
-            Movimentações reais por origem, período e categoria.
-          </p>
+          <p className="eyebrow">Histórico financeiro</p>
+          <h1 className="mt-2 text-3xl font-bold tracking-[-0.04em] text-foreground sm:text-5xl">Extratos</h1>
+          <p className="mt-2 max-w-xl text-sm text-muted-foreground">Investigue cada movimento e encontre padrões no seu dinheiro.</p>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" disabled={rows.length === 0} className="gap-2">
+            <Button variant="outline" disabled={rows.length === 0} className="h-11 gap-2 rounded-xl bg-card">
               <Download className="h-4 w-4 shrink-0" />
               <span className="hidden sm:inline">Exportar</span>
             </Button>
@@ -263,8 +262,15 @@ export default function Statements() {
         </DropdownMenu>
       </div>
 
-      <div className="dashboard-card p-4 sm:p-5 space-y-3">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <button type="button" onClick={() => setFiltersOpen((open) => !open)} className="workspace-panel flex w-full items-center justify-between p-4 text-left xl:hidden">
+        <span className="flex items-center gap-2 text-sm font-bold"><SlidersHorizontal className="h-4 w-4 text-primary" />Filtros e período</span>
+        <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+      </button>
+
+      <div className="grid items-start gap-5 xl:grid-cols-[290px_minmax(0,1fr)]">
+      <aside className={`${filtersOpen ? "block" : "hidden"} workspace-panel space-y-5 p-4 sm:p-5 xl:sticky xl:top-24 xl:block`}>
+        <div className="flex items-center justify-between border-b border-border/70 pb-4"><div><p className="eyebrow">Refinar</p><h2 className="mt-1 text-lg font-bold">Consulta</h2></div><ListFilter className="h-4 w-4 text-primary" /></div>
+        <div className="grid grid-cols-1 gap-3">
           <div className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Origem</span>
             <Select value={origin} onValueChange={setOrigin}>
@@ -285,7 +291,7 @@ export default function Statements() {
             <Input type="date" value={end} max={today} onChange={(e) => setEnd(e.target.value)} />
           </div>
         </div>
-        <div className="flex flex-wrap gap-2">
+        <div className="flex flex-wrap gap-1">
           {([
             ["today", "Hoje"],
             ["7d", "7 dias"],
@@ -295,7 +301,7 @@ export default function Statements() {
             ["90d", "90 dias"],
             ["year", "Este ano"],
           ] as [PeriodShortcut, string][]).map(([key, label]) => (
-            <Button key={key} type="button" variant="ghost" size="sm" className="h-7 text-xs" onClick={() => applyShortcut(key)}>
+            <Button key={key} type="button" variant="ghost" size="sm" className="h-7 rounded-lg px-2 text-[10px]" onClick={() => applyShortcut(key)}>
               {label}
             </Button>
           ))}
@@ -304,7 +310,7 @@ export default function Statements() {
           <p className="text-sm text-destructive">Período inválido: a data inicial é posterior à data final.</p>
         )}
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Tipo</span>
             <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as "all" | "income" | "expense")}>
@@ -354,8 +360,8 @@ export default function Statements() {
           </div>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          <div className="relative sm:col-span-1">
+        <div className="grid grid-cols-1 gap-3">
+          <div className="relative">
             <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input placeholder="Buscar título, descrição..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
           </div>
@@ -363,8 +369,7 @@ export default function Statements() {
             <Input type="number" min="0" placeholder="Valor mín." value={minAmount} onChange={(e) => setMinAmount(e.target.value)} />
             <Input type="number" min="0" placeholder="Valor máx." value={maxAmount} onChange={(e) => setMaxAmount(e.target.value)} />
           </div>
-          <div className="flex items-center gap-2 flex-wrap">
-            <ListFilter className="h-4 w-4 text-muted-foreground" />
+          <div className="flex items-center gap-2 flex-wrap border-t border-border/70 pt-3">
             {origin !== STATEMENT_ALL && (
               <Button variant="secondary" size="sm" className="h-7 text-xs gap-1" aria-label="Remover filtro de origem" onClick={() => setOrigin(STATEMENT_ALL)}>
                 {originName} <X className="h-3 w-3" />
@@ -375,29 +380,35 @@ export default function Statements() {
                 {category} <X className="h-3 w-3" />
               </Button>
             )}
-            {(typeFilter !== "all" || paymentMethod !== STATEMENT_ALL || search.trim() !== "") && (
+            {(typeFilter !== "all" || paymentMethod !== STATEMENT_ALL || search.trim() !== "" || minAmount !== "" || maxAmount !== "") && (
               <Button variant="ghost" size="sm" className="h-7 text-xs" onClick={clearSecondary}>
                 Limpar filtros
               </Button>
             )}
           </div>
         </div>
-      </div>
+      </aside>
+
+      <div className="min-w-0 space-y-5 sm:space-y-6">
 
       {isCardMode ? (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <KpiCard title="Compras" value={money(cardSummary.purchases)} icon={TrendingDown} color="red" className="bg-expense/[0.06] shadow-[0_0_28px_-10px_hsl(var(--expense)/0.45)]" />
-          <KpiCard title="Estornos / Créditos" value={money(cardSummary.refunds)} icon={TrendingUp} color="green" className="bg-income/[0.06] shadow-[0_0_28px_-10px_hsl(var(--income)/0.45)]" />
-          <KpiCard title="Total líquido" value={money(cardSummary.net)} icon={Wallet} color="balance" negativeValue={cardSummary.net < 0} className="bg-primary/[0.07] shadow-[0_0_28px_-10px_hsl(var(--primary)/0.5)]" />
-          <KpiCard title="Qtd. compras" value={String(cardSummary.count)} icon={Hash} color="neutral" className="bg-sky-500/[0.06] shadow-[0_0_28px_-12px_hsl(200_80%_55%/0.5)]" />
-        </div>
+        <section className="workspace-panel grid overflow-hidden grid-cols-2 lg:grid-cols-4">
+          {[
+            { label: "Compras", value: money(cardSummary.purchases), icon: TrendingDown, tone: "text-expense" },
+            { label: "Estornos / Créditos", value: money(cardSummary.refunds), icon: TrendingUp, tone: "text-income" },
+            { label: "Total líquido", value: money(cardSummary.net), icon: Wallet, tone: cardSummary.net < 0 ? "text-expense" : "text-foreground" },
+            { label: "Qtd. compras", value: String(cardSummary.count), icon: Hash, tone: "text-foreground" },
+          ].map((item) => <div key={item.label} className="border-b border-r border-border/70 p-4 last:border-r-0 lg:border-b-0 sm:p-5"><item.icon className={`h-4 w-4 ${item.tone}`} /><span className="mt-5 block text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{item.label}</span><p className={`mt-1 font-display text-lg font-bold tracking-tight sm:text-xl ${item.tone}`}>{item.value}</p></div>)}
+        </section>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
-          <KpiCard title="Entradas" value={money(accountSummary.income)} icon={TrendingUp} color="green" className="bg-income/[0.06] shadow-[0_0_28px_-10px_hsl(var(--income)/0.45)]" />
-          <KpiCard title="Saídas" value={money(accountSummary.expense)} icon={TrendingDown} color="red" className="bg-expense/[0.06] shadow-[0_0_28px_-10px_hsl(var(--expense)/0.45)]" />
-          <KpiCard title="Saldo do período" value={money(accountSummary.balance)} icon={Wallet} color="balance" negativeValue={accountSummary.balance < 0} className="bg-primary/[0.07] shadow-[0_0_28px_-10px_hsl(var(--primary)/0.5)]" />
-          <KpiCard title="Movimentações" value={String(accountSummary.count)} icon={Hash} color="neutral" className="bg-sky-500/[0.06] shadow-[0_0_28px_-12px_hsl(200_80%_55%/0.5)]" />
-        </div>
+        <section className="workspace-panel grid overflow-hidden grid-cols-2 lg:grid-cols-[1fr_1fr_1.25fr_0.75fr]">
+          {[
+            { label: "Entradas", value: money(accountSummary.income), icon: TrendingUp, tone: "text-income" },
+            { label: "Saídas", value: money(accountSummary.expense), icon: TrendingDown, tone: "text-expense" },
+            { label: "Saldo do período", value: money(accountSummary.balance), icon: Wallet, tone: accountSummary.balance < 0 ? "text-expense" : "text-primary", featured: true },
+            { label: "Movimentações", value: String(accountSummary.count), icon: Hash, tone: "text-foreground" },
+          ].map((item) => <div key={item.label} className={`${item.featured ? "bg-primary/[0.06]" : ""} border-b border-r border-border/70 p-4 last:border-r-0 lg:border-b-0 sm:p-5`}><item.icon className={`h-4 w-4 ${item.tone}`} /><span className="mt-5 block text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{item.label}</span><p className={`mt-1 font-display text-lg font-bold tracking-tight sm:text-xl ${item.tone}`}>{item.value}</p></div>)}
+        </section>
       )}
 
       {rows.length === 0 ? (
@@ -406,7 +417,7 @@ export default function Statements() {
         </div>
       ) : (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
             <ChartCard title="Por categoria">
               {categories.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Sem saídas no período.</p>
@@ -422,7 +433,7 @@ export default function Statements() {
                           innerRadius={55}
                           outerRadius={88}
                           paddingAngle={2}
-                          stroke="hsl(224 18% 11%)"
+                           stroke="hsl(44 33% 98%)"
                           strokeWidth={2}
                         >
                           {categories.map((slice, index) => (
@@ -471,7 +482,7 @@ export default function Statements() {
                       <stop offset="100%" stopColor="hsl(0 72% 51%)" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" vertical={false} />
+                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(43 14% 82%)" vertical={false} />
                   <XAxis dataKey="label" tick={axisTick} interval="preserveStartEnd" minTickGap={28} tickMargin={8} />
                   <YAxis tick={axisTick} width={56} tickFormatter={(value: number) => value >= 1000 ? `${Math.round(value / 100) / 10}k` : `${value}`} />
                   <Tooltip
@@ -540,11 +551,11 @@ export default function Statements() {
                   <>
                     <ResponsiveContainer width="100%" height={Math.max(200, byOrigin.length * 46)}>
                       <BarChart data={byOrigin} layout="vertical" margin={{ left: 8, right: 20, top: 4, bottom: 4 }} barCategoryGap="28%">
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" horizontal={false} />
+                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(43 14% 82%)" horizontal={false} />
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="label" tick={{ ...axisTick, fontSize: 11 }} width={120} />
                         <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [money(Number(value)), "Movimentado"]} cursor={{ fill: "hsl(224 14% 22% / 0.35)" }} />
-                        <Bar dataKey="volume" radius={[4, 8, 8, 4]} background={{ fill: "hsl(224 14% 16%)", radius: 8 } as never}>
+                         <Bar dataKey="volume" radius={[4, 8, 8, 4]} background={{ fill: "hsl(42 18% 91%)", radius: 8 } as never}>
                           {byOrigin.map((slice, index) => (
                             <Cell
                               key={slice.key}
@@ -583,11 +594,11 @@ export default function Statements() {
                 <>
                     <ResponsiveContainer width="100%" height={Math.max(200, byPayment.length * 46)}>
                       <BarChart data={byPayment} layout="vertical" margin={{ left: 8, right: 20, top: 4, bottom: 4 }} barCategoryGap="28%">
-                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(224 14% 18%)" horizontal={false} />
+                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(43 14% 82%)" horizontal={false} />
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="method" tick={{ ...axisTick, fontSize: 11 }} width={120} />
                         <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [money(Number(value)), "Movimentado"]} cursor={{ fill: "hsl(224 14% 22% / 0.35)" }} />
-                        <Bar dataKey="volume" radius={[4, 8, 8, 4]} background={{ fill: "hsl(224 14% 16%)", radius: 8 } as never}>
+                         <Bar dataKey="volume" radius={[4, 8, 8, 4]} background={{ fill: "hsl(42 18% 91%)", radius: 8 } as never}>
                         {byPayment.map((slice, index) => (
                           <Cell
                             key={slice.method}
@@ -618,12 +629,12 @@ export default function Statements() {
             </ChartCard>
           </div>
 
-          <div className="dashboard-card p-4 sm:p-5">
+          <section className="workspace-panel overflow-hidden p-4 sm:p-6">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-foreground">
                 Movimentações · {rows.length}
               </h3>
-              <span className="text-xs text-muted-foreground">Mais recentes primeiro</span>
+              <span className="text-xs text-muted-foreground">{sort === "date-desc" ? "Mais recentes primeiro" : sort === "date-asc" ? "Mais antigas primeiro" : sort === "amount-desc" ? "Maiores valores primeiro" : "Menores valores primeiro"}</span>
             </div>
 
             <div className="flex flex-col gap-3 md:hidden" data-testid="statement-cards">
@@ -635,7 +646,7 @@ export default function Statements() {
                     key={transaction.id}
                     type="button"
                     onClick={() => setViewing(transaction)}
-                    className="glass-card rounded-xl p-4 text-left space-y-1"
+                    className="rounded-2xl border border-border/80 bg-card p-4 text-left shadow-sm transition-transform active:scale-[0.99]"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-muted-foreground">{formatDateBR(transaction.date)}</span>
@@ -699,9 +710,11 @@ export default function Statements() {
                 </TableBody>
               </Table>
             </div>
-          </div>
+          </section>
         </>
       )}
+      </div>
+      </div>
 
       <TransactionDetail transaction={viewing} open={!!viewing} onClose={() => setViewing(null)} />
     </div>

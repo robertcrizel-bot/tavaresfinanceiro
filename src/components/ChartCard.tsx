@@ -7,9 +7,12 @@ interface ChartCardProps {
 
 export function ChartCard({ title, children }: ChartCardProps) {
   return (
-    <div className="dashboard-card p-5">
-      <h3 className="mb-4 text-sm font-semibold text-foreground">{title}</h3>
+    <section className="dashboard-card overflow-hidden p-4 sm:p-6">
+      <div className="mb-5 flex items-center gap-3">
+        <span className="h-px w-5 bg-primary" />
+        <h3 className="text-sm font-bold tracking-tight text-foreground">{title}</h3>
+      </div>
       {children}
-    </div>
+    </section>
   );
 }

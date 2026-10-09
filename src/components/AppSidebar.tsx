@@ -1,4 +1,4 @@
-import { LayoutDashboard, List, User, Wallet, Tag, CalendarClock, ArrowLeftRight, PieChart, ReceiptText } from "lucide-react";
+import { LayoutDashboard, List, User, Wallet, Tag, CalendarClock, ArrowLeftRight, PieChart, ReceiptText, ScanLine } from "lucide-react";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -34,30 +34,35 @@ export function AppSidebar() {
   };
 
   return (
-    <Sidebar collapsible={isMobile ? "offcanvas" : "icon"} className="border-r border-sidebar-border">
-      <SidebarContent className="pt-6">
-        <div className="px-4 mb-8">
+    <Sidebar collapsible={isMobile ? "offcanvas" : "icon"} className="border-r-0">
+      <SidebarContent className="bg-sidebar px-2 pt-5">
+        <div className="mb-8 px-2">
           {!collapsed && (
-            <h1 className="font-bold text-foreground tracking-tight text-3xl">
-              Finance<span className="text-primary">Control</span>
-            </h1>
+            <div className="flex items-center gap-3">
+              <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-sidebar-primary font-display text-lg font-bold text-sidebar-primary-foreground">F</span>
+              <div>
+                <h1 className="font-display text-lg font-bold leading-none text-white">FinanceControl</h1>
+                <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-sidebar-foreground/55">Financial workspace</p>
+              </div>
+            </div>
           )}
           {collapsed && !isMobile && (
-            <span className="text-lg font-bold text-primary">F</span>
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary font-display text-sm font-bold text-sidebar-primary-foreground">F</span>
           )}
         </div>
 
-        <SidebarGroup>
+        <SidebarGroup className="p-0">
+          {(!collapsed || isMobile) && <p className="mb-2 px-3 text-[9px] font-extrabold uppercase tracking-[0.2em] text-sidebar-foreground/40">Workspace</p>}
           <SidebarGroupContent>
-            <SidebarMenu>
+            <SidebarMenu className="gap-1.5">
               {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
                     <NavLink
                       to={item.url}
                       end={item.url === "/"}
-                      className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                      activeClassName="bg-sidebar-accent text-primary font-medium"
+                      className="flex h-11 items-center gap-3 rounded-xl px-3 text-sidebar-foreground transition-all hover:bg-sidebar-accent hover:text-white"
+                      activeClassName="bg-sidebar-primary text-sidebar-primary-foreground font-bold shadow-[0_12px_30px_-18px_hsl(var(--sidebar-primary))]"
                       onClick={handleNavClick}
                     >
                       <item.icon className="h-5 w-5 shrink-0" />
@@ -69,16 +74,22 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
+        {(!collapsed || isMobile) && (
+          <NavLink to="/receipt" onClick={handleNavClick} className="mx-1 mt-6 flex items-center gap-3 rounded-2xl border border-sidebar-border bg-sidebar-accent/70 p-3 text-xs font-semibold text-sidebar-foreground transition-colors hover:text-white" activeClassName="border-sidebar-primary/50 text-sidebar-primary">
+            <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-sidebar-primary/10 text-sidebar-primary"><ScanLine className="h-4 w-4" /></span>
+            <span>Importar comprovante</span>
+          </NavLink>
+        )}
       </SidebarContent>
 
-      <SidebarFooter className="border-t border-sidebar-border p-2">
+      <SidebarFooter className="border-t border-sidebar-border bg-sidebar p-3">
         <SidebarMenu>
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <NavLink
                 to="/profile"
-                className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
-                activeClassName="bg-sidebar-accent text-primary font-medium"
+                className="flex h-11 items-center gap-3 rounded-xl px-3 text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-white"
+                activeClassName="bg-sidebar-accent text-sidebar-primary font-bold"
                 onClick={handleNavClick}
               >
                 <User className="h-5 w-5 shrink-0" />
