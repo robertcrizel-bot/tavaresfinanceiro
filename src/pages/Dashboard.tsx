@@ -1,17 +1,16 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useMemo, useState } from "react";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useTransfers } from "@/contexts/TransferContext";
 import { Transaction } from "@/lib/types";
 import { ChartCard } from "@/components/ChartCard";
 import { InsightCard } from "@/components/InsightCard";
+import { ScrollCarousel } from "@/components/ScrollCarousel";
 import { TransactionForm } from "@/components/TransactionForm";
 import { DashboardPeriodFilter, type Period } from "@/components/DashboardPeriodFilter";
 import { Button } from "@/components/ui/button";
 import {
   ArrowDownRight,
-  ArrowLeft,
-  ArrowRight,
   ArrowUpRight,
   CalendarDays,
   CreditCard,
@@ -57,88 +56,6 @@ const KPI_VALUE = `${KPI_VALUE_BASE} text-[clamp(1.5rem,1.9vw,2rem)]`;
 const KPI_NOTE = "text-[12px] leading-tight text-muted-foreground";
 const KPI_CARD =
   "dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:min-h-[132px] lg:p-5";
-
-function HoldingsCarousel({ children }: { children: ReactNode }) {
-  const trackRef = useRef<HTMLDivElement>(null);
-  const [edges, setEdges] = useState({ start: true, end: false });
-
-  const sync = useCallback(() => {
-    const el = trackRef.current;
-    if (!el) return;
-    const max = el.scrollWidth - el.clientWidth;
-    const next = { start: el.scrollLeft <= 2, end: max <= 2 || el.scrollLeft >= max - 2 };
-    setEdges((prev) => (prev.start === next.start && prev.end === next.end ? prev : next));
-  }, []);
-
-  useEffect(() => {
-    sync();
-  });
-
-  useEffect(() => {
-    const el = trackRef.current;
-    if (!el || typeof ResizeObserver === "undefined") return;
-    const observer = new ResizeObserver(() => sync());
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, [sync]);
-
-  const move = (direction: -1 | 1) => {
-    const el = trackRef.current;
-    if (!el) return;
-    const item = el.querySelector<HTMLElement>("[data-carousel-item]");
-    const gap = Number.parseFloat(getComputedStyle(el).columnGap || "12") || 12;
-    const step = item ? item.offsetWidth + gap : el.clientWidth * 0.8;
-    el.scrollBy?.({ left: direction * step, behavior: "smooth" });
-  };
-
-  const controlClass = (hidden: boolean) =>
-    cn(
-      "absolute top-1/2 z-10 flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-card/95 text-foreground shadow-lg transition-opacity duration-200 hover:bg-accent",
-      hidden ? "pointer-events-none opacity-0" : "opacity-100",
-    );
-
-  return (
-    <div className="relative">
-      <div
-        ref={trackRef}
-        onScroll={sync}
-        className="flex snap-x gap-3 overflow-x-auto scroll-smooth pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-      >
-        {children}
-      </div>
-      <div
-        className={cn(
-          "pointer-events-none absolute inset-y-0 left-0 w-12 bg-gradient-to-r from-background to-transparent transition-opacity",
-          edges.start && "opacity-0",
-        )}
-      />
-      <div
-        className={cn(
-          "pointer-events-none absolute inset-y-0 right-0 w-12 bg-gradient-to-l from-background to-transparent transition-opacity",
-          edges.end && "opacity-0",
-        )}
-      />
-      <button
-        type="button"
-        aria-label="Ver itens anteriores"
-        tabIndex={edges.start ? -1 : 0}
-        onClick={() => move(-1)}
-        className={cn(controlClass(edges.start), "left-1")}
-      >
-        <ArrowLeft className="h-4 w-4" />
-      </button>
-      <button
-        type="button"
-        aria-label="Ver próximos itens"
-        tabIndex={edges.end ? -1 : 0}
-        onClick={() => move(1)}
-        className={cn(controlClass(edges.end), "right-1")}
-      >
-        <ArrowRight className="h-4 w-4" />
-      </button>
-    </div>
-  );
-}
 
 export default function Dashboard() {
   const { transactions, creditCardInvoices, addTransaction } = useFinance();
@@ -401,7 +318,7 @@ export default function Dashboard() {
               Ver todos
             </Link>
           </div>
-          <HoldingsCarousel>
+          <ScrollCarousel>
             {accounts.map((acc) => {
               const accountBalance = accountBalances[acc.id] ?? 0;
               return (
@@ -466,7 +383,7 @@ export default function Dashboard() {
                 </article>
               );
             })}
-          </HoldingsCarousel>
+          </ScrollCarousel>
         </section>
       )}
 

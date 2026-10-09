@@ -60,4 +60,16 @@ describe("BottomNav", () => {
     fireEvent.click(screen.getByRole("button", { name: "Abrir todas as áreas" }));
     expect(document.cookie).toBeDefined();
   });
+
+  it("keeps every destination inside a horizontal scroll track with arrows", () => {
+    renderNav();
+    const nav = screen.getByRole("navigation", { name: "Navegação principal" });
+    expect(nav.querySelector("[data-scroll-track]")).toBeTruthy();
+    expect(
+      within(nav).getByRole("button", { name: "Navegar para itens anteriores" }),
+    ).toBeInTheDocument();
+    expect(
+      within(nav).getByRole("button", { name: "Navegar para próximos itens" }),
+    ).toBeInTheDocument();
+  });
 });
