@@ -1,18 +1,21 @@
-import { LayoutDashboard, List, Menu, PieChart, ReceiptText } from "lucide-react";
+import { ArrowLeftRight, CalendarClock, LayoutDashboard, List, PieChart, ReceiptText, ScanLine, Tag, User, Wallet } from "lucide-react";
 import { useLocation } from "react-router-dom";
 import { NavLink } from "@/components/NavLink";
 import { ScrollCarousel } from "@/components/ScrollCarousel";
-import { useSidebar } from "@/components/ui/sidebar";
 import { cn } from "@/lib/utils";
 
-const primaryItems = [
+const navItems = [
   { title: "Painel", url: "/", icon: LayoutDashboard },
   { title: "Análises", url: "/analises-despesas", icon: PieChart },
   { title: "Registros", url: "/records", icon: List },
   { title: "Extratos", url: "/extratos", icon: ReceiptText },
+  { title: "Contas", url: "/accounts", icon: Wallet },
+  { title: "Transferências", url: "/transfers", icon: ArrowLeftRight },
+  { title: "Categorias", url: "/categories", icon: Tag },
+  { title: "Previsões", url: "/forecasts", icon: CalendarClock },
+  { title: "Comprovante", url: "/receipt", icon: ScanLine },
+  { title: "Perfil", url: "/profile", icon: User },
 ];
-
-const secondaryRoutes = ["/accounts", "/transfers", "/categories", "/forecasts", "/profile", "/receipt"];
 
 const itemClass = (active: boolean) =>
   cn(
@@ -21,17 +24,15 @@ const itemClass = (active: boolean) =>
   );
 
 const iconClass = (active: boolean) =>
-  cn("h-5 w-5", active ? "text-sidebar-primary" : "text-sidebar-foreground");
+  cn("h-6 w-6", active ? "text-sidebar-primary" : "text-sidebar-foreground");
 
 export function BottomNav() {
   const { pathname } = useLocation();
-  const { setOpenMobile } = useSidebar();
-  const moreActive = secondaryRoutes.includes(pathname);
 
   return (
     <nav
       aria-label="Navegação principal"
-      className="safe-area-bottom fixed inset-x-2 bottom-2 z-50 rounded-2xl border border-sidebar-border bg-sidebar/95 p-1 shadow-[0_16px_45px_rgba(0,0,0,0.55)] backdrop-blur-xl md:hidden"
+      className="safe-area-bottom fixed inset-x-0 bottom-0 z-50 rounded-t-2xl border border-sidebar-border bg-sidebar/95 p-1 shadow-[0_16px_45px_rgba(0,0,0,0.55)] backdrop-blur-xl md:hidden"
     >
       <ScrollCarousel
         className="gap-1 px-8 pb-0 scroll-pl-8"
@@ -40,7 +41,7 @@ export function BottomNav() {
         prevLabel="Navegar para itens anteriores"
         nextLabel="Navegar para próximos itens"
       >
-        {primaryItems.map((item) => {
+        {navItems.map((item) => {
           const active = item.url === "/" ? pathname === "/" : pathname === item.url;
           return (
             <NavLink
@@ -55,19 +56,6 @@ export function BottomNav() {
             </NavLink>
           );
         })}
-        <button
-          type="button"
-          onClick={() => setOpenMobile(true)}
-          aria-label="Abrir todas as áreas"
-          aria-current={moreActive ? "page" : undefined}
-          className={cn(
-            "relative flex min-w-[86px] shrink-0 grow snap-start flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-sidebar-foreground/70 transition-all",
-            moreActive && "bg-sidebar-accent text-sidebar-primary ring-1 ring-sidebar-primary/30",
-          )}
-        >
-          <Menu className={iconClass(moreActive)} aria-hidden="true" />
-          <span className="text-[9px] font-bold">Mais</span>
-        </button>
       </ScrollCarousel>
     </nav>
   );

@@ -1,9 +1,8 @@
 import { forwardRef } from "react";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it, vi } from "vitest";
 import { BottomNav } from "@/components/BottomNav";
-import { SidebarProvider } from "@/components/ui/sidebar";
 
 vi.mock("@/components/NavLink", () => ({
   NavLink: forwardRef(function MockNavLink(
@@ -21,15 +20,13 @@ vi.mock("@/components/NavLink", () => ({
 function renderNav(route = "/") {
   return render(
     <MemoryRouter initialEntries={[route]}>
-      <SidebarProvider>
-        <BottomNav />
-      </SidebarProvider>
+      <BottomNav />
     </MemoryRouter>,
   );
 }
 
 describe("BottomNav", () => {
-  it("prioritizes the four main destinations and a menu", () => {
+  it("lists every sidebar destination directly in the bar", () => {
     renderNav();
     const nav = screen.getByRole("navigation", { name: "Navegação principal" });
     for (const [label, url] of [
@@ -37,28 +34,36 @@ describe("BottomNav", () => {
       ["Análises", "/analises-despesas"],
       ["Registros", "/records"],
       ["Extratos", "/extratos"],
+      ["Contas", "/accounts"],
+      ["Transferências", "/transfers"],
+      ["Categorias", "/categories"],
+      ["Previsões", "/forecasts"],
+      ["Comprovante", "/receipt"],
+      ["Perfil", "/profile"],
     ]) {
       expect(within(nav).getByText(label).closest("a")).toHaveAttribute("href", url);
     }
-    expect(within(nav).getByText("Mais")).toBeInTheDocument();
+    expect(within(nav).getAllByRole("link")).toHaveLength(10);
   });
 
-  it("marks the active main destination", () => {
+  it("no longer groups destinations behind a menu button", () => {
+    renderNav();
+    expect(screen.queryByRole("button", { name: "Abrir todas as áreas" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Mais")).not.toBeInTheDocument();
+  });
+
+  it("marks the active destination", () => {
     renderNav("/extratos");
     const active = screen.getByText("Extratos").closest("a")!;
     expect(active).toHaveAttribute("aria-current", "page");
     expect(active.className).toMatch(/bg-sidebar-primary/);
   });
 
-  it("marks Mais for secondary destinations", () => {
+  it("marks secondary destinations directly on their own link", () => {
     renderNav("/accounts");
-    expect(screen.getByRole("button", { name: "Abrir todas as áreas" })).toHaveAttribute("aria-current", "page");
-  });
-
-  it("opens the complete navigation from Mais", () => {
-    renderNav();
-    fireEvent.click(screen.getByRole("button", { name: "Abrir todas as áreas" }));
-    expect(document.cookie).toBeDefined();
+    const active = screen.getByText("Contas").closest("a")!;
+    expect(active).toHaveAttribute("aria-current", "page");
+    expect(active.className).toMatch(/bg-sidebar-primary/);
   });
 
   it("keeps every destination inside a horizontal scroll track with arrows", () => {
