@@ -132,7 +132,7 @@ export default function Dashboard() {
   }, [filtered, topCategory, totalExpense, totalIncome, avgDaily]);
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
+    <div className="mx-auto max-w-[1500px] space-y-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="eyebrow">Visão financeira</p>
@@ -150,43 +150,59 @@ export default function Dashboard() {
       </header>
 
       <section className="workspace-panel overflow-hidden">
-        <div className="border-b border-border/70 bg-secondary/20 p-2.5 sm:p-3">
+        <div className="border-b border-border/70 bg-secondary/20 p-2 sm:p-2.5">
           <DashboardPeriodFilter period={period} dateRange={dateRange} onPeriodChange={setPeriod} onDateRangeChange={setDateRange} />
         </div>
-        <div className="grid lg:h-[210px] lg:grid-cols-[1.15fr_1fr]">
-          <div className="dashboard-card relative h-[145px] overflow-hidden rounded-none border-0 bg-[linear-gradient(135deg,hsl(168_52%_18%),hsl(216_28%_10%))] p-4 text-white shadow-none lg:h-full lg:p-5">
+        <div className="grid grid-cols-1 lg:grid-cols-[1.08fr_1fr]">
+          <div className="dashboard-card relative flex flex-col justify-center gap-2.5 overflow-hidden rounded-none border-0 bg-[linear-gradient(135deg,hsl(168_52%_18%),hsl(216_28%_10%))] p-3.5 text-white shadow-none sm:gap-3 sm:p-4 lg:p-5">
             <div className="absolute -right-10 -top-14 h-40 w-40 rounded-full border-[24px] border-primary/10" />
-            <div className="relative flex h-full flex-col justify-between">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-sidebar-foreground">Saldo do Período</span>
-                <span className="flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-white/5"><Wallet className="h-4 w-4 text-primary" /></span>
+            <div className="relative flex items-center justify-between gap-3">
+              <span className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-sidebar-foreground">Saldo do Período</span>
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5"><Wallet className="h-3.5 w-3.5 text-primary" /></span>
+            </div>
+            <div className="relative min-w-0">
+              <p className={`font-display font-bold leading-none tracking-[-0.04em] text-[clamp(1.5rem,5.2vw,2.125rem)] tabular-nums break-words ${balance < 0 ? "text-red-300" : "text-white"}`}>{fmt(balance)}</p>
+              <p className="mt-1.5 text-[10px] leading-tight text-sidebar-foreground/70">Resultado líquido do período</p>
+            </div>
+            <div className="relative grid grid-cols-2 gap-2.5 border-t border-white/10 pt-2.5 sm:gap-4 sm:pt-3">
+              <div className="min-w-0">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-sidebar-foreground/55">Entradas</span>
+                <p className="mt-0.5 break-words text-xs font-bold leading-tight tabular-nums text-sidebar-primary sm:text-sm">{fmt(totalIncome)}</p>
               </div>
-              <div>
-                <p className={`font-display text-3xl font-bold tracking-[-0.045em] lg:text-4xl ${balance < 0 ? "text-red-300" : "text-white"}`}>{fmt(balance)}</p>
-                <p className="mt-1 text-[10px] text-sidebar-foreground/70">Resultado líquido do período</p>
-              </div>
-              <div className="hidden grid-cols-2 gap-4 border-t border-white/10 pt-3 lg:grid">
-                <div><span className="text-[9px] font-bold uppercase tracking-widest text-sidebar-foreground/55">Entradas</span><p className="mt-1 text-sm font-bold text-sidebar-primary">{fmt(totalIncome)}</p></div>
-                <div><span className="text-[9px] font-bold uppercase tracking-widest text-sidebar-foreground/55">Saídas</span><p className="mt-1 text-sm font-bold text-red-300">{fmt(totalExpense)}</p></div>
+              <div className="min-w-0">
+                <span className="text-[9px] font-bold uppercase tracking-widest text-sidebar-foreground/55">Saídas</span>
+                <p className="mt-0.5 break-words text-xs font-bold leading-tight tabular-nums text-red-300 sm:text-sm">{fmt(totalExpense)}</p>
               </div>
             </div>
           </div>
           <div className="grid grid-cols-2 bg-card">
-            <div className="dashboard-card flex min-h-[96px] flex-col justify-center gap-2 rounded-none border-0 border-b border-r border-border/70 p-3.5 shadow-none lg:min-h-0 lg:p-4">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-income/10 text-income"><ArrowUpRight className="h-4 w-4" /></span>
-              <div><span className="text-xs font-semibold text-muted-foreground">Total de Entradas</span><p className="mt-0.5 font-display text-lg font-bold tracking-tight text-income lg:text-xl">{fmt(totalIncome)}</p></div>
+            <div className="dashboard-card flex min-h-[92px] flex-col justify-center gap-1.5 rounded-none border-0 border-b border-r border-border/70 p-3.5 shadow-none lg:gap-2 lg:p-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-income/10 text-income"><ArrowUpRight className="h-3.5 w-3.5" /></span>
+                <span className="min-w-0 text-[11px] font-semibold leading-tight text-muted-foreground">Total de Entradas</span>
+              </div>
+              <p className="break-words font-display text-lg font-bold leading-tight tracking-tight tabular-nums text-income sm:text-xl">{fmt(totalIncome)}</p>
             </div>
-            <div className="dashboard-card flex min-h-[96px] flex-col justify-center gap-2 rounded-none border-0 border-b border-border/70 p-3.5 shadow-none lg:min-h-0 lg:p-4">
-              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-expense/10 text-expense"><ArrowDownRight className="h-4 w-4" /></span>
-              <div><span className="text-xs font-semibold text-muted-foreground">Total de Saídas</span><p className="mt-0.5 font-display text-lg font-bold tracking-tight text-expense lg:text-xl">{fmt(totalExpense)}</p></div>
+            <div className="dashboard-card flex min-h-[92px] flex-col justify-center gap-1.5 rounded-none border-0 border-b border-border/70 p-3.5 shadow-none lg:gap-2 lg:p-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-expense/10 text-expense"><ArrowDownRight className="h-3.5 w-3.5" /></span>
+                <span className="min-w-0 text-[11px] font-semibold leading-tight text-muted-foreground">Total de Saídas</span>
+              </div>
+              <p className="break-words font-display text-lg font-bold leading-tight tracking-tight tabular-nums text-expense sm:text-xl">{fmt(totalExpense)}</p>
             </div>
-            <div className="dashboard-card flex min-h-[96px] flex-col justify-center gap-2 rounded-none border-0 border-r border-border/70 p-3.5 shadow-none lg:min-h-0 lg:p-4">
-              <CalendarDays className="h-5 w-5 text-primary" />
-              <div><span className="text-xs font-semibold text-muted-foreground">Gasto Médio Diário</span><p className="mt-0.5 font-display text-lg font-bold tracking-tight lg:text-xl">{fmt(avgDaily)}</p></div>
+            <div className="dashboard-card flex min-h-[92px] flex-col justify-center gap-1.5 rounded-none border-0 border-r border-border/70 p-3.5 shadow-none lg:gap-2 lg:p-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><CalendarDays className="h-3.5 w-3.5" /></span>
+                <span className="min-w-0 text-[11px] font-semibold leading-tight text-muted-foreground">Gasto Médio Diário</span>
+              </div>
+              <p className="break-words font-display text-lg font-bold leading-tight tracking-tight tabular-nums sm:text-xl">{fmt(avgDaily)}</p>
             </div>
-            <div className="dashboard-card flex min-h-[96px] flex-col justify-center gap-2 rounded-none border-0 p-3.5 shadow-none lg:min-h-0 lg:p-4">
-              <Tag className="h-5 w-5 text-primary" />
-              <div><span className="text-xs font-semibold text-muted-foreground">Maior Categoria</span><p className="mt-0.5 truncate font-display text-lg font-bold tracking-tight lg:text-xl">{topCategory}</p></div>
+            <div className="dashboard-card flex min-h-[92px] flex-col justify-center gap-1.5 rounded-none border-0 p-3.5 shadow-none lg:gap-2 lg:p-4">
+              <div className="flex min-w-0 items-center gap-2">
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary"><Tag className="h-3.5 w-3.5" /></span>
+                <span className="min-w-0 text-[11px] font-semibold leading-tight text-muted-foreground">Maior Categoria</span>
+              </div>
+              <p className="break-words font-display text-lg font-bold leading-tight tracking-tight sm:text-xl">{topCategory}</p>
             </div>
           </div>
         </div>
@@ -194,23 +210,23 @@ export default function Dashboard() {
 
       {(accounts.length > 0 || creditCards.length > 0) && (
         <section>
-          <div className="mb-3 flex items-end justify-between"><div><p className="eyebrow">Patrimônio</p><h2 className="mt-1 text-xl font-bold tracking-tight">Contas & cartões</h2></div><Link to="/accounts" className="text-xs font-bold text-primary hover:underline">Ver todos</Link></div>
-          <div className="flex snap-x gap-3 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
+          <div className="mb-2.5 flex items-end justify-between gap-3"><div><p className="eyebrow">Patrimônio</p><h2 className="mt-1 text-lg font-bold tracking-tight">Contas & cartões</h2></div><Link to="/accounts" className="shrink-0 text-xs font-bold text-primary hover:underline">Ver todos</Link></div>
+          <div className="flex snap-x gap-2.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {accounts.map((acc) => {
               const accountBalance = accountBalances[acc.id];
-              return <article key={acc.id} className="workspace-panel h-[132px] min-w-[225px] snap-start p-4 sm:h-[138px] sm:min-w-[245px]"><div className="flex items-center justify-between"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary"><Landmark className="h-4 w-4" /></span><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{acc.type === "checking" ? "Corrente" : "Poupança"}</span></div><p className="mt-3 truncate text-xs font-bold">{acc.name} <span className="font-normal text-muted-foreground">· {acc.bank}</span></p><p className={`mt-1 font-display text-xl font-bold tracking-tight ${accountBalance < 0 ? "text-expense" : "text-foreground"}`}>{fmt(accountBalance)}</p></article>;
+              return <article key={acc.id} className="workspace-panel h-[118px] min-w-[232px] shrink-0 snap-start p-3.5 lg:h-[128px] lg:min-w-[256px]"><div className="flex items-center justify-between gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary"><Landmark className="h-4 w-4" /></span><span className="min-w-0 truncate text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{acc.type === "checking" ? "Corrente" : "Poupança"}</span></div><p className="mt-2.5 truncate text-xs font-bold">{acc.name} <span className="font-normal text-muted-foreground">· {acc.bank}</span></p><p className={`mt-1 font-display text-xl font-bold tabular-nums tracking-tight ${accountBalance < 0 ? "text-expense" : "text-foreground"}`}>{fmt(accountBalance)}</p></article>;
             })}
             {creditCards.map((cc) => {
               const used = getCardUsed(cc.id); const available = cc.limit - used; const pct = cc.limit > 0 ? Math.min((used / cc.limit) * 100, 100) : 0;
-              return <article key={cc.id} className="h-[132px] min-w-[225px] snap-start rounded-2xl border border-border/80 bg-secondary/60 p-4 sm:h-[138px] sm:min-w-[245px]"><div className="flex items-center justify-between"><span className="flex h-8 w-8 items-center justify-center rounded-lg bg-expense/10 text-expense"><CreditCard className="h-4 w-4" /></span><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Crédito</span></div><div className="mt-2 flex items-baseline justify-between gap-2"><p className="truncate text-xs font-bold">{cc.name}</p><p className="font-display text-lg font-bold tracking-tight">{fmt(used)}</p></div><div className="mt-2 h-1.5 overflow-hidden rounded-full bg-background/70"><div className="h-full rounded-full bg-expense" style={{ width: `${pct}%` }} /></div><div className="mt-1.5 flex justify-between text-[9px] text-muted-foreground"><span>Disp. {fmt(available)}</span><span>Lim. {fmt(cc.limit)}</span></div></article>;
+              return <article key={cc.id} className="workspace-panel h-[118px] min-w-[232px] shrink-0 snap-start p-3.5 lg:h-[128px] lg:min-w-[256px]"><div className="flex items-center justify-between gap-2"><span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-expense/10 text-expense"><CreditCard className="h-4 w-4" /></span><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Crédito</span></div><div className="mt-2 flex items-baseline justify-between gap-2"><p className="min-w-0 truncate text-xs font-bold">{cc.name}</p><p className="shrink-0 font-display text-lg font-bold tabular-nums tracking-tight">{fmt(used)}</p></div><div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-background/70"><div className="h-full rounded-full bg-expense" style={{ width: `${pct}%` }} /></div><div className="mt-1.5 flex justify-between gap-2 text-[9px] tabular-nums text-muted-foreground"><span className="truncate">Disp. {fmt(available)}</span><span className="shrink-0">Lim. {fmt(cc.limit)}</span></div></article>;
             })}
           </div>
         </section>
       )}
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[1.35fr_0.9fr]">
+      <div className="grid grid-cols-1 gap-3.5 lg:grid-cols-[1.35fr_0.9fr]">
         <ChartCard title="Ritmo de gastos">
-          <ResponsiveContainer width="100%" height={195}>
+          <ResponsiveContainer width="100%" height={180}>
             <LineChart data={lineData}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
               <XAxis dataKey="date" tick={CHART_TICK} tickMargin={8} />
@@ -228,7 +244,7 @@ export default function Dashboard() {
         </ChartCard>
 
         <ChartCard title="Categorias que mais pesam">
-          <ResponsiveContainer width="100%" height={195}>
+          <ResponsiveContainer width="100%" height={180}>
             <BarChart data={barData} margin={{ left: 4, right: 12 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
               <XAxis dataKey="category" tick={CHART_TICK} tickMargin={8} interval={0} angle={-18} dy={8} height={52} />
@@ -250,8 +266,8 @@ export default function Dashboard() {
         </ChartCard>
       </div>
 
-      <section className="workspace-panel overflow-hidden p-4 sm:p-5">
-        <div className="mb-4 flex items-center justify-between"><div><p className="eyebrow">Leitura rápida</p><h2 className="mt-1 text-lg font-bold">Sinais do período</h2></div><TrendingUp className="h-5 w-5 text-primary" /></div>
+      <section className="workspace-panel overflow-hidden p-3.5 sm:p-4">
+        <div className="mb-2 flex items-center justify-between"><div><p className="eyebrow">Leitura rápida</p><h2 className="mt-1 text-lg font-bold">Sinais do período</h2></div><TrendingUp className="h-5 w-5 text-primary" /></div>
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
           {insights.map((text, i) => (
             <InsightCard key={i} text={text} />
