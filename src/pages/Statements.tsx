@@ -47,7 +47,14 @@ import {
 } from "@/lib/statements";
 import type { Transaction } from "@/lib/types";
 import { PAYMENT_METHODS } from "@/lib/types";
-import { CHART_GRID, CHART_TICK, CHART_TOOLTIP_STYLE, chartColor } from "@/lib/chart-theme";
+import {
+  CHART_GRID,
+  CHART_MONEY_AXIS_WIDTH,
+  CHART_TICK,
+  CHART_TOOLTIP_STYLE,
+  chartColor,
+  chartMoneyTick,
+} from "@/lib/chart-theme";
 import {
   exportStatementsToCsv,
   exportStatementsToExcel,
@@ -479,7 +486,7 @@ export default function Statements() {
                   </defs>
                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
                   <XAxis dataKey="label" tick={axisTick} interval="preserveStartEnd" minTickGap={28} tickMargin={8} />
-                  <YAxis tick={axisTick} width={56} tickFormatter={(value: number) => value >= 1000 ? `${Math.round(value / 100) / 10}k` : `${value}`} />
+                  <YAxis tick={axisTick} width={CHART_MONEY_AXIS_WIDTH} tickFormatter={chartMoneyTick} />
                   <Tooltip
                     contentStyle={tooltipStyle}
                     labelStyle={{ color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}

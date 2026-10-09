@@ -13,7 +13,14 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TransactionDetail } from "@/components/TransactionDetail";
 import { calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
-import { CHART_GRID, CHART_TICK, CHART_TOOLTIP_STYLE, chartColor } from "@/lib/chart-theme";
+import {
+  CHART_GRID,
+  CHART_MONEY_AXIS_WIDTH,
+  CHART_TICK,
+  CHART_TOOLTIP_STYLE,
+  chartColor,
+  chartMoneyTick,
+} from "@/lib/chart-theme";
 import { cn } from "@/lib/utils";
 import type { Transaction } from "@/lib/types";
 import {
@@ -444,23 +451,75 @@ export default function ExpenseAnalytics() {
       {!invalidCustom && (
         <>
           {/* KPIs */}
-          <section className="workspace-panel grid overflow-hidden lg:h-[205px] lg:grid-cols-[1.1fr_1fr]">
-            <div className="dashboard-card relative flex h-[145px] flex-col justify-between overflow-hidden rounded-none border-0 bg-[linear-gradient(135deg,hsl(var(--expense)/.82),hsl(348_50%_30%))] p-4 text-white shadow-none lg:h-full lg:p-5">
-              <div className="absolute -right-10 -top-14 h-40 w-40 rounded-full border-[24px] border-white/10" />
-              <div className="relative flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-white/70">Gasto Total</span><Wallet className="h-5 w-5" /></div>
-              <div className="relative"><p className="font-display text-3xl font-bold tracking-[-0.045em] lg:text-4xl">{money(visibleSummary.total)}</p><span className="mt-1 block text-[10px] text-white/70">{visibleExpenses.length} lançamentos no recorte atual</span></div>
-            </div>
-            <div className="grid grid-cols-2 bg-card">
-              <div className="dashboard-card col-span-2 flex min-h-[92px] flex-row items-center justify-between rounded-none border-0 border-b border-border/70 p-3.5 shadow-none lg:min-h-0 lg:p-4">
-                <div><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Média por Dia</span><p className="mt-1 font-display text-xl font-bold">{money(computeDailyAverage(visibleSummary.total, visibleDays))}</p></div><CalendarDays className="h-4 w-4 text-primary" />
+          <section aria-label="Indicadores do período" className="grid grid-cols-2 gap-3 md:grid-cols-6 xl:grid-cols-12">
+            <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(var(--expense)/.82),hsl(348_50%_30%))] p-4 text-white md:col-span-6 lg:p-5 xl:col-span-4">
+              <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-white/5" />
+              <div className="relative flex items-center justify-between gap-3">
+                <span className="text-[13px] font-bold uppercase tracking-[0.18em] text-white/75">
+                  Gasto Total
+                </span>
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5">
+                  <Wallet className="h-4 w-4" />
+                </span>
               </div>
-              <div className="dashboard-card flex min-h-[92px] flex-col justify-center rounded-none border-0 border-r border-border/70 p-3.5 shadow-none lg:min-h-0 lg:p-4">
-                <Tag className="h-4 w-4 text-primary" /><div><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Maior Categoria</span><p className="mt-1 truncate font-display text-base font-bold">{topCategory ? topCategory.category : "—"}</p>{topCategory && <span className="text-[10px] text-muted-foreground">{money(topCategory.total)} · {percent(Math.round(topCategory.percentage))}</span>}</div>
+              <p className="relative break-words font-display font-bold leading-none tracking-[-0.04em] tabular-nums text-[clamp(2rem,2.6vw,2.625rem)]">
+                {money(visibleSummary.total)}
+              </p>
+              <p className="relative text-[13px] leading-snug text-white/75">
+                {visibleExpenses.length} lançamento{visibleExpenses.length === 1 ? "" : "s"} no recorte
+                atual
+              </p>
+            </article>
+
+            <article className="dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 md:col-span-2 lg:min-h-[132px] lg:p-5 xl:col-span-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[13px] font-semibold text-muted-foreground">Média por Dia</span>
+                <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
               </div>
-              <div className="dashboard-card flex min-h-[92px] flex-col justify-center rounded-none border-0 p-3.5 shadow-none lg:min-h-0 lg:p-4">
-                <Percent className="h-4 w-4 text-primary" /><div><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Variação</span><p className={cn("mt-1 font-display text-base font-bold", variation?.direction === "up" ? "text-expense" : variation?.direction === "down" ? "text-income" : "text-foreground")}>{variationValue}</p><span className="text-[10px] text-muted-foreground">{variation ? previousComparisonLabel : "Sem comparação"}</span></div>
+              <p className="break-words font-display font-bold leading-none tracking-tight tabular-nums text-[clamp(1.5rem,1.9vw,2rem)]">
+                {money(computeDailyAverage(visibleSummary.total, visibleDays))}
+              </p>
+              <p className="text-[12px] leading-tight text-muted-foreground">
+                Média de {visibleDays} dia{visibleDays === 1 ? "" : "s"} no período
+              </p>
+            </article>
+
+            <article className="dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 md:col-span-2 lg:min-h-[132px] lg:p-5 xl:col-span-3">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[13px] font-semibold text-muted-foreground">Maior Categoria</span>
+                <Tag className="h-4 w-4 shrink-0 text-primary" />
               </div>
-            </div>
+              <p className="truncate font-display font-bold leading-none tracking-tight tabular-nums text-[clamp(1.25rem,1.6vw,1.75rem)]">
+                {topCategory ? topCategory.category : "—"}
+              </p>
+              <p className="truncate text-[12px] leading-tight tabular-nums text-muted-foreground">
+                {topCategory
+                  ? `${money(topCategory.total)} · ${percent(Math.round(topCategory.percentage))}`
+                  : "Sem categorias no período"}
+              </p>
+            </article>
+
+            <article className="dashboard-card col-span-2 flex min-h-[116px] flex-col justify-center gap-2 p-4 md:col-span-2 lg:min-h-[132px] lg:p-5 xl:col-span-2">
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-[13px] font-semibold text-muted-foreground">Variação</span>
+                <Percent className="h-4 w-4 shrink-0 text-primary" />
+              </div>
+              <p
+                className={cn(
+                  "break-words font-display font-bold leading-none tracking-tight tabular-nums text-[clamp(1.5rem,1.9vw,2rem)]",
+                  variation?.direction === "up"
+                    ? "text-expense"
+                    : variation?.direction === "down"
+                      ? "text-income"
+                      : "text-foreground",
+                )}
+              >
+                {variationValue}
+              </p>
+              <p className="text-[12px] leading-tight text-muted-foreground">
+                {variation ? previousComparisonLabel : "Sem comparação"}
+              </p>
+            </article>
           </section>
 
           {periodExpenses.length === 0 ? (
@@ -490,7 +549,7 @@ export default function ExpenseAnalytics() {
               <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.82fr_1.18fr]">
                 <ChartCard title="Gastos por Categoria">
                   <div className="relative">
-                    <ResponsiveContainer width="100%" height={240}>
+                    <ResponsiveContainer width="100%" height={256}>
                       <RechartsPieChart>
                         <Pie
                           data={donutData}
@@ -526,10 +585,10 @@ export default function ExpenseAnalytics() {
                       </RechartsPieChart>
                     </ResponsiveContainer>
                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="max-w-[8rem] truncate text-xs text-muted-foreground">
+                      <span className="max-w-[9rem] truncate text-[13px] text-muted-foreground">
                         {selectedCategory ?? "Total do período"}
                       </span>
-                      <span className="text-lg font-bold text-foreground">
+                      <span className="text-2xl font-bold tabular-nums text-foreground">
                         {money(centerValue)}
                       </span>
                     </div>
@@ -542,7 +601,7 @@ export default function ExpenseAnalytics() {
                           type="button"
                           onClick={() => toggleCategory(entry.category)}
                           className={cn(
-                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-xs transition-colors hover:bg-accent/50",
+                            "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-accent/50",
                             selectedCategory === entry.category &&
                               "bg-primary/10 ring-1 ring-primary/40",
                           )}
@@ -572,7 +631,7 @@ export default function ExpenseAnalytics() {
                   ) : (
                     <>
                       {previousEvolution && (
-                        <div className="mb-2 flex items-center gap-4 text-[11px] text-muted-foreground">
+                        <div className="mb-2 flex items-center gap-4 text-[12px] text-muted-foreground">
                           <span className="flex items-center gap-1.5">
                             <span className="h-0.5 w-4 rounded bg-primary" />
                             Período atual
@@ -583,7 +642,7 @@ export default function ExpenseAnalytics() {
                           </span>
                         </div>
                       )}
-                      <ResponsiveContainer width="100%" height={240}>
+                      <ResponsiveContainer width="100%" height={256}>
                         <LineChart data={chartData}>
                           <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
                           <XAxis
@@ -593,7 +652,11 @@ export default function ExpenseAnalytics() {
                             minTickGap={16}
                             tickMargin={8}
                           />
-                          <YAxis tick={CHART_TICK} width={52} />
+                          <YAxis
+                            tick={CHART_TICK}
+                            width={CHART_MONEY_AXIS_WIDTH}
+                            tickFormatter={chartMoneyTick}
+                          />
                           <Tooltip
                             contentStyle={CHART_TOOLTIP_STYLE}
                             labelStyle={{ color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}
@@ -800,7 +863,7 @@ export default function ExpenseAnalytics() {
                       </div>
 
                       {budget.months > 1 && (
-                        <p className="mt-2 text-[11px] text-muted-foreground">
+                      <p className="mt-2 text-[12px] text-muted-foreground">
                           Orçamentos multiplicados pelos {budget.months} meses do período.
                         </p>
                       )}
