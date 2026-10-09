@@ -47,7 +47,7 @@ import {
 } from "@/lib/statements";
 import type { Transaction } from "@/lib/types";
 import { PAYMENT_METHODS } from "@/lib/types";
-import { chartColor } from "@/lib/chart-theme";
+import { CHART_GRID, CHART_TICK, CHART_TOOLTIP_STYLE, chartColor } from "@/lib/chart-theme";
 import {
   exportStatementsToCsv,
   exportStatementsToExcel,
@@ -62,13 +62,8 @@ const money = (value: number) => value.toLocaleString("pt-BR", { style: "currenc
 const percent = (value: number) => `${value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
 const formatDateBR = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR");
 
-const tooltipStyle = {
-  backgroundColor: "hsl(158 35% 11%)",
-  border: "1px solid hsl(157 24% 24%)",
-  borderRadius: 8,
-  color: "#f1f5f9",
-};
-const axisTick = { fontSize: 11, fill: "hsl(157 8% 43%)" };
+const tooltipStyle = CHART_TOOLTIP_STYLE;
+const axisTick = CHART_TICK;
 
 type PeriodShortcut = "today" | "7d" | "month" | "prevMonth" | "30d" | "90d" | "year";
 
@@ -234,16 +229,16 @@ export default function Statements() {
   };
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-5 pb-4 sm:space-y-7">
+    <div className="mx-auto max-w-[1500px] space-y-4 pb-4 sm:space-y-5">
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="eyebrow">Histórico financeiro</p>
-          <h1 className="mt-2 text-3xl font-bold tracking-[-0.04em] text-foreground sm:text-5xl">Extratos</h1>
-          <p className="mt-2 max-w-xl text-sm text-muted-foreground">Investigue cada movimento e encontre padrões no seu dinheiro.</p>
+          <h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl">Extratos</h1>
+          <p className="mt-1 max-w-xl text-xs text-muted-foreground sm:text-sm">Investigue cada movimento e encontre padrões no seu dinheiro.</p>
         </div>
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" disabled={rows.length === 0} className="h-11 gap-2 rounded-xl bg-card">
+            <Button variant="outline" disabled={rows.length === 0} className="h-9 gap-2 rounded-lg bg-card">
               <Download className="h-4 w-4 shrink-0" />
               <span className="hidden sm:inline">Exportar</span>
             </Button>
@@ -262,14 +257,14 @@ export default function Statements() {
         </DropdownMenu>
       </div>
 
-      <button type="button" onClick={() => setFiltersOpen((open) => !open)} className="workspace-panel flex w-full items-center justify-between p-4 text-left xl:hidden">
+      <button type="button" onClick={() => setFiltersOpen((open) => !open)} className="workspace-panel flex w-full items-center justify-between p-3 text-left xl:hidden">
         <span className="flex items-center gap-2 text-sm font-bold"><SlidersHorizontal className="h-4 w-4 text-primary" />Filtros e período</span>
         <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
       </button>
 
-      <div className="grid items-start gap-5 xl:grid-cols-[290px_minmax(0,1fr)]">
-      <aside className={`${filtersOpen ? "block" : "hidden"} workspace-panel space-y-5 p-4 sm:p-5 xl:sticky xl:top-24 xl:block`}>
-        <div className="flex items-center justify-between border-b border-border/70 pb-4"><div><p className="eyebrow">Refinar</p><h2 className="mt-1 text-lg font-bold">Consulta</h2></div><ListFilter className="h-4 w-4 text-primary" /></div>
+      <div className="grid items-start gap-4 xl:grid-cols-[260px_minmax(0,1fr)]">
+      <aside className={`${filtersOpen ? "block" : "hidden"} workspace-panel space-y-4 p-4 xl:sticky xl:top-20 xl:block`}>
+        <div className="flex items-center justify-between border-b border-border/70 pb-3"><div><p className="eyebrow">Refinar</p><h2 className="mt-0.5 text-base font-bold">Consulta</h2></div><ListFilter className="h-4 w-4 text-primary" /></div>
         <div className="grid grid-cols-1 gap-3">
           <div className="space-y-1">
             <span className="text-xs font-medium text-muted-foreground">Origem</span>
@@ -389,7 +384,7 @@ export default function Statements() {
         </div>
       </aside>
 
-      <div className="min-w-0 space-y-5 sm:space-y-6">
+      <div className="min-w-0 space-y-4">
 
       {isCardMode ? (
         <section className="workspace-panel grid overflow-hidden grid-cols-2 lg:grid-cols-4">
@@ -398,7 +393,7 @@ export default function Statements() {
             { label: "Estornos / Créditos", value: money(cardSummary.refunds), icon: TrendingUp, tone: "text-income" },
             { label: "Total líquido", value: money(cardSummary.net), icon: Wallet, tone: cardSummary.net < 0 ? "text-expense" : "text-foreground" },
             { label: "Qtd. compras", value: String(cardSummary.count), icon: Hash, tone: "text-foreground" },
-          ].map((item) => <div key={item.label} className="border-b border-r border-border/70 p-4 last:border-r-0 lg:border-b-0 sm:p-5"><item.icon className={`h-4 w-4 ${item.tone}`} /><span className="mt-5 block text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{item.label}</span><p className={`mt-1 font-display text-lg font-bold tracking-tight sm:text-xl ${item.tone}`}>{item.value}</p></div>)}
+          ].map((item) => <div key={item.label} className="border-b border-r border-border/70 p-3.5 last:border-r-0 lg:border-b-0"><div className="flex items-center justify-between"><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{item.label}</span><item.icon className={`h-3.5 w-3.5 ${item.tone}`} /></div><p className={`mt-2 font-display text-lg font-bold tracking-tight ${item.tone}`}>{item.value}</p></div>)}
         </section>
       ) : (
         <section className="workspace-panel grid overflow-hidden grid-cols-2 lg:grid-cols-[1fr_1fr_1.25fr_0.75fr]">
@@ -407,7 +402,7 @@ export default function Statements() {
             { label: "Saídas", value: money(accountSummary.expense), icon: TrendingDown, tone: "text-expense" },
             { label: "Saldo do período", value: money(accountSummary.balance), icon: Wallet, tone: accountSummary.balance < 0 ? "text-expense" : "text-primary", featured: true },
             { label: "Movimentações", value: String(accountSummary.count), icon: Hash, tone: "text-foreground" },
-          ].map((item) => <div key={item.label} className={`${item.featured ? "bg-primary/[0.06]" : ""} border-b border-r border-border/70 p-4 last:border-r-0 lg:border-b-0 sm:p-5`}><item.icon className={`h-4 w-4 ${item.tone}`} /><span className="mt-5 block text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{item.label}</span><p className={`mt-1 font-display text-lg font-bold tracking-tight sm:text-xl ${item.tone}`}>{item.value}</p></div>)}
+          ].map((item) => <div key={item.label} className={`${item.featured ? "bg-primary/[0.06]" : ""} border-b border-r border-border/70 p-3.5 last:border-r-0 lg:border-b-0`}><div className="flex items-center justify-between"><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">{item.label}</span><item.icon className={`h-3.5 w-3.5 ${item.tone}`} /></div><p className={`mt-2 font-display text-lg font-bold tracking-tight ${item.tone}`}>{item.value}</p></div>)}
         </section>
       )}
 
@@ -424,7 +419,7 @@ export default function Statements() {
               ) : (
                 <>
                   <div className="relative">
-                    <ResponsiveContainer width="100%" height={220}>
+                    <ResponsiveContainer width="100%" height={190}>
                       <RechartsPieChart>
                         <Pie
                           data={categories}
@@ -433,7 +428,7 @@ export default function Statements() {
                           innerRadius={55}
                           outerRadius={88}
                           paddingAngle={2}
-                           stroke="hsl(44 33% 98%)"
+                            stroke="hsl(var(--card))"
                           strokeWidth={2}
                         >
                           {categories.map((slice, index) => (
@@ -470,19 +465,19 @@ export default function Statements() {
             </ChartCard>
 
             <ChartCard title="Evolução no tempo">
-              <ResponsiveContainer width="100%" height={230}>
+              <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={daily} margin={{ left: 4, right: 12, top: 8 }}>
                   <defs>
                     <linearGradient id="statementIncomeFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(160 84% 39%)" stopOpacity={0.35} />
-                      <stop offset="100%" stopColor="hsl(160 84% 39%)" stopOpacity={0.02} />
+                       <stop offset="0%" stopColor="hsl(158 70% 45%)" stopOpacity={0.35} />
+                       <stop offset="100%" stopColor="hsl(158 70% 45%)" stopOpacity={0.02} />
                     </linearGradient>
                     <linearGradient id="statementExpenseFill" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="hsl(0 72% 51%)" stopOpacity={0.32} />
-                      <stop offset="100%" stopColor="hsl(0 72% 51%)" stopOpacity={0.02} />
+                       <stop offset="0%" stopColor="hsl(5 76% 61%)" stopOpacity={0.32} />
+                       <stop offset="100%" stopColor="hsl(5 76% 61%)" stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
-                   <CartesianGrid strokeDasharray="3 3" stroke="hsl(43 14% 82%)" vertical={false} />
+                   <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
                   <XAxis dataKey="label" tick={axisTick} interval="preserveStartEnd" minTickGap={28} tickMargin={8} />
                   <YAxis tick={axisTick} width={56} tickFormatter={(value: number) => value >= 1000 ? `${Math.round(value / 100) / 10}k` : `${value}`} />
                   <Tooltip
@@ -494,21 +489,21 @@ export default function Statements() {
                     type="monotone"
                     dataKey="income"
                     name={isCardMode ? "Estornos" : "Entradas"}
-                    stroke="hsl(160 84% 39%)"
+                     stroke="hsl(158 70% 45%)"
                     strokeWidth={2.5}
                     fill="url(#statementIncomeFill)"
                     dot={false}
-                    activeDot={{ r: 4, fill: "hsl(160 84% 39%)", strokeWidth: 0 }}
+                     activeDot={{ r: 4, fill: "hsl(158 70% 45%)", strokeWidth: 0 }}
                   />
                   <Area
                     type="monotone"
                     dataKey="expense"
                     name={isCardMode ? "Compras" : "Saídas"}
-                    stroke="hsl(0 72% 51%)"
+                     stroke="hsl(5 76% 61%)"
                     strokeWidth={2.5}
                     fill="url(#statementExpenseFill)"
                     dot={false}
-                    activeDot={{ r: 4, fill: "hsl(0 72% 51%)", strokeWidth: 0 }}
+                     activeDot={{ r: 4, fill: "hsl(5 76% 61%)", strokeWidth: 0 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
@@ -551,11 +546,11 @@ export default function Statements() {
                   <>
                     <ResponsiveContainer width="100%" height={Math.max(200, byOrigin.length * 46)}>
                       <BarChart data={byOrigin} layout="vertical" margin={{ left: 8, right: 20, top: 4, bottom: 4 }} barCategoryGap="28%">
-                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(43 14% 82%)" horizontal={false} />
+                         <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} horizontal={false} />
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="label" tick={{ ...axisTick, fontSize: 11 }} width={120} />
                         <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [money(Number(value)), "Movimentado"]} cursor={{ fill: "hsl(224 14% 22% / 0.35)" }} />
-                         <Bar dataKey="volume" radius={[4, 8, 8, 4]} background={{ fill: "hsl(42 18% 91%)", radius: 8 } as never}>
+                          <Bar dataKey="volume" radius={[4, 8, 8, 4]} background={{ fill: "hsl(215 18% 15%)", radius: 8 } as never}>
                           {byOrigin.map((slice, index) => (
                             <Cell
                               key={slice.key}
@@ -594,11 +589,11 @@ export default function Statements() {
                 <>
                     <ResponsiveContainer width="100%" height={Math.max(200, byPayment.length * 46)}>
                       <BarChart data={byPayment} layout="vertical" margin={{ left: 8, right: 20, top: 4, bottom: 4 }} barCategoryGap="28%">
-                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(43 14% 82%)" horizontal={false} />
+                         <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} horizontal={false} />
                         <XAxis type="number" hide />
                         <YAxis type="category" dataKey="method" tick={{ ...axisTick, fontSize: 11 }} width={120} />
                         <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [money(Number(value)), "Movimentado"]} cursor={{ fill: "hsl(224 14% 22% / 0.35)" }} />
-                         <Bar dataKey="volume" radius={[4, 8, 8, 4]} background={{ fill: "hsl(42 18% 91%)", radius: 8 } as never}>
+                          <Bar dataKey="volume" radius={[4, 8, 8, 4]} background={{ fill: "hsl(215 18% 15%)", radius: 8 } as never}>
                         {byPayment.map((slice, index) => (
                           <Cell
                             key={slice.method}
@@ -629,7 +624,7 @@ export default function Statements() {
             </ChartCard>
           </div>
 
-          <section className="workspace-panel overflow-hidden p-4 sm:p-6">
+          <section className="workspace-panel overflow-hidden p-3.5 sm:p-4">
             <div className="mb-3 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-foreground">
                 Movimentações · {rows.length}
@@ -646,7 +641,7 @@ export default function Statements() {
                     key={transaction.id}
                     type="button"
                     onClick={() => setViewing(transaction)}
-                    className="rounded-2xl border border-border/80 bg-card p-4 text-left shadow-sm transition-transform active:scale-[0.99]"
+                    className="rounded-xl border border-border/80 bg-secondary/20 p-3 text-left transition-transform active:scale-[0.99]"
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-muted-foreground">{formatDateBR(transaction.date)}</span>

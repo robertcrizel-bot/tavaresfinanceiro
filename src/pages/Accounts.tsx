@@ -109,8 +109,8 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
   const closingPreviewAmount = getInvoiceClosingPreviewAmount(closingCandidates, closingInvoiceExcludedIds);
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl">
-      <h1 className="text-xl sm:text-2xl font-bold text-foreground">Contas & Cartões</h1>
+    <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
+      <div><p className="eyebrow">Estrutura financeira</p><h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl">Contas & Cartões</h1></div>
 
       <Tabs defaultValue="accounts">
         <TabsList>
@@ -118,7 +118,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
           <TabsTrigger value="cards" className="gap-2"><CreditCardIcon className="h-4 w-4" /> Cartões</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="accounts" className="space-y-4 mt-4">
+        <TabsContent value="accounts" className="mt-3 space-y-3">
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={() => { setTransferOpen(true); setTransferFrom(""); setTransferTo(""); setTransferAmount(""); setTransferDesc(""); }} className="gap-2">
               <ArrowLeftRight className="h-4 w-4" /> Transferir
@@ -133,12 +133,12 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
               Nenhuma conta cadastrada.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {accounts.map((acc) => {
                 const balance = accountBalances[acc.id];
                 return (
-                  <div key={acc.id} className={`glass-card rounded-xl p-5 border-l-4 animate-fade-in ${colorClasses[acc.color] || "border-primary"}`}>
-                    <div className="flex items-start justify-between mb-3">
+                  <div key={acc.id} className={`glass-card animate-fade-in rounded-xl border-l-2 p-3.5 ${colorClasses[acc.color] || "border-primary"}`}>
+                    <div className="mb-2 flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         <Landmark className="h-5 w-5" />
                         <div>
@@ -155,12 +155,12 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                         </Button>
                       </div>
                     </div>
-                    <p className={`text-2xl font-bold ${balance >= 0 ? "text-income" : "text-expense"}`}>{fmt(balance)}</p>
+                    <p className={`font-display text-xl font-bold ${balance >= 0 ? "text-income" : "text-expense"}`}>{fmt(balance)}</p>
                     <p className="text-xs text-muted-foreground mt-1">Saldo inicial: {fmt(acc.initialBalance)}</p>
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="mt-3 gap-2 text-xs text-muted-foreground hover:text-foreground"
+                      className="mt-2 h-7 gap-2 px-2 text-xs text-muted-foreground hover:text-foreground"
                       onClick={() => setStatementAccount({ id: acc.id, name: acc.name, initialBalance: acc.initialBalance })}
                     >
                       <FileText className="h-3.5 w-3.5" /> Ver extrato
@@ -172,7 +172,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
           )}
         </TabsContent>
 
-        <TabsContent value="cards" className="space-y-4 mt-4">
+        <TabsContent value="cards" className="mt-3 space-y-3">
           <div className="flex justify-end">
             <Button onClick={() => { setEditingCc(undefined); setCcFormOpen(true); }} className="gap-2">
               <Plus className="h-4 w-4" /> Novo Cartão
@@ -184,7 +184,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
               Nenhum cartão cadastrado.
             </div>
           ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
               {creditCards.map((cc) => {
                 const used = getCardCommittedAmount(transactions, cc.id, creditCardInvoices);
                 const invoice = selectCardInvoice(creditCardInvoices, transactions, cc.id);
@@ -210,8 +210,8 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                   ? accounts.find((account) => account.id === invoice.paymentAccountId)
                   : undefined;
                 return (
-                  <div key={cc.id} className={`glass-card rounded-xl p-5 border-l-4 animate-fade-in ${colorClasses[cc.color] || "border-primary"}`}>
-                    <div className="flex items-start justify-between mb-3">
+                  <div key={cc.id} className={`glass-card animate-fade-in rounded-xl border-l-2 p-4 ${colorClasses[cc.color] || "border-primary"}`}>
+                    <div className="mb-2 flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         <CreditCardIcon className="h-5 w-5" />
                         <div>
@@ -229,19 +229,19 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                       </div>
                     </div>
                     <p className="text-xs text-muted-foreground">Limite comprometido</p>
-                    <p className="text-2xl font-bold text-expense">{fmt(used)}</p>
-                    <div className="mt-2 w-full h-2 rounded-full bg-muted overflow-hidden">
+                    <p className="font-display text-xl font-bold text-expense">{fmt(used)}</p>
+                    <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-muted">
                       <div className="h-full rounded-full bg-expense transition-all" style={{ width: `${pct}%` }} />
                     </div>
                     <div className="flex justify-between text-xs text-muted-foreground mt-1">
                       <span>Disponível: {fmt(available)}</span>
                       <span>Limite: {fmt(cc.limit)}</span>
                     </div>
-                    <div className="mt-4 rounded-lg border border-border/70 bg-background/30 p-3 space-y-2">
+                    <div className="mt-3 space-y-1.5 rounded-lg border border-border/70 bg-background/30 p-2.5">
                       <div className="flex items-center justify-between gap-3">
                         <div>
                           <p className="text-xs text-muted-foreground">Fatura atual</p>
-                          <p className="text-xl font-bold text-foreground">{fmt(currentInvoice)}</p>
+                          <p className="text-lg font-bold text-foreground">{fmt(currentInvoice)}</p>
                         </div>
                         <Badge variant={status === "PAID" ? "default" : status === "CLOSED" ? "destructive" : "secondary"}>
                           {status === "PAID" ? "Paga" : status === "CLOSED" ? "Fechada" : "Aberta"}
@@ -261,7 +261,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                         <p className="text-xs text-muted-foreground">Conta: {paymentAccount.name}</p>
                       )}
                     </div>
-<div className="mt-3 grid grid-cols-2 gap-2">
+<div className="mt-2 grid grid-cols-2 gap-1.5">
                       <Button
                         variant="ghost"
                         size="sm"

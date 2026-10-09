@@ -173,9 +173,9 @@ export default function Records() {
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl">
+    <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Meus Registros</h1>
+        <div><p className="eyebrow">Histórico completo</p><h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl">Meus Registros</h1></div>
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
           <Button
             variant="outline"
@@ -205,14 +205,14 @@ export default function Records() {
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-3">
+      <div className="workspace-panel flex flex-col gap-2 p-3 sm:flex-row">
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
           <Input id="search-records" placeholder="Buscar em todas as colunas..." value={search} onChange={(e) => setSearch(e.target.value)} className="pl-9" />
         </div>
-        <div className="flex gap-3">
+        <div className="grid grid-cols-3 gap-2 sm:flex">
           <Select value={typeFilter} onValueChange={(v) => setTypeFilter(v as "all" | TransactionType)}>
-            <SelectTrigger className="w-full sm:w-[150px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[130px]"><SelectValue placeholder="Tipo" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todos</SelectItem>
               <SelectItem value="income">Entrada</SelectItem>
@@ -220,7 +220,7 @@ export default function Records() {
             </SelectContent>
           </Select>
           <Select value={catFilter} onValueChange={(v) => setCatFilter(v)}>
-            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[160px]"><SelectValue placeholder="Categoria" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas</SelectItem>
               {allCategoryNames.map((c) => (
@@ -229,7 +229,7 @@ export default function Records() {
             </SelectContent>
           </Select>
           <Select value={sourceFilter} onValueChange={(v) => setSourceFilter(v)}>
-            <SelectTrigger className="w-full sm:w-[200px]"><SelectValue placeholder="Conta/Cartão" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-[180px]"><SelectValue placeholder="Conta/Cartão" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="all">Todas as contas</SelectItem>
               {accounts.map((a) => (
@@ -254,9 +254,9 @@ export default function Records() {
       ) : (
         <>
           {/* Mobile card layout */}
-          <div className="flex flex-col gap-3 md:hidden">
+          <div className="flex flex-col gap-2 md:hidden">
             {filtered.map((t) => (
-              <div key={t.id} className="glass-card rounded-xl p-4 animate-fade-in space-y-3">
+              <div key={t.id} className="glass-card animate-fade-in space-y-2 rounded-xl p-3">
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 min-w-0">
@@ -311,8 +311,8 @@ export default function Records() {
 
           {/* Desktop table */}
           <div className="glass-card rounded-xl overflow-hidden animate-fade-in hidden md:block">
-            <Table className="[&_th]:px-3 [&_td]:px-3">
-              <TableHeader>
+            <Table>
+              <TableHeader className="bg-secondary/35">
                 <TableRow className="border-border hover:bg-transparent">
                   <SortableHead col="date">Data</SortableHead>
                   <SortableHead col="title">Título</SortableHead>
@@ -329,7 +329,7 @@ export default function Records() {
               </TableHeader>
               <TableBody>
                 {filtered.map((t) => (
-                  <TableRow key={t.id} className="border-border transition-colors">
+                  <TableRow key={t.id} className="border-border transition-colors odd:bg-secondary/10 hover:bg-accent/40">
                     <TableCell className="text-muted-foreground text-sm">
                       {new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR")}
                     </TableCell>
@@ -363,14 +363,14 @@ export default function Records() {
                     </TableCell>
                     <TableCell className="text-right">
                       <div className="flex justify-end gap-1">
-                        <Button variant="ghost" size="icon" onClick={() => setViewing(t)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setViewing(t)}>
                           <Eye className="h-4 w-4" />
                         </Button>
                         {!isSystemInvoiceTransaction(t) && <>
-                          <Button variant="ghost" size="icon" onClick={() => { setEditing(t); setFormOpen(true); }}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setEditing(t); setFormOpen(true); }}>
                             <Pencil className="h-4 w-4" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => setDeleting(t.id)}>
+                          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleting(t.id)}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </>}

@@ -21,7 +21,7 @@ export function BottomNav() {
   return (
     <nav
       aria-label="Navegação principal"
-      className="safe-area-bottom fixed inset-x-3 bottom-3 z-50 rounded-[1.35rem] border border-white/10 bg-sidebar/95 p-1.5 shadow-[0_18px_50px_rgba(13,35,27,0.38)] backdrop-blur-xl md:hidden"
+      className="safe-area-bottom fixed inset-x-2 bottom-2 z-50 rounded-2xl border border-sidebar-border bg-sidebar/95 p-1 shadow-[0_16px_45px_rgba(0,0,0,0.55)] backdrop-blur-xl md:hidden"
     >
       <div className="grid grid-cols-5 gap-1">
         {primaryItems.map((item) => {
@@ -33,8 +33,8 @@ export function BottomNav() {
               end={item.url === "/"}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "relative flex min-w-0 flex-col items-center justify-center gap-1 rounded-[0.95rem] px-1 py-2 text-sidebar-foreground/65 transition-all",
-                active && "bg-sidebar-primary text-sidebar-primary-foreground shadow-lg",
+                "relative flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-sidebar-foreground/65 transition-all",
+                active && "bg-sidebar-primary/10 text-sidebar-primary ring-1 ring-sidebar-primary/20",
               )}
             >
               <item.icon className="h-4.5 w-4.5" aria-hidden="true" />
@@ -48,7 +48,7 @@ export function BottomNav() {
           aria-label="Abrir todas as áreas"
           aria-current={moreActive ? "page" : undefined}
           className={cn(
-            "flex min-w-0 flex-col items-center justify-center gap-1 rounded-[0.95rem] px-1 py-2 text-sidebar-foreground/65 transition-all",
+            "flex min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-sidebar-foreground/65 transition-all",
             moreActive && "bg-sidebar-accent text-sidebar-primary",
           )}
         >

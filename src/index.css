@@ -6,60 +6,60 @@
 
 @layer base {
   :root {
-    --background: 42 24% 95%;
-    --foreground: 158 29% 12%;
+    --background: 216 28% 8%;
+    --foreground: 210 24% 94%;
 
-    --card: 44 33% 98%;
-    --card-foreground: 158 29% 12%;
+    --card: 215 25% 12%;
+    --card-foreground: 210 24% 94%;
 
-    --popover: 44 33% 98%;
-    --popover-foreground: 158 29% 12%;
+    --popover: 214 25% 14%;
+    --popover-foreground: 210 24% 94%;
 
-    --primary: 153 72% 27%;
-    --primary-foreground: 44 45% 97%;
+    --primary: 168 72% 43%;
+    --primary-foreground: 216 31% 8%;
 
-    --secondary: 42 21% 90%;
-    --secondary-foreground: 158 25% 17%;
+    --secondary: 215 19% 17%;
+    --secondary-foreground: 210 18% 88%;
 
-    --muted: 42 18% 91%;
-    --muted-foreground: 157 8% 43%;
+    --muted: 215 18% 15%;
+    --muted-foreground: 214 12% 62%;
 
-    --accent: 148 25% 88%;
-    --accent-foreground: 157 31% 15%;
+    --accent: 213 22% 19%;
+    --accent-foreground: 210 24% 94%;
 
-    --destructive: 5 67% 50%;
-    --destructive-foreground: 44 45% 97%;
+    --destructive: 5 76% 61%;
+    --destructive-foreground: 210 30% 98%;
 
-    --success: 153 72% 27%;
-    --success-foreground: 44 45% 97%;
+    --success: 158 70% 45%;
+    --success-foreground: 216 31% 8%;
 
-    --warning: 35 89% 48%;
-    --warning-foreground: 158 29% 12%;
+    --warning: 38 90% 58%;
+    --warning-foreground: 216 31% 8%;
 
-    --income: 153 72% 27%;
-    --expense: 5 67% 50%;
-    --info: 199 69% 38%;
+    --income: 158 70% 45%;
+    --expense: 5 76% 61%;
+    --info: 194 76% 55%;
 
-    --border: 43 14% 82%;
-    --input: 43 14% 78%;
-    --ring: 153 72% 27%;
+    --border: 214 18% 21%;
+    --input: 214 18% 24%;
+    --ring: 168 72% 43%;
 
-    --radius: 1rem;
+    --radius: 0.75rem;
 
-    --sidebar-background: 158 35% 11%;
-    --sidebar-foreground: 142 13% 77%;
-    --sidebar-primary: 83 82% 64%;
-    --sidebar-primary-foreground: 158 35% 11%;
-    --sidebar-accent: 157 29% 17%;
-    --sidebar-accent-foreground: 44 45% 97%;
-    --sidebar-border: 157 24% 20%;
-    --sidebar-ring: 83 82% 64%;
+    --sidebar-background: 218 34% 6%;
+    --sidebar-foreground: 214 14% 70%;
+    --sidebar-primary: 168 72% 43%;
+    --sidebar-primary-foreground: 218 34% 6%;
+    --sidebar-accent: 216 25% 13%;
+    --sidebar-accent-foreground: 210 24% 96%;
+    --sidebar-border: 216 22% 15%;
+    --sidebar-ring: 168 72% 43%;
 
-    --chart-1: 153 72% 27%;
-    --chart-2: 199 69% 38%;
-    --chart-3: 262 48% 52%;
-    --chart-4: 35 89% 48%;
-    --chart-5: 5 67% 50%;
+    --chart-1: 168 72% 43%;
+    --chart-2: 194 76% 55%;
+    --chart-3: 265 68% 68%;
+    --chart-4: 38 90% 58%;
+    --chart-5: 5 76% 61%;
   }
 }
 
@@ -69,7 +69,7 @@
   }
 
   html {
-    color-scheme: light;
+    color-scheme: dark;
     background: hsl(var(--background));
   }
 
@@ -77,10 +77,9 @@
     @apply bg-background text-foreground font-sans antialiased;
     min-width: 320px;
     background-image:
-      radial-gradient(circle at 78% -10%, hsl(83 82% 64% / 0.13), transparent 28rem),
-      linear-gradient(hsl(var(--border) / 0.16) 1px, transparent 1px),
-      linear-gradient(90deg, hsl(var(--border) / 0.16) 1px, transparent 1px);
-    background-size: auto, 40px 40px, 40px 40px;
+      radial-gradient(circle at 78% -15%, hsl(var(--primary) / 0.08), transparent 32rem),
+      radial-gradient(circle at -10% 65%, hsl(var(--info) / 0.04), transparent 28rem);
+    background-attachment: fixed;
   }
 
   h1, h2, h3 {
@@ -94,7 +93,7 @@
 
 @layer utilities {
   .glass-card {
-    @apply border border-white/70 bg-card/80 backdrop-blur-xl shadow-[0_18px_60px_-35px_rgba(20,46,35,0.28)];
+    @apply border border-border/80 bg-card/90 backdrop-blur-xl shadow-[0_14px_40px_-28px_rgba(0,0,0,0.75)];
   }
 
   .safe-area-bottom {
@@ -112,7 +111,7 @@
   }
 
   .dashboard-card {
-    @apply rounded-2xl border border-border/80 bg-card animate-fade-in shadow-[0_18px_55px_-38px_rgba(20,46,35,0.45)];
+    @apply rounded-xl border border-border/80 bg-card animate-fade-in shadow-[0_14px_36px_-26px_rgba(0,0,0,0.8)];
   }
 
   .dashboard-card-balance {
@@ -120,7 +119,7 @@
   }
 
   .workspace-panel {
-    @apply rounded-[1.35rem] border border-border/80 bg-card shadow-[0_20px_60px_-42px_rgba(20,46,35,0.45)];
+    @apply rounded-2xl border border-border/80 bg-card shadow-[0_16px_42px_-30px_rgba(0,0,0,0.85)];
   }
 
   .eyebrow {
@@ -130,8 +129,8 @@
 
 /* Recharts tooltip */
 .recharts-default-tooltip {
-  background-color: hsl(158 35% 11%) !important;
-  border: 1px solid hsl(157 24% 24%) !important;
+  background-color: hsl(216 28% 9%) !important;
+  border: 1px solid hsl(214 18% 25%) !important;
   border-radius: 12px !important;
   box-shadow: 0 16px 40px rgba(20, 46, 35, 0.25) !important;
   color: #f8f7f2 !important;

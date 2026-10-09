@@ -13,7 +13,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { TransactionDetail } from "@/components/TransactionDetail";
 import { calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
-import { chartColor } from "@/lib/chart-theme";
+import { CHART_GRID, CHART_TICK, CHART_TOOLTIP_STYLE, chartColor } from "@/lib/chart-theme";
 import { cn } from "@/lib/utils";
 import type { Transaction } from "@/lib/types";
 import {
@@ -317,16 +317,16 @@ export default function ExpenseAnalytics() {
     : periodSummary.total;
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-5 pb-4 sm:space-y-7">
+    <div className="mx-auto max-w-[1500px] space-y-4 pb-4 sm:space-y-5">
       {/* Header + period */}
       <div className="space-y-4">
-        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+        <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div className="min-w-0">
             <p className="eyebrow">Inteligência de gastos</p>
             <h1 className="sr-only">Análises de Despesas</h1>
-            <h2 className="mt-2 text-3xl font-bold tracking-[-0.04em] text-foreground sm:text-5xl">Para onde seu dinheiro está indo?</h2>
+            <h2 className="mt-1 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl">Para onde seu dinheiro está indo?</h2>
             {range && (
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-1 text-xs text-muted-foreground sm:text-sm">
                 Análises de Despesas · {shortDate(range.start)} – {shortDate(range.end)}
               </p>
             )}
@@ -444,21 +444,21 @@ export default function ExpenseAnalytics() {
       {!invalidCustom && (
         <>
           {/* KPIs */}
-          <section className="workspace-panel grid overflow-hidden lg:grid-cols-[1.15fr_1fr]">
-            <div className="dashboard-card relative flex min-h-[230px] flex-col justify-between overflow-hidden rounded-none border-0 bg-[#d94f3d] p-6 text-white shadow-none sm:p-8">
-              <div className="absolute -right-10 -top-16 h-48 w-48 rounded-full border-[30px] border-white/10" />
+          <section className="workspace-panel grid overflow-hidden lg:h-[205px] lg:grid-cols-[1.1fr_1fr]">
+            <div className="dashboard-card relative flex h-[145px] flex-col justify-between overflow-hidden rounded-none border-0 bg-[linear-gradient(135deg,hsl(var(--expense)/.82),hsl(348_50%_30%))] p-4 text-white shadow-none lg:h-full lg:p-5">
+              <div className="absolute -right-10 -top-14 h-40 w-40 rounded-full border-[24px] border-white/10" />
               <div className="relative flex items-center justify-between"><span className="text-[10px] font-extrabold uppercase tracking-[0.22em] text-white/70">Gasto Total</span><Wallet className="h-5 w-5" /></div>
-              <div className="relative"><p className="font-display text-4xl font-bold tracking-[-0.05em] sm:text-5xl">{money(visibleSummary.total)}</p><span className="mt-3 block text-xs text-white/70">{visibleExpenses.length} lançamentos no recorte atual</span></div>
+              <div className="relative"><p className="font-display text-3xl font-bold tracking-[-0.045em] lg:text-4xl">{money(visibleSummary.total)}</p><span className="mt-1 block text-[10px] text-white/70">{visibleExpenses.length} lançamentos no recorte atual</span></div>
             </div>
-            <div className="grid grid-cols-3 bg-card">
-              <div className="dashboard-card flex min-h-[115px] flex-col justify-between rounded-none border-0 border-b border-r border-border/70 p-4 shadow-none sm:p-6 lg:col-span-3">
-                <CalendarDays className="h-4 w-4 text-primary" /><div><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Média por Dia</span><p className="mt-1 font-display text-xl font-bold sm:text-2xl">{money(computeDailyAverage(visibleSummary.total, visibleDays))}</p></div>
+            <div className="grid grid-cols-2 bg-card">
+              <div className="dashboard-card col-span-2 flex min-h-[92px] flex-row items-center justify-between rounded-none border-0 border-b border-border/70 p-3.5 shadow-none lg:min-h-0 lg:p-4">
+                <div><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Média por Dia</span><p className="mt-1 font-display text-xl font-bold">{money(computeDailyAverage(visibleSummary.total, visibleDays))}</p></div><CalendarDays className="h-4 w-4 text-primary" />
               </div>
-              <div className="dashboard-card col-span-2 flex min-h-[115px] flex-col justify-between rounded-none border-0 border-r border-border/70 p-4 shadow-none sm:p-6">
-                <Tag className="h-4 w-4 text-primary" /><div><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Maior Categoria</span><p className="mt-1 truncate font-display text-lg font-bold">{topCategory ? topCategory.category : "—"}</p>{topCategory && <span className="text-[10px] text-muted-foreground">{money(topCategory.total)} · {percent(Math.round(topCategory.percentage))}</span>}</div>
+              <div className="dashboard-card flex min-h-[92px] flex-col justify-center rounded-none border-0 border-r border-border/70 p-3.5 shadow-none lg:min-h-0 lg:p-4">
+                <Tag className="h-4 w-4 text-primary" /><div><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Maior Categoria</span><p className="mt-1 truncate font-display text-base font-bold">{topCategory ? topCategory.category : "—"}</p>{topCategory && <span className="text-[10px] text-muted-foreground">{money(topCategory.total)} · {percent(Math.round(topCategory.percentage))}</span>}</div>
               </div>
-              <div className="dashboard-card flex min-h-[115px] flex-col justify-between rounded-none border-0 p-4 shadow-none sm:p-6">
-                <Percent className="h-4 w-4 text-primary" /><div><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Variação</span><p className={cn("mt-1 font-display text-lg font-bold", variation?.direction === "up" ? "text-expense" : variation?.direction === "down" ? "text-income" : "text-foreground")}>{variationValue}</p><span className="text-[10px] text-muted-foreground">{variation ? previousComparisonLabel : "Sem comparação"}</span></div>
+              <div className="dashboard-card flex min-h-[92px] flex-col justify-center rounded-none border-0 p-3.5 shadow-none lg:min-h-0 lg:p-4">
+                <Percent className="h-4 w-4 text-primary" /><div><span className="text-[9px] font-bold uppercase tracking-widest text-muted-foreground">Variação</span><p className={cn("mt-1 font-display text-base font-bold", variation?.direction === "up" ? "text-expense" : variation?.direction === "down" ? "text-income" : "text-foreground")}>{variationValue}</p><span className="text-[10px] text-muted-foreground">{variation ? previousComparisonLabel : "Sem comparação"}</span></div>
               </div>
             </div>
           </section>
@@ -499,7 +499,7 @@ export default function ExpenseAnalytics() {
                           innerRadius={58}
                           outerRadius={92}
                           paddingAngle={2}
-                          stroke="hsl(44 33% 98%)"
+                          stroke="hsl(var(--card))"
                           strokeWidth={2}
                         >
                           {donutData.map((entry, index) => (
@@ -516,12 +516,7 @@ export default function ExpenseAnalytics() {
                           ))}
                         </Pie>
                         <Tooltip
-                          contentStyle={{
-                            backgroundColor: "hsl(158 35% 11%)",
-                            border: "1px solid hsl(157 24% 24%)",
-                            borderRadius: 8,
-                            color: "#f1f5f9",
-                          }}
+                          contentStyle={CHART_TOOLTIP_STYLE}
                           labelStyle={{ color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}
                           formatter={(value: number, name: string) => [
                             money(Number(value)),
@@ -590,22 +585,17 @@ export default function ExpenseAnalytics() {
                       )}
                       <ResponsiveContainer width="100%" height={240}>
                         <LineChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke="hsl(43 14% 82%)" vertical={false} />
+                          <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
                           <XAxis
                             dataKey="label"
-                            tick={{ fontSize: 11, fill: "hsl(157 8% 43%)" }}
+                            tick={CHART_TICK}
                             interval="preserveStartEnd"
                             minTickGap={16}
                             tickMargin={8}
                           />
-                          <YAxis tick={{ fontSize: 11, fill: "hsl(157 8% 43%)" }} width={52} />
+                          <YAxis tick={CHART_TICK} width={52} />
                           <Tooltip
-                            contentStyle={{
-                              backgroundColor: "hsl(158 35% 11%)",
-                              border: "1px solid hsl(157 24% 24%)",
-                              borderRadius: 8,
-                              color: "#f1f5f9",
-                            }}
+                            contentStyle={CHART_TOOLTIP_STYLE}
                             labelStyle={{ color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}
                             formatter={(value: number, name: string) => [
                               money(Number(value)),
@@ -616,7 +606,7 @@ export default function ExpenseAnalytics() {
                             <Line
                               type="monotone"
                               dataKey="previous"
-                              stroke="hsl(157 8% 55%)"
+                              stroke="hsl(214 12% 55%)"
                               strokeWidth={1.5}
                               strokeDasharray="4 3"
                               dot={false}
@@ -625,10 +615,10 @@ export default function ExpenseAnalytics() {
                           <Line
                             type="monotone"
                             dataKey="total"
-                            stroke="hsl(153 72% 27%)"
+                            stroke="hsl(168 72% 43%)"
                             strokeWidth={2.5}
                             dot={false}
-                            activeDot={{ r: 4, fill: "hsl(153 72% 27%)", strokeWidth: 0 }}
+                            activeDot={{ r: 4, fill: "hsl(168 72% 43%)", strokeWidth: 0 }}
                           />
                         </LineChart>
                       </ResponsiveContainer>

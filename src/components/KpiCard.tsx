@@ -58,7 +58,7 @@ export function KpiCard({ title, value, icon: Icon, trend, trendUp, color, negat
 
   return (
     <div className={cn(
-      "dashboard-card flex min-h-[118px] flex-col justify-between p-4 sm:min-h-[132px] sm:p-5",
+      "dashboard-card flex min-h-[96px] flex-col justify-between p-3.5 sm:min-h-[104px] sm:p-4",
       c.surface,
       className,
     )}>

@@ -227,15 +227,13 @@ export default function Forecasts() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-foreground flex items-center gap-2">
-            <CalendarClock className="h-6 w-6 text-primary" />
-            Previsões
-          </h1>
-          <p className="text-sm text-muted-foreground mt-1">Gerencie suas entradas e saídas previstas</p>
+          <p className="eyebrow">Planejamento</p>
+          <h1 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl"><CalendarClock className="h-5 w-5 text-primary" />Previsões</h1>
+          <p className="mt-1 text-xs text-muted-foreground sm:text-sm">Gerencie suas entradas e saídas previstas</p>
         </div>
         <Button onClick={openNew} size="sm" className="gap-1.5 self-start sm:self-auto whitespace-nowrap">
           <Plus className="h-4 w-4" /> Nova Previsão
@@ -243,9 +241,9 @@ export default function Forecasts() {
       </div>
 
       {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        <Card className="border-border bg-card">
-          <CardContent className="p-4 flex items-center gap-3">
+      <div className="workspace-panel grid grid-cols-1 overflow-hidden sm:grid-cols-3">
+        <Card className="rounded-none border-0 border-b border-border/70 bg-card shadow-none sm:border-b-0 sm:border-r">
+          <CardContent className="flex items-center gap-3 p-3.5">
             <div className="p-2 rounded-lg bg-destructive/10">
               <ArrowUpRight className="h-5 w-5 text-destructive" />
             </div>
@@ -257,8 +255,8 @@ export default function Forecasts() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border bg-card">
-          <CardContent className="p-4 flex items-center gap-3">
+        <Card className="rounded-none border-0 border-b border-border/70 bg-card shadow-none sm:border-b-0 sm:border-r">
+          <CardContent className="flex items-center gap-3 p-3.5">
             <div className="p-2 rounded-lg bg-income/10">
               <ArrowDownLeft className="h-5 w-5 text-income" />
             </div>
@@ -270,8 +268,8 @@ export default function Forecasts() {
             </div>
           </CardContent>
         </Card>
-        <Card className="border-border bg-card">
-          <CardContent className="p-4 flex items-center gap-3">
+        <Card className="rounded-none border-0 bg-card shadow-none">
+          <CardContent className="flex items-center gap-3 p-3.5">
             <div className={`p-2 rounded-lg ${saldoProjetado > 0 ? "bg-income/10" : saldoProjetado < 0 ? "bg-destructive/10" : "bg-muted"}`}>
               <CircleDollarSign className={`h-5 w-5 ${saldoProjetado > 0 ? "text-income" : saldoProjetado < 0 ? "text-destructive" : "text-muted-foreground"}`} />
             </div>
@@ -286,7 +284,7 @@ export default function Forecasts() {
       </div>
 
       {/* Month selector */}
-      <div className="flex items-center justify-center gap-2 sm:gap-4">
+      <div className="flex items-center justify-center gap-2">
         <Button variant="outline" size="icon" onClick={() => setCurrentMonth((m) => subMonths(m, 1))}>
           <ChevronLeft className="h-4 w-4" />
         </Button>
@@ -301,14 +299,14 @@ export default function Forecasts() {
       {/* Bills list */}
       {activeBills.length === 0 ? (
         <Card className="border-border bg-card">
-          <CardContent className="p-8 text-center text-muted-foreground">
+          <CardContent className="p-6 text-center text-muted-foreground">
             <CalendarClock className="h-12 w-12 mx-auto mb-3 opacity-40" />
             <p className="font-medium">Nenhuma previsão para este mês</p>
             <p className="text-sm mt-1">Clique em "Nova Previsão" para começar</p>
           </CardContent>
         </Card>
       ) : (
-        <div className="space-y-2">
+        <div className="grid gap-2 xl:grid-cols-2">
           {activeBills.map((bill) => {
             const payment = getPayment(bill.id);
             const effectiveAmount = payment ? getEffectiveAmount(bill, payment) : bill.amount;
@@ -323,7 +321,7 @@ export default function Forecasts() {
 
             return (
               <Card key={bill.id} className="border-border bg-card hover:bg-accent/30 transition-colors">
-                <CardContent className="p-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                 <CardContent className="flex flex-col gap-2.5 p-3 sm:flex-row sm:items-center sm:justify-between">
                   <div className="flex items-start gap-3 min-w-0">
                     <div className={`p-2 rounded-lg shrink-0 mt-0.5 ${
                        status.kind === "paid" ? "bg-primary/10" :

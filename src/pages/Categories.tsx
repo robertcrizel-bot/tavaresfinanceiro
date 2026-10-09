@@ -77,9 +77,9 @@ export default function Categories() {
     list.length === 0 ? (
       <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">Nenhuma categoria.</div>
     ) : (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {list.map((cat) => (
-          <div key={cat.id} className="glass-card rounded-xl p-4 animate-fade-in min-w-0">
+          <div key={cat.id} className="glass-card min-w-0 animate-fade-in rounded-xl p-3">
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <Tag className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -104,7 +104,7 @@ export default function Categories() {
               const spent = monthlySpending[cat.name] || 0;
               const usage = calculateCategoryBudgetUsage(spent, cat.monthlyBudget);
               return (
-                <div className="mt-3 space-y-1.5 border-t border-border/60 pt-3 text-xs">
+                <div className="mt-2.5 space-y-1.5 border-t border-border/60 pt-2.5 text-xs">
                   <div className="flex flex-wrap items-baseline justify-between gap-x-2 gap-y-1">
                     <span className="font-medium">{formatCurrency(spent)} / {formatCurrency(cat.monthlyBudget)}</span>
                     <span className="text-muted-foreground">{Math.round(usage.percentage)}% utilizado</span>
@@ -128,9 +128,9 @@ export default function Categories() {
   );
 
   return (
-    <div className="space-y-4 sm:space-y-6 max-w-7xl">
+    <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl sm:text-2xl font-bold text-foreground">Categorias</h1>
+        <div><p className="eyebrow">Organização</p><h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl">Categorias</h1></div>
         <Button onClick={openNew} className="gap-2">
           <Plus className="h-4 w-4" /> Nova Categoria
         </Button>
@@ -141,8 +141,8 @@ export default function Categories() {
           <TabsTrigger value="expense">Saída</TabsTrigger>
           <TabsTrigger value="income">Entrada</TabsTrigger>
         </TabsList>
-        <TabsContent value="expense" className="mt-4">{renderList(expenseCategories)}</TabsContent>
-        <TabsContent value="income" className="mt-4">{renderList(incomeCategories)}</TabsContent>
+        <TabsContent value="expense" className="mt-3">{renderList(expenseCategories)}</TabsContent>
+        <TabsContent value="income" className="mt-3">{renderList(incomeCategories)}</TabsContent>
       </Tabs>
 
       {/* Form Dialog */}
