@@ -16,9 +16,12 @@ const secondaryRoutes = ["/accounts", "/transfers", "/categories", "/forecasts",
 
 const itemClass = (active: boolean) =>
   cn(
-    "relative flex min-w-[72px] shrink-0 grow snap-start flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-sidebar-foreground/65 transition-all",
-    active && "bg-sidebar-primary/10 text-sidebar-primary ring-1 ring-sidebar-primary/20",
+    "relative flex min-w-[86px] shrink-0 grow snap-start flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-sidebar-foreground/70 transition-all",
+    active && "bg-sidebar-primary/15 text-sidebar-primary ring-1 ring-sidebar-primary/30",
   );
+
+const iconClass = (active: boolean) =>
+  cn("h-5 w-5", active ? "text-sidebar-primary" : "text-sidebar-foreground");
 
 export function BottomNav() {
   const { pathname } = useLocation();
@@ -31,8 +34,8 @@ export function BottomNav() {
       className="safe-area-bottom fixed inset-x-2 bottom-2 z-50 rounded-2xl border border-sidebar-border bg-sidebar/95 p-1 shadow-[0_16px_45px_rgba(0,0,0,0.55)] backdrop-blur-xl md:hidden"
     >
       <ScrollCarousel
-        className="gap-1 pb-0"
-        controlClassName="h-7 w-7"
+        className="gap-1 px-8 pb-0 scroll-pl-8"
+        controlClassName="h-8 w-8"
         edgeClassName="from-sidebar/95"
         prevLabel="Navegar para itens anteriores"
         nextLabel="Navegar para próximos itens"
@@ -47,7 +50,7 @@ export function BottomNav() {
               aria-current={active ? "page" : undefined}
               className={itemClass(active)}
             >
-              <item.icon className="h-4.5 w-4.5" aria-hidden="true" />
+              <item.icon className={iconClass(active)} aria-hidden="true" />
               <span className="max-w-full truncate text-[9px] font-bold">{item.title}</span>
             </NavLink>
           );
@@ -58,11 +61,11 @@ export function BottomNav() {
           aria-label="Abrir todas as áreas"
           aria-current={moreActive ? "page" : undefined}
           className={cn(
-            "relative flex min-w-[72px] shrink-0 grow snap-start flex-col items-center justify-center gap-0.5 rounded-xl px-1 py-1.5 text-sidebar-foreground/65 transition-all",
-            moreActive && "bg-sidebar-accent text-sidebar-primary",
+            "relative flex min-w-[86px] shrink-0 grow snap-start flex-col items-center justify-center gap-1 rounded-xl px-1 py-1.5 text-sidebar-foreground/70 transition-all",
+            moreActive && "bg-sidebar-accent text-sidebar-primary ring-1 ring-sidebar-primary/30",
           )}
         >
-          <Menu className="h-4.5 w-4.5" aria-hidden="true" />
+          <Menu className={iconClass(moreActive)} aria-hidden="true" />
           <span className="text-[9px] font-bold">Mais</span>
         </button>
       </ScrollCarousel>
