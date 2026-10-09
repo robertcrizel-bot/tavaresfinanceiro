@@ -27,6 +27,7 @@ import { isFinancialNeutralTransaction } from "@/lib/transaction-classification"
 import {
   CHART_GRID,
   CHART_MONEY_AXIS_WIDTH,
+  CHART_SEMANTIC,
   CHART_TICK,
   CHART_TOOLTIP_STYLE,
   chartColor,
@@ -302,8 +303,8 @@ export default function Dashboard() {
       </div>
 
       <section aria-label="Indicadores do período" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(168_52%_20%),hsl(216_28%_11%))] p-4 text-white lg:p-5">
-          <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-white/5" />
+        <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(170_56%_22%),hsl(214_32%_10%))] p-4 text-white lg:p-5">
+          <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-primary/25" />
           <div className="relative flex items-center justify-between gap-3">
             <span className="text-[13px] font-bold uppercase tracking-[0.18em] text-white/75">
               Saldo do Período
@@ -346,7 +347,7 @@ export default function Dashboard() {
         <article className={cn(KPI_CARD, "col-span-1")}>
           <div className="flex items-center justify-between gap-2">
             <span className={KPI_LABEL}>Gasto Médio Diário</span>
-            <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
+            <CalendarDays className="h-4 w-4 shrink-0 text-info" />
           </div>
           <p className={KPI_VALUE}>{fmt(avgDaily)}</p>
           <p className={KPI_NOTE}>Média de {days} dia{days === 1 ? "" : "s"} no período</p>
@@ -355,7 +356,7 @@ export default function Dashboard() {
         <article className={cn(KPI_CARD, "col-span-1")}>
           <div className="flex items-center justify-between gap-2">
             <span className={KPI_LABEL}>Maior Categoria</span>
-            <Tag className="h-4 w-4 shrink-0 text-primary" />
+            <Tag className="h-4 w-4 shrink-0 text-warning" />
           </div>
           <p className={cn(KPI_VALUE_BASE, "truncate text-[clamp(1.25rem,1.6vw,1.75rem)]")} title={topCategory.cat}>
             {topCategory.cat}
@@ -407,10 +408,10 @@ export default function Dashboard() {
                 <article
                   key={acc.id}
                   data-carousel-item
-                  className="workspace-panel h-[134px] w-[240px] shrink-0 snap-start p-4 lg:h-[144px] lg:w-[268px]"
+                  className="workspace-panel h-[134px] w-[240px] shrink-0 snap-start bg-[linear-gradient(155deg,hsl(169_34%_15%),hsl(215_26%_12%))] p-4 lg:h-[144px] lg:w-[268px]"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
                       <Landmark className="h-4 w-4" />
                     </span>
                     <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -439,10 +440,10 @@ export default function Dashboard() {
                 <article
                   key={cc.id}
                   data-carousel-item
-                  className="workspace-panel h-[134px] w-[240px] shrink-0 snap-start p-4 lg:h-[144px] lg:w-[268px]"
+                  className="workspace-panel h-[134px] w-[240px] shrink-0 snap-start bg-[linear-gradient(155deg,hsl(14_32%_15%),hsl(215_26%_12%))] p-4 lg:h-[144px] lg:w-[268px]"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-expense/10 text-expense">
+                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-expense/15 text-expense">
                       <CreditCard className="h-4 w-4" />
                     </span>
                     <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
@@ -456,7 +457,7 @@ export default function Dashboard() {
                     </p>
                   </div>
                   <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
-                    <div className="h-full rounded-full bg-expense" style={{ width: `${pct}%` }} />
+                    <div className="h-full rounded-full bg-[linear-gradient(90deg,hsl(14_62%_58%),hsl(30_70%_54%))]" style={{ width: `${pct}%` }} />
                   </div>
                   <div className="mt-1.5 flex justify-between gap-2 text-[12px] tabular-nums text-muted-foreground">
                     <span className="truncate">Disponível {fmt(available)}</span>
@@ -490,10 +491,10 @@ export default function Dashboard() {
               <Line
                 type="monotone"
                 dataKey="total"
-                stroke="hsl(5 76% 61%)"
+                stroke={CHART_SEMANTIC.expense}
                 strokeWidth={2.5}
-                dot={{ r: 3, fill: "hsl(5 76% 61%)", strokeWidth: 0 }}
-                activeDot={{ r: 4, fill: "hsl(5 76% 61%)", strokeWidth: 0 }}
+                dot={{ r: 3, fill: CHART_SEMANTIC.expense, strokeWidth: 0 }}
+                activeDot={{ r: 4, fill: CHART_SEMANTIC.expense, strokeWidth: 0 }}
               />
             </LineChart>
           </ResponsiveContainer>

@@ -16,6 +16,7 @@ import { calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
 import {
   CHART_GRID,
   CHART_MONEY_AXIS_WIDTH,
+  CHART_SEMANTIC,
   CHART_TICK,
   CHART_TOOLTIP_STYLE,
   chartColor,
@@ -452,8 +453,8 @@ export default function ExpenseAnalytics() {
         <>
           {/* KPIs */}
           <section aria-label="Indicadores do período" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(var(--expense)/.82),hsl(348_50%_30%))] p-4 text-white lg:p-5">
-              <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-white/5" />
+            <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(var(--expense)/.80),hsl(352_44%_26%))] p-4 text-white lg:p-5">
+              <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-expense/30" />
               <div className="relative flex items-center justify-between gap-3">
                 <span className="text-[13px] font-bold uppercase tracking-[0.18em] text-white/75">
                   Gasto Total
@@ -474,7 +475,7 @@ export default function ExpenseAnalytics() {
             <article className="dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:min-h-[132px] lg:p-5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] font-semibold text-muted-foreground">Média por Dia</span>
-                <CalendarDays className="h-4 w-4 shrink-0 text-primary" />
+                <CalendarDays className="h-4 w-4 shrink-0 text-info" />
               </div>
               <p className="break-words font-display font-bold leading-none tracking-tight tabular-nums text-[clamp(1.5rem,1.9vw,2rem)]">
                 {money(computeDailyAverage(visibleSummary.total, visibleDays))}
@@ -487,7 +488,7 @@ export default function ExpenseAnalytics() {
             <article className="dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:min-h-[132px] lg:p-5">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] font-semibold text-muted-foreground">Maior Categoria</span>
-                <Tag className="h-4 w-4 shrink-0 text-primary" />
+                <Tag className="h-4 w-4 shrink-0 text-warning" />
               </div>
               <p className="truncate font-display font-bold leading-none tracking-tight tabular-nums text-[clamp(1.25rem,1.6vw,1.75rem)]">
                 {topCategory ? topCategory.category : "—"}
@@ -669,7 +670,7 @@ export default function ExpenseAnalytics() {
                             <Line
                               type="monotone"
                               dataKey="previous"
-                              stroke="hsl(214 12% 55%)"
+                              stroke={CHART_SEMANTIC.previous}
                               strokeWidth={1.5}
                               strokeDasharray="4 3"
                               dot={false}
@@ -678,10 +679,10 @@ export default function ExpenseAnalytics() {
                           <Line
                             type="monotone"
                             dataKey="total"
-                            stroke="hsl(168 72% 43%)"
+                            stroke={CHART_SEMANTIC.trend}
                             strokeWidth={2.5}
-                            dot={false}
-                            activeDot={{ r: 4, fill: "hsl(168 72% 43%)", strokeWidth: 0 }}
+                            dot={{ r: 3, fill: CHART_SEMANTIC.trend, strokeWidth: 0 }}
+                            activeDot={{ r: 4, fill: CHART_SEMANTIC.trend, strokeWidth: 0 }}
                           />
                         </LineChart>
                       </ResponsiveContainer>

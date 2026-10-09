@@ -50,6 +50,7 @@ import { PAYMENT_METHODS } from "@/lib/types";
 import {
   CHART_GRID,
   CHART_MONEY_AXIS_WIDTH,
+  CHART_SEMANTIC,
   CHART_TICK,
   CHART_TOOLTIP_STYLE,
   chartColor,
@@ -476,12 +477,12 @@ export default function Statements() {
                 <AreaChart data={daily} margin={{ left: 4, right: 12, top: 8 }}>
                   <defs>
                     <linearGradient id="statementIncomeFill" x1="0" y1="0" x2="0" y2="1">
-                       <stop offset="0%" stopColor="hsl(158 70% 45%)" stopOpacity={0.35} />
-                       <stop offset="100%" stopColor="hsl(158 70% 45%)" stopOpacity={0.02} />
+                       <stop offset="0%" stopColor={CHART_SEMANTIC.income} stopOpacity={0.35} />
+                       <stop offset="100%" stopColor={CHART_SEMANTIC.income} stopOpacity={0.02} />
                     </linearGradient>
                     <linearGradient id="statementExpenseFill" x1="0" y1="0" x2="0" y2="1">
-                       <stop offset="0%" stopColor="hsl(5 76% 61%)" stopOpacity={0.32} />
-                       <stop offset="100%" stopColor="hsl(5 76% 61%)" stopOpacity={0.02} />
+                       <stop offset="0%" stopColor={CHART_SEMANTIC.expense} stopOpacity={0.32} />
+                       <stop offset="100%" stopColor={CHART_SEMANTIC.expense} stopOpacity={0.02} />
                     </linearGradient>
                   </defs>
                    <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
@@ -496,21 +497,21 @@ export default function Statements() {
                     type="monotone"
                     dataKey="income"
                     name={isCardMode ? "Estornos" : "Entradas"}
-                     stroke="hsl(158 70% 45%)"
+                     stroke={CHART_SEMANTIC.income}
                     strokeWidth={2.5}
                     fill="url(#statementIncomeFill)"
                     dot={false}
-                     activeDot={{ r: 4, fill: "hsl(158 70% 45%)", strokeWidth: 0 }}
+                     activeDot={{ r: 4, fill: CHART_SEMANTIC.income, strokeWidth: 0 }}
                   />
                   <Area
                     type="monotone"
                     dataKey="expense"
                     name={isCardMode ? "Compras" : "Saídas"}
-                     stroke="hsl(5 76% 61%)"
+                     stroke={CHART_SEMANTIC.expense}
                     strokeWidth={2.5}
                     fill="url(#statementExpenseFill)"
                     dot={false}
-                     activeDot={{ r: 4, fill: "hsl(5 76% 61%)", strokeWidth: 0 }}
+                     activeDot={{ r: 4, fill: CHART_SEMANTIC.expense, strokeWidth: 0 }}
                   />
                 </AreaChart>
               </ResponsiveContainer>
