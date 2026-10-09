@@ -3,6 +3,8 @@ import {
   PADDLE_OCR_TIMEOUT_MESSAGE,
   PADDLE_OCR_TIMEOUT_MS,
   PaddleOcrError,
+  choosePaddleOcrMode,
+  formatOcrDiagnostic,
   paddleRecognizeWorker,
 } from "@/lib/paddle-ocr-worker";
 
@@ -55,6 +57,8 @@ function resultPayload(id: number, overrides: Record<string, unknown> = {}) {
     ocrMs: 200,
     detectedBoxes: 1,
     recognizedCount: 1,
+    mode: "full",
+    tiles: 1,
     ...overrides,
   };
 }
@@ -68,6 +72,35 @@ describe("paddleRecognizeWorker", () => {
 
   it("uses a 90s safety timeout for slow Android devices", () => {
     expect(PADDLE_OCR_TIMEOUT_MS).toBe(90_000);
+  });
+
+  it("keeps capable desktops on one full-image prediction", () => {
+    expect(choosePaddleOcrMode({
+      viewportWidth: 1440,
+      deviceMemory: 8,
+      maxTouchPoints: 0,
+      coarsePointer: false,
+      android: false,
+    })).toBe("full");
+  });
+
+  it("does not classify a narrow desktop viewport as mobile without touch signals", () => {
+    expect(choosePaddleOcrMode({
+      viewportWidth: 700,
+      deviceMemory: 4,
+      maxTouchPoints: 0,
+      coarsePointer: false,
+      android: false,
+    })).toBe("full");
+  });
+
+  it.each([
+    { viewportWidth: 412, deviceMemory: 8, maxTouchPoints: 5, coarsePointer: true, android: false },
+    { viewportWidth: 1280, deviceMemory: 8, maxTouchPoints: 5, coarsePointer: true, android: true },
+    { viewportWidth: 1024, deviceMemory: null, maxTouchPoints: 5, coarsePointer: true, android: false },
+    { viewportWidth: 1366, deviceMemory: 4, maxTouchPoints: 5, coarsePointer: false, android: false },
+  ])("uses tiled mode for a limited mobile profile", (signals) => {
+    expect(choosePaddleOcrMode(signals)).toBe("tiled");
   });
 
   it("does not time out early on a slow device (default timeout)", async () => {
@@ -89,21 +122,23 @@ describe("paddleRecognizeWorker", () => {
   });
 
   it("attaches a diagnostic with stage on failure", async () => {
-    const pending = paddleRecognizeWorker(makeFile(), undefined, { createWorker, decode, timeoutMs: 1000 });
+    const pending = paddleRecognizeWorker(makeFile(), undefined, { createWorker, decode, timeoutMs: 1000, mode: "full" });
     const worker = await lastWorker();
     worker.onmessage?.({ data: { type: "error", stage: "predict-start", message: "boom" } });
     const error = await pending.catch((e) => e);
     expect(error).toBeInstanceOf(PaddleOcrError);
-    expect(error.diagnostic).toMatchObject({ stage: "predict-start", ocrDimensions: "2x1", error: "boom" });
+    expect(error.diagnostic).toMatchObject({ stage: "predict-start", ocrDimensions: "2x1", mode: "full", tiles: 1, error: "boom" });
+    expect(formatOcrDiagnostic(error.diagnostic)).toContain("mode=full | tiles=1");
   });
 
   it("returns regions and terminates the worker after success", async () => {
     const file = makeFile();
     const onProgress = vi.fn();
-    const pending = paddleRecognizeWorker(file, onProgress, { createWorker, decode, timeoutMs: 1000 });
+    const pending = paddleRecognizeWorker(file, onProgress, { createWorker, decode, timeoutMs: 1000, mode: "full" });
     const worker = await lastWorker();
     expect(worker.posted).toHaveLength(1);
     expect((worker.posted[0] as { pixels: unknown }).pixels).toBeInstanceOf(ArrayBuffer);
+    expect(worker.posted[0]).toMatchObject({ mode: "full" });
 
     worker.onmessage?.({ data: { id: 1, type: "progress", message: "Carregando OCR..." } });
     expect(onProgress).toHaveBeenCalledWith("Carregando OCR...");
@@ -115,7 +150,22 @@ describe("paddleRecognizeWorker", () => {
     expect(outcome.text).toBe("PAO FRANCES");
     expect(outcome.initializationMs).toBe(100);
     expect(outcome.ocrMs).toBe(200);
+    expect(outcome.mode).toBe("full");
+    expect(outcome.tiles).toBe(1);
     expect(worker.terminated).toBe(true);
+  });
+
+  it("sends tiled mode to the worker when the device is limited", async () => {
+    const pending = paddleRecognizeWorker(makeFile(), undefined, {
+      createWorker,
+      decode,
+      timeoutMs: 1000,
+      mode: "tiled",
+    });
+    const worker = await lastWorker();
+    expect(worker.posted[0]).toMatchObject({ mode: "tiled" });
+    worker.onmessage?.({ data: resultPayload(1, { mode: "tiled", tiles: 3 }) });
+    await expect(pending).resolves.toMatchObject({ mode: "tiled", tiles: 3 });
   });
 
   it("terminates the worker after an error message", async () => {

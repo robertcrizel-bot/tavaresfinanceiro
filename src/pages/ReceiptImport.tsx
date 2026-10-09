@@ -107,7 +107,9 @@ export default function ReceiptImport() {
         parserMs: number;
         preparation: LocalOcrPreparationMetrics;
         regionCount: number;
-        itemCount: number;
+         itemCount: number;
+         mode: "full" | "tiled";
+         tiles: number;
       } | null = null;
       setPendingFile(file);
       setLoading(true);
@@ -137,7 +139,9 @@ export default function ReceiptImport() {
           parserMs,
           preparation: localImage.metrics,
           regionCount: ocr.regions.length,
-          itemCount: receiptResult.items.length,
+           itemCount: receiptResult.items.length,
+           mode: ocr.mode,
+           tiles: ocr.tiles,
         };
 
         if (!parsed.is_receipt) {
@@ -189,7 +193,9 @@ export default function ReceiptImport() {
             itemCount: completedRun.itemCount,
             originalDimensions: completedRun.preparation.originalDimensions,
             ocrInputDimensions: completedRun.preparation.outputDimensions,
-            normalization: completedRun.preparation.normalization,
+             normalization: completedRun.preparation.normalization,
+             mode: completedRun.mode,
+             tiles: completedRun.tiles,
           });
         }
         setLoading(false);
