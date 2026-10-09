@@ -15,7 +15,7 @@ import { formatReceiptDescription } from "@/lib/receipt-description";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
 import type { PaddleOcrRegion } from "@/lib/ocr-paddle-test/types";
-import { paddleRecognizeWorker } from "@/lib/paddle-ocr-worker";
+import { paddleRecognizeWorker, PaddleOcrError, formatOcrDiagnostic } from "@/lib/paddle-ocr-worker";
 import {
   interpretReceiptLocally,
   toLocalReceiptInput,
@@ -33,6 +33,7 @@ export default function ReceiptImport() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ocrDiagnostic, setOcrDiagnostic] = useState<string | null>(null);
   const [prefill, setPrefill] = useState<Partial<Omit<Transaction, "id">> | null>(null);
   const [receiptFile, setReceiptFile] = useState<File | null>(null);
   const [receiptRef, setReceiptRef] = useState<string | null>(null);
@@ -117,9 +118,13 @@ export default function ReceiptImport() {
       setLocalMetrics(null);
       setLocalStatus("");
       setReadStatus("Preparando imagem...");
+      setOcrDiagnostic(null);
+      let localImageDims: string | null = null;
       try {
         const localImage = await prepareReceiptForLocalOcr(file);
-        setReadStatus("Carregando OCR...");
+        const dims = localImage.metrics.originalDimensions;
+        localImageDims = dims ? `${dims.width}x${dims.height}` : null;
+        setReadStatus("Inicializando OCR...");
         const ocr = await paddleRecognizeWorker(localImage.image, (status) => setReadStatus(status));
         setReadStatus("Extraindo dados...");
         const parserStart = performance.now();
@@ -164,6 +169,10 @@ export default function ReceiptImport() {
         }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Não foi possível concluir a leitura gratuita.");
+        if (e instanceof PaddleOcrError) {
+          const original = localImageDims;
+          setOcrDiagnostic(formatOcrDiagnostic(e.diagnostic, original));
+        }
       } finally {
         try {
           await releaseDocumentOrientationSession();
@@ -510,7 +519,14 @@ export default function ReceiptImport() {
         {error && (
           <div className="flex items-start gap-2 rounded-md border border-destructive/40 bg-destructive/10 p-3 text-sm text-destructive">
             <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
-            <span>{error}</span>
+            <div className="min-w-0 space-y-2">
+              <span>{error}</span>
+              {ocrDiagnostic && (
+                <pre className="select-all whitespace-pre-wrap break-all rounded bg-background/60 p-2 text-xs text-muted-foreground">
+                  {ocrDiagnostic}
+                </pre>
+              )}
+            </div>
           </div>
         )}
 
