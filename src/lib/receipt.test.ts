@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   compressImageFile: vi.fn(),
   inspectJpegOrientation: vi.fn(),
   correctDocumentOrientation: vi.fn(),
+  functionsInvoke: vi.fn(),
 }));
 
 vi.mock("@/lib/image-compression", () => ({
@@ -17,13 +18,16 @@ vi.mock("@/lib/receipt-image-orientation", () => ({
   correctDocumentOrientation: mocks.correctDocumentOrientation,
 }));
 
-vi.mock("@/integrations/supabase/client", () => ({ supabase: {} }));
+vi.mock("@/integrations/supabase/client", () => ({
+  supabase: { functions: { invoke: mocks.functionsInvoke } },
+}));
 
 beforeEach(() => {
   mocks.compressImageFile.mockReset();
   mocks.inspectJpegOrientation.mockReset();
   mocks.correctDocumentOrientation.mockReset();
   mocks.correctDocumentOrientation.mockImplementation(async (image: File) => image);
+  mocks.functionsInvoke.mockReset();
 });
 
 describe("receiptToImageDataUrl orientation correction", () => {
@@ -145,5 +149,72 @@ describe("prepareReceiptForLocalOcr", () => {
       "NÃ£o foi possÃ­vel concluir a leitura gratuita neste aparelho. VocÃª pode tentar novamente ou usar a leitura com IA.",
     );
     expect(mocks.correctDocumentOrientation).not.toHaveBeenCalled();
+  });
+});
+
+function stubImagePipeline() {
+  mocks.inspectJpegOrientation.mockResolvedValue({ status: "absent", width: 100, height: 100 });
+  mocks.compressImageFile.mockImplementation(async (file: File) => file);
+}
+
+describe("parseReceiptFree", () => {
+  it("sends the image to the free edge function and returns the parsed receipt", async () => {
+    stubImagePipeline();
+    const receipt = { is_receipt: true, type: "expense", amount: 42.5 };
+    mocks.functionsInvoke.mockResolvedValue({ data: receipt, error: null });
+    const { parseReceiptFree } = await import("@/lib/receipt");
+
+    const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
+    const result = await parseReceiptFree(file, { categories: ["Alimentação"], accounts: ["Nubank (Banco)"] });
+
+    expect(result).toEqual(receipt);
+    expect(mocks.functionsInvoke).toHaveBeenCalledTimes(1);
+    const [fn, options] = mocks.functionsInvoke.mock.calls[0];
+    expect(fn).toBe("parse-receipt-free");
+    expect(options.body.imageDataUrl).toMatch(/^data:image\//);
+    expect(options.body.categories).toEqual(["Alimentação"]);
+    expect(options.body.accounts).toEqual(["Nubank (Banco)"]);
+  });
+
+  it("surfaces the backend error message (quota, auth, config)", async () => {
+    stubImagePipeline();
+    mocks.functionsInvoke.mockResolvedValue({
+      data: null,
+      error: { context: { json: async () => ({ error: "A cota gratuita de IA foi atingida no momento." }) } },
+    });
+    const { parseReceiptFree } = await import("@/lib/receipt");
+
+    const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
+    await expect(parseReceiptFree(file, { categories: [], accounts: [] })).rejects.toThrow(
+      "A cota gratuita de IA foi atingida no momento.",
+    );
+  });
+
+  it("throws error payloads returned inside a 2xx body", async () => {
+    stubImagePipeline();
+    mocks.functionsInvoke.mockResolvedValue({ data: { error: "Imagem inválida." }, error: null });
+    const { parseReceiptFree } = await import("@/lib/receipt");
+
+    const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
+    await expect(parseReceiptFree(file, { categories: [], accounts: [] })).rejects.toThrow("Imagem inválida.");
+  });
+});
+
+describe("getFreeAiStatus", () => {
+  it("returns true only when the backend reports the integration available", async () => {
+    mocks.functionsInvoke.mockResolvedValue({ data: { available: true }, error: null });
+    const { getFreeAiStatus } = await import("@/lib/receipt");
+    await expect(getFreeAiStatus()).resolves.toBe(true);
+    expect(mocks.functionsInvoke).toHaveBeenCalledWith("parse-receipt-free", { method: "GET" });
+  });
+
+  it("returns false when unavailable, failing or missing data", async () => {
+    const { getFreeAiStatus } = await import("@/lib/receipt");
+    mocks.functionsInvoke.mockResolvedValue({ data: { available: false }, error: null });
+    await expect(getFreeAiStatus()).resolves.toBe(false);
+    mocks.functionsInvoke.mockResolvedValue({ data: null, error: new Error("offline") });
+    await expect(getFreeAiStatus()).resolves.toBe(false);
+    mocks.functionsInvoke.mockRejectedValue(new Error("no session"));
+    await expect(getFreeAiStatus()).resolves.toBe(false);
   });
 });

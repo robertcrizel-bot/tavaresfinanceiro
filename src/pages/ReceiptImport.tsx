@@ -10,7 +10,7 @@ import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
 import { isShareWorkerOutdated, takeSharedReceiptWithDiagnostics, type ShareDiagnostics } from "@/lib/shared-receipt";
-import { parseReceipt, prepareReceiptForLocalOcr, matchByName, matchCategory, ParsedReceipt, type LocalOcrPreparationMetrics } from "@/lib/receipt";
+import { parseReceipt, parseReceiptFree, getFreeAiStatus, prepareReceiptForLocalOcr, matchByName, matchCategory, ParsedReceipt, type LocalOcrPreparationMetrics } from "@/lib/receipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
@@ -42,6 +42,8 @@ export default function ReceiptImport() {
   const [formOpen, setFormOpen] = useState(false);
   const [cameraOpen, setCameraOpen] = useState(false);
   const [aiConfirmOpen, setAiConfirmOpen] = useState(false);
+  const [freeAiConfirmOpen, setFreeAiConfirmOpen] = useState(false);
+  const [freeAiAvailable, setFreeAiAvailable] = useState(false);
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -309,6 +311,49 @@ export default function ReceiptImport() {
     [accounts, creditCards, allCategoryNames, buildPrefill],
   );
 
+  const processFileWithFreeAi = useCallback(
+    async (file: File) => {
+      setLoading(true);
+      setError(null);
+      setDuplicate(false);
+      localSnapshotRef.current = null;
+      setLocalSnapshotAvailable(false);
+      setLocalMetrics(null);
+      setLocalStatus("");
+      setReadStatus("Lendo com IA grátis...");
+      try {
+        const parsed = await parseReceiptFree(file, {
+          categories: allCategoryNames,
+          accounts: [...accounts.map((a) => `${a.name} (${a.bank})`), ...creditCards.map((c) => `${c.name} (${c.bank})`)],
+        });
+        setReadStatus("Extraindo dados...");
+        if (!parsed.is_receipt) {
+          setError("Essa imagem não parece ser um comprovante. Tente outra foto mais nítida.");
+          return;
+        }
+        if (parsed.receipt_id) {
+          const { data: existing } = await supabase
+            .from("transactions")
+            .select("id")
+            .eq("receipt_ref", parsed.receipt_id)
+            .limit(1);
+          if (existing && existing.length > 0) setDuplicate(true);
+        }
+        setReceiptFile(file);
+        setReceiptRef(parsed.receipt_id ?? null);
+        setLowConfidence(parsed.low_confidence_fields || []);
+        setPrefill(buildPrefill(parsed));
+        setFormOpen(true);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com IA grátis.");
+      } finally {
+        setLoading(false);
+        setReadStatus("");
+      }
+    },
+    [accounts, creditCards, allCategoryNames, buildPrefill],
+  );
+
   const releaseCamera = useCallback(() => {
     cameraRequestRef.current++;
     cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
@@ -427,6 +472,18 @@ export default function ReceiptImport() {
     });
   }, [processFileFast]);
 
+  useEffect(() => {
+    let cancelled = false;
+    void getFreeAiStatus()
+      .then((available) => {
+        if (!cancelled) setFreeAiAvailable(available);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const fieldLabels: Record<string, string> = {
     amount: "valor",
     date: "data",
@@ -515,6 +572,11 @@ export default function ReceiptImport() {
                   <Button variant="outline" disabled={loading} onClick={() => setAiConfirmOpen(true)}>
                     ✨ Ler com IA
                   </Button>
+                  {freeAiAvailable && (
+                    <Button variant="outline" disabled={loading} onClick={() => setFreeAiConfirmOpen(true)}>
+                      ✨ Ler com IA grátis (teste)
+                    </Button>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground">A leitura gratuita usa o OCR local e tem custo R$ 0,00.</p>
               </div>
@@ -574,6 +636,31 @@ export default function ReceiptImport() {
               }}
             >
               Continuar com IA
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={freeAiConfirmOpen} onOpenChange={setFreeAiConfirmOpen}>
+        <DialogContent className="w-[calc(100%-2rem)] max-w-md">
+          <DialogHeader>
+            <DialogTitle>Ler com IA grátis (teste)</DialogTitle>
+            <DialogDescription>
+              Esta leitura envia a foto do comprovante para o Google Gemini no modo gratuito
+              (serviço externo, cota limitada, sem cobrança e sem usar seus créditos do Lovable).
+              Confira os dados antes de salvar. Deseja continuar?
+            </DialogDescription>
+          </DialogHeader>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="ghost" onClick={() => setFreeAiConfirmOpen(false)}>Cancelar</Button>
+            <Button
+              type="button"
+              onClick={() => {
+                setFreeAiConfirmOpen(false);
+                if (pendingFile) void processFileWithFreeAi(pendingFile);
+              }}
+            >
+              Continuar grátis
             </Button>
           </div>
         </DialogContent>

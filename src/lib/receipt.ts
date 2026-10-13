@@ -194,6 +194,47 @@ export async function parseReceipt(
   return data as ParsedReceipt;
 }
 
+/** Reports whether the free external AI reader is configured on the backend. */
+export async function getFreeAiStatus(): Promise<boolean> {
+  try {
+    const { data, error } = await supabase.functions.invoke("parse-receipt-free", {
+      method: "GET",
+    });
+    if (error) return false;
+    return (data as { available?: boolean } | null)?.available === true;
+  } catch {
+    return false;
+  }
+}
+
+/** Reads a receipt with the free external AI reader (Google Gemini free tier). */
+export async function parseReceiptFree(
+  file: File,
+  context: { categories: string[]; accounts: string[] },
+): Promise<ParsedReceipt> {
+  const imageDataUrl = await receiptToImageDataUrl(file);
+  const { data, error } = await supabase.functions.invoke("parse-receipt-free", {
+    body: { imageDataUrl, categories: context.categories, accounts: context.accounts },
+  });
+
+  if (error) {
+    let message = "Não foi possível ler o comprovante com IA grátis agora.";
+    const ctx = (error as { context?: Response }).context;
+    if (ctx && typeof ctx.json === "function") {
+      try {
+        const body = await ctx.json();
+        if (body?.error) message = body.error;
+      } catch {
+        /* ignore */
+      }
+    }
+    throw new Error(message);
+  }
+
+  if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
+  return data as ParsedReceipt;
+}
+
 const normalize = (v: string) =>
   v.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
