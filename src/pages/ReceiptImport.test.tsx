@@ -319,6 +319,13 @@ describe("ReceiptImport metadata", () => {
     expect(screen.queryByTestId("hybrid-ocr-crop-previews")).not.toBeInTheDocument();
   });
 
+  it("warns about the external Android picker and points to the in-app camera", async () => {
+    render(<ReceiptImport />);
+    const hint = screen.getByTestId("receipt-picker-hint");
+    expect(hint).toHaveTextContent(/Tirar foto/);
+    expect(hint).toHaveTextContent(/seletor do Android/);
+  });
+
   it("opens the internal rear camera without a capture input", async () => {
     const { getUserMedia } = installCamera();
     const { container } = render(<ReceiptImport />);

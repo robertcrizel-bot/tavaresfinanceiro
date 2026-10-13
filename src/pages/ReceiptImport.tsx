@@ -600,6 +600,11 @@ export default function ReceiptImport() {
                 <Camera className="h-4 w-4" /> Tirar foto
               </Button>
             </div>
+            <p className="text-xs text-muted-foreground" data-testid="receipt-picker-hint">
+              Para fotografar, prefira "Tirar foto", que usa a câmera do próprio app. "Escolher arquivo" abre
+              a galeria; em alguns celulares, abrir a câmera pelo seletor do Android e voltar pode esgotar a
+              memória e fechar a página.
+            </p>
             <input
               ref={fileInputRef}
               type="file"
