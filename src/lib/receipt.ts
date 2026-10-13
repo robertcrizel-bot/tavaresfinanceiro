@@ -243,6 +243,11 @@ export async function parseReceiptFree(
       try {
         const body = await ctx.json();
         if (body?.error) message = body.error;
+        // Correlation id from the backend: lets the operator match this exact
+        // failure to the server log entry (safe short token, no user data).
+        if (body?.requestId && typeof body.requestId === "string") {
+          message = `${message} (ref: ${body.requestId})`;
+        }
       } catch {
         /* ignore */
       }

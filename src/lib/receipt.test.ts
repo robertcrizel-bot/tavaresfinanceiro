@@ -190,6 +190,27 @@ describe("parseReceiptFree", () => {
     );
   });
 
+  it("appends the backend request id (ref) so the failure can be matched to server logs", async () => {
+    stubImagePipeline();
+    mocks.functionsInvoke.mockResolvedValue({
+      data: null,
+      error: {
+        context: {
+          json: async () => ({
+            error: "O serviço gratuito de IA está temporariamente indisponível. Tente novamente.",
+            requestId: "ab12cd34",
+          }),
+        },
+      },
+    });
+    const { parseReceiptFree } = await import("@/lib/receipt");
+
+    const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
+    await expect(parseReceiptFree(file, { categories: [], accounts: [] })).rejects.toThrow(
+      "Tente novamente. (ref: ab12cd34)",
+    );
+  });
+
   it("throws error payloads returned inside a 2xx body", async () => {
     stubImagePipeline();
     mocks.functionsInvoke.mockResolvedValue({ data: { error: "Imagem inv�lida." }, error: null });

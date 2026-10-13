@@ -365,16 +365,16 @@ describe("parse-receipt-free handler", () => {
     const body = await response.json();
     expect(body.error).toBe(FREE_AI_MESSAGES.invalidRequest);
     expect(body.error).not.toBe(FREE_AI_MESSAGES.unavailable);
-    expect(logs).toEqual([
-      {
-        scope: "gemini-http",
-        httpStatus: 400,
-        googleStatus: "INVALID_ARGUMENT",
-        googleCode: 400,
-        googleMessage: "Invalid JSON payload received.",
-        mappedStatus: 503,
-      },
-    ]);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({
+      scope: "gemini-http",
+      httpStatus: 400,
+      googleStatus: "INVALID_ARGUMENT",
+      googleCode: 400,
+      googleMessage: "Invalid JSON payload received.",
+      mappedStatus: 503,
+    });
+    expect(typeof logs[0].requestId).toBe("string");
   });
 
   it("maps a Gemini HTTP 404 (model unavailable) to a configuration error", async () => {
@@ -435,7 +435,9 @@ describe("parse-receipt-free handler", () => {
     const response = await handler(postRequest(validBody));
     expect(response.status).toBe(503);
     expect((await response.json()).error).toBe(FREE_AI_MESSAGES.unavailable);
-    expect(logs).toEqual([{ scope: "gemini-network", errorName: "TypeError" }]);
+    expect(logs).toHaveLength(1);
+    expect(logs[0]).toMatchObject({ scope: "gemini-network", errorName: "TypeError" });
+    expect(typeof logs[0].requestId).toBe("string");
   });
 
   it("redacts API keys from Google messages in diagnostics and never logs the image", async () => {
@@ -673,6 +675,29 @@ describe("normalizeGeminiReceipt", () => {
         "type",
       ].sort(),
     );
+  });
+
+  it("keeps purchased item entries on the shared contract (name/quantity/unit_price/total)", () => {
+    const parsed = normalizeGeminiReceipt({
+      is_receipt: true,
+      purchased_items: [{ name: "PAO FRANCES Kg", quantity: 0.274, unit_price: 21.99, total: 6.03 }],
+    });
+    expect(parsed.purchased_items).toHaveLength(1);
+    expect(Object.keys(parsed.purchased_items![0]).sort()).toEqual(["name", "quantity", "total", "unit_price"]);
+  });
+
+  it("correlates every Gemini failure with a request id shared by logs and the error body", async () => {
+    const logs: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async () => new Response("upstream", { status: 503 }));
+    const handler = makeHandler({ fetchImpl, log: (entry) => logs.push(entry) });
+    const response = await handler(postRequest(validBody));
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(typeof body.requestId).toBe("string");
+    expect(body.requestId.length).toBeGreaterThan(0);
+    expect(body.error).toBe(FREE_AI_MESSAGES.unavailable);
+    expect(logs.length).toBeGreaterThan(0);
+    for (const entry of logs) expect(entry.requestId).toBe(body.requestId);
   });
 });
 

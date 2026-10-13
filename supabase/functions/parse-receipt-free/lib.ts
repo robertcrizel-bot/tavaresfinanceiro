@@ -17,7 +17,7 @@
  * plane; the real backstops are the no-billing project key and Gemini's own
  * free-quota enforcement (429 stops the reading).
  */
-import type { ParsedReceipt, PurchasedItem } from "../../../src/lib/receipt";
+import type { ParsedReceipt, PurchasedItem } from "./types.ts";
 
 export const FREE_AI_MODEL_ID = "gemini-2.5-flash";
 export const GEMINI_API_URL =
@@ -577,6 +577,19 @@ function jsonResponse(status: number, body: unknown): Response {
   });
 }
 
+/**
+ * Short correlation id shared by server logs and the error body. Lets the
+ * operator (and, via the app, the user) relate an on-screen failure to the
+ * exact backend log entry without exposing anything sensitive.
+ */
+export function newRequestId(): string {
+  try {
+    return crypto.randomUUID().replace(/-/g, "").slice(0, 8);
+  } catch {
+    return Math.random().toString(36).slice(2, 10);
+  }
+}
+
 /** Deno-free HTTP handler shared by the edge function and the unit tests. */
 export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
   const buckets = deps.rateBuckets ?? new Map<string, FreeAiRateBucket>();
@@ -661,6 +674,9 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
             .slice(0, FREE_AI_LIST_LIMITS.maxEntries)
         : [];
 
+    const requestId = newRequestId();
+    const scopedLog: FreeAiLogger = (entry) => log({ requestId, ...entry });
+
     try {
       const raw = await requestGeminiReceipt({
         apiKey,
@@ -669,15 +685,16 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
         accounts: sanitizeList(body.accounts),
         fetchImpl: deps.fetchImpl,
         imageLimits,
-        log,
+        log: scopedLog,
       });
       const parsed = normalizeGeminiReceipt(raw);
       return jsonResponse(200, parsed);
     } catch (error) {
       if (error instanceof FreeAiError) {
-        return jsonResponse(error.status, { error: error.message });
+        return jsonResponse(error.status, { error: error.message, requestId });
       }
-      return jsonResponse(500, { error: FREE_AI_MESSAGES.unexpected });
+      log({ scope: "handler", requestId, reason: "unexpected" });
+      return jsonResponse(500, { error: FREE_AI_MESSAGES.unexpected, requestId });
     }
   };
 }
