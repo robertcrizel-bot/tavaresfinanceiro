@@ -1,11 +1,21 @@
 /**
- * Pure, Deno-free logic for the free receipt reader backed by Google Gemini
- * (free tier only). The thin Deno glue lives in index.ts; everything here is
- * unit-tested with vitest.
+ * Pure, Deno-free logic for the free receipt reader backed by Google Gemini.
+ * The thin Deno glue lives in index.ts; everything here is unit-tested with
+ * vitest.
  *
- * Billing guard: the model is pinned to gemini-2.5-flash (free-tier eligible)
- * and there is NO fallback to any paid provider. Quota/auth/billing failures
- * stop the request with a clear message.
+ * Billing honesty: pinning gemini-2.5-flash does NOT guarantee free tier.
+ * The operator MUST use a Google project WITHOUT billing enabled. If Gemini
+ * reports quota exhaustion or requires billing, the request STOPS here with a
+ * clear message — there is NO fallback to any paid provider or model.
+ *
+ * Auth: GET and POST are verified against Supabase Auth via the injected
+ * `verifyUser` (fail-closed: a token with a `sub` claim alone is NEVER
+ * trusted; a missing verifier rejects everything).
+ *
+ * Rate limiting: the in-memory sliding window is PROVISIONAL best-effort per
+ * instance (Edge isolates do not share memory). It is not a durable control
+ * plane; the real backstops are the no-billing project key and Gemini's own
+ * free-quota enforcement (429 stops the reading).
  */
 import type { ParsedReceipt, PurchasedItem } from "../../../src/lib/receipt";
 
@@ -16,15 +26,25 @@ export const GEMINI_API_KEY_ENV = "GEMINI_API_KEY";
 
 export const FREE_AI_RATE_LIMIT = { limit: 8, windowMs: 10 * 60_000 } as const;
 
+/** Image hard limits (decoded bytes). Client compresses to JPEG before sending. */
+export const FREE_AI_IMAGE = {
+  maxDecodedBytes: 5 * 1024 * 1024,
+  allowedMimeTypes: ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"],
+} as const;
+
+export const FREE_AI_LIST_LIMITS = { maxEntries: 50, maxEntryLength: 200 } as const;
+
 export const FREE_AI_MESSAGES = {
   unconfigured: "A leitura com IA grátis ainda não está configurada no servidor.",
-  unauthorized: "Sessão necessária para usar a leitura com IA grátis.",
+  unauthorized: "Sessão inválida ou ausente para usar a leitura com IA grátis.",
   rateLimited: "Muitas leituras grátis seguidas. Aguarde alguns minutos e tente de novo.",
   quotaExceeded: "A cota gratuita de IA foi atingida no momento. Aguarde alguns minutos e tente de novo.",
   invalidApiKey: "A leitura com IA grátis não está configurada corretamente no servidor.",
-  billingRequired: "O plano gratuito do Gemini não está disponível para esta chave. Nenhuma cobrança será feita; configure uma chave gratuita do Google AI Studio.",
+  billingRequired: "O plano gratuito do Gemini não está disponível para esta chave. Nenhuma cobrança será feita; configure uma chave de um projeto Google SEM faturamento.",
   unavailable: "O serviço gratuito de IA está temporariamente indisponível. Tente novamente.",
   invalidImage: "Imagem inválida.",
+  invalidImageType: "Tipo de imagem não suportado. Envie JPEG, PNG, WebP ou HEIC.",
+  imageTooLarge: "Imagem muito grande para a leitura grátis. Envie uma foto menor (até 5 MB).",
   unreadable: "Não consegui entender esse comprovante.",
   unexpected: "Erro inesperado ao ler o comprovante com IA grátis.",
 } as const;
@@ -52,45 +72,46 @@ export class FreeAiError extends Error {
 }
 
 /**
- * Gemini responseSchema (subset). Optional fields are simply omitted from
- * `required`; the normalizer fills every missing value with null.
+ * Gemini responseSchema (subset). Numeric fields are explicitly nullable so
+ * the model reports "not legible" as null instead of inventing values; the
+ * normalizer still fills every missing value with null.
  */
 export const GEMINI_RESPONSE_SCHEMA = {
   type: "OBJECT",
   properties: {
     is_receipt: { type: "BOOLEAN" },
     type: { type: "STRING", enum: [...RECEIPT_TYPE_ENUM] },
-    amount: { type: "NUMBER" },
-    date: { type: "STRING" },
-    time: { type: "STRING" },
-    counterparty: { type: "STRING" },
-    institution: { type: "STRING" },
+    amount: { type: "NUMBER", nullable: true },
+    date: { type: "STRING", nullable: true },
+    time: { type: "STRING", nullable: true },
+    counterparty: { type: "STRING", nullable: true },
+    institution: { type: "STRING", nullable: true },
     payment_method: { type: "STRING", enum: [...PAYMENT_METHOD_ENUM] },
-    category_hint: { type: "STRING" },
-    receipt_id: { type: "STRING" },
-    merchant_name: { type: "STRING" },
-    tax_id: { type: "STRING" },
-    fiscal_document_number: { type: "STRING" },
-    card_brand: { type: "STRING" },
-    card_last_four: { type: "STRING" },
-    title: { type: "STRING" },
-    notes: { type: "STRING" },
+    category_hint: { type: "STRING", nullable: true },
+    receipt_id: { type: "STRING", nullable: true },
+    merchant_name: { type: "STRING", nullable: true },
+    tax_id: { type: "STRING", nullable: true },
+    fiscal_document_number: { type: "STRING", nullable: true },
+    card_brand: { type: "STRING", nullable: true },
+    card_last_four: { type: "STRING", nullable: true },
+    title: { type: "STRING", nullable: true },
+    notes: { type: "STRING", nullable: true },
     purchased_items: {
       type: "ARRAY",
       items: {
         type: "OBJECT",
         properties: {
           name: { type: "STRING" },
-          quantity: { type: "NUMBER" },
-          unit_price: { type: "NUMBER" },
-          total: { type: "NUMBER" },
+          quantity: { type: "NUMBER", nullable: true },
+          unit_price: { type: "NUMBER", nullable: true },
+          total: { type: "NUMBER", nullable: true },
         },
-        required: ["name", "quantity", "unit_price", "total"],
+        required: ["name"],
       },
     },
     low_confidence_fields: { type: "ARRAY", items: { type: "STRING" } },
   },
-  required: ["is_receipt", "type", "payment_method", "purchased_items", "low_confidence_fields"],
+  required: ["is_receipt", "type", "payment_method"],
 } as const;
 
 /** Fiscal prompt reused from the paid reader, extended with kg/discount/cancellation rules. */
@@ -114,9 +135,9 @@ export function buildFreeReceiptInstruction(
     "- card_brand e card_last_four: bandeira e os quatro últimos dígitos do cartão usado, quando houver.",
     "- payment_method: exatamente um de: Pix, Boleto, Cartão de Crédito, Cartão de Débito, Dinheiro, Transferência, Outro, unknown.",
     "- purchased_items: somente para cupom/nota fiscal, percorra toda a seção de produtos, do primeiro item até antes dos totais, e devolva UM OBJETO por linha de produto, na mesma ordem do documento.",
-    "- Cada objeto tem: name (descrição impressa do produto, fielmente transcrita, com marca, sabor, peso e unidade quando houver), quantity (quantidade comprada), unit_price (preço unitário) e total (valor pago naquele item). Use null apenas quando o número realmente não estiver legível no documento.",
+    "- Cada objeto tem: name (descrição impressa do produto, fielmente transcrita, com marca, sabor, peso e unidade quando houver), quantity (quantidade comprada), unit_price (preço unitário) e total (valor pago naquele item). Use null (não um número inventado) quando um desses valores realmente não estiver legível no documento.",
     "- Produtos vendidos por quilo: quantity em quilos com fração (ex: 1.246) e unit_price com o preço por quilo.",
-    "- Itens cancelados ou devolvidos: inclua em purchased_items com total NEGATIVO e o sufixo ' (CANCELADO)' no name.",
+    "- Itens cancelados ou devolvidos: inclua em purchased_items com total NEGATIVO e o sufixo ' (CANCELADO)' no name. Se o valor cancelado não estiver legível, use total null e ainda assim marque o sufixo.",
     "- Descontos por item ou globais aparecem nos totais; não virem produtos separados. O amount final já deve refletir os descontos.",
     "- NUNCA resuma a lista. É proibido devolver algo como 'cupom com 11 itens' ou uma contagem: cada produto impresso deve virar um objeto próprio.",
     "- notes: apenas observações que NÃO sejam produtos (divergências de valor, itens cancelados, bandeira/final do cartão, parcelamento). Nunca coloque a lista nem a contagem de itens em notes.",
@@ -131,16 +152,30 @@ export function buildFreeReceiptInstruction(
   ].join("\n");
 }
 
-export function parseImageDataUrl(imageDataUrl: string): { mimeType: string; base64: string } {
+export function parseImageDataUrl(
+  imageDataUrl: string,
+  limits: { maxDecodedBytes: number; allowedMimeTypes: readonly string[] } = FREE_AI_IMAGE,
+): { mimeType: string; base64: string } {
   if (typeof imageDataUrl !== "string" || !imageDataUrl.startsWith("data:image/")) {
     throw new FreeAiError(400, FREE_AI_MESSAGES.invalidImage);
   }
   const comma = imageDataUrl.indexOf(",");
   if (comma < 0) throw new FreeAiError(400, FREE_AI_MESSAGES.invalidImage);
   const header = imageDataUrl.slice("data:".length, comma);
-  const mimeType = (header.split(";")[0] || "image/jpeg").trim();
+  const mimeType = (header.split(";")[0] || "image/jpeg").trim().toLowerCase();
+  if (!limits.allowedMimeTypes.includes(mimeType)) {
+    throw new FreeAiError(415, FREE_AI_MESSAGES.invalidImageType);
+  }
   const base64 = imageDataUrl.slice(comma + 1);
   if (!base64) throw new FreeAiError(400, FREE_AI_MESSAGES.invalidImage);
+  if (!/^[A-Za-z0-9+/]+={0,2}$/.test(base64)) {
+    throw new FreeAiError(400, FREE_AI_MESSAGES.invalidImage);
+  }
+  const padding = base64.endsWith("==") ? 2 : base64.endsWith("=") ? 1 : 0;
+  const decodedBytes = Math.floor((base64.length * 3) / 4) - padding;
+  if (decodedBytes > limits.maxDecodedBytes) {
+    throw new FreeAiError(413, FREE_AI_MESSAGES.imageTooLarge);
+  }
   return { mimeType, base64 };
 }
 
@@ -298,12 +333,13 @@ export interface GeminiRequestInput {
   accounts: string[];
   fetchImpl?: typeof fetch;
   today?: string;
+  imageLimits?: { maxDecodedBytes: number; allowedMimeTypes: readonly string[] };
 }
 
-/** Calls Gemini free tier only. Throws FreeAiError on any HTTP failure. */
+/** Calls Gemini. Throws FreeAiError on any HTTP failure. Never falls back to a paid model. */
 export async function requestGeminiReceipt(input: GeminiRequestInput): Promise<Record<string, unknown>> {
   const fetchImpl = input.fetchImpl ?? fetch;
-  const { mimeType, base64 } = parseImageDataUrl(input.imageDataUrl);
+  const { mimeType, base64 } = parseImageDataUrl(input.imageDataUrl, input.imageLimits);
   const today = input.today ?? new Date().toISOString().split("T")[0];
   const instruction = buildFreeReceiptInstruction(input.categories, input.accounts, today);
 
@@ -352,28 +388,19 @@ export async function requestGeminiReceipt(input: GeminiRequestInput): Promise<R
   return parseGeminiJsonText(text);
 }
 
-/** Best-effort user identity from a Supabase JWT payload (platform verifies it upstream). */
-export function decodeJwtSub(token: string): string | null {
-  const payload = token.split(".")[1];
-  if (!payload) return null;
-  try {
-    const base64 = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const padded = base64 + "=".repeat((4 - (base64.length % 4)) % 4);
-    const json = new TextDecoder().decode(
-      Uint8Array.from(atob(padded), (c) => c.charCodeAt(0)),
-    );
-    const sub = (JSON.parse(json) as { sub?: unknown }).sub;
-    return typeof sub === "string" && sub ? sub : null;
-  } catch {
-    return null;
-  }
-}
-
 export interface FreeAiRateBucket {
   timestamps: number[];
 }
 
-/** Sliding-window limiter; pure and clock-injectable for tests. */
+/**
+ * Sliding-window limiter; pure and clock-injectable for tests.
+ *
+ * PROVISIONAL: this bucket map lives in a single isolate's memory. Edge
+ * isolates do not share it, so it is best-effort anti-spam only — NOT a
+ * durable per-user quota across instances or restarts. Durable protection
+ * comes from (1) mandatory Supabase Auth, (2) a Google project key WITHOUT
+ * billing, and (3) Gemini's own free-quota 429s, which halt the reading.
+ */
 export function checkFreeAiRateLimit(
   buckets: Map<string, FreeAiRateBucket>,
   userId: string,
@@ -410,6 +437,8 @@ export interface FreeAiHandlerDeps {
   fetchImpl?: typeof fetch;
   now?: () => number;
   rateBuckets?: Map<string, FreeAiRateBucket>;
+  /** Overrides for image validation (defaults to FREE_AI_IMAGE). */
+  imageLimits?: { maxDecodedBytes: number; allowedMimeTypes: readonly string[] };
 }
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -423,6 +452,7 @@ function jsonResponse(status: number, body: unknown): Response {
 export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
   const buckets = deps.rateBuckets ?? new Map<string, FreeAiRateBucket>();
   const now = deps.now ?? (() => Date.now());
+  const imageLimits = deps.imageLimits ?? FREE_AI_IMAGE;
 
   const authenticate = async (req: Request): Promise<string | null> => {
     const authorization = req.headers.get("Authorization") ?? "";
@@ -463,19 +493,22 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
     // Per-instance limiter only (best effort, not global).
     const rate = checkFreeAiRateLimit(buckets, userId, now());
     if (!rate.allowed) {
-      return jsonResponse(429, { error: FREE_AI_MESSAGES.rateLimited });
+      return jsonResponse(429, {
+        error: FREE_AI_MESSAGES.rateLimited,
+        retryAfterSeconds: Math.ceil(rate.retryAfterMs / 1000),
+      });
     }
 
     const declaredLength = Number(req.headers.get("content-length") ?? "0");
     if (Number.isFinite(declaredLength) && declaredLength > FREE_AI_MAX_BODY_BYTES) {
-      return jsonResponse(413, { error: FREE_AI_MESSAGES.invalidImage });
+      return jsonResponse(413, { error: FREE_AI_MESSAGES.imageTooLarge });
     }
 
     let body: { imageDataUrl?: unknown; categories?: unknown; accounts?: unknown };
     try {
       const rawText = await req.text();
       if (rawText.length > FREE_AI_MAX_BODY_BYTES) {
-        return jsonResponse(413, { error: FREE_AI_MESSAGES.invalidImage });
+        return jsonResponse(413, { error: FREE_AI_MESSAGES.imageTooLarge });
       }
       body = JSON.parse(rawText);
     } catch {
@@ -485,14 +518,17 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
       !body ||
       typeof body !== "object" ||
       typeof body.imageDataUrl !== "string" ||
-      !/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(body.imageDataUrl)
+      !body.imageDataUrl.startsWith("data:image/")
     ) {
       return jsonResponse(400, { error: FREE_AI_MESSAGES.invalidImage });
     }
 
     const sanitizeList = (value: unknown): string[] =>
       Array.isArray(value)
-        ? value.filter((entry): entry is string => typeof entry === "string").slice(0, 100)
+        ? value
+            .filter((entry): entry is string => typeof entry === "string")
+            .map((entry) => entry.slice(0, FREE_AI_LIST_LIMITS.maxEntryLength))
+            .slice(0, FREE_AI_LIST_LIMITS.maxEntries)
         : [];
 
     try {
@@ -502,6 +538,7 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
         categories: sanitizeList(body.categories),
         accounts: sanitizeList(body.accounts),
         fetchImpl: deps.fetchImpl,
+        imageLimits,
       });
       const parsed = normalizeGeminiReceipt(raw);
       return jsonResponse(200, parsed);

@@ -1,1 +1,4 @@
 project_id = "onhmpgevkttysbfllhjq"
+
+[functions.parse-receipt-free]
+verify_jwt = true

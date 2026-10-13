@@ -1,21 +1,32 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
+  FREE_AI_IMAGE,
   FREE_AI_MESSAGES,
   FREE_AI_MODEL_ID,
   GEMINI_API_URL,
+  GEMINI_RESPONSE_SCHEMA,
   buildFreeReceiptInstruction,
   createFreeAiHandler,
-  decodeJwtSub,
   normalizeGeminiReceipt,
+  parseImageDataUrl,
   type FreeAiHandlerDeps,
 } from "../../supabase/functions/parse-receipt-free/lib";
 
 const API_KEY = "gemini-free-key-abc123";
 const IMAGE_DATA_URL = "data:image/jpeg;base64,Y29ycmVjdGVk";
 
+/** Simulated Supabase Auth: only tokens minted by the auth server resolve. */
+const MINTED_TOKENS = new Map<string, string>([
+  ["tok-user-1", "user-1"],
+  ["tok-user-2", "user-2"],
+]);
+async function fakeVerifyUser(token: string): Promise<string | null> {
+  return MINTED_TOKENS.get(token) ?? null;
+}
+
 function authHeader(sub = "user-1") {
-  const payload = btoa(JSON.stringify({ sub })).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-  return `Bearer header.${payload}.signature`;
+  const token = [...MINTED_TOKENS.entries()].find(([, id]) => id === sub)?.[0] ?? "tok-user-1";
+  return `Bearer ${token}`;
 }
 
 function geminiJsonResponse(text: string, status = 200) {
@@ -58,7 +69,7 @@ function fullGeminiPayload() {
 function makeHandler(overrides: Partial<FreeAiHandlerDeps> = {}, env: Record<string, string | undefined> = { GEMINI_API_KEY: API_KEY }) {
   const deps: FreeAiHandlerDeps = {
     envGet: (name) => env[name],
-    verifyUser: async (token) => (token.endsWith(".signature") ? decodeJwtSub(token) : null),
+    verifyUser: fakeVerifyUser,
     ...overrides,
   };
   return createFreeAiHandler(deps);
@@ -68,8 +79,12 @@ function postRequest(body: unknown, headers: Record<string, string> = { Authoriz
   return new Request("https://example.test/parse-receipt-free", {
     method: "POST",
     headers: { "Content-Type": "application/json", ...headers },
-    body: JSON.stringify(body),
+    body: typeof body === "string" ? body : JSON.stringify(body),
   });
+}
+
+function getRequest(headers: Record<string, string> = { Authorization: authHeader() }) {
+  return new Request("https://example.test/parse-receipt-free", { method: "GET", headers });
 }
 
 const validBody = { imageDataUrl: IMAGE_DATA_URL, categories: ["Alimentação"], accounts: [] };
@@ -79,40 +94,23 @@ describe("parse-receipt-free handler", () => {
     vi.unstubAllGlobals();
   });
 
-  it("reports availability on GET without ever exposing the API key", async () => {
+  it("reports availability on GET for authenticated users without exposing the API key", async () => {
     const handler = makeHandler();
-    const response = await handler(new Request("https://example.test/parse-receipt-free", { method: "GET", headers: { Authorization: authHeader() } }));
+    const response = await handler(getRequest());
     expect(response.status).toBe(200);
     const body = await response.text();
     expect(JSON.parse(body)).toEqual({ available: true });
     expect(body).not.toContain(API_KEY);
 
     const disabled = makeHandler({}, {});
-    const off = await disabled(new Request("https://example.test/parse-receipt-free", { method: "GET", headers: { Authorization: authHeader() } }));
+    const off = await disabled(getRequest());
     expect(await off.json()).toEqual({ available: false });
   });
 
-  it("rejects GET status and POST with forged or unverified tokens", async () => {
-    const fetchImpl = vi.fn();
-    const handler = makeHandler({ fetchImpl });
-    const forged = "Bearer header.eyJzdWIiOiJ4In0.forged";
-    const get = await handler(new Request("https://example.test/x", { method: "GET" }));
-    expect(get.status).toBe(401);
-    const res = await handler(postRequest(validBody, { Authorization: forged }));
-    expect(res.status).toBe(401);
-    const noVerifier = makeHandler({ verifyUser: undefined, fetchImpl });
-    expect((await noVerifier(postRequest(validBody))).status).toBe(401);
-    expect(fetchImpl).not.toHaveBeenCalled();
-  });
-
-  it("rejects oversized payloads and non-image data URLs", async () => {
-    const fetchImpl = vi.fn();
-    const handler = makeHandler({ fetchImpl });
-    const big = await handler(postRequest({ imageDataUrl: "data:image/jpeg;base64," + "A".repeat(8 * 1024 * 1024) }));
-    expect(big.status).toBe(413);
-    const bad = await handler(postRequest({ imageDataUrl: "data:image/svg+xml;base64,AAAA" }));
-    expect(bad.status).toBe(400);
-    expect(fetchImpl).not.toHaveBeenCalled();
+  it("rejects GET without a token (status is not public)", async () => {
+    const handler = makeHandler();
+    const response = await handler(getRequest({}));
+    expect(response.status).toBe(401);
   });
 
   it("answers OPTIONS with CORS headers", async () => {
@@ -127,6 +125,36 @@ describe("parse-receipt-free handler", () => {
     const response = await handler(postRequest(validBody, {}));
     expect(response.status).toBe(401);
     expect((await response.json()).error).toBe(FREE_AI_MESSAGES.unauthorized);
+  });
+
+  it("rejects forged tokens the auth server does not recognize (a self-decoded sub is never trusted)", async () => {
+    const handler = makeHandler();
+    const forgedJwt = "Bearer header.eyJzdWIiOiJ4In0.forged";
+    const forged = await handler(postRequest(validBody, { Authorization: forgedJwt }));
+    expect(forged.status).toBe(401);
+    expect((await forged.json()).error).toBe(FREE_AI_MESSAGES.unauthorized);
+
+    const garbage = await handler(postRequest(validBody, { Authorization: "Bearer <script>alert(1)</script>" }));
+    expect(garbage.status).toBe(401);
+  });
+
+  it("fails closed when no verifier is configured and never reaches Gemini", async () => {
+    const fetchImpl = vi.fn();
+    const handler = makeHandler({ verifyUser: undefined, fetchImpl });
+    expect((await handler(postRequest(validBody))).status).toBe(401);
+    expect((await handler(getRequest())).status).toBe(401);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("rejects when the auth verifier throws and never reaches Gemini", async () => {
+    const fetchImpl = vi.fn();
+    const handler = makeHandler({
+      fetchImpl,
+      verifyUser: async () => { throw new Error("auth server down"); },
+    });
+    const response = await handler(postRequest(validBody));
+    expect(response.status).toBe(401);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("returns 503 when GEMINI_API_KEY is not configured and never calls Gemini", async () => {
@@ -144,6 +172,51 @@ describe("parse-receipt-free handler", () => {
     expect(missing.status).toBe(400);
     const wrongType = await handler(postRequest({ imageDataUrl: "https://example.test/x.jpg" }));
     expect(wrongType.status).toBe(400);
+  });
+
+  it("rejects unsupported image mime types and oversized images before calling Gemini", async () => {
+    const fetchImpl = vi.fn();
+    const handler = makeHandler({ fetchImpl });
+
+    const badType = await handler(postRequest({ imageDataUrl: "data:image/svg+xml;base64,YQ==" }));
+    expect(badType.status).toBe(415);
+    expect((await badType.json()).error).toBe(FREE_AI_MESSAGES.invalidImageType);
+
+    const oversize = await handler(
+      postRequest({ imageDataUrl: `data:image/jpeg;base64,${"A".repeat(FREE_AI_IMAGE.maxDecodedBytes * 2)}` }),
+    );
+    expect(oversize.status).toBe(413);
+    expect((await oversize.json()).error).toBe(FREE_AI_MESSAGES.imageTooLarge);
+
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("rejects request bodies larger than the hard cap (content-length and actual)", async () => {
+    const fetchImpl = vi.fn();
+    const handler = makeHandler({ fetchImpl });
+    const huge = `{"imageDataUrl":"data:image/jpeg;base64,${"A".repeat(9 * 1024 * 1024)}"}`;
+    const response = await handler(postRequest(huge));
+    expect(response.status).toBe(413);
+    expect((await response.json()).error).toBe(FREE_AI_MESSAGES.imageTooLarge);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("truncates categories/accounts lists and entries instead of forwarding anything", async () => {
+    const fetchImpl = vi.fn(async () => geminiJsonResponse(JSON.stringify(fullGeminiPayload())));
+    const handler = makeHandler({ fetchImpl });
+    const longEntry = "x".repeat(500);
+    const response = await handler(
+      postRequest({
+        ...validBody,
+        categories: Array.from({ length: 200 }, () => longEntry),
+        accounts: [1, 2, 3, longEntry],
+      }),
+    );
+    expect(response.status).toBe(200);
+    const requestBody = JSON.parse(String(fetchImpl.mock.calls[0][1].body));
+    const instruction = requestBody.contents[0].parts[0].text as string;
+    expect(instruction.length).toBeLessThan(60_000);
+    expect(instruction).not.toContain("x".repeat(201));
   });
 
   it("converts a valid Gemini response into a full ParsedReceipt without leaking the key", async () => {
@@ -240,7 +313,7 @@ describe("parse-receipt-free handler", () => {
     expect((await response.json()).error).toBe(FREE_AI_MESSAGES.unreadable);
   });
 
-  it("enforces the per-user sliding-window rate limit", async () => {
+  it("enforces the provisional per-user sliding-window rate limit", async () => {
     let clock = 1_000_000;
     const fetchImpl = vi.fn(async () => geminiJsonResponse(JSON.stringify(fullGeminiPayload())));
     const handler = makeHandler({ fetchImpl, now: () => clock });
@@ -257,7 +330,7 @@ describe("parse-receipt-free handler", () => {
     expect(afterWindow.status).toBe(200);
   });
 
-  it("rate-limits different users independently", async () => {
+  it("rate-limits different authenticated users independently", async () => {
     const fetchImpl = vi.fn(async () => geminiJsonResponse(JSON.stringify(fullGeminiPayload())));
     const handler = makeHandler({ fetchImpl });
     for (let i = 0; i < 8; i += 1) {
@@ -273,6 +346,27 @@ describe("parse-receipt-free handler", () => {
     const response = await handler(postRequest(validBody));
     expect(response.status).toBe(503);
     expect((await response.json()).error).toBe(FREE_AI_MESSAGES.unavailable);
+  });
+});
+
+describe("parseImageDataUrl", () => {
+  it("accepts the supported image types produced by the client pipeline", () => {
+    expect(parseImageDataUrl(IMAGE_DATA_URL).mimeType).toBe("image/jpeg");
+    expect(parseImageDataUrl("data:image/png;base64,YQ==").mimeType).toBe("image/png");
+    expect(parseImageDataUrl("data:image/WEBP;base64,YQ==").mimeType).toBe("image/webp");
+  });
+
+  it("rejects unsupported types, malformed base64 and oversized payloads", () => {
+    expect(() => parseImageDataUrl("data:image/tiff;base64,YQ==")).toThrow(FREE_AI_MESSAGES.invalidImageType);
+    expect(() => parseImageDataUrl("data:image/jpeg;base64,!!!")).toThrow(FREE_AI_MESSAGES.invalidImage);
+    const big = `data:image/jpeg;base64,${"A".repeat(FREE_AI_IMAGE.maxDecodedBytes * 2)}`;
+    expect(() => parseImageDataUrl(big)).toThrow(FREE_AI_MESSAGES.imageTooLarge);
+  });
+
+  it("honors injected limits for tests and future tuning", () => {
+    expect(() =>
+      parseImageDataUrl("data:image/jpeg;base64,YWFhYQ==", { maxDecodedBytes: 2, allowedMimeTypes: ["image/jpeg"] }),
+    ).toThrow(FREE_AI_MESSAGES.imageTooLarge);
   });
 });
 
@@ -317,6 +411,23 @@ describe("normalizeGeminiReceipt", () => {
     ]);
   });
 
+  it("keeps null quantity/unit_price/total when the model reports them illegible", () => {
+    const parsed = normalizeGeminiReceipt({
+      is_receipt: true,
+      type: "expense",
+      amount: 10,
+      payment_method: "Dinheiro",
+      purchased_items: [
+        { name: "ITEM BORRADO", quantity: null, unit_price: null, total: null },
+        { name: "ITEM SEM TOTAL", quantity: 2, unit_price: 4.5 },
+      ],
+    });
+    expect(parsed.purchased_items).toEqual([
+      { name: "ITEM BORRADO", quantity: null, unit_price: null, total: null },
+      { name: "ITEM SEM TOTAL", quantity: 2, unit_price: 4.5, total: null },
+    ]);
+  });
+
   it("drops malformed item entries and invalid dates without crashing", () => {
     const parsed = normalizeGeminiReceipt({
       is_receipt: "yes",
@@ -326,6 +437,53 @@ describe("normalizeGeminiReceipt", () => {
     expect(parsed.is_receipt).toBe(false);
     expect(parsed.date).toBeNull();
     expect(parsed.purchased_items).toEqual([]);
+  });
+
+  it("preserves the ParsedReceipt shape consumed by the form (every key present)", () => {
+    const parsed = normalizeGeminiReceipt({ is_receipt: true });
+    expect(Object.keys(parsed).sort()).toEqual(
+      [
+        "amount",
+        "card_brand",
+        "card_last_four",
+        "category_hint",
+        "counterparty",
+        "date",
+        "fiscal_document_number",
+        "institution",
+        "is_receipt",
+        "low_confidence_fields",
+        "merchant_name",
+        "notes",
+        "payment_method",
+        "purchased_items",
+        "receipt_id",
+        "tax_id",
+        "time",
+        "title",
+        "type",
+      ].sort(),
+    );
+  });
+});
+
+describe("GEMINI_RESPONSE_SCHEMA", () => {
+  it("allows nulls for amount and item numbers so the model never invents values", () => {
+    const schema = GEMINI_RESPONSE_SCHEMA as unknown as {
+      required: string[];
+      properties: {
+        amount: { type: string; nullable?: boolean };
+        purchased_items: { items: { properties: Record<string, { type: string; nullable?: boolean }>; required: string[] } };
+      };
+    };
+    expect(schema.properties.amount.nullable).toBe(true);
+    const item = schema.properties.purchased_items.items;
+    expect(item.required).toEqual(["name"]);
+    expect(item.properties.quantity.nullable).toBe(true);
+    expect(item.properties.unit_price.nullable).toBe(true);
+    expect(item.properties.total.nullable).toBe(true);
+    // Only identity-ish fields stay required; nothing numeric is forced.
+    expect(schema.required).toEqual(["is_receipt", "type", "payment_method"]);
   });
 });
 
@@ -339,20 +497,10 @@ describe("buildFreeReceiptInstruction", () => {
     expect(instruction).toContain("Nunca invente valores");
     expect(instruction).toContain("Alimentação");
     expect(instruction).toContain("Nubank (Banco)");
+    expect(instruction).toContain("Use null (não um número inventado)");
   });
 
-  it("pins the model to the free-tier eligible gemini-2.5-flash only", () => {
+  it("pins the model to gemini-2.5-flash without claiming that guarantees free tier", () => {
     expect(FREE_AI_MODEL_ID).toBe("gemini-2.5-flash");
-  });
-});
-
-describe("decodeJwtSub", () => {
-  it("extracts the subject from a Supabase-style JWT payload", () => {
-    expect(decodeJwtSub(authHeader("abc-123").replace("Bearer ", ""))).toBe("abc-123");
-  });
-
-  it("returns null for malformed tokens", () => {
-    expect(decodeJwtSub("not-a-token")).toBeNull();
-    expect(decodeJwtSub("a.????.sig")).toBeNull();
   });
 });
