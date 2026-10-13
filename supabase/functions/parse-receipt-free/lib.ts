@@ -24,6 +24,24 @@ export const GEMINI_API_URL =
   `https://generativelanguage.googleapis.com/v1beta/models/${FREE_AI_MODEL_ID}:generateContent`;
 export const GEMINI_API_KEY_ENV = "GEMINI_API_KEY";
 
+/**
+ * Cleans the stored secret before use. Paste artifacts (surrounding quotes,
+ * whitespace, newlines) must never reach the x-goog-api-key header: a newline
+ * makes fetch throw before any Google response, which surfaces as a generic
+ * outage instead of a configuration error.
+ */
+export function normalizeGeminiApiKey(raw: string | undefined): string {
+  if (typeof raw !== "string") return "";
+  let key = raw.replace(/^\uFEFF/, "").trim();
+  if (
+    key.length >= 2 &&
+    ((key.startsWith('"') && key.endsWith('"')) || (key.startsWith("'") && key.endsWith("'")))
+  ) {
+    key = key.slice(1, -1).trim();
+  }
+  return key;
+}
+
 export const FREE_AI_RATE_LIMIT = { limit: 8, windowMs: 10 * 60_000 } as const;
 
 /** Image hard limits (decoded bytes). Client compresses to JPEG before sending. */
@@ -297,6 +315,8 @@ export function extractGeminiText(payload: unknown): string {
     const parts = (candidate as { content?: { parts?: unknown[] } })?.content?.parts;
     if (!Array.isArray(parts)) continue;
     for (const part of parts) {
+      // Skip hidden thinking segments — only the answer text is the JSON payload.
+      if ((part as { thought?: unknown }).thought === true) continue;
       const partText = (part as { text?: unknown })?.text;
       if (typeof partText === "string") text += partText;
     }
@@ -445,6 +465,9 @@ export async function requestGeminiReceipt(input: GeminiRequestInput): Promise<R
         ],
         generationConfig: {
           temperature: 0,
+          // Thinking off: keeps the free call fast and inside edge-function /
+          // gateway timeouts (a timeout surfaces as a generic outage).
+          thinkingConfig: { thinkingBudget: 0 },
           responseMimeType: "application/json",
           responseSchema: GEMINI_RESPONSE_SCHEMA,
         },
@@ -588,11 +611,11 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
     }
 
     if (req.method === "GET") {
-      const available = Boolean(deps.envGet(GEMINI_API_KEY_ENV));
+      const available = Boolean(normalizeGeminiApiKey(deps.envGet(GEMINI_API_KEY_ENV)));
       return jsonResponse(200, { available });
     }
 
-    const apiKey = deps.envGet(GEMINI_API_KEY_ENV);
+    const apiKey = normalizeGeminiApiKey(deps.envGet(GEMINI_API_KEY_ENV));
     if (!apiKey) {
       return jsonResponse(503, { error: FREE_AI_MESSAGES.unconfigured });
     }

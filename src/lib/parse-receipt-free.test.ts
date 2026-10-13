@@ -477,8 +477,51 @@ describe("parse-receipt-free handler", () => {
     expect(wire.generationConfig.responseMimeType).toBe("application/json");
     expect(wire.generationConfig.responseSchema.properties.amount.nullable).toBe(true);
     expect(wire.generationConfig.responseSchema.properties.purchased_items.items.properties.quantity.nullable).toBe(true);
+    expect(wire.generationConfig.thinkingConfig).toEqual({ thinkingBudget: 0 });
     expect(wire.contents[0].parts[1].inline_data.mime_type).toBe("image/jpeg");
     expect(wire.contents[0].parts[1].inline_data.data).toBe("Y29ycmVjdGVk");
+  });
+
+  it("sends a cleaned API key even when the secret has paste artifacts (quotes/whitespace)", async () => {
+    const fetchImpl = vi.fn(async () => geminiJsonResponse(JSON.stringify(fullGeminiPayload())));
+    const handler = makeHandler({ fetchImpl }, { GEMINI_API_KEY: `  "${API_KEY}"\n` });
+    const response = await handler(postRequest(validBody));
+    expect(response.status).toBe(200);
+    const [, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect((init.headers as Record<string, string>)["x-goog-api-key"]).toBe(API_KEY);
+  });
+
+  it("treats a key that is only quotes/whitespace as unconfigured (GET false, POST 503)", async () => {
+    const handler = makeHandler({}, { GEMINI_API_KEY: '"   "' });
+    const get = await handler(getRequest());
+    expect(get.status).toBe(200);
+    expect(JSON.parse(await get.text())).toEqual({ available: false });
+    const post = await handler(postRequest(validBody));
+    expect(post.status).toBe(503);
+    expect((await post.json()).error).toBe(FREE_AI_MESSAGES.unconfigured);
+  });
+
+  it("reads the answer JSON even when the model also returns thought parts", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          candidates: [
+            {
+              content: {
+                parts: [
+                  { thought: true, text: "analizando o cupom..." },
+                  { text: JSON.stringify(fullGeminiPayload()) },
+                ],
+              },
+            },
+          ],
+        }),
+        { status: 200 },
+      ));
+    const handler = makeHandler({ fetchImpl });
+    const response = await handler(postRequest(validBody));
+    expect(response.status).toBe(200);
+    expect((await response.json()).amount).toBe(92.58);
   });
 });
 
