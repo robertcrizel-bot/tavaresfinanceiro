@@ -58,6 +58,7 @@ function fullGeminiPayload() {
 function makeHandler(overrides: Partial<FreeAiHandlerDeps> = {}, env: Record<string, string | undefined> = { GEMINI_API_KEY: API_KEY }) {
   const deps: FreeAiHandlerDeps = {
     envGet: (name) => env[name],
+    verifyUser: async (token) => (token.endsWith(".signature") ? decodeJwtSub(token) : null),
     ...overrides,
   };
   return createFreeAiHandler(deps);
@@ -80,15 +81,38 @@ describe("parse-receipt-free handler", () => {
 
   it("reports availability on GET without ever exposing the API key", async () => {
     const handler = makeHandler();
-    const response = await handler(new Request("https://example.test/parse-receipt-free", { method: "GET" }));
+    const response = await handler(new Request("https://example.test/parse-receipt-free", { method: "GET", headers: { Authorization: authHeader() } }));
     expect(response.status).toBe(200);
     const body = await response.text();
     expect(JSON.parse(body)).toEqual({ available: true });
     expect(body).not.toContain(API_KEY);
 
     const disabled = makeHandler({}, {});
-    const off = await disabled(new Request("https://example.test/parse-receipt-free", { method: "GET" }));
+    const off = await disabled(new Request("https://example.test/parse-receipt-free", { method: "GET", headers: { Authorization: authHeader() } }));
     expect(await off.json()).toEqual({ available: false });
+  });
+
+  it("rejects GET status and POST with forged or unverified tokens", async () => {
+    const fetchImpl = vi.fn();
+    const handler = makeHandler({ fetchImpl });
+    const forged = "Bearer header.eyJzdWIiOiJ4In0.forged";
+    const get = await handler(new Request("https://example.test/x", { method: "GET" }));
+    expect(get.status).toBe(401);
+    const res = await handler(postRequest(validBody, { Authorization: forged }));
+    expect(res.status).toBe(401);
+    const noVerifier = makeHandler({ verifyUser: undefined, fetchImpl });
+    expect((await noVerifier(postRequest(validBody))).status).toBe(401);
+    expect(fetchImpl).not.toHaveBeenCalled();
+  });
+
+  it("rejects oversized payloads and non-image data URLs", async () => {
+    const fetchImpl = vi.fn();
+    const handler = makeHandler({ fetchImpl });
+    const big = await handler(postRequest({ imageDataUrl: "data:image/jpeg;base64," + "A".repeat(8 * 1024 * 1024) }));
+    expect(big.status).toBe(413);
+    const bad = await handler(postRequest({ imageDataUrl: "data:image/svg+xml;base64,AAAA" }));
+    expect(bad.status).toBe(400);
+    expect(fetchImpl).not.toHaveBeenCalled();
   });
 
   it("answers OPTIONS with CORS headers", async () => {
