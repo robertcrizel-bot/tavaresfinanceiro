@@ -1,21 +1,25 @@
 /**
- * parse-receipt-free — reads Brazilian financial receipts with Google Gemini
- * on the FREE tier only (model pinned to gemini-2.5-flash).
- *
- * Setup required before this function works:
- *   supabase secrets set GEMINI_API_KEY=<key from Google AI Studio>
- *
- * The key never reaches the frontend. Requests require a valid Supabase JWT
- * (verified upstream by the platform) and are rate-limited per user. There is
- * NO fallback to any paid provider: quota, auth or billing failures stop the
- * request with a clear message.
+ * parse-receipt-free — reads Brazilian receipts with Google Gemini using the
+ * GEMINI_API_KEY secret (never exposed). Every request (GET status and POST)
+ * requires a Supabase access token verified server-side via Auth getUser.
+ * Rate limiting is per instance only (best effort). No paid fallback.
  */
-import { createFreeAiHandler, GEMINI_API_KEY_ENV } from "./lib.ts";
+import { createClient } from "npm:@supabase/supabase-js@2";
+import { createFreeAiHandler } from "./lib.ts";
+
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+const authClient = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: { persistSession: false, autoRefreshToken: false },
+});
 
 const handler = createFreeAiHandler({
-  envGet: (name: string) => {
-    if (name === GEMINI_API_KEY_ENV) return Deno.env.get(GEMINI_API_KEY_ENV);
-    return Deno.env.get(name);
+  envGet: (name: string) => Deno.env.get(name),
+  verifyUser: async (token: string) => {
+    if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null;
+    const { data, error } = await authClient.auth.getUser(token);
+    if (error || !data?.user?.id) return null;
+    return data.user.id;
   },
 });
 

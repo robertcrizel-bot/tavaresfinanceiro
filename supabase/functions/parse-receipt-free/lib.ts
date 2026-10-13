@@ -400,8 +400,13 @@ export const FREE_AI_CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 } as const;
 
+/** ~8 MB of JSON (base64 image ~6 MB). */
+export const FREE_AI_MAX_BODY_BYTES = 8 * 1024 * 1024;
+
 export interface FreeAiHandlerDeps {
   envGet: (name: string) => string | undefined;
+  /** Verifies the access token and returns the user id, or null. Required; missing = reject all. */
+  verifyUser?: (token: string) => Promise<string | null>;
   fetchImpl?: typeof fetch;
   now?: () => number;
   rateBuckets?: Map<string, FreeAiRateBucket>;
@@ -419,9 +424,30 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
   const buckets = deps.rateBuckets ?? new Map<string, FreeAiRateBucket>();
   const now = deps.now ?? (() => Date.now());
 
+  const authenticate = async (req: Request): Promise<string | null> => {
+    const authorization = req.headers.get("Authorization") ?? "";
+    const match = /^Bearer\s+(\S+)$/i.exec(authorization);
+    if (!match || !deps.verifyUser) return null; // fail closed
+    try {
+      return await deps.verifyUser(match[1]);
+    } catch {
+      return null;
+    }
+  };
+
   return async function handle(req: Request): Promise<Response> {
     if (req.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: FREE_AI_CORS_HEADERS });
+    }
+
+    if (req.method !== "GET" && req.method !== "POST") {
+      return jsonResponse(405, { error: "Método não permitido." });
+    }
+
+    // Cryptographically verified user (Supabase Auth); never trust a self-declared sub.
+    const userId = await authenticate(req);
+    if (!userId) {
+      return jsonResponse(401, { error: FREE_AI_MESSAGES.unauthorized });
     }
 
     if (req.method === "GET") {
@@ -429,36 +455,37 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
       return jsonResponse(200, { available });
     }
 
-    if (req.method !== "POST") {
-      return jsonResponse(405, { error: "Método não permitido." });
-    }
-
-    const authorization = req.headers.get("Authorization") ?? req.headers.get("authorization");
-    if (!authorization) {
-      return jsonResponse(401, { error: FREE_AI_MESSAGES.unauthorized });
-    }
-
     const apiKey = deps.envGet(GEMINI_API_KEY_ENV);
     if (!apiKey) {
       return jsonResponse(503, { error: FREE_AI_MESSAGES.unconfigured });
     }
 
-    const userId = decodeJwtSub(authorization.replace(/^Bearer\s+/i, "")) ?? "anon";
+    // Per-instance limiter only (best effort, not global).
     const rate = checkFreeAiRateLimit(buckets, userId, now());
     if (!rate.allowed) {
       return jsonResponse(429, { error: FREE_AI_MESSAGES.rateLimited });
     }
 
+    const declaredLength = Number(req.headers.get("content-length") ?? "0");
+    if (Number.isFinite(declaredLength) && declaredLength > FREE_AI_MAX_BODY_BYTES) {
+      return jsonResponse(413, { error: FREE_AI_MESSAGES.invalidImage });
+    }
+
     let body: { imageDataUrl?: unknown; categories?: unknown; accounts?: unknown };
     try {
-      body = await req.json();
+      const rawText = await req.text();
+      if (rawText.length > FREE_AI_MAX_BODY_BYTES) {
+        return jsonResponse(413, { error: FREE_AI_MESSAGES.invalidImage });
+      }
+      body = JSON.parse(rawText);
     } catch {
       return jsonResponse(400, { error: FREE_AI_MESSAGES.invalidImage });
     }
     if (
       !body ||
+      typeof body !== "object" ||
       typeof body.imageDataUrl !== "string" ||
-      !body.imageDataUrl.startsWith("data:image/")
+      !/^data:image\/(jpeg|jpg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(body.imageDataUrl)
     ) {
       return jsonResponse(400, { error: FREE_AI_MESSAGES.invalidImage });
     }
