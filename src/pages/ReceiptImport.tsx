@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Camera, Loader2, Paperclip, ScanLine, AlertTriangle } from "lucide-react";
+import { Camera, Loader2, Paperclip, RefreshCw, ScanLine, AlertTriangle } from "lucide-react";
 import { TransactionForm } from "@/components/TransactionForm";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
@@ -26,6 +26,8 @@ import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientati
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
 
+type FreeAiUiState = "checking" | "available" | "unavailable" | "error";
+
 export default function ReceiptImport() {
   const navigate = useNavigate();
   const { addTransaction } = useFinance();
@@ -44,7 +46,11 @@ export default function ReceiptImport() {
   const [cameraOpen, setCameraOpen] = useState(false);
   const [aiConfirmOpen, setAiConfirmOpen] = useState(false);
   const [freeAiConfirmOpen, setFreeAiConfirmOpen] = useState(false);
-  const [freeAiAvailable, setFreeAiAvailable] = useState(false);
+  const [freeAiState, setFreeAiState] = useState<FreeAiUiState>("checking");
+  const freeAiRetriesRef = useRef(0);
+  const freeAiCheckRunRef = useRef(0);
+  const freeAiMountedRef = useRef(true);
+  const previousPendingFileRef = useRef<File | null>(null);
   const [cameraStarting, setCameraStarting] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
@@ -411,8 +417,8 @@ export default function ReceiptImport() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1920 },
-          height: { ideal: 1080 },
+          width: { ideal: 1280 },
+          height: { ideal: 1920 },
         },
         audio: false,
       });
@@ -483,17 +489,43 @@ export default function ReceiptImport() {
     });
   }, [processFileFast]);
 
-  useEffect(() => {
-    let cancelled = false;
-    void getFreeAiStatus()
-      .then((available) => {
-        if (!cancelled) setFreeAiAvailable(available);
-      })
-      .catch(() => undefined);
-    return () => {
-      cancelled = true;
-    };
+  const checkFreeAi = useCallback(async () => {
+    const runId = ++freeAiCheckRunRef.current;
+    setFreeAiState("checking");
+    const result = await getFreeAiStatus();
+    if (!freeAiMountedRef.current || freeAiCheckRunRef.current !== runId) return;
+    if (result.state === "available") {
+      freeAiRetriesRef.current = 0;
+      setFreeAiState("available");
+      return;
+    }
+    if (result.state === "unavailable") {
+      setFreeAiState("unavailable");
+      return;
+    }
+    setFreeAiState("error");
+    if (result.reason === "unauthorized" && freeAiRetriesRef.current < 2) {
+      const attempt = ++freeAiRetriesRef.current;
+      window.setTimeout(() => {
+        if (freeAiMountedRef.current) void checkFreeAi();
+      }, 1500 * attempt);
+    }
   }, []);
+
+  useEffect(() => {
+    freeAiMountedRef.current = true;
+    void checkFreeAi();
+    return () => {
+      freeAiMountedRef.current = false;
+    };
+  }, [checkFreeAi]);
+
+  useEffect(() => {
+    if (pendingFile && !previousPendingFileRef.current && freeAiState === "error") {
+      void checkFreeAi();
+    }
+    previousPendingFileRef.current = pendingFile;
+  }, [pendingFile, freeAiState, checkFreeAi]);
 
   const fieldLabels: Record<string, string> = {
     amount: "valor",
@@ -583,12 +615,32 @@ export default function ReceiptImport() {
                   <Button variant="outline" disabled={loading} onClick={() => setAiConfirmOpen(true)}>
                     ✨ Ler com IA
                   </Button>
-                  {freeAiAvailable && (
+                  {freeAiState === "available" && (
                     <Button variant="outline" disabled={loading} onClick={() => setFreeAiConfirmOpen(true)}>
                       ✨ Ler com IA grátis (teste)
                     </Button>
                   )}
+                  {freeAiState === "checking" && (
+                    <Button variant="outline" disabled>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verificando IA grátis...
+                    </Button>
+                  )}
+                  {freeAiState === "error" && (
+                    <Button type="button" variant="outline" className="gap-2" disabled={loading} onClick={() => void checkFreeAi()}>
+                      <RefreshCw className="h-4 w-4" /> Verificar novamente
+                    </Button>
+                  )}
                 </div>
+                {freeAiState === "error" && (
+                  <p className="text-xs text-muted-foreground">
+                    Não foi possível confirmar a IA grátis no servidor.
+                  </p>
+                )}
+                {freeAiState === "unavailable" && (
+                  <p className="text-xs text-muted-foreground">
+                    IA grátis indisponível no servidor no momento.
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground">A leitura gratuita usa o OCR local e tem custo R$ 0,00.</p>
               </div>
             )}
@@ -678,12 +730,15 @@ export default function ReceiptImport() {
       </Dialog>
 
       <Dialog open={cameraOpen} onOpenChange={(open) => !open && closeCamera()}>
-        <DialogContent className="w-[calc(100%-2rem)] max-w-2xl">
+        <DialogContent className="flex max-h-[calc(100dvh-0.75rem)] w-[calc(100%-0.75rem)] max-w-none flex-col gap-3 p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] pt-4 sm:max-w-xl">
           <DialogHeader>
             <DialogTitle>Fotografar comprovante</DialogTitle>
             <DialogDescription>Enquadre todo o comprovante e mantenha o texto bem iluminado.</DialogDescription>
           </DialogHeader>
-          <div className="relative aspect-video overflow-hidden rounded-md bg-black">
+          <div
+            data-testid="receipt-camera-frame"
+            className="relative h-[min(68dvh,calc(100dvh-12rem))] min-h-[14rem] overflow-hidden rounded-md bg-black"
+          >
             {(cameraStarting || !cameraReady) && (
               <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 text-sm text-white">
                 <Loader2 className="h-5 w-5 animate-spin" /> Preparando câmera...
@@ -696,13 +751,13 @@ export default function ReceiptImport() {
               muted
               autoPlay
               onCanPlay={() => setCameraReady(true)}
-              className="h-full w-full object-contain"
+              className="absolute inset-0 h-full w-full object-contain"
             />
           </div>
-          <div className="flex justify-end gap-2">
-            <Button type="button" variant="ghost" onClick={closeCamera}>Cancelar</Button>
-            <Button type="button" onClick={() => void captureCameraPhoto()} disabled={cameraStarting || !cameraReady}>
-              <Camera className="mr-2 h-4 w-4" /> Fotografar
+          <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+            <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={closeCamera}>Cancelar</Button>
+            <Button type="button" className="w-full gap-2 sm:w-auto" onClick={() => void captureCameraPhoto()} disabled={cameraStarting || !cameraReady}>
+              <Camera className="h-4 w-4" /> Fotografar
             </Button>
           </div>
         </DialogContent>

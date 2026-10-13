@@ -328,13 +328,29 @@ describe("ReceiptImport metadata", () => {
     await waitFor(() => expect(getUserMedia).toHaveBeenCalledWith({
       video: {
         facingMode: { ideal: "environment" },
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
+        width: { ideal: 1280 },
+        height: { ideal: 1920 },
       },
       audio: false,
     }));
     expect(container.querySelectorAll('input[type="file"]')).toHaveLength(1);
     expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("shows a tall contain-fitted preview frame suited for Android portrait capture", async () => {
+    installCamera();
+    render(<ReceiptImport />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+
+    const frame = await screen.findByTestId("receipt-camera-frame");
+    expect(frame.className).toContain("dvh");
+    expect(frame.className).not.toContain("aspect-video");
+    const video = screen.getByTestId("receipt-camera-video");
+    expect(video.className).toContain("object-contain");
+    expect(video.className).not.toContain("object-cover");
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Fotografar" })).toBeInTheDocument();
   });
 
   it("captures a bounded JPEG, stops the camera and requires 'Ler gratuitamente' to read with the PaddleOCR worker", async () => {

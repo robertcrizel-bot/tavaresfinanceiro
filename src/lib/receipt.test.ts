@@ -165,14 +165,14 @@ describe("parseReceiptFree", () => {
     const { parseReceiptFree } = await import("@/lib/receipt");
 
     const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
-    const result = await parseReceiptFree(file, { categories: ["Alimentação"], accounts: ["Nubank (Banco)"] });
+    const result = await parseReceiptFree(file, { categories: ["Alimentaï¿½ï¿½o"], accounts: ["Nubank (Banco)"] });
 
     expect(result).toEqual(receipt);
     expect(mocks.functionsInvoke).toHaveBeenCalledTimes(1);
     const [fn, options] = mocks.functionsInvoke.mock.calls[0];
     expect(fn).toBe("parse-receipt-free");
     expect(options.body.imageDataUrl).toMatch(/^data:image\//);
-    expect(options.body.categories).toEqual(["Alimentação"]);
+    expect(options.body.categories).toEqual(["Alimentaï¿½ï¿½o"]);
     expect(options.body.accounts).toEqual(["Nubank (Banco)"]);
   });
 
@@ -192,29 +192,65 @@ describe("parseReceiptFree", () => {
 
   it("throws error payloads returned inside a 2xx body", async () => {
     stubImagePipeline();
-    mocks.functionsInvoke.mockResolvedValue({ data: { error: "Imagem inválida." }, error: null });
+    mocks.functionsInvoke.mockResolvedValue({ data: { error: "Imagem invï¿½lida." }, error: null });
     const { parseReceiptFree } = await import("@/lib/receipt");
 
     const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
-    await expect(parseReceiptFree(file, { categories: [], accounts: [] })).rejects.toThrow("Imagem inválida.");
+    await expect(parseReceiptFree(file, { categories: [], accounts: [] })).rejects.toThrow("Imagem invï¿½lida.");
   });
 });
 
 describe("getFreeAiStatus", () => {
-  it("returns true only when the backend reports the integration available", async () => {
+  it("reports available only when the backend confirms the integration", async () => {
     mocks.functionsInvoke.mockResolvedValue({ data: { available: true }, error: null });
     const { getFreeAiStatus } = await import("@/lib/receipt");
-    await expect(getFreeAiStatus()).resolves.toBe(true);
+    await expect(getFreeAiStatus()).resolves.toEqual({ state: "available" });
     expect(mocks.functionsInvoke).toHaveBeenCalledWith("parse-receipt-free", { method: "GET" });
   });
 
-  it("returns false when unavailable, failing or missing data", async () => {
+  it("reports unavailable when the backend says the integration is not configured", async () => {
     const { getFreeAiStatus } = await import("@/lib/receipt");
     mocks.functionsInvoke.mockResolvedValue({ data: { available: false }, error: null });
-    await expect(getFreeAiStatus()).resolves.toBe(false);
+    await expect(getFreeAiStatus()).resolves.toEqual({ state: "unavailable" });
+  });
+
+  it("reports unavailable when the function is not deployed (404)", async () => {
+    const { getFreeAiStatus } = await import("@/lib/receipt");
+    mocks.functionsInvoke.mockResolvedValue({
+      data: null,
+      error: Object.assign(new Error("not found"), { context: { status: 404 } }),
+    });
+    await expect(getFreeAiStatus()).resolves.toEqual({ state: "unavailable" });
+  });
+
+  it("reports an unauthorized error for 401 and 403 responses", async () => {
+    const { getFreeAiStatus } = await import("@/lib/receipt");
+    mocks.functionsInvoke.mockResolvedValue({
+      data: null,
+      error: Object.assign(new Error("unauthorized"), { context: { status: 401 } }),
+    });
+    await expect(getFreeAiStatus()).resolves.toEqual({ state: "error", reason: "unauthorized" });
+    mocks.functionsInvoke.mockResolvedValue({
+      data: null,
+      error: Object.assign(new Error("forbidden"), { context: { status: 403 } }),
+    });
+    await expect(getFreeAiStatus()).resolves.toEqual({ state: "error", reason: "unauthorized" });
+  });
+
+  it("reports a server error for 5xx responses", async () => {
+    const { getFreeAiStatus } = await import("@/lib/receipt");
+    mocks.functionsInvoke.mockResolvedValue({
+      data: null,
+      error: Object.assign(new Error("upstream"), { context: { status: 503 } }),
+    });
+    await expect(getFreeAiStatus()).resolves.toEqual({ state: "error", reason: "server" });
+  });
+
+  it("fails closed as a network error when the invocation fails without a response", async () => {
+    const { getFreeAiStatus } = await import("@/lib/receipt");
     mocks.functionsInvoke.mockResolvedValue({ data: null, error: new Error("offline") });
-    await expect(getFreeAiStatus()).resolves.toBe(false);
+    await expect(getFreeAiStatus()).resolves.toEqual({ state: "error", reason: "network" });
     mocks.functionsInvoke.mockRejectedValue(new Error("no session"));
-    await expect(getFreeAiStatus()).resolves.toBe(false);
+    await expect(getFreeAiStatus()).resolves.toEqual({ state: "error", reason: "network" });
   });
 });
