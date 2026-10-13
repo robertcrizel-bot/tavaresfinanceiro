@@ -330,6 +330,7 @@ describe("ReceiptImport metadata", () => {
         facingMode: { ideal: "environment" },
         width: { ideal: 1280 },
         height: { ideal: 1920 },
+        aspectRatio: { ideal: 3 / 4 },
       },
       audio: false,
     }));
@@ -337,18 +338,19 @@ describe("ReceiptImport metadata", () => {
     expect(screen.getByRole("dialog")).toBeInTheDocument();
   });
 
-  it("shows a tall contain-fitted preview frame suited for Android portrait capture", async () => {
+  it("shows a fixed 3:4 portrait preview frame with cover-fitted video (no stretching)", async () => {
     installCamera();
     render(<ReceiptImport />);
 
     fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
 
     const frame = await screen.findByTestId("receipt-camera-frame");
-    expect(frame.className).toContain("dvh");
+    expect(frame.className).toContain("aspect-[3/4]");
     expect(frame.className).not.toContain("aspect-video");
     const video = screen.getByTestId("receipt-camera-video");
-    expect(video.className).toContain("object-contain");
-    expect(video.className).not.toContain("object-cover");
+    expect(video.className).toContain("object-cover");
+    expect(video.className).toContain("object-center");
+    expect(video.className).not.toContain("object-contain");
     expect(screen.getByRole("button", { name: "Cancelar" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Fotografar" })).toBeInTheDocument();
   });
@@ -369,7 +371,9 @@ describe("ReceiptImport metadata", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
-    expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 1920, 1080);
+    // Landscape 3840x2160 cropped to the framed 3:4 window: 1620x2160 at x=1110,
+    // downscaled to 1440x1920 (longest edge 1920).
+    expect(drawImage).toHaveBeenCalledWith(video, 1110, 0, 1620, 2160, 0, 0, 1440, 1920);
     expect(toBlob).toHaveBeenCalledWith(expect.any(Function), "image/jpeg", 0.9);
     expect(track.stop).toHaveBeenCalledTimes(1);
     expect(video.srcObject).toBeNull();
@@ -381,7 +385,7 @@ describe("ReceiptImport metadata", () => {
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
   });
 
-  it("preserves portrait proportions within the capture limit", async () => {
+  it("preserves portrait proportions within the capture limit via a top/bottom crop", async () => {
     const { cameraStream, track } = installCamera();
     const { drawImage } = installCameraCanvas();
     render(<ReceiptImport />);
@@ -395,8 +399,27 @@ describe("ReceiptImport metadata", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fotografar" }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
-    expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 1080, 1920);
+    // Portrait 2160x3840 cropped to 3:4: keeps width, trims top/bottom by 480px,
+    // then downscales to 1440x1920.
+    expect(drawImage).toHaveBeenCalledWith(video, 0, 480, 2160, 2880, 0, 0, 1440, 1920);
     expect(track.stop).toHaveBeenCalledTimes(1);
+  });
+
+  it("captures a source already at the 3:4 frame ratio without cropping", async () => {
+    const { cameraStream } = installCamera();
+    const { drawImage } = installCameraCanvas();
+    render(<ReceiptImport />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
+    await waitFor(() => expect(video.srcObject).toBe(cameraStream));
+    Object.defineProperty(video, "videoWidth", { configurable: true, value: 1200 });
+    Object.defineProperty(video, "videoHeight", { configurable: true, value: 1600 });
+    fireEvent.canPlay(video);
+    fireEvent.click(screen.getByRole("button", { name: "Fotografar" }));
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 1200, 1600, 0, 0, 1200, 1600);
   });
 
   it("stops the camera without creating a file when cancelled", async () => {

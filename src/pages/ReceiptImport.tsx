@@ -23,6 +23,7 @@ import {
   type LocalInterpretationMetrics,
 } from "@/lib/local-receipt-ai";
 import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientation";
+import { CAMERA_FRAME_ASPECT, coverCropForAspect } from "@/lib/camera-crop";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
 
@@ -419,6 +420,9 @@ export default function ReceiptImport() {
           facingMode: { ideal: "environment" },
           width: { ideal: 1280 },
           height: { ideal: 1920 },
+          // Ask for the portrait aspect the preview frame uses; ideal, so a
+          // camera that ignores it still works via the center-crop below.
+          aspectRatio: { ideal: CAMERA_FRAME_ASPECT },
         },
         audio: false,
       });
@@ -446,16 +450,24 @@ export default function ReceiptImport() {
       return;
     }
 
+    const crop = coverCropForAspect(video.videoWidth, video.videoHeight, CAMERA_FRAME_ASPECT);
+    if (!crop.sWidth || !crop.sHeight) {
+      setError("A câmera ainda não está pronta. Aguarde um instante e tente novamente.");
+      return;
+    }
+
+    // Capture exactly the framed rectangle (same crop as the preview), then
+    // downscale only when larger than 1920px — never upscale.
     const maxDimension = 1920;
-    const scale = Math.min(1, maxDimension / Math.max(video.videoWidth, video.videoHeight));
+    const scale = Math.min(1, maxDimension / Math.max(crop.sWidth, crop.sHeight));
     const canvas = document.createElement("canvas");
-    canvas.width = Math.round(video.videoWidth * scale);
-    canvas.height = Math.round(video.videoHeight * scale);
+    canvas.width = Math.round(crop.sWidth * scale);
+    canvas.height = Math.round(crop.sHeight * scale);
 
     try {
       const ctx = canvas.getContext("2d", { alpha: false });
       if (!ctx) throw new Error("canvas unavailable");
-      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, crop.sx, crop.sy, crop.sWidth, crop.sHeight, 0, 0, canvas.width, canvas.height);
       closeCamera();
 
       const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
@@ -737,7 +749,7 @@ export default function ReceiptImport() {
           </DialogHeader>
           <div
             data-testid="receipt-camera-frame"
-            className="relative h-[min(68dvh,calc(100dvh-12rem))] min-h-[14rem] overflow-hidden rounded-md bg-black"
+            className="relative mx-auto aspect-[3/4] h-[min(68dvh,calc(100dvh-12rem),calc((100vw-2rem)*4/3))] min-h-[14rem] overflow-hidden rounded-md bg-black"
           >
             {(cameraStarting || !cameraReady) && (
               <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 text-sm text-white">
@@ -751,7 +763,7 @@ export default function ReceiptImport() {
               muted
               autoPlay
               onCanPlay={() => setCameraReady(true)}
-              className="absolute inset-0 h-full w-full object-contain"
+              className="absolute inset-0 h-full w-full object-cover object-center"
             />
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
