@@ -6,6 +6,14 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogOut, Mail, User, Pencil } from "lucide-react";
 import { toast } from "@/hooks/use-toast";
+import { BUILD_COMMIT, BUILD_TIME } from "@/lib/build-info";
+
+function formatBuildTime(iso: string): string {
+  if (!iso || iso === "desconhecido") return iso;
+  const date = new Date(iso);
+  if (Number.isNaN(date.getTime())) return iso;
+  return date.toLocaleString("pt-BR", { dateStyle: "short", timeStyle: "short" });
+}
 
 export default function Profile() {
   const { user, signOut } = useAuth();
@@ -73,6 +81,14 @@ export default function Profile() {
             <span>{user?.email}</span>
           </div>
         </div>
+      </div>
+
+      <div className="rounded-xl border border-border/40 bg-card/40 px-4 py-3 text-[10px] leading-relaxed text-muted-foreground">
+        <p className="font-bold uppercase tracking-[0.14em]">Versão do aplicativo</p>
+        <p className="mt-1">
+          Build: {BUILD_COMMIT} · {formatBuildTime(BUILD_TIME)}
+        </p>
+        <p>Origem: {typeof window !== "undefined" ? window.location.origin : "—"}</p>
       </div>
 
       <Button

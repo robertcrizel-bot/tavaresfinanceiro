@@ -1,6 +1,9 @@
+import { useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { BottomNav } from "@/components/BottomNav";
+import { AppUpdateBanner } from "@/components/AppUpdateBanner";
+import { startAppUpdateWatcher } from "@/lib/app-update";
 import { Outlet } from "react-router-dom";
 import { useLocation } from "react-router-dom";
 
@@ -19,6 +22,10 @@ const pageNames: Record<string, string> = {
 
 export default function AppLayout() {
   const { pathname } = useLocation();
+
+  useEffect(() => {
+    startAppUpdateWatcher();
+  }, []);
 
   return (
     <SidebarProvider>
@@ -52,6 +59,7 @@ export default function AppLayout() {
           </main>
         </div>
         <BottomNav />
+        <AppUpdateBanner />
       </div>
     </SidebarProvider>
   );

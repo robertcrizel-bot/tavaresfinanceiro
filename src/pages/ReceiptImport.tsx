@@ -10,6 +10,7 @@ import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
 import { isShareWorkerOutdated, takeSharedReceiptWithDiagnostics, type ShareDiagnostics } from "@/lib/shared-receipt";
+import { beginAppBusy, endAppBusy } from "@/lib/app-update";
 import { parseReceipt, parseReceiptFree, getFreeAiStatus, prepareReceiptForLocalOcr, matchByName, matchCategory, ParsedReceipt, type LocalOcrPreparationMetrics } from "@/lib/receipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
@@ -70,6 +71,16 @@ export default function ReceiptImport() {
     () => receiptFile ? [receiptFile] : undefined,
     [receiptFile],
   );
+
+  useEffect(() => {
+    const reasons: string[] = [];
+    if (loading || localLoading) reasons.push("ocr");
+    if (cameraOpen || cameraStarting) reasons.push("camera");
+    if (formOpen) reasons.push("form");
+    if (receiptFile || pendingFile) reasons.push("file");
+    reasons.forEach(beginAppBusy);
+    return () => reasons.forEach(endAppBusy);
+  }, [loading, localLoading, cameraOpen, cameraStarting, formOpen, receiptFile, pendingFile]);
 
   const buildPrefill = useCallback(
     (parsed: ParsedReceipt): Partial<Omit<Transaction, "id">> => {

@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { compressImageFile } from "@/lib/image-compression";
 import { toast } from "@/hooks/use-toast";
 import { findCashAccount, isCashPaymentMethod } from "@/lib/cash-account";
+import { beginAppBusy, endAppBusy } from "@/lib/app-update";
 import { calculateCurrentMonthCategorySpending, calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
 
 const ACCOUNT_PAYMENT_METHODS = new Set<PaymentMethod>(["Dinheiro", "Cartão de Débito", "Pix", "Transferência", "Boleto"]);
@@ -141,6 +142,18 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
   }, [open, stopCamera]);
 
   useEffect(() => {
+    if (!open) return;
+    beginAppBusy("form");
+    return () => endAppBusy("form");
+  }, [open]);
+
+  useEffect(() => {
+    if (!cameraOpen) return;
+    beginAppBusy("camera");
+    return () => endAppBusy("camera");
+  }, [cameraOpen]);
+
+  useEffect(() => {
     if (!cameraStream || !videoRef.current) return;
     videoRef.current.srcObject = cameraStream;
     void videoRef.current.play().catch(() => undefined);
@@ -235,23 +248,28 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
     const opts: { installments?: number; attachments?: File[] } = {};
     if (isInstallment) opts.installments = installmentsNum;
     if (attachments.length > 0) opts.attachments = attachments;
-    const saved = await onSubmit(
-      {
-        title,
-        amount: parseFloat(amount),
-        type,
-        category,
-        date,
-        description: description || undefined,
-        paymentMethod: paymentMethod ? paymentMethod as PaymentMethod : undefined,
-        accountId: accountId && accountId !== "none" ? accountId : undefined,
-        creditCardId: creditCardId && creditCardId !== "none" ? creditCardId : undefined,
-        receiptRef: initial?.receiptRef ?? prefill?.receiptRef,
-        receiptDetails: initial?.receiptDetails ?? prefill?.receiptDetails,
-      },
-      Object.keys(opts).length > 0 ? opts : undefined,
-    );
-    if (saved !== false) onClose();
+    beginAppBusy("saving");
+    try {
+      const saved = await onSubmit(
+        {
+          title,
+          amount: parseFloat(amount),
+          type,
+          category,
+          date,
+          description: description || undefined,
+          paymentMethod: paymentMethod ? paymentMethod as PaymentMethod : undefined,
+          accountId: accountId && accountId !== "none" ? accountId : undefined,
+          creditCardId: creditCardId && creditCardId !== "none" ? creditCardId : undefined,
+          receiptRef: initial?.receiptRef ?? prefill?.receiptRef,
+          receiptDetails: initial?.receiptDetails ?? prefill?.receiptDetails,
+        },
+        Object.keys(opts).length > 0 ? opts : undefined,
+      );
+      if (saved !== false) onClose();
+    } finally {
+      endAppBusy("saving");
+    }
   };
 
   const showAccount = Boolean(paymentMethod && ACCOUNT_PAYMENT_METHODS.has(paymentMethod));
