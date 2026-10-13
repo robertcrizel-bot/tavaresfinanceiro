@@ -3,10 +3,27 @@ import { BUILD_COMMIT } from "@/lib/build-info";
 import { decodeImageToRgba, type RgbaImage } from "@/lib/paddle-ocr-worker-image";
 import { PADDLE_OCR_TILE_COUNT } from "@/lib/paddle-ocr-tiling";
 
-export const PADDLE_OCR_TIMEOUT_MS = 90_000;
+// Safety net against a permanently stuck read — not a duration target.
+// Slow Android devices (e.g. Moto G32) can take 2-4 minutes to initialize
+// PP-OCRv6 and run three sequential tile predictions on WASM.
+export const PADDLE_OCR_TIMEOUT_MS = 300_000;
 export const PADDLE_OCR_TIMEOUT_MESSAGE =
   "Não foi possível concluir a leitura gratuita. Você pode preencher manualmente ou usar Ler com IA.";
 export type PaddleOcrMode = "full" | "tiled";
+
+export interface PaddleOcrStageTimings {
+  decodeMs: number | null;
+  initializationMs: number | null;
+  tileMs: number[];
+  consolidationMs: number | null;
+  totalMs: number | null;
+}
+
+export interface PaddleOcrTimingsPatch {
+  initializationMs?: number;
+  tileMs?: number[];
+  consolidationMs?: number;
+}
 
 export interface PaddleWorkerOutcome {
   regions: PaddleOcrRegion[];
@@ -18,10 +35,13 @@ export interface PaddleWorkerOutcome {
   recognizedCount: number;
   mode: PaddleOcrMode;
   tiles: number;
+  tileTimingsMs: number[];
+  consolidationMs: number | null;
+  totalMs: number;
 }
 
 type PaddleOcrWorkerMessage =
-  | { type: "progress"; message: string; stage?: string }
+  | { type: "progress"; message: string; stage?: string; timings?: PaddleOcrTimingsPatch }
   | {
       type: "result";
       regions: PaddleOcrRegion[];
@@ -33,6 +53,8 @@ type PaddleOcrWorkerMessage =
        recognizedCount: number;
        mode: PaddleOcrMode;
        tiles: number;
+       tileTimingsMs?: number[];
+       consolidationMs?: number;
     }
   | { type: "error"; message: string; stage?: string };
 
@@ -52,6 +74,7 @@ export interface OcrDiagnostic {
   offscreenCanvas: boolean;
   mode: PaddleOcrMode;
   tiles: number;
+  timings: string | null;
   error: string;
 }
 
@@ -62,6 +85,16 @@ export class PaddleOcrError extends Error {
     this.name = "PaddleOcrError";
     this.diagnostic = diagnostic;
   }
+}
+
+export function formatStageTimings(timings: PaddleOcrStageTimings): string | null {
+  const parts: string[] = [];
+  if (timings.decodeMs !== null) parts.push(`decode=${timings.decodeMs}ms`);
+  if (timings.initializationMs !== null) parts.push(`init=${timings.initializationMs}ms`);
+  if (timings.tileMs.length > 0) parts.push(`tiles=[${timings.tileMs.join(",")}]ms`);
+  if (timings.consolidationMs !== null) parts.push(`consolidation=${timings.consolidationMs}ms`);
+  if (timings.totalMs !== null) parts.push(`total=${timings.totalMs}ms`);
+  return parts.length > 0 ? parts.join(" ") : null;
 }
 
 export function formatOcrDiagnostic(d: OcrDiagnostic, originalDimensions?: string | null): string {
@@ -75,6 +108,7 @@ export function formatOcrDiagnostic(d: OcrDiagnostic, originalDimensions?: strin
     `tiles=${d.tiles}`,
     `createImageBitmap=${d.createImageBitmap}`,
     `OffscreenCanvas=${d.offscreenCanvas}`,
+    `timings=${d.timings ?? "?"}`,
     `erro=${d.error.slice(0, 300)}`,
   ].join(" | ");
 }
@@ -129,6 +163,13 @@ export async function paddleRecognizeWorker(
   const start = performance.now();
   let stage = "decode-start";
   let ocrDimensions: string | null = null;
+  const stageTimings: PaddleOcrStageTimings = {
+    decodeMs: null,
+    initializationMs: null,
+    tileMs: [],
+    consolidationMs: null,
+    totalMs: null,
+  };
   const fail = (message: string, error: string) =>
     new PaddleOcrError(message, {
       build: BUILD_COMMIT,
@@ -139,13 +180,19 @@ export async function paddleRecognizeWorker(
       offscreenCanvas: typeof OffscreenCanvas === "function",
       mode,
       tiles,
+      timings: formatStageTimings({
+        ...stageTimings,
+        totalMs: Math.round(performance.now() - start),
+      }),
       error,
     });
 
   onProgress?.("Convertendo imagem...");
   let rgba: RgbaImage;
   try {
+    const decodeStart = performance.now();
     rgba = await (deps.decode ?? decodeImageToRgba)(image);
+    stageTimings.decodeMs = Math.round(performance.now() - decodeStart);
   } catch (error) {
     const detail = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
     throw fail(`Falha ao preparar a imagem: ${detail}`, detail);
@@ -169,9 +216,22 @@ export async function paddleRecognizeWorker(
         if (message.type === "progress") {
           lastStatus = message.message;
           if (message.stage) stage = message.stage;
+          if (message.timings) {
+            if (typeof message.timings.initializationMs === "number") {
+              stageTimings.initializationMs = message.timings.initializationMs;
+            }
+            if (Array.isArray(message.timings.tileMs)) {
+              stageTimings.tileMs = message.timings.tileMs;
+            }
+            if (typeof message.timings.consolidationMs === "number") {
+              stageTimings.consolidationMs = message.timings.consolidationMs;
+            }
+          }
           onProgress?.(message.message);
         } else if (message.type === "result") {
           clearTimeout(timeout);
+          const tileTimingsMs = message.tileTimingsMs ?? stageTimings.tileMs;
+          const consolidationMs = message.consolidationMs ?? stageTimings.consolidationMs;
           resolve({
             regions: message.regions,
             text: message.text,
@@ -182,6 +242,9 @@ export async function paddleRecognizeWorker(
               recognizedCount: message.recognizedCount,
               mode: message.mode,
               tiles: message.tiles,
+              tileTimingsMs,
+              consolidationMs,
+              totalMs: Math.round(performance.now() - start),
           });
         } else {
           clearTimeout(timeout);

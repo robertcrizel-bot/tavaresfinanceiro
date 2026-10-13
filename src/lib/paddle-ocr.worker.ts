@@ -75,6 +75,12 @@ scope.onmessage = async (event: MessageEvent<RecognizeMessage>) => {
     const initializationMs = Math.round(performance.now() - initializationStart);
     stage = "paddle-create-ok";
     debugStage(stage);
+    scope.postMessage({
+      type: "progress",
+      stage,
+      message: `OCR pronto em ${initializationMs}ms.`,
+      timings: { initializationMs },
+    });
 
     const directOcr = created as unknown as {
       cv: PaddleOpenCv | null;
@@ -87,6 +93,7 @@ scope.onmessage = async (event: MessageEvent<RecognizeMessage>) => {
     let tileCount = 1;
     let backend = "unknown";
     let ocrStart: number;
+    const tileMs: number[] = [];
 
     if (mode === "full") {
       scope.postMessage({ type: "progress", stage: "predict-start", message: "Reconhecendo texto..." });
@@ -118,16 +125,20 @@ scope.onmessage = async (event: MessageEvent<RecognizeMessage>) => {
           type: "progress",
           stage,
           message: `Lendo parte ${index + 1} de ${tiles.length}...`,
+          timings: { initializationMs, tileMs: [...tileMs] },
         });
         debugStage(stage);
         const tileImage = extractVerticalRgbaTile(image, tile);
         const tileMat = rgbaToPaddleMat(tileImage, directOcr.cv);
+        const tileStart = performance.now();
         let tileResults: Awaited<ReturnType<typeof created.predict>>;
         try {
           tileResults = await directOcr.predict(tileMat);
         } finally {
           tileMat.delete();
         }
+        const tileElapsedMs = Math.round(performance.now() - tileStart);
+        tileMs.push(tileElapsedMs);
         const tileResult = tileResults?.[0];
         detectedBoxes += tileResult?.metrics?.detectedBoxes ?? 0;
         recognizedCount += tileResult?.metrics?.recognizedCount ?? 0;
@@ -136,18 +147,32 @@ scope.onmessage = async (event: MessageEvent<RecognizeMessage>) => {
           mapPaddleItemsToRegions(tileResult?.items ?? []),
           tile,
         ));
+        const nextStage = index + 1 < tiles.length
+          ? `Lendo parte ${index + 2} de ${tiles.length}...`
+          : "Consolidando resultados...";
+        scope.postMessage({
+          type: "progress",
+          stage,
+          message: `Parte ${index + 1} de ${tiles.length} em ${tileElapsedMs}ms. ${nextStage}`,
+          timings: { initializationMs, tileMs: [...tileMs] },
+        });
       }
-      regions = deduplicateOverlapRegions(allRegions);
+      regions = allRegions;
     }
     const ocrMs = Math.round(performance.now() - ocrStart);
     stage = "predict-ok";
     debugStage(stage);
 
+    const consolidationStart = performance.now();
+    if (mode === "tiled") {
+      regions = deduplicateOverlapRegions(regions);
+    }
     const text = regions.map((region) => region.text).join("\n");
     const confidences = regions.map((region) => region.confidence).filter((value) => value > 0);
     const confidence = confidences.length > 0
       ? Math.round((confidences.reduce((a, b) => a + b, 0) / confidences.length) * 100) / 100
       : null;
+    const consolidationMs = Math.round(performance.now() - consolidationStart);
 
     stage = "dispose-start";
     debugStage(stage);
@@ -172,6 +197,8 @@ scope.onmessage = async (event: MessageEvent<RecognizeMessage>) => {
       mode,
       tiles: tileCount,
       backend,
+      tileTimingsMs: tileMs,
+      consolidationMs,
     });
   } catch (error) {
     if (instance) {

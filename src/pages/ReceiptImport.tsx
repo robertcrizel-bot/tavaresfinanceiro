@@ -56,6 +56,7 @@ export default function ReceiptImport() {
   const [localStatus, setLocalStatus] = useState("");
   const [localMetrics, setLocalMetrics] = useState<LocalInterpretationMetrics | null>(null);
   const localRunId = useRef(0);
+  const freeReadInFlight = useRef(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -100,6 +101,9 @@ export default function ReceiptImport() {
 
   const processFileFast = useCallback(
     async (file: File) => {
+      // Repeated taps must never start a second concurrent OCR read.
+      if (freeReadInFlight.current) return;
+      freeReadInFlight.current = true;
       const totalStart = performance.now();
       let completedRun: {
         initializationMs: number;
@@ -200,6 +204,7 @@ export default function ReceiptImport() {
         }
         setLoading(false);
         setReadStatus("");
+        freeReadInFlight.current = false;
       }
     },
     [buildPrefill],

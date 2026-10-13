@@ -59,6 +59,8 @@ function resultPayload(id: number, overrides: Record<string, unknown> = {}) {
     recognizedCount: 1,
     mode: "full",
     tiles: 1,
+    tileTimingsMs: [] as number[],
+    consolidationMs: 3,
     ...overrides,
   };
 }
@@ -70,8 +72,9 @@ describe("paddleRecognizeWorker", () => {
     vi.unstubAllGlobals();
   });
 
-  it("uses a 90s safety timeout for slow Android devices", () => {
-    expect(PADDLE_OCR_TIMEOUT_MS).toBe(90_000);
+  it("uses a 300s safety timeout so slow Android reads can finish", () => {
+    expect(PADDLE_OCR_TIMEOUT_MS).toBe(300_000);
+    expect(PADDLE_OCR_TIMEOUT_MS).toBeGreaterThan(90_000);
   });
 
   it("keeps capable desktops on one full-image prediction", () => {
@@ -103,7 +106,7 @@ describe("paddleRecognizeWorker", () => {
     expect(choosePaddleOcrMode(signals)).toBe("tiled");
   });
 
-  it("does not time out early on a slow device (default timeout)", async () => {
+  it("does not terminate a read still running at 90 seconds (default timeout)", async () => {
     vi.useFakeTimers();
     try {
       const pending = paddleRecognizeWorker(makeFile(), undefined, { createWorker, decode });
@@ -112,10 +115,46 @@ describe("paddleRecognizeWorker", () => {
         await Promise.resolve();
         worker = FakeWorker.instances[FakeWorker.instances.length - 1];
       }
-      await vi.advanceTimersByTimeAsync(60_000);
+      await vi.advanceTimersByTimeAsync(90_000);
       expect(worker!.terminated).toBe(false);
       worker!.onmessage?.({ data: resultPayload(1) });
-      await expect(pending).resolves.toMatchObject({ text: "PAO FRANCES" });
+      const outcome = await pending;
+      expect(outcome).toMatchObject({ text: "PAO FRANCES" });
+      expect(worker!.terminated).toBe(true);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("returns a result that finishes after 90 seconds without timing out", async () => {
+    vi.useFakeTimers();
+    try {
+      const pending = paddleRecognizeWorker(makeFile(), undefined, { createWorker, decode });
+      let worker: FakeWorker | undefined;
+      for (let i = 0; i < 50 && !worker; i += 1) {
+        await Promise.resolve();
+        worker = FakeWorker.instances[FakeWorker.instances.length - 1];
+      }
+      await vi.advanceTimersByTimeAsync(120_000);
+      expect(worker!.terminated).toBe(false);
+      worker!.onmessage?.({
+        data: resultPayload(1, {
+          mode: "tiled",
+          tiles: 3,
+          tileTimingsMs: [38_000, 41_000, 39_000],
+          consolidationMs: 12,
+        }),
+      });
+      const outcome = await pending;
+      expect(outcome).toMatchObject({
+        text: "PAO FRANCES",
+        mode: "tiled",
+        tiles: 3,
+        tileTimingsMs: [38_000, 41_000, 39_000],
+        consolidationMs: 12,
+      });
+      expect(typeof outcome.totalMs).toBe("number");
+      expect(worker!.terminated).toBe(true);
     } finally {
       vi.useRealTimers();
     }
@@ -208,6 +247,63 @@ describe("paddleRecognizeWorker", () => {
     } finally {
       warn.mockRestore();
     }
+  });
+
+  it("keeps stage timings in the diagnostic when a read fails mid-way", async () => {
+    const pending = paddleRecognizeWorker(makeFile(), undefined, {
+      createWorker,
+      decode,
+      timeoutMs: 5000,
+      mode: "tiled",
+    });
+    const worker = await lastWorker();
+    worker.onmessage?.({
+      data: {
+        type: "progress",
+        stage: "predict-2/3",
+        message: "Lendo parte 2 de 3...",
+        timings: { initializationMs: 25_000, tileMs: [20_000] },
+      },
+    });
+    worker.onmessage?.({ data: { type: "error", stage: "predict-2/3", message: "boom" } });
+    const error = await pending.catch((e) => e);
+    expect(error).toBeInstanceOf(PaddleOcrError);
+    expect(error.diagnostic.timings).toContain("decode=");
+    expect(error.diagnostic.timings).toContain("init=25000ms");
+    expect(error.diagnostic.timings).toContain("tiles=[20000]ms");
+    expect(error.diagnostic.timings).toContain("total=");
+    const formatted = formatOcrDiagnostic(error.diagnostic, "963x1280");
+    expect(formatted).toContain("timings=");
+    expect(formatted).toContain("init=25000ms");
+    expect(formatted).toContain("original=963x1280");
+  });
+
+  it("preserves the three-tile outcome including per-tile timings", async () => {
+    const pending = paddleRecognizeWorker(makeFile(), undefined, {
+      createWorker,
+      decode,
+      timeoutMs: 1000,
+      mode: "tiled",
+    });
+    const worker = await lastWorker();
+    expect(worker.posted[0]).toMatchObject({ mode: "tiled" });
+    worker.onmessage?.({
+      data: resultPayload(1, {
+        mode: "tiled",
+        tiles: 3,
+        detectedBoxes: 3,
+        recognizedCount: 3,
+        tileTimingsMs: [10, 20, 30],
+        consolidationMs: 7,
+      }),
+    });
+    const outcome = await pending;
+    expect(outcome.mode).toBe("tiled");
+    expect(outcome.tiles).toBe(3);
+    expect(outcome.tileTimingsMs).toEqual([10, 20, 30]);
+    expect(outcome.consolidationMs).toBe(7);
+    expect(outcome.regions).toHaveLength(1);
+    expect(worker.terminated).toBe(true);
   });
 
   it("creates one worker per read", async () => {

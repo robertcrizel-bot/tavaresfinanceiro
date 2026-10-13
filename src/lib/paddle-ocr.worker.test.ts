@@ -142,15 +142,18 @@ describe("paddle-ocr.worker", () => {
       text: string;
       initializationMs: number;
       ocrMs: number;
+      consolidationMs: number;
+      tileTimingsMs: number[];
     };
     expect(result.regions).toEqual([
       { text: "PAO FRANCES", confidence: 0.99, bbox: [[0, 0], [10, 0], [10, 5], [0, 5]] },
       { text: "6,03", confidence: 0.87, bbox: [[0, 10], [10, 10], [10, 15], [0, 15]] },
     ]);
     expect(result.text).toBe("PAO FRANCES\n6,03");
-    expect(result).toMatchObject({ mode: "full", tiles: 1 });
+    expect(result).toMatchObject({ mode: "full", tiles: 1, tileTimingsMs: [] });
     expect(typeof result.initializationMs).toBe("number");
     expect(typeof result.ocrMs).toBe("number");
+    expect(typeof result.consolidationMs).toBe("number");
     expect(paddleMocks.predict).toHaveBeenCalledWith(
       expect.objectContaining({ delete: paddleMocks.matDelete }),
     );
@@ -181,9 +184,14 @@ describe("paddle-ocr.worker", () => {
       tiles: number;
       detectedBoxes: number;
       recognizedCount: number;
+      tileTimingsMs: number[];
+      consolidationMs: number;
       regions: { text: string; confidence: number; bbox: [number, number][] }[];
     };
     expect(result).toMatchObject({ mode: "tiled", tiles: 3, detectedBoxes: 3, recognizedCount: 3 });
+    expect(result.tileTimingsMs).toHaveLength(3);
+    expect(result.tileTimingsMs.every((value) => typeof value === "number" && value >= 0)).toBe(true);
+    expect(typeof result.consolidationMs).toBe("number");
     expect(result.regions).toEqual([
       { text: "ITEM", confidence: 0.9, bbox: [[0, 93], [10, 93], [10, 98], [0, 98]] },
       { text: "TOTAL", confidence: 0.95, bbox: [[0, 241], [10, 241], [10, 246], [0, 246]] },

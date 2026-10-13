@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ReceiptImport from "@/pages/ReceiptImport";
 import { fonsecaRegions } from "@/lib/ocr-paddle-test/__fixtures__/fonseca.fixture";
@@ -606,6 +606,39 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
       expect.objectContaining({ attachments: [file] }),
     );
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
+  });
+
+  it("repeated rapid taps on 'Ler gratuitamente' never start a second concurrent read", async () => {
+    let finishRead: ((payload: Record<string, unknown>) => void) | undefined;
+    mocks.paddleRecognizeWorker.mockImplementation(
+      () => new Promise((resolve) => { finishRead = resolve; }),
+    );
+
+    selectFile();
+    const button = await screen.findByRole("button", { name: "Ler gratuitamente" });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    fireEvent.click(button);
+    await waitFor(() => expect(mocks.paddleRecognizeWorker).toHaveBeenCalledTimes(1));
+    await act(async () => { await Promise.resolve(); });
+    expect(mocks.paddleRecognizeWorker).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      finishRead!({
+        regions: [{ text: "MERCADO CENTRAL", confidence: 0.9, bbox: [[0, 0], [10, 0], [10, 5], [0, 5]] }],
+        rawLines: [],
+        initializationMs: 1500,
+        ocrMs: 8000,
+        mode: "tiled",
+        tiles: 3,
+        tileTimingsMs: [2800, 2600, 2700],
+        consolidationMs: 5,
+        totalMs: 95000,
+      });
+    });
+
+    await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
+    expect(mocks.paddleRecognizeWorker).toHaveBeenCalledTimes(1);
   });
 
   it("opens the parsed form before orientation cleanup finishes", async () => {
