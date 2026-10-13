@@ -290,3 +290,55 @@ describe("paddleToParsedReceipt with the fragmented padaria fixture", () => {
     expect(parsed.low_confidence_fields).toContain("purchased_items");
   });
 });
+
+describe("paddleToParsedReceipt with Pix / bank transfer receipts (no items, no CNPJ)", () => {
+  function makeRegion(text: string, x: number, y: number, w: number, h: number) {
+    return {
+      text,
+      confidence: 0.95,
+      bbox: [
+        [x, y],
+        [x + w, y],
+        [x + w, y + h],
+        [x, y + h],
+      ],
+    };
+  }
+
+  function buildPixRegions(valueLine: string) {
+    return [
+      makeRegion("BANCO INTER", 10, 40, 220, 18),
+      makeRegion("Pix enviado", 10, 70, 140, 14),
+      makeRegion("Data 13/10/2026 14:05:22", 10, 100, 240, 14),
+      makeRegion("Recebedor JOAO DA SILVA CPF 123.456.789-00", 10, 130, 320, 14),
+      makeRegion("Chave pix joao@email.com", 10, 160, 240, 14),
+      makeRegion(valueLine, 10, 190, 220, 14),
+      makeRegion("Autenticacao 000000000000", 10, 220, 260, 14),
+    ];
+  }
+
+  it("accepts a Pix receipt whose amount is printed as 'Valor: R$ X,XX'", () => {
+    const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(buildPixRegions("Valor: R$ 25,00")));
+    expect(parsed.is_receipt).toBe(true);
+    expect(parsed.amount).toBe(25);
+    expect(parsed.date).toBe("2026-10-13");
+    expect(parsed.counterparty).toBe("BANCO INTER");
+  });
+
+  it("accepts a Pix receipt printed as 'Valor transferido'", () => {
+    const parsed = paddleToParsedReceipt(
+      buildPaddleReceiptResult(buildPixRegions("Valor transferido R$ 80,10")),
+    );
+    expect(parsed.is_receipt).toBe(true);
+    expect(parsed.amount).toBe(80.1);
+  });
+
+  it("still rejects an image with no total, no items and no merchant+CNPJ pair", () => {
+    const regions = [
+      makeRegion("FOTO DE UMA PRAIA", 10, 40, 220, 18),
+      makeRegion("CEU AZUL E AREIA", 10, 70, 180, 14),
+    ];
+    const parsed = paddleToParsedReceipt(buildPaddleReceiptResult(regions));
+    expect(parsed.is_receipt).toBe(false);
+  });
+});

@@ -33,6 +33,11 @@ const TOTAL_MARKER_PATTERNS: RegExp[] = [
   /valor\s*pago/i,
   /valor\s*total/i,
   /total\s*geral/i,
+  // Pix / bank transfer receipts have no items and no "valor total" line:
+  // the amount is printed as "Valor: R$ X,XX" or "Valor transferido/recebido".
+  // Without these markers the whole receipt was rejected as is_receipt=false.
+  /valor\s*:/i,
+  /valor\s+(?:transferido|recebido|enviado|depositado)/i,
 ];
 
 const TOTAL_LABEL_WORD_SETS: readonly (readonly string[])[] = [
