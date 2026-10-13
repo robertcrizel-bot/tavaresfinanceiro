@@ -10,7 +10,9 @@ import { ChartCard } from "@/components/ChartCard";
 import { InsightCard } from "@/components/InsightCard";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
+import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { TransactionDetail } from "@/components/TransactionDetail";
 import { calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
 import {
@@ -23,9 +25,10 @@ import {
   chartMoneyTick,
 } from "@/lib/chart-theme";
 import { cn } from "@/lib/utils";
-import type { Transaction } from "@/lib/types";
+import { PAYMENT_METHODS, type Transaction } from "@/lib/types";
 import {
   alignPreviousValues,
+  applyAnalyticsScope,
   buildBudgetView,
   buildEvolutionSeries,
   buildInsights,
@@ -38,6 +41,7 @@ import {
   evolutionGranularity,
   filterByCategory,
   filterExpensesInRange,
+  hasActiveAnalyticsScope,
   parseLocalDate,
   previousAnalyticsRange,
   resolveAnalyticsRange,
@@ -46,6 +50,7 @@ import {
   summarizeCategories,
   totalByCategory,
   type AnalyticsPeriod,
+  type AnalyticsScopeFilters,
 } from "@/lib/expense-analytics";
 import {
   CalendarDays,
@@ -54,6 +59,7 @@ import {
   ChevronRight,
   Percent,
   PieChart,
+  Search,
   Tag,
   Wallet,
   X,
@@ -99,6 +105,9 @@ export default function ExpenseAnalytics() {
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [searchText, setSearchText] = useState("");
+  const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
+  const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
   const [detailTransaction, setDetailTransaction] = useState<Transaction | null>(null);
 
   const today = useMemo(() => new Date(), []);
@@ -115,14 +124,26 @@ export default function ExpenseAnalytics() {
     [range, today],
   );
 
+  const scopeFilters = useMemo<AnalyticsScopeFilters>(
+    () => ({ search: searchText, originId: selectedOrigin, paymentMethod: selectedPayment }),
+    [searchText, selectedOrigin, selectedPayment],
+  );
+
   const periodExpenses = useMemo(
     () => filterExpensesInRange(transactions, effectiveRange),
     [transactions, effectiveRange],
   );
 
+  // Establishment / origin / payment narrow the period; the same scope is
+  // applied to the previous period so comparisons never compare apples to oranges.
+  const scopedExpenses = useMemo(
+    () => applyAnalyticsScope(periodExpenses, scopeFilters),
+    [periodExpenses, scopeFilters],
+  );
+
   const visibleExpenses = useMemo(
-    () => filterByCategory(periodExpenses, selectedCategory),
-    [periodExpenses, selectedCategory],
+    () => filterByCategory(scopedExpenses, selectedCategory),
+    [scopedExpenses, selectedCategory],
   );
 
   const previousRange = useMemo(
@@ -135,19 +156,15 @@ export default function ExpenseAnalytics() {
     [transactions, previousRange],
   );
 
-  const periodSummary = useMemo(() => {
-    const total = sumExpenses(periodExpenses);
-    const days = effectiveRange
-      ? daysInclusive(effectiveRange.start, effectiveRange.end)
-      : 0;
-    return {
-      total,
-      days,
-      average: computeDailyAverage(total, days),
-      categories: summarizeCategories(periodExpenses),
-      byCategory: totalByCategory(periodExpenses),
-    };
-  }, [periodExpenses, effectiveRange]);
+  const previousScopedExpenses = useMemo(
+    () => applyAnalyticsScope(previousExpenses, scopeFilters),
+    [previousExpenses, scopeFilters],
+  );
+
+  const previousVisibleExpenses = useMemo(
+    () => filterByCategory(previousScopedExpenses, selectedCategory),
+    [previousScopedExpenses, selectedCategory],
+  );
 
   const visibleSummary = useMemo(() => {
     const total = sumExpenses(visibleExpenses);
@@ -159,8 +176,8 @@ export default function ExpenseAnalytics() {
   }, [visibleExpenses]);
 
   const previousTotal = useMemo(
-    () => (previousRange ? sumExpenses(previousExpenses) : 0),
-    [previousExpenses, previousRange],
+    () => sumExpenses(previousVisibleExpenses),
+    [previousVisibleExpenses],
   );
 
   const variation = useMemo(
@@ -179,11 +196,6 @@ export default function ExpenseAnalytics() {
   const evolutionPoints = useMemo(
     () => buildEvolutionSeries(visibleExpenses, range, today),
     [visibleExpenses, range, today],
-  );
-
-  const previousVisibleExpenses = useMemo(
-    () => filterByCategory(previousExpenses, selectedCategory),
-    [previousExpenses, selectedCategory],
   );
 
   const previousEvolution = useMemo(
@@ -244,12 +256,12 @@ export default function ExpenseAnalytics() {
 
   const donutData = useMemo(
     () =>
-      periodSummary.categories.map((entry) => ({
+      visibleSummary.categories.map((entry) => ({
         category: entry.category,
         value: entry.total,
         percentage: entry.percentage,
       })),
-    [periodSummary.categories],
+    [visibleSummary.categories],
   );
 
   const chartData = useMemo(
@@ -309,6 +321,25 @@ export default function ExpenseAnalytics() {
 
   const topCategory = visibleSummary.categories[0] ?? null;
 
+  const originLabel = useMemo(() => {
+    if (!selectedOrigin) return null;
+    if (selectedOrigin.startsWith("a:")) {
+      return accounts.find((item) => item.id === selectedOrigin.slice(2))?.name ?? null;
+    }
+    return creditCards.find((item) => item.id === selectedOrigin.slice(2))?.name ?? null;
+  }, [selectedOrigin, accounts, creditCards]);
+
+  const subsetFiltersActive = hasActiveAnalyticsScope(scopeFilters);
+  const hasAnyActiveFilter =
+    subsetFiltersActive || selectedCategory !== null;
+
+  const clearAllFilters = () => {
+    setSelectedCategory(null);
+    setSearchText("");
+    setSelectedOrigin(null);
+    setSelectedPayment(null);
+  };
+
   const variationValue = (() => {
     if (!variation) return "—";
     const arrow = variation.direction === "up" ? "↑" : variation.direction === "down" ? "↓" : "→";
@@ -322,7 +353,7 @@ export default function ExpenseAnalytics() {
   const rankingMax = donutData[0]?.value ?? 0;
   const centerValue = selectedCategory
     ? donutData.find((entry) => entry.category === selectedCategory)?.value ?? 0
-    : periodSummary.total;
+    : visibleSummary.total;
 
   return (
     <div className="mx-auto max-w-[1500px] space-y-4 pb-4 sm:space-y-5">
@@ -369,74 +400,204 @@ export default function ExpenseAnalytics() {
           )}
         </div>
 
-        <div className="workspace-panel flex flex-wrap items-center gap-2 p-2 sm:p-3">
-          <div className="grid flex-1 grid-cols-2 gap-1 sm:flex sm:flex-none">
-            {PERIOD_OPTIONS.map((option) => (
-              <Button
-                key={option.value}
-                size="sm"
-                variant={period === option.value ? "default" : "outline"}
-                className="h-9 rounded-xl px-4 text-xs shadow-none"
-                onClick={() => handlePeriodChange(option.value)}
-              >
-                {option.label}
-              </Button>
-            ))}
+        <div className="workspace-panel space-y-2 p-2 sm:p-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="grid flex-1 grid-cols-2 gap-1 sm:flex sm:flex-none">
+              {PERIOD_OPTIONS.map((option) => (
+                <Button
+                  key={option.value}
+                  size="sm"
+                  variant={period === option.value ? "default" : "outline"}
+                  className="h-9 rounded-xl px-4 text-xs shadow-none"
+                  onClick={() => handlePeriodChange(option.value)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  size="sm"
+                  variant={period === "custom" ? "default" : "outline"}
+                  className="h-9 gap-1.5 rounded-xl px-4 text-xs shadow-none"
+                  onClick={() => {
+                    if (period !== "custom") {
+                      setPeriod("custom");
+                      setAnchor(new Date());
+                      if (!customRange?.from) {
+                        setCustomRange({
+                          from: new Date(today.getFullYear(), today.getMonth(), 1),
+                          to: today,
+                        });
+                      }
+                    }
+                  }}
+                >
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                  Personalizado
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  selected={customRange}
+                  onSelect={(value) => {
+                    setCustomRange(value);
+                    setPeriod("custom");
+                    if (value?.from && value?.to) setCalendarOpen(false);
+                  }}
+                  numberOfMonths={1}
+                  locale={ptBR}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-            <PopoverTrigger asChild>
+          {/* Scope filters: category, establishment, origin, payment */}
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap">
+            <Select
+              value={selectedCategory ?? "all"}
+              onValueChange={(value) => setSelectedCategory(value === "all" ? null : value)}
+            >
+              <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[170px]" aria-label="Filtrar por categoria">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as categorias</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category.name} value={category.name}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="relative sm:col-span-2 lg:col-auto lg:flex-1 lg:min-w-[12rem]">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+                placeholder="Estabelecimento ou descrição..."
+                aria-label="Pesquisar por estabelecimento ou descrição"
+                className="h-9 rounded-xl pl-9 text-xs"
+              />
+            </div>
+
+            <Select
+              value={selectedOrigin ?? "all"}
+              onValueChange={(value) => setSelectedOrigin(value === "all" ? null : value)}
+            >
+              <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[180px]" aria-label="Filtrar por conta ou cartão">
+                <SelectValue placeholder="Conta ou cartão" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as contas</SelectItem>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={`a:${account.id}`}>
+                    {account.name}
+                  </SelectItem>
+                ))}
+                {creditCards.map((card) => (
+                  <SelectItem key={card.id} value={`c:${card.id}`}>
+                    {card.name} (Cartão)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={selectedPayment ?? "all"}
+              onValueChange={(value) => setSelectedPayment(value === "all" ? null : value)}
+            >
+              <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[160px]" aria-label="Filtrar por forma de pagamento">
+                <SelectValue placeholder="Pagamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as formas</SelectItem>
+                {PAYMENT_METHODS.map((method) => (
+                  <SelectItem key={method} value={method}>
+                    {method}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {hasAnyActiveFilter && (
               <Button
                 size="sm"
-                variant={period === "custom" ? "default" : "outline"}
-                className="h-9 gap-1.5 rounded-xl px-4 text-xs shadow-none"
-                onClick={() => {
-                  if (period !== "custom") {
-                    setPeriod("custom");
-                    setAnchor(new Date());
-                    if (!customRange?.from) {
-                      setCustomRange({
-                        from: new Date(today.getFullYear(), today.getMonth(), 1),
-                        to: today,
-                      });
-                    }
-                  }
-                }}
+                variant="ghost"
+                className="h-9 gap-1 rounded-xl px-3 text-xs text-muted-foreground"
+                onClick={clearAllFilters}
               >
-                <CalendarIcon className="h-3.5 w-3.5" />
-                Personalizado
+                <X className="h-3.5 w-3.5" />
+                Limpar filtros
               </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="start">
-              <Calendar
-                mode="range"
-                selected={customRange}
-                onSelect={(value) => {
-                  setCustomRange(value);
-                  setPeriod("custom");
-                  if (value?.from && value?.to) setCalendarOpen(false);
-                }}
-                numberOfMonths={1}
-                locale={ptBR}
-                initialFocus
-                className="p-3 pointer-events-auto"
-              />
-            </PopoverContent>
-          </Popover>
+            )}
+          </div>
         </div>
 
-        {selectedCategory && (
+        {hasAnyActiveFilter && (
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
-            <span className="text-muted-foreground">Filtro ativo:</span>
-            <span className="font-semibold text-primary">{selectedCategory}</span>
+            <span className="text-muted-foreground">Filtros ativos:</span>
+            {selectedCategory && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
+                {selectedCategory}
+                <button
+                  type="button"
+                  aria-label={`Remover filtro de categoria ${selectedCategory}`}
+                  onClick={() => setSelectedCategory(null)}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {searchText.trim() && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
+                “{searchText.trim()}”
+                <button
+                  type="button"
+                  aria-label="Remover filtro de estabelecimento"
+                  onClick={() => setSearchText("")}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {originLabel && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
+                {originLabel}
+                <button
+                  type="button"
+                  aria-label="Remover filtro de conta ou cartão"
+                  onClick={() => setSelectedOrigin(null)}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
+            {selectedPayment && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
+                {selectedPayment}
+                <button
+                  type="button"
+                  aria-label="Remover filtro de pagamento"
+                  onClick={() => setSelectedPayment(null)}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            )}
             <Button
               size="sm"
               variant="ghost"
               className="ml-auto h-7 gap-1 px-2 text-xs"
-              onClick={() => setSelectedCategory(null)}
+              onClick={clearAllFilters}
             >
-              <X className="h-3.5 w-3.5" />
-              Limpar filtro
+              Limpar todos
             </Button>
           </div>
         )}
@@ -543,6 +704,18 @@ export default function ExpenseAnalytics() {
                   Limpar filtro
                 </Button>
               )}
+            </div>
+          ) : visibleExpenses.length === 0 ? (
+            <div className="dashboard-card flex flex-col items-center justify-center px-6 py-12 text-center">
+              <PieChart className="h-10 w-10 text-muted-foreground mb-3" />
+              <h3 className="text-base font-semibold text-foreground">Nenhum resultado para os filtros</h3>
+              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+                Há despesas no período, mas nenhuma corresponde aos filtros de categoria,
+                estabelecimento, conta/cartão e forma de pagamento aplicados.
+              </p>
+              <Button size="sm" variant="outline" className="mt-4" onClick={clearAllFilters}>
+                Limpar filtros
+              </Button>
             </div>
           ) : (
             <>
@@ -869,6 +1042,15 @@ export default function ExpenseAnalytics() {
                         </p>
                       )}
 
+                      {subsetFiltersActive && (
+                        <p className="mt-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1.5 text-[12px] text-foreground">
+                          Os valores de orçamento representam o total mensal de cada categoria;
+                          o realizado exibido abaixo considera <strong>apenas os filtros
+                          ativos</strong> (estabelecimento, conta/cartão e pagamento), portanto
+                          é um subconjunto do gasto total da categoria.
+                        </p>
+                      )}
+
                       <div className="mt-4 space-y-3.5">
                         {budgetRows.map((row) => {
                           const width =
@@ -955,6 +1137,9 @@ export default function ExpenseAnalytics() {
                 {sortedTransactions.length} transaç
                 {sortedTransactions.length === 1 ? "ão" : "ões"}
                 {selectedCategory ? ` em ${selectedCategory}` : ""}
+                {searchText.trim() ? ` · “${searchText.trim()}”` : ""}
+                {originLabel ? ` · ${originLabel}` : ""}
+                {selectedPayment ? ` · ${selectedPayment}` : ""}
               </span>
               <span className="tabular-nums">
                 {money(sumExpenses(sortedTransactions))}

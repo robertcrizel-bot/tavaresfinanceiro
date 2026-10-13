@@ -224,6 +224,84 @@ export function filterByCategory<T extends { category: string }>(
   return transactions.filter((transaction) => transaction.category === category);
 }
 
+/** Case- and accent-insensitive text for establishment/description searches. */
+export function normalizeAnalyticsSearch(value: string): string {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+/** Textual establishment/description filter (e.g. "padaria alvorada"). */
+export function filterByEstablishment<T extends { title: string; description?: string }>(
+  transactions: T[],
+  search: string,
+): T[] {
+  const query = normalizeAnalyticsSearch(search);
+  if (!query) return transactions;
+  return transactions.filter((transaction) => {
+    const haystack = normalizeAnalyticsSearch(
+      `${transaction.title} ${transaction.description ?? ""}`,
+    );
+    return haystack.includes(query);
+  });
+}
+
+/**
+ * Account/card origin filter. Uses the same "a:<id>" / "c:<id>" keys as the
+ * Records tab so both screens stay consistent.
+ */
+export function filterByOrigin<T extends { accountId?: string; creditCardId?: string }>(
+  transactions: T[],
+  originId: string | null,
+): T[] {
+  if (!originId) return transactions;
+  const separator = originId.indexOf(":");
+  if (separator < 0) return [];
+  const kind = originId.slice(0, separator);
+  const id = originId.slice(separator + 1);
+  return transactions.filter((transaction) =>
+    kind === "a" ? transaction.accountId === id : kind === "c" ? transaction.creditCardId === id : false,
+  );
+}
+
+export function filterByPaymentMethod<T extends { paymentMethod?: string }>(
+  transactions: T[],
+  method: string | null,
+): T[] {
+  if (!method) return transactions;
+  return transactions.filter((transaction) => transaction.paymentMethod === method);
+}
+
+/** The non-period scope filters that must also apply to the previous period. */
+export interface AnalyticsScopeFilters {
+  search: string;
+  originId: string | null;
+  paymentMethod: string | null;
+}
+
+export const EMPTY_ANALYTICS_SCOPE: AnalyticsScopeFilters = {
+  search: "",
+  originId: null,
+  paymentMethod: null,
+};
+
+export function applyAnalyticsScope<
+  T extends { title: string; description?: string; accountId?: string; creditCardId?: string; paymentMethod?: string },
+>(transactions: T[], scope: AnalyticsScopeFilters): T[] {
+  let list = transactions;
+  list = filterByEstablishment(list, scope.search);
+  list = filterByOrigin(list, scope.originId);
+  list = filterByPaymentMethod(list, scope.paymentMethod);
+  return list;
+}
+
+/** True when establishment/origin/payment filters narrow the view (subset risk). */
+export function hasActiveAnalyticsScope(scope: AnalyticsScopeFilters): boolean {
+  return Boolean(scope.search.trim() || scope.originId || scope.paymentMethod);
+}
+
 export function sumExpenses(transactions: Transaction[]): number {
   return roundCents(transactions.reduce((total, transaction) => total + transaction.amount, 0));
 }

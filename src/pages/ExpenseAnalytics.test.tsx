@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
     type: "income" | "expense" | "both";
     monthlyBudget: number | null;
   }[],
+  accounts: [{ id: "acc-1", name: "Nubank" }] as { id: string; name: string }[],
+  creditCards: [] as { id: string; name: string }[],
 }));
 
 class ResizeObserverStub {
@@ -32,8 +34,8 @@ vi.mock("@/contexts/FinanceContext", () => ({
 }));
 vi.mock("@/contexts/AccountContext", () => ({
   useAccounts: () => ({
-    accounts: [{ id: "acc-1", name: "Nubank" }],
-    creditCards: [],
+    accounts: mocks.accounts,
+    creditCards: mocks.creditCards,
     loading: false,
   }),
 }));
@@ -45,6 +47,35 @@ vi.mock("@/components/TransactionDetail", () => ({
     transaction ? <div data-testid="transaction-detail">{transaction.title}</div> : null,
 }));
 vi.mock("@/components/ui/calendar", () => ({ Calendar: () => null }));
+vi.mock("@/components/ui/select", async () => {
+  const React = await import("react");
+  const SelectContext = React.createContext<(value: string) => void>(() => {});
+  const Select = ({
+    children,
+    onValueChange,
+  }: {
+    children?: ReactNode;
+    onValueChange?: (value: string) => void;
+  }) => <SelectContext.Provider value={onValueChange ?? (() => {})}>{children}</SelectContext.Provider>;
+  const SelectItem = ({ value, children }: { value: string; children?: ReactNode }) => {
+    const onChange = React.useContext(SelectContext);
+    return (
+      <button type="button" data-select-item={value} onClick={() => onChange(value)}>
+        {children}
+      </button>
+    );
+  };
+  const SelectTrigger = ({
+    children,
+    "aria-label": ariaLabel,
+  }: {
+    children?: ReactNode;
+    "aria-label"?: string;
+  }) => <div role="combobox" aria-label={ariaLabel}>{children}</div>;
+  const SelectValue = () => null;
+  const SelectContent = ({ children }: { children?: ReactNode }) => <div>{children}</div>;
+  return { Select, SelectContent, SelectItem, SelectTrigger, SelectValue };
+});
 vi.mock("@/components/ui/popover", () => {
   const Container = ({ children }: { children?: ReactNode }) => <>{children}</>;
   return { Popover: Container, PopoverContent: Container, PopoverTrigger: Container };
@@ -54,11 +85,15 @@ vi.mock("lucide-react", () => {
   return {
     CalendarDays: Icon,
     CalendarIcon: Icon,
+    Check: Icon,
+    ChevronDown: Icon,
     ChevronLeft: Icon,
     ChevronRight: Icon,
+    ChevronUp: Icon,
     Lightbulb: Icon,
     Percent: Icon,
     PieChart: Icon,
+    Search: Icon,
     Tag: Icon,
     Wallet: Icon,
     X: Icon,
@@ -138,6 +173,8 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.transactions = dataset;
   mocks.categories = categories;
+  mocks.accounts = [{ id: "acc-1", name: "Nubank" }];
+  mocks.creditCards = [];
 });
 
 describe("ExpenseAnalytics default period", () => {
@@ -233,7 +270,7 @@ describe("ExpenseAnalytics category filter", () => {
       .closest(".dashboard-card") as HTMLElement;
     fireEvent.click(within(donutCard).getByRole("button", { name: /Alimentação/ }));
 
-    expect(screen.getByText("Filtro ativo:")).toBeInTheDocument();
+    expect(screen.getByText("Filtros ativos:")).toBeInTheDocument();
     expect(kpiValue("Gasto Total")).toBe(fmt(820));
     expect(kpiValue("Média por Dia")).toBe(fmt(820 / elapsedDays));
     expect(screen.getByText("Mercado")).toBeInTheDocument();
@@ -246,7 +283,7 @@ describe("ExpenseAnalytics category filter", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /Limpar filtro/ }));
 
-    expect(screen.queryByText("Filtro ativo:")).not.toBeInTheDocument();
+    expect(screen.queryByText("Filtros ativos:")).not.toBeInTheDocument();
     expect(kpiValue("Gasto Total")).toBe(fmt(1430));
     expect(screen.getByText("Uber")).toBeInTheDocument();
   });
@@ -332,5 +369,152 @@ describe("ExpenseAnalytics drill-down", () => {
     fireEvent.click(screen.getByText("Mercado").closest("button")!);
 
     expect(screen.getByTestId("transaction-detail")).toHaveTextContent("Mercado");
+  });
+});
+
+describe("ExpenseAnalytics scope filters (establishment, origin, payment)", () => {
+  const scopeDataset: Transaction[] = [
+    expense("pad1", day1, 120.3, {
+      title: "Padaria Alvorada",
+      category: "Alimentação",
+      paymentMethod: "Pix",
+      accountId: "acc-1",
+    }),
+    expense("pad2", day1, 150.2, {
+      title: "Padaria Alvorada Pães",
+      category: "Alimentação",
+      paymentMethod: "Pix",
+      accountId: "acc-1",
+    }),
+    expense("pad3", day1, 117, {
+      title: "Padaria Alvorada",
+      category: "Alimentação",
+      paymentMethod: "Dinheiro",
+      accountId: "acc-2",
+    }),
+    expense("gas", day1, 200, {
+      title: "Posto Avenida",
+      category: "Transporte",
+      paymentMethod: "Pix",
+      accountId: "acc-2",
+    }),
+    expense("pad-prev", prevMonthDay1, 100, {
+      title: "Padaria Alvorada",
+      category: "Alimentação",
+      paymentMethod: "Pix",
+      accountId: "acc-1",
+    }),
+  ];
+
+  const setupScope = () => {
+    mocks.transactions = scopeDataset;
+    mocks.categories = categories;
+    mocks.accounts = [
+      { id: "acc-1", name: "Nubank" },
+      { id: "acc-2", name: "Inter" },
+    ];
+    renderPage();
+  };
+
+  const typeEstablishment = (value: string) => {
+    const input = screen.getByLabelText("Pesquisar por estabelecimento ou descrição");
+    fireEvent.change(input, { target: { value } });
+  };
+
+  const clickSelectItem = (label: string) => {
+    fireEvent.click(screen.getByLabelText(label));
+    // The mocked Select renders every option as a plain button.
+  };
+
+  it("narrows every indicator by the establishment search, ignoring case and accents", () => {
+    setupScope();
+    typeEstablishment("padaria alvorada");
+
+    expect(kpiValue("Gasto Total")).toBe(fmt(387.5));
+    expect(screen.getAllByText("Padaria Alvorada").length).toBeGreaterThan(0);
+    expect(screen.getByText("Padaria Alvorada Pães")).toBeInTheDocument();
+    expect(screen.queryByText("Posto Avenida")).not.toBeInTheDocument();
+    expect(screen.getByText("“padaria alvorada”")).toBeInTheDocument();
+  });
+
+  it("filters by payment method and updates the active chip", () => {
+    setupScope();
+    clickSelectItem("Filtrar por forma de pagamento");
+    fireEvent.click(screen.getByRole("button", { name: "Pix" }));
+
+    expect(kpiValue("Gasto Total")).toBe(fmt(470.5)); // pad1 + pad2 + gas
+    const banner = screen.getByText("Filtros ativos:").closest("div") as HTMLElement;
+    expect(within(banner).getByText("Pix")).toBeInTheDocument();
+  });
+
+  it("filters by account origin and applies the same scope to the previous period", () => {
+    setupScope();
+    clickSelectItem("Filtrar por conta ou cartão");
+    fireEvent.click(screen.getByRole("button", { name: "Inter" }));
+
+    // pad3 (117) + gas (200); previous month has no Inter movement.
+    expect(kpiValue("Gasto Total")).toBe(fmt(317));
+    expect(kpiValue("Variação")).toContain("317,00"); // zero -> absolute delta, no percentage
+  });
+
+  it("combines establishment + account filters and clears them all at once", () => {
+    setupScope();
+    typeEstablishment("padaria");
+    clickSelectItem("Filtrar por conta ou cartão");
+    fireEvent.click(screen.getByRole("button", { name: "Nubank" }));
+
+    // Nubank padarias: 120.30 + 150.20 = 270.50 (Inter padaria excluded).
+    expect(kpiValue("Gasto Total")).toBe(fmt(270.5));
+
+    // Previous period also Nubank + "padaria": 100 -> variation +170,5%.
+    expect(kpiValue("Variação")).toContain("170,5%");
+
+    fireEvent.click(screen.getByRole("button", { name: /Limpar filtros/ }));
+
+    expect(kpiValue("Gasto Total")).toBe(fmt(587.5));
+    expect(screen.queryByText("Filtros ativos:")).not.toBeInTheDocument();
+  });
+
+  it("shows a clear empty state when filters exclude everything", () => {
+    setupScope();
+    typeEstablishment("estabelecimento inexistente");
+
+    const emptyCard = screen
+      .getByText("Nenhum resultado para os filtros")
+      .closest(".dashboard-card") as HTMLElement;
+    expect(emptyCard).toBeInTheDocument();
+
+    fireEvent.click(within(emptyCard).getByRole("button", { name: /Limpar filtros/ }));
+    expect(kpiValue("Gasto Total")).toBe(fmt(587.5));
+  });
+
+  it("warns in the budget card that filtered spend is a subset of the category budget", () => {
+    setupScope();
+    typeEstablishment("padaria");
+
+    const budgetCard = screen
+      .getByText("Orçamento × Realizado")
+      .closest(".dashboard-card") as HTMLElement;
+    expect(within(budgetCard).getByText(/subconjunto do gasto total da categoria/)).toBeInTheDocument();
+  });
+
+  it("keeps bill payments and adjustments out of the filtered totals", () => {
+    mocks.transactions = [
+      ...scopeDataset,
+      expense("bill", day1, 999, {
+        title: "Pagamento de Fatura",
+        category: "Fatura Cartão",
+        financialKind: "card_invoice_payment",
+      }),
+      expense("adj", day1, 55, {
+        title: "Ajuste de saldo",
+        category: "Ajuste",
+        financialKind: "manual_adjustment",
+      }),
+    ];
+    mocks.categories = categories;
+    renderPage();
+
+    expect(kpiValue("Gasto Total")).toBe(fmt(587.5));
   });
 });

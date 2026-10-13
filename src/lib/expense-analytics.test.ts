@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   alignPreviousValues,
+  applyAnalyticsScope,
   buildBudgetView,
   buildEvolutionSeries,
   buildInsights,
@@ -12,7 +13,11 @@ import {
   effectiveAnalyticsRange,
   evolutionGranularity,
   filterByCategory,
+  filterByEstablishment,
+  filterByOrigin,
+  filterByPaymentMethod,
   filterExpensesInRange,
+  hasActiveAnalyticsScope,
   isAnalyticsExpense,
   parseLocalDate,
   previousAnalyticsRange,
@@ -630,5 +635,54 @@ describe("buildInsights", () => {
     expect(insights).toEqual([
       "Alimentação foi sua maior categoria, representando 88% das despesas.",
     ]);
+  });
+});
+
+describe("establishment / origin / payment scope filters", () => {
+  const padaria = expense("p1", "2026-10-01", 120.3, {
+    title: "Padaria Alvorada",
+    description: "Pão francês",
+  });
+  const posto = expense("g1", "2026-10-02", 200, {
+    title: "Posto Avenida",
+    category: "Transporte",
+  });
+
+  it("matches establishment text on title or description, ignoring case and accents", () => {
+    expect(filterByEstablishment([padaria, posto], "padaria alvorada")).toEqual([padaria]);
+    expect(filterByEstablishment([padaria, posto], "PÃO FRANCÊS")).toEqual([padaria]);
+    expect(filterByEstablishment([padaria, posto], "  postO  ")).toEqual([posto]);
+    expect(filterByEstablishment([padaria, posto], "")).toEqual([padaria, posto]);
+    expect(filterByEstablishment([padaria, posto], "inexistente")).toEqual([]);
+  });
+
+  it("filters by account (a:<id>) and card (c:<id>) origins", () => {
+    const acc1 = { ...padaria, accountId: "acc-1" };
+    const acc2 = { ...posto, accountId: "acc-2" };
+    const card = expense("c1", "2026-10-03", 90, { creditCardId: "card-9", title: "Loja Cartão" });
+    const list = [acc1, acc2, card];
+    expect(filterByOrigin(list, "a:acc-1")).toEqual([acc1]);
+    expect(filterByOrigin(list, "a:acc-2")).toEqual([acc2]);
+    expect(filterByOrigin(list, "c:card-9")).toEqual([card]);
+    expect(filterByOrigin(list, null)).toEqual(list);
+    expect(filterByOrigin(list, "x:weird")).toEqual([]);
+  });
+
+  it("filters by payment method and keeps cents exact", () => {
+    const pix = { ...padaria, paymentMethod: "Pix" as const };
+    const cash = { ...posto, paymentMethod: "Dinheiro" as const };
+    expect(filterByPaymentMethod([pix, cash], "Pix")).toEqual([pix]);
+    expect(filterByPaymentMethod([pix, cash], null)).toEqual([pix, cash]);
+    expect(roundCents(sumExpenses(filterByPaymentMethod([pix, cash], "Pix")))).toBe(120.3);
+  });
+
+  it("applies the whole scope in combination and reports active state", () => {
+    const scope = { search: "padaria", originId: "a:acc-1", paymentMethod: "Pix" };
+    const match = { ...padaria, accountId: "acc-1", paymentMethod: "Pix" as const };
+    const wrongPayment = { ...padaria, accountId: "acc-1", paymentMethod: "Dinheiro" as const };
+    const wrongOrigin = { ...padaria, accountId: "acc-2", paymentMethod: "Pix" as const };
+    expect(applyAnalyticsScope([match, wrongPayment, wrongOrigin], scope)).toEqual([match]);
+    expect(hasActiveAnalyticsScope(scope)).toBe(true);
+    expect(hasActiveAnalyticsScope({ search: "", originId: null, paymentMethod: null })).toBe(false);
   });
 });
