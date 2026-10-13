@@ -41,11 +41,15 @@ export const FREE_AI_MESSAGES = {
   quotaExceeded: "A cota gratuita de IA foi atingida no momento. Aguarde alguns minutos e tente de novo.",
   invalidApiKey: "A leitura com IA grátis não está configurada corretamente no servidor.",
   billingRequired: "O plano gratuito do Gemini não está disponível para esta chave. Nenhuma cobrança será feita; configure uma chave de um projeto Google SEM faturamento.",
+  apiDisabled: "A API do Gemini não está habilitada no projeto Google desta chave. Habilite a Generative Language API SEM ativar faturamento.",
+  invalidRequest: "O Gemini recusou a requisição de leitura (erro de configuração no servidor). Tente mais tarde ou contate o suporte.",
+  modelUnavailable: "O modelo de IA grátis não está disponível para esta configuração do servidor. Verifique a chave (projeto Google sem faturamento).",
   unavailable: "O serviço gratuito de IA está temporariamente indisponível. Tente novamente.",
   invalidImage: "Imagem inválida.",
   invalidImageType: "Tipo de imagem não suportado. Envie JPEG, PNG, WebP ou HEIC.",
   imageTooLarge: "Imagem muito grande para a leitura grátis. Envie uma foto menor (até 5 MB).",
   unreadable: "Não consegui entender esse comprovante.",
+  blockedBySafety: "O Gemini bloqueou essa imagem pela política de segurança do serviço.",
   unexpected: "Erro inesperado ao ler o comprovante com IA grátis.",
 } as const;
 
@@ -62,14 +66,66 @@ export const PAYMENT_METHOD_ENUM = [
 
 export const RECEIPT_TYPE_ENUM = ["income", "expense", "unknown"] as const;
 
+/** Safe-to-log facts about a Gemini HTTP failure (never contains the key, image or receipt data). */
+export interface GeminiErrorInfo {
+  httpStatus: number;
+  googleStatus?: string;
+  googleCode?: number;
+  googleMessage?: string;
+}
+
 export class FreeAiError extends Error {
   status: number;
-  constructor(status: number, message: string) {
+  diagnostic?: GeminiErrorInfo;
+  constructor(status: number, message: string, diagnostic?: GeminiErrorInfo) {
     super(message);
     this.name = "FreeAiError";
     this.status = status;
+    if (diagnostic) this.diagnostic = diagnostic;
   }
 }
+
+/** Strips API keys and heavy whitespace from Google error messages before logging. */
+export function sanitizeGoogleMessage(message: unknown): string | undefined {
+  if (typeof message !== "string" || !message.trim()) return undefined;
+  const cleaned = message
+    .replace(/AIza[0-9A-Za-z_-]{35}/g, "[REDACTED]")
+    .replace(/\s+/g, " ")
+    .trim()
+    .slice(0, 240);
+  return cleaned || undefined;
+}
+
+/** Parses the Google error JSON body into safe diagnostic fields. */
+export function extractGeminiErrorInfo(httpStatus: number, bodyText: string): GeminiErrorInfo {
+  const info: GeminiErrorInfo = { httpStatus };
+  try {
+    const parsed = JSON.parse(bodyText || "") as {
+      error?: { status?: unknown; code?: unknown; message?: unknown };
+    };
+    const err = parsed?.error;
+    if (err && typeof err === "object") {
+      if (typeof err.status === "string") info.googleStatus = err.status.slice(0, 64);
+      if (typeof err.code === "number" && Number.isFinite(err.code)) info.googleCode = err.code;
+      const message = sanitizeGoogleMessage(err.message);
+      if (message) info.googleMessage = message;
+    }
+  } catch {
+    // Non-JSON body: keep httpStatus only.
+  }
+  return info;
+}
+
+/** Structured backend diagnostic — safe fields only, injectable for tests. */
+export type FreeAiLogger = (entry: Record<string, unknown>) => void;
+
+export const defaultFreeAiLogger: FreeAiLogger = (entry) => {
+  try {
+    console.warn("[parse-receipt-free]", JSON.stringify(entry));
+  } catch {
+    // Logging must never break the request.
+  }
+};
 
 /**
  * Gemini responseSchema (subset). Numeric fields are explicitly nullable so
@@ -179,33 +235,56 @@ export function parseImageDataUrl(
   return { mimeType, base64 };
 }
 
+/**
+ * Maps a Gemini HTTP failure to a user-safe FreeAiError, preserving the
+ * precise cause (request/schema, model, auth, quota, outage) instead of a
+ * single generic message. The original status/code travels in
+ * `error.diagnostic` for backend logs only.
+ */
 export function mapGeminiHttpError(status: number, bodyText: string): FreeAiError {
+  const diagnostic = extractGeminiErrorInfo(status, bodyText);
   const body = (bodyText || "").toLowerCase();
-  if (status === 429) {
-    return new FreeAiError(429, FREE_AI_MESSAGES.quotaExceeded);
-  }
+  const fail = (clientStatus: number, message: string): FreeAiError =>
+    new FreeAiError(clientStatus, message, diagnostic);
+
+  // API_KEY_INVALID often arrives as HTTP 400 — check the message before the generic 400 branch.
   if (
     body.includes("api_key_invalid") ||
     body.includes("api key not valid") ||
-    body.includes("api_key_invalid")
+    diagnostic.googleStatus === "API_KEY_INVALID"
   ) {
-    return new FreeAiError(503, FREE_AI_MESSAGES.invalidApiKey);
+    return fail(503, FREE_AI_MESSAGES.invalidApiKey);
   }
+  // Billing / free-tier gating (project has billing, or free tier unavailable for the key).
   if (
     body.includes("billing") ||
     body.includes("free_tier") ||
     body.includes("free tier") ||
-    body.includes("quota") && body.includes("billing")
+    (diagnostic.googleStatus === "FAILED_PRECONDITION" && body.includes("billing"))
   ) {
-    return new FreeAiError(503, FREE_AI_MESSAGES.billingRequired);
+    return fail(503, FREE_AI_MESSAGES.billingRequired);
   }
-  if (status === 401 || status === 403) {
-    return new FreeAiError(503, FREE_AI_MESSAGES.invalidApiKey);
+  // Generative Language API not enabled / permission denied (typical first-setup failure).
+  if (
+    status === 403 &&
+    (body.includes("has not been used") ||
+      body.includes("is disabled") ||
+      body.includes("permission_denied") ||
+      diagnostic.googleStatus === "PERMISSION_DENIED")
+  ) {
+    return fail(503, FREE_AI_MESSAGES.apiDisabled);
   }
-  if (status === 503 || status === 502 || status === 500) {
-    return new FreeAiError(503, FREE_AI_MESSAGES.unavailable);
+  if (status === 429) return fail(429, FREE_AI_MESSAGES.quotaExceeded);
+  if (status === 401 || status === 403) return fail(503, FREE_AI_MESSAGES.invalidApiKey);
+  // 400: our request/schema was rejected — a server-side configuration problem.
+  if (status === 400) return fail(503, FREE_AI_MESSAGES.invalidRequest);
+  // 404: the model id is not available for this key/project.
+  if (status === 404) return fail(503, FREE_AI_MESSAGES.modelUnavailable);
+  // Real upstream unavailability (including timeouts).
+  if (status === 408 || (status >= 500 && status <= 599)) {
+    return fail(503, FREE_AI_MESSAGES.unavailable);
   }
-  return new FreeAiError(502, FREE_AI_MESSAGES.unavailable);
+  return fail(502, FREE_AI_MESSAGES.unavailable);
 }
 
 export function extractGeminiText(payload: unknown): string {
@@ -334,11 +413,13 @@ export interface GeminiRequestInput {
   fetchImpl?: typeof fetch;
   today?: string;
   imageLimits?: { maxDecodedBytes: number; allowedMimeTypes: readonly string[] };
+  log?: FreeAiLogger;
 }
 
 /** Calls Gemini. Throws FreeAiError on any HTTP failure. Never falls back to a paid model. */
 export async function requestGeminiReceipt(input: GeminiRequestInput): Promise<Record<string, unknown>> {
   const fetchImpl = input.fetchImpl ?? fetch;
+  const log = input.log ?? defaultFreeAiLogger;
   const { mimeType, base64 } = parseImageDataUrl(input.imageDataUrl, input.imageLimits);
   const today = input.today ?? new Date().toISOString().split("T")[0];
   const instruction = buildFreeReceiptInstruction(input.categories, input.accounts, today);
@@ -369,21 +450,44 @@ export async function requestGeminiReceipt(input: GeminiRequestInput): Promise<R
         },
       }),
     });
-  } catch {
+  } catch (networkError) {
+    log({
+      scope: "gemini-network",
+      errorName: networkError instanceof Error ? networkError.name : "unknown",
+    });
     throw new FreeAiError(503, FREE_AI_MESSAGES.unavailable);
   }
 
   if (!response.ok) {
     const bodyText = await response.text().catch(() => "");
-    throw mapGeminiHttpError(response.status, bodyText);
+    const mapped = mapGeminiHttpError(response.status, bodyText);
+    // Safe backend diagnostic: HTTP status + Google status/code/message only.
+    log({
+      scope: "gemini-http",
+      httpStatus: mapped.diagnostic?.httpStatus ?? response.status,
+      googleStatus: mapped.diagnostic?.googleStatus,
+      googleCode: mapped.diagnostic?.googleCode,
+      googleMessage: mapped.diagnostic?.googleMessage,
+      mappedStatus: mapped.status,
+    });
+    throw mapped;
   }
 
   let payload: unknown;
   try {
     payload = await response.json();
   } catch {
+    log({ scope: "gemini-response", httpStatus: response.status, reason: "invalid-json" });
     throw new FreeAiError(422, FREE_AI_MESSAGES.unreadable);
   }
+
+  // Safety refusal (no candidates + promptFeedback.blockReason) — distinct cause.
+  const blockReason = (payload as { promptFeedback?: { blockReason?: unknown } })?.promptFeedback?.blockReason;
+  if (typeof blockReason === "string" && blockReason) {
+    log({ scope: "gemini-response", httpStatus: response.status, blockReason: blockReason.slice(0, 64) });
+    throw new FreeAiError(422, FREE_AI_MESSAGES.blockedBySafety);
+  }
+
   const text = extractGeminiText(payload);
   return parseGeminiJsonText(text);
 }
@@ -439,6 +543,8 @@ export interface FreeAiHandlerDeps {
   rateBuckets?: Map<string, FreeAiRateBucket>;
   /** Overrides for image validation (defaults to FREE_AI_IMAGE). */
   imageLimits?: { maxDecodedBytes: number; allowedMimeTypes: readonly string[] };
+  /** Safe backend diagnostics sink (defaults to console.warn). */
+  log?: FreeAiLogger;
 }
 
 function jsonResponse(status: number, body: unknown): Response {
@@ -453,6 +559,7 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
   const buckets = deps.rateBuckets ?? new Map<string, FreeAiRateBucket>();
   const now = deps.now ?? (() => Date.now());
   const imageLimits = deps.imageLimits ?? FREE_AI_IMAGE;
+  const log = deps.log ?? defaultFreeAiLogger;
 
   const authenticate = async (req: Request): Promise<string | null> => {
     const authorization = req.headers.get("Authorization") ?? "";
@@ -539,6 +646,7 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
         accounts: sanitizeList(body.accounts),
         fetchImpl: deps.fetchImpl,
         imageLimits,
+        log,
       });
       const parsed = normalizeGeminiReceipt(raw);
       return jsonResponse(200, parsed);

@@ -7,8 +7,11 @@ import {
   GEMINI_RESPONSE_SCHEMA,
   buildFreeReceiptInstruction,
   createFreeAiHandler,
+  extractGeminiErrorInfo,
+  mapGeminiHttpError,
   normalizeGeminiReceipt,
   parseImageDataUrl,
+  sanitizeGoogleMessage,
   type FreeAiHandlerDeps,
 } from "../../supabase/functions/parse-receipt-free/lib";
 
@@ -70,6 +73,7 @@ function makeHandler(overrides: Partial<FreeAiHandlerDeps> = {}, env: Record<str
   const deps: FreeAiHandlerDeps = {
     envGet: (name) => env[name],
     verifyUser: fakeVerifyUser,
+    log: () => undefined,
     ...overrides,
   };
   return createFreeAiHandler(deps);
@@ -346,6 +350,168 @@ describe("parse-receipt-free handler", () => {
     const response = await handler(postRequest(validBody));
     expect(response.status).toBe(503);
     expect((await response.json()).error).toBe(FREE_AI_MESSAGES.unavailable);
+  });
+
+  it("maps a Gemini HTTP 400 (invalid request/schema) to a distinct config error, not the generic outage", async () => {
+    const logs: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ error: { code: 400, status: "INVALID_ARGUMENT", message: "Invalid JSON payload received." } }),
+        { status: 400 },
+      ));
+    const handler = makeHandler({ fetchImpl, log: (entry) => logs.push(entry) });
+    const response = await handler(postRequest(validBody));
+    expect(response.status).toBe(503);
+    const body = await response.json();
+    expect(body.error).toBe(FREE_AI_MESSAGES.invalidRequest);
+    expect(body.error).not.toBe(FREE_AI_MESSAGES.unavailable);
+    expect(logs).toEqual([
+      {
+        scope: "gemini-http",
+        httpStatus: 400,
+        googleStatus: "INVALID_ARGUMENT",
+        googleCode: 400,
+        googleMessage: "Invalid JSON payload received.",
+        mappedStatus: 503,
+      },
+    ]);
+  });
+
+  it("maps a Gemini HTTP 404 (model unavailable) to a configuration error", async () => {
+    const logs: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ error: { code: 404, status: "NOT_FOUND", message: "models/gemini-2.5-flash is not found." } }),
+        { status: 404 },
+      ));
+    const handler = makeHandler({ fetchImpl, log: (entry) => logs.push(entry) });
+    const response = await handler(postRequest(validBody));
+    expect(response.status).toBe(503);
+    expect((await response.json()).error).toBe(FREE_AI_MESSAGES.modelUnavailable);
+    expect(logs[0].googleStatus).toBe("NOT_FOUND");
+  });
+
+  it("maps HTTP 403 with 'API not enabled' to the enable-API message", async () => {
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({
+          error: {
+            code: 403,
+            status: "PERMISSION_DENIED",
+            message: "Generative Language API has not been used in project 123456 or it is disabled.",
+          },
+        }),
+        { status: 403 },
+      ));
+    const handler = makeHandler({ fetchImpl });
+    const response = await handler(postRequest(validBody));
+    expect(response.status).toBe(503);
+    expect((await response.json()).error).toBe(FREE_AI_MESSAGES.apiDisabled);
+  });
+
+  it("maps plain HTTP 401/403 to the key configuration error", async () => {
+    const make = (status: number) => vi.fn(async () =>
+      new Response(JSON.stringify({ error: { code: status, message: "denied" } }), { status }));
+    const handler401 = makeHandler({ fetchImpl: make(401) });
+    expect((await (await handler401(postRequest(validBody))).json()).error).toBe(FREE_AI_MESSAGES.invalidApiKey);
+    const handler403 = makeHandler({ fetchImpl: make(403) });
+    expect((await (await handler403(postRequest(validBody))).json()).error).toBe(FREE_AI_MESSAGES.invalidApiKey);
+  });
+
+  it("keeps 500/504 as the real transient outage message", async () => {
+    for (const status of [500, 504]) {
+      const fetchImpl = vi.fn(async () => new Response("oops", { status }));
+      const handler = makeHandler({ fetchImpl });
+      const response = await handler(postRequest(validBody));
+      expect(response.status).toBe(503);
+      expect((await response.json()).error).toBe(FREE_AI_MESSAGES.unavailable);
+    }
+  });
+
+  it("maps network failures to the outage message and logs the error name only", async () => {
+    const logs: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async () => { throw new TypeError("fetch failed"); });
+    const handler = makeHandler({ fetchImpl, log: (entry) => logs.push(entry) });
+    const response = await handler(postRequest(validBody));
+    expect(response.status).toBe(503);
+    expect((await response.json()).error).toBe(FREE_AI_MESSAGES.unavailable);
+    expect(logs).toEqual([{ scope: "gemini-network", errorName: "TypeError" }]);
+  });
+
+  it("redacts API keys from Google messages in diagnostics and never logs the image", async () => {
+    const logs: Record<string, unknown>[] = [];
+    const leakedKey = "AIzaSyA-1234567890abcdefghijkmnopqrstuv";
+    const fetchImpl = vi.fn(async () =>
+      new Response(
+        JSON.stringify({ error: { code: 400, status: "INVALID_ARGUMENT", message: `Bad key ${leakedKey} supplied` } }),
+        { status: 400 },
+      ));
+    const handler = makeHandler({ fetchImpl, log: (entry) => logs.push(entry) });
+    const response = await handler(postRequest(validBody));
+    expect(response.status).toBe(503);
+    const rawLog = JSON.stringify(logs);
+    expect(rawLog).not.toContain(leakedKey);
+    expect(rawLog).toContain("[REDACTED]");
+    expect(rawLog).not.toContain("Y29ycmVjdGVk"); // never the image payload
+    expect(rawLog).not.toContain(API_KEY);
+  });
+
+  it("maps Gemini safety refusals (promptFeedback.blockReason) to a specific message", async () => {
+    const logs: Record<string, unknown>[] = [];
+    const fetchImpl = vi.fn(async () =>
+      new Response(JSON.stringify({ promptFeedback: { blockReason: "SAFETY" }, candidates: [] }), { status: 200 }));
+    const handler = makeHandler({ fetchImpl, log: (entry) => logs.push(entry) });
+    const response = await handler(postRequest(validBody));
+    expect(response.status).toBe(422);
+    expect((await response.json()).error).toBe(FREE_AI_MESSAGES.blockedBySafety);
+    expect(logs[0]).toMatchObject({ scope: "gemini-response", blockReason: "SAFETY" });
+  });
+
+  it("sends a Gemini-compatible wire payload (nullable schema, inline_data, x-goog-api-key)", async () => {
+    const fetchImpl = vi.fn(async () => geminiJsonResponse(JSON.stringify(fullGeminiPayload())));
+    const handler = makeHandler({ fetchImpl });
+    await handler(postRequest(validBody));
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toBe(GEMINI_API_URL);
+    const wire = JSON.parse(String(init.body));
+    expect(wire.generationConfig.responseMimeType).toBe("application/json");
+    expect(wire.generationConfig.responseSchema.properties.amount.nullable).toBe(true);
+    expect(wire.generationConfig.responseSchema.properties.purchased_items.items.properties.quantity.nullable).toBe(true);
+    expect(wire.contents[0].parts[1].inline_data.mime_type).toBe("image/jpeg");
+    expect(wire.contents[0].parts[1].inline_data.data).toBe("Y29ycmVjdGVk");
+  });
+});
+
+describe("mapGeminiHttpError / diagnostics helpers", () => {
+  it("prefers Google status codes over naive status mapping", () => {
+    expect(mapGeminiHttpError(400, '{"error":{"status":"API_KEY_INVALID","message":"x"}}').message)
+      .toBe(FREE_AI_MESSAGES.invalidApiKey);
+    expect(mapGeminiHttpError(403, '{"error":{"status":"FAILED_PRECONDITION","message":"billing required"}}').message)
+      .toBe(FREE_AI_MESSAGES.billingRequired);
+    expect(mapGeminiHttpError(429, '{"error":{"status":"RESOURCE_EXHAUSTED","message":"quota"}}').status)
+      .toBe(429);
+    expect(mapGeminiHttpError(404, "").message).toBe(FREE_AI_MESSAGES.modelUnavailable);
+    expect(mapGeminiHttpError(400, "").message).toBe(FREE_AI_MESSAGES.invalidRequest);
+  });
+
+  it("attaches safe diagnostics to every mapped error", () => {
+    const mapped = mapGeminiHttpError(400, '{"error":{"code":400,"status":"INVALID_ARGUMENT","message":"nope"}}');
+    expect(mapped.diagnostic).toEqual({
+      httpStatus: 400,
+      googleStatus: "INVALID_ARGUMENT",
+      googleCode: 400,
+      googleMessage: "nope",
+    });
+    const nonJson = mapGeminiHttpError(502, "<html>bad gateway</html>");
+    expect(nonJson.diagnostic).toEqual({ httpStatus: 502 });
+  });
+
+  it("sanitizes keys and truncates long Google messages", () => {
+    expect(sanitizeGoogleMessage(`key AIzaSyA-1234567890abcdefghijkmnopqrstuv here`)).toBe("key [REDACTED] here");
+    expect(sanitizeGoogleMessage("x".repeat(500))?.length).toBe(240);
+    expect(sanitizeGoogleMessage(42)).toBeUndefined();
+    expect(sanitizeGoogleMessage("   ")).toBeUndefined();
+    expect(extractGeminiErrorInfo(500, "not json").httpStatus).toBe(500);
   });
 });
 
