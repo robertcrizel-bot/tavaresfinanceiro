@@ -16,10 +16,115 @@ import { Plus, Eye, Pencil, Trash2, Search, Download, ArrowUp, ArrowDown, ArrowU
 import { Link } from "react-router-dom";
 import { isAdjustmentTransaction, isBillPaymentTransaction, isFinancialNeutralTransaction, isSystemInvoiceTransaction } from "@/lib/transaction-classification";
 import { getInvoiceRecordTitle, getInvoiceRecordTypeLabel, shouldHideSettledInvoiceObligation } from "@/lib/invoice-record-presentation";
+import { cn } from "@/lib/utils";
 import * as XLSX from "xlsx";
 
 type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "source" | "amount";
 type SortDir = "asc" | "desc";
+
+interface RecordsSummary {
+  income: number;
+  expense: number;
+  neutral: number;
+  count: number;
+  balance: number;
+}
+
+const roundCents2 = (value: number) => Math.round(value * 100) / 100;
+
+/** Sums the currently filtered records; neutrals are counted but never added. */
+export function summarizeFilteredRecords(records: Transaction[]): RecordsSummary {
+  let income = 0;
+  let expense = 0;
+  let neutral = 0;
+  for (const record of records) {
+    if (isFinancialNeutralTransaction(record)) {
+      neutral += 1;
+      continue;
+    }
+    if (record.type === "income") income += record.amount;
+    else expense += record.amount;
+  }
+  income = roundCents2(income);
+  expense = roundCents2(expense);
+  return {
+    income,
+    expense,
+    neutral,
+    count: records.length,
+    balance: roundCents2(income - expense),
+  };
+}
+
+function RecordsFilteredSummary({
+  summary,
+  className,
+}: {
+  summary: RecordsSummary;
+  className?: string;
+}) {
+  const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+  const hasIncome = summary.income > 0;
+  const hasExpense = summary.expense > 0;
+  const mixed = hasIncome && hasExpense;
+
+  return (
+    <div
+      data-testid="records-filtered-summary"
+      role="status"
+      aria-label="Resumo dos registros filtrados"
+      className={cn("border-t border-border bg-secondary/30 px-4 py-3", className)}
+    >
+      <div className="flex flex-wrap items-center justify-between gap-x-6 gap-y-2">
+        <div className="space-y-1">
+          {mixed ? (
+            <>
+              <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
+                <span className="text-muted-foreground">
+                  Total de entradas:{" "}
+                  <strong className="tabular-nums text-income">{fmt(summary.income)}</strong>
+                </span>
+                <span className="text-muted-foreground">
+                  Total de saídas:{" "}
+                  <strong className="tabular-nums text-expense">{fmt(summary.expense)}</strong>
+                </span>
+              </div>
+              <p className="text-sm font-semibold text-foreground">
+                Saldo do recorte:{" "}
+                <span className={`tabular-nums ${summary.balance >= 0 ? "text-income" : "text-expense"}`}>
+                  {fmt(summary.balance)}
+                </span>
+              </p>
+            </>
+          ) : hasExpense ? (
+            <p className="text-sm font-semibold text-foreground">
+              Total de despesas filtradas:{" "}
+              <strong className="tabular-nums text-expense">{fmt(summary.expense)}</strong>
+            </p>
+          ) : hasIncome ? (
+            <p className="text-sm font-semibold text-foreground">
+              Total de entradas filtradas:{" "}
+              <strong className="tabular-nums text-income">{fmt(summary.income)}</strong>
+            </p>
+          ) : (
+            <p className="text-sm font-semibold text-foreground">
+              Total filtrado:{" "}
+              <strong className="tabular-nums">{fmt(0)}</strong>
+            </p>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Quantidade de registros: {summary.count}
+            {summary.neutral > 0 &&
+              ` · ${summary.neutral} movimentação(ões) neutra(s) exibida(s), sem somar em entradas/saídas`}
+          </p>
+        </div>
+        <p className="text-[11px] text-muted-foreground">
+          Soma dos registros filtrados — não é o saldo da conta bancária.
+        </p>
+      </div>
+    </div>
+  );
+}
 
 export default function Records() {
   const { transactions, creditCardInvoices, addTransaction, updateTransaction, deleteTransaction } = useFinance();
@@ -128,6 +233,8 @@ export default function Records() {
   }, [transactions, creditCardInvoices, creditCards, search, typeFilter, catFilter, sourceFilter, sortKey, sortDir, sourceMap]);
 
   const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+  const recordsSummary = useMemo(() => summarizeFilteredRecords(filtered), [filtered]);
 
   const exportToXlsx = useCallback(() => {
     const data = filtered.map((t) => ({
@@ -309,6 +416,11 @@ export default function Records() {
             ))}
           </div>
 
+          {/* Mobile dynamic total — after the last card */}
+          <div className="glass-card overflow-hidden rounded-xl md:hidden">
+            <RecordsFilteredSummary summary={recordsSummary} className="border-t-0" />
+          </div>
+
           {/* Desktop table */}
           <div className="glass-card rounded-xl overflow-hidden animate-fade-in hidden md:block">
             <Table>
@@ -380,6 +492,8 @@ export default function Records() {
                 ))}
               </TableBody>
             </Table>
+            {/* Desktop dynamic total — visual footer of the table */}
+            <RecordsFilteredSummary summary={recordsSummary} />
           </div>
         </>
       )}
