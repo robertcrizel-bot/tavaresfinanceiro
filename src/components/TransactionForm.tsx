@@ -65,7 +65,17 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
   const videoRef = useRef<HTMLVideoElement>(null);
   // Synchronous lock: prevents repeated submits before React can render disabled state.
   const submitInFlightRef = useRef(false);
+  const submitSucceededRef = useRef(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [hasSaved, setHasSaved] = useState(false);
+
+  useEffect(() => {
+    // Reset only for a closed/reopened form, never for a field rerender.
+    if (!submitInFlightRef.current) {
+      submitSucceededRef.current = false;
+      setHasSaved(false);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (initial) {
@@ -242,7 +252,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (submitInFlightRef.current) return;
+    if (!open || submitInFlightRef.current || submitSucceededRef.current) return;
     if (isCashPaymentMethod(paymentMethod) && (!accountId || accountId === "none")) {
       toast({ title: "Selecione a conta", description: "Pagamentos em Dinheiro precisam de uma conta/caixa.", variant: "destructive" });
       return;
@@ -272,7 +282,11 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
         },
         Object.keys(opts).length > 0 ? opts : undefined,
       );
-      if (saved !== false) onClose();
+      if (saved !== false) {
+        submitSucceededRef.current = true;
+        setHasSaved(true);
+        onClose();
+      }
     } catch {
       toast({ title: "Não foi possível salvar o registro", description: "Tente novamente.", variant: "destructive" });
     } finally {
@@ -492,8 +506,8 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
           )}
           <div className="flex justify-end gap-2 pt-1">
             <Button type="button" variant="ghost" disabled={isSaving} onClick={onClose}>Cancelar</Button>
-            <Button type="submit" disabled={isSaving} aria-busy={isSaving}>
-              {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</> : (submitLabel ?? (initial ? "Salvar" : "Adicionar"))}
+            <Button type="submit" disabled={isSaving || hasSaved} aria-busy={isSaving}>
+              {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</> : hasSaved ? "Salvo" : (submitLabel ?? (initial ? "Salvar" : "Adicionar"))}
             </Button>
           </div>
         </form>

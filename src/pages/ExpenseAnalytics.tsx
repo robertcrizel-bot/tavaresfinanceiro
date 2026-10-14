@@ -400,66 +400,6 @@ export default function ExpenseAnalytics() {
           )}
         </div>
 
-        <div className="workspace-panel space-y-2 p-2 sm:p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="grid flex-1 grid-cols-2 gap-1 sm:flex sm:flex-none">
-              {PERIOD_OPTIONS.map((option) => (
-                <Button
-                  key={option.value}
-                  size="sm"
-                  variant={period === option.value ? "default" : "outline"}
-                  className="h-9 rounded-xl px-4 text-xs shadow-none"
-                  onClick={() => handlePeriodChange(option.value)}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  size="sm"
-                  variant={period === "custom" ? "default" : "outline"}
-                  className="h-9 gap-1.5 rounded-xl px-4 text-xs shadow-none"
-                  onClick={() => {
-                    if (period !== "custom") {
-                      setPeriod("custom");
-                      setAnchor(new Date());
-                      if (!customRange?.from) {
-                        setCustomRange({
-                          from: new Date(today.getFullYear(), today.getMonth(), 1),
-                          to: today,
-                        });
-                      }
-                    }
-                  }}
-                >
-                  <CalendarIcon className="h-3.5 w-3.5" />
-                  Personalizado
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="range"
-                  selected={customRange}
-                  onSelect={(value) => {
-                    setCustomRange(value);
-                    setPeriod("custom");
-                    if (value?.from && value?.to) setCalendarOpen(false);
-                  }}
-                  numberOfMonths={1}
-                  locale={ptBR}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-
-        </div>
-
         {hasAnyActiveFilter && (
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
             <span className="text-muted-foreground">Filtros ativos:</span>
@@ -530,9 +470,68 @@ export default function ExpenseAnalytics() {
         )}
       </div>
 
-      <div className="grid items-start gap-4 lg:grid-cols-[230px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[230px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
         <aside aria-label="Filtros de despesas" className="workspace-panel space-y-3 p-3 lg:sticky lg:top-4">
           <h3 className="text-sm font-semibold">Filtros</h3>
+          <div className="space-y-2">
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-1">
+              {PERIOD_OPTIONS.map((option) => (
+                <Button
+                  key={option.value}
+                  size="sm"
+                  variant={period === option.value ? "default" : "outline"}
+                  className="h-9 rounded-xl px-4 text-xs shadow-none"
+                  onClick={() => handlePeriodChange(option.value)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  size="sm"
+                  variant={period === "custom" ? "default" : "outline"}
+                  className="h-9 w-full gap-1.5 rounded-xl px-4 text-xs shadow-none"
+                  onClick={() => {
+                    if (period !== "custom") {
+                      setPeriod("custom");
+                      setAnchor(new Date());
+                      if (!customRange?.from) {
+                        setCustomRange({
+                          from: new Date(today.getFullYear(), today.getMonth(), 1),
+                          to: today,
+                        });
+                      }
+                    }
+                  }}
+                >
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                  Personalizado
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  selected={customRange}
+                  onSelect={(value) => {
+                    setCustomRange(value);
+                    setPeriod("custom");
+                    if (value?.from && value?.to) setCalendarOpen(false);
+                  }}
+                  numberOfMonths={1}
+                  locale={ptBR}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+
+        </div>
           {/* Filtros laterais: categoria, estabelecimento, conta/cartão e pagamento */}
           <div className="grid grid-cols-1 gap-3">
             <Select

@@ -178,6 +178,21 @@ beforeEach(() => {
 });
 
 describe("ExpenseAnalytics default period", () => {
+  it("keeps all period and scope controls in the responsive sidebar, separate from indicators", () => {
+    renderPage();
+    const sidebar = screen.getByRole("complementary", { name: "Filtros de despesas" });
+    for (const label of ["Mês", "3 meses", "6 meses", "Ano", "Personalizado"]) {
+      expect(within(sidebar).getByRole("button", { name: label })).toBeInTheDocument();
+    }
+    for (const label of ["Filtrar por categoria", "Filtrar por conta ou cartão", "Filtrar por forma de pagamento"]) {
+      expect(within(sidebar).getByRole("combobox", { name: label })).toBeInTheDocument();
+    }
+    expect(within(sidebar).getByRole("textbox")).toBeInTheDocument();
+    expect(sidebar).not.toContainElement(screen.getByText("Gasto Total"));
+    expect(sidebar.parentElement).toHaveClass("grid-cols-1", "lg:grid-cols-[230px_minmax(0,1fr)]");
+    expect(sidebar.nextElementSibling).toHaveClass("min-w-0");
+  });
+
   it("starts on Mês with the current-month totals, average and top category", () => {
     renderPage();
 

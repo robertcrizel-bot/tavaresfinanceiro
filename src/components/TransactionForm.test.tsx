@@ -1,5 +1,5 @@
 import React, { type ReactNode } from "react";
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TransactionForm } from "@/components/TransactionForm";
 import type { ReceiptDetails, Transaction } from "@/lib/types";
@@ -118,6 +118,60 @@ const initial: Transaction = {
 };
 
 describe("TransactionForm duplicate submission protection", () => {
+  it.each(["manual", "edited", "receipt"] as const)("saves %s records once after 10 rapid clicks and stays locked until reopening", async (mode) => {
+    let finish: (value: boolean) => void = () => {};
+    const pending = new Promise<boolean>(resolve => { finish = resolve; });
+    const onSubmit = vi.fn().mockReturnValueOnce(pending).mockResolvedValueOnce(true);
+    const onClose = vi.fn();
+    const props = {
+      onClose, onSubmit,
+      ...(mode === "edited" ? { initial } : {}),
+      ...(mode === "receipt" ? { prefill: { title: "Comprovante", amount: 25, receiptRef: "receipt-test", receiptDetails: details }, submitLabel: "Salvar registro" } : {}),
+    };
+    const view = render(<TransactionForm open {...props} />);
+    if (mode === "manual") {
+      fireEvent.change(screen.getByPlaceholderText("Ex: Supermercado"), { target: { value: "Compra" } });
+      fireEvent.change(screen.getByPlaceholderText("0,00"), { target: { value: "25" } });
+    }
+    const save = screen.getByRole("button", { name: mode === "edited" ? "Salvar" : mode === "receipt" ? "Salvar registro" : "Adicionar" });
+    const form = save.closest("form")!;
+    act(() => {
+      for (let i = 0; i < 10; i++) fireEvent.click(save);
+      // Submit events also bypass the disabled button: the ref must guard them.
+      for (let i = 0; i < 10; i++) fireEvent.submit(form);
+    });
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /Salvando/ })).toBeDisabled();
+    await act(async () => { finish(true); await pending; });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Salvo" })).toBeDisabled();
+    act(() => { for (let i = 0; i < 10; i++) fireEvent.submit(form); });
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    if (mode === "receipt") expect(onSubmit.mock.calls[0][0]).toMatchObject({ receiptRef: "receipt-test", receiptDetails: details });
+    view.rerender(<TransactionForm open={false} {...props} />);
+    view.rerender(<TransactionForm open {...props} />);
+    const reopened = screen.getByRole("button", { name: mode === "edited" ? "Salvar" : mode === "receipt" ? "Salvar registro" : "Adicionar" });
+    expect(reopened).toBeEnabled();
+    if (mode === "manual") {
+      fireEvent.change(screen.getByPlaceholderText("Ex: Supermercado"), { target: { value: "Outra compra" } });
+      fireEvent.change(screen.getByPlaceholderText("0,00"), { target: { value: "30" } });
+    }
+    fireEvent.submit(reopened.closest("form")!);
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+  });
+
+  it("unlocks after a rejected save so the user can retry", async () => {
+    const onSubmit = vi.fn().mockRejectedValueOnce(new Error("save failed")).mockResolvedValueOnce(true);
+    const onClose = vi.fn();
+    render(<TransactionForm open initial={initial} onSubmit={onSubmit} onClose={onClose} />);
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: "Salvar" })).toBeEnabled());
+    expect(onClose).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+  });
+
   it("submits only once while save is pending and allows retry after failure", async () => {
     let finishFirst: (value: boolean) => void = () => {};
     const first = new Promise<boolean>((resolve) => { finishFirst = resolve; });
