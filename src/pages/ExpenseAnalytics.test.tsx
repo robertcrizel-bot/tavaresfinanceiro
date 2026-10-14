@@ -533,3 +533,29 @@ describe("ExpenseAnalytics scope filters (establishment, origin, payment)", () =
     expect(kpiValue("Gasto Total")).toBe(fmt(587.5));
   });
 });
+
+describe("payment summary in the analytics sidebar", () => {
+  it("uses the same establishment filter as the charts and shows payment amounts", () => {
+    mocks.transactions = [
+      expense("pix", day1, 35, { title: "Padaria Alvorada", paymentMethod: "Pix" }),
+      expense("card", day1, 20, { title: "Padaria Alvorada", paymentMethod: "Cartão de Crédito" }),
+      expense("other", day1, 5, { title: "Outro mercado", paymentMethod: "Dinheiro" }),
+    ];
+    renderPage();
+    const summary = screen.getByRole("region", { name: "Gastos por forma de pagamento" });
+    expect(within(summary).getByText("Pix")).toBeInTheDocument();
+    expect(within(summary).getByText("Cartão de Crédito")).toBeInTheDocument();
+    const pixRow = within(summary).getByText("Pix").parentElement;
+    const cardRow = within(summary).getByText("Cartão de Crédito").parentElement;
+    expect(pixRow).toHaveTextContent(/R\$\s*35,00/);
+    expect(cardRow).toHaveTextContent(/R\$\s*20,00/);
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Pesquisar por estabelecimento ou descrição" }), {
+      target: { value: "padaria alvorada" },
+    });
+    expect(within(summary).queryByText("Dinheiro")).not.toBeInTheDocument();
+    const totalRow = within(summary).getByText("Total").parentElement;
+    expect(totalRow).toHaveTextContent(/R\$\s*55,00/);
+    expect(kpiValue("Gasto Total")).toBe(fmt(55));
+  });
+});

@@ -25,6 +25,7 @@ import {
   roundCents,
   sumExpenses,
   summarizeCategories,
+  summarizePaymentMethods,
   toLocalDateString,
   totalByCategory,
 } from "@/lib/expense-analytics";
@@ -684,5 +685,34 @@ describe("establishment / origin / payment scope filters", () => {
     expect(applyAnalyticsScope([match, wrongPayment, wrongOrigin], scope)).toEqual([match]);
     expect(hasActiveAnalyticsScope(scope)).toBe(true);
     expect(hasActiveAnalyticsScope({ search: "", originId: null, paymentMethod: null })).toBe(false);
+  });
+});
+
+describe("payment method breakdown", () => {
+  it("splits a single establishment between Pix, cards and unknown payments without guessing", () => {
+    const day = "2026-10-02";
+    const entries = [
+      expense("pix", day, 60, { title: "Padaria Alvorada", paymentMethod: "Pix" }),
+      expense("debit", day, 20, { title: "Padaria Alvorada", paymentMethod: "Cartão de Débito" }),
+      expense("credit", day, 25, { title: "Padaria Alvorada", creditCardId: "card-1" }),
+      expense("unknown", day, 3.76, { title: "Padaria Alvorada" }),
+      expense("other", day, 10, { title: "Outro mercado", paymentMethod: "Dinheiro" }),
+    ];
+    const padaria = filterByEstablishment(entries, "padaria alvorada");
+    const summary = summarizePaymentMethods(padaria);
+    expect(summary.map(({ method, total, count }) => ({ method, total, count }))).toEqual([
+      { method: "Pix", total: 60, count: 1 },
+      { method: "Cartão de Crédito", total: 25, count: 1 },
+      { method: "Cartão de Débito", total: 20, count: 1 },
+      { method: "Não informado", total: 3.76, count: 1 },
+    ]);
+    expect(sumExpenses(padaria)).toBe(108.76);
+    expect(roundCents(summary.reduce((sum, entry) => sum + entry.total, 0))).toBe(108.76);
+    expect(summary.reduce((sum, entry) => sum + entry.count, 0)).toBe(4);
+    expect(Math.round(summary.reduce((sum, entry) => sum + entry.percentage, 0))).toBe(100);
+  });
+
+  it("returns no groups when the filtered period has no expenses", () => {
+    expect(summarizePaymentMethods([])).toEqual([]);
   });
 });

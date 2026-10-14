@@ -48,6 +48,7 @@ import {
   roundCents,
   sumExpenses,
   summarizeCategories,
+  summarizePaymentMethods,
   totalByCategory,
   type AnalyticsPeriod,
   type AnalyticsScopeFilters,
@@ -174,6 +175,8 @@ export default function ExpenseAnalytics() {
       byCategory: totalByCategory(visibleExpenses),
     };
   }, [visibleExpenses]);
+
+  const paymentBreakdown = useMemo(() => summarizePaymentMethods(visibleExpenses), [visibleExpenses]);
 
   const previousTotal = useMemo(
     () => sumExpenses(previousVisibleExpenses),
@@ -613,6 +616,42 @@ export default function ExpenseAnalytics() {
               </Button>
             )}
           </div>
+          <section aria-label="Gastos por forma de pagamento" className="mt-4 space-y-3 border-t border-border/70 pt-4">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Gastos por pagamento</h3>
+              <p className="mt-1 text-xs text-muted-foreground">Valores do filtro atual</p>
+            </div>
+            {paymentBreakdown.length === 0 ? (
+              <p className="text-xs text-muted-foreground">Sem despesas neste recorte.</p>
+            ) : (
+              <>
+                <div className="space-y-3">
+                  {paymentBreakdown.map((entry) => (
+                    <div key={entry.method} className="space-y-1.5">
+                      <div className="flex items-start justify-between gap-2 text-xs">
+                        <span className="min-w-0 font-medium text-foreground">{entry.method}</span>
+                        <span className="shrink-0 font-semibold tabular-nums text-foreground">{money(entry.total)}</span>
+                      </div>
+                      <div className="h-2 overflow-hidden rounded-full bg-muted">
+                        <div
+                          className="h-full rounded-full bg-primary"
+                          style={{ width: `${Math.max(0, Math.min(entry.percentage, 100))}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[11px] text-muted-foreground">
+                        <span>{entry.count} lançamento{entry.count === 1 ? "" : "s"}</span>
+                        <span className="tabular-nums">{percent(entry.percentage)}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                <div className="flex items-center justify-between gap-2 border-t border-border/70 pt-3 text-xs">
+                  <span className="font-medium text-muted-foreground">Total</span>
+                  <span className="font-bold tabular-nums text-foreground">{money(visibleSummary.total)}</span>
+                </div>
+              </>
+            )}
+          </section>
         </aside>
         <div className="min-w-0 space-y-4">
       {!invalidCustom && (
