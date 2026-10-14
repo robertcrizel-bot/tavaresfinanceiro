@@ -474,7 +474,7 @@ export default function ExpenseAnalytics() {
       </div>
 
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[230px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
-        <aside aria-label="Filtros de despesas" className="workspace-panel space-y-3 p-3 lg:sticky lg:top-4">
+        <aside aria-label="Filtros de despesas" className="workspace-panel space-y-3 p-3 lg:row-span-2 lg:sticky lg:top-4">
           <h3 className="text-sm font-semibold">Filtros</h3>
           <div className="space-y-2">
           <div className="space-y-2">
@@ -653,11 +653,11 @@ export default function ExpenseAnalytics() {
             )}
           </section>
         </aside>
-        <div className="min-w-0 space-y-4">
+        <div className="contents min-w-0">
       {!invalidCustom && (
         <>
           {/* KPIs */}
-          <section aria-label="Indicadores do período" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+          <section aria-label="Indicadores do período" className="grid min-w-0 grid-cols-2 gap-3 lg:col-start-2 lg:grid-cols-5">
             <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(var(--expense)/.80),hsl(352_44%_26%))] p-4 text-white lg:p-5">
               <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-expense/30" />
               <div className="relative flex items-center justify-between gap-3">
@@ -729,7 +729,7 @@ export default function ExpenseAnalytics() {
           </section>
 
           {periodExpenses.length === 0 ? (
-            <div className="dashboard-card flex flex-col items-center justify-center px-6 py-12 text-center">
+            <div className="dashboard-card flex min-w-0 flex-col items-center justify-center px-6 py-12 text-center lg:col-start-2">
               <PieChart className="h-10 w-10 text-muted-foreground mb-3" />
               <h3 className="text-base font-semibold text-foreground">Sem despesas no período</h3>
               <p className="mt-1 max-w-sm text-sm text-muted-foreground">
@@ -750,7 +750,7 @@ export default function ExpenseAnalytics() {
               )}
             </div>
           ) : visibleExpenses.length === 0 ? (
-            <div className="dashboard-card flex flex-col items-center justify-center px-6 py-12 text-center">
+            <div className="dashboard-card flex min-w-0 flex-col items-center justify-center px-6 py-12 text-center lg:col-start-2">
               <PieChart className="h-10 w-10 text-muted-foreground mb-3" />
               <h3 className="text-base font-semibold text-foreground">Nenhum resultado para os filtros</h3>
               <p className="mt-1 max-w-sm text-sm text-muted-foreground">
@@ -764,7 +764,7 @@ export default function ExpenseAnalytics() {
           ) : (
             <>
               {/* Distribution + evolution */}
-              <div className="grid grid-cols-1 gap-4 lg:grid-cols-[0.82fr_1.18fr]">
+              <div className="grid min-w-0 grid-cols-1 gap-4 lg:col-start-2 lg:grid-cols-[0.82fr_1.18fr]">
                 <ChartCard title="Gastos por Categoria">
                   <div className="relative">
                     <ResponsiveContainer width="100%" height={256}>
@@ -915,6 +915,7 @@ export default function ExpenseAnalytics() {
               </div>
 
               {/* Ranking */}
+              <div className="min-w-0 lg:col-span-2">
               <ChartCard title="Ranking de Gastos">
                 <ol className="space-y-2.5">
                   {donutData.map((entry, index) => {
@@ -965,9 +966,10 @@ export default function ExpenseAnalytics() {
                   })}
                 </ol>
               </ChartCard>
+              </div>
 
               {/* Variações + Orçamento */}
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-4">
+              <section aria-label="Resumo detalhado do período" className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] items-start gap-4 lg:col-span-2">
                 <ChartCard title="Onde meu dinheiro aumentou?">
                   {changes.length === 0 ? (
                     <p className="py-8 text-center text-sm text-muted-foreground">
@@ -1048,7 +1050,7 @@ export default function ExpenseAnalytics() {
                     </div>
                   ) : (
                     <>
-                      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                      <div className="grid grid-cols-2 gap-2">
                         {[
                           { label: "Orçamento total", value: money(budgetSummary.totalBudget) },
                           { label: "Utilizado", value: money(budgetSummary.totalSpent) },
@@ -1156,25 +1158,26 @@ export default function ExpenseAnalytics() {
                     </>
                   )}
                 </ChartCard>
-              </div>
 
               {/* Insights */}
               {insights.length > 0 && (
-                <div>
+                <div className="dashboard-card min-w-0 p-4">
                   <h2 className="relative mb-2 pl-3 text-base font-bold text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-foreground sm:before:hidden">
                     Destaques do Período
                   </h2>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div className="grid grid-cols-1 gap-3">
                     {insights.map((text, index) => (
                       <InsightCard key={index} text={text} />
                     ))}
                   </div>
                 </div>
               )}
+              </section>
             </>
           )}
 
           {/* Transactions */}
+          <div className="min-w-0 lg:col-span-2">
           <ChartCard title="Transações do Período">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>
@@ -1220,6 +1223,7 @@ export default function ExpenseAnalytics() {
               </div>
             )}
           </ChartCard>
+          </div>
         </>
       )}
 

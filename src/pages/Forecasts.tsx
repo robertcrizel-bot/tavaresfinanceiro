@@ -298,7 +298,7 @@ export default function Forecasts() {
 
       {/* Bills list */}
       {activeBills.length === 0 ? (
-        <Card className="border-border bg-card">
+        <Card className="mx-auto w-full max-w-[1080px] border-border bg-card">
           <CardContent className="p-6 text-center text-muted-foreground">
             <CalendarClock className="h-12 w-12 mx-auto mb-3 opacity-40" />
             <p className="font-medium">Nenhuma previsão para este mês</p>
@@ -306,7 +306,7 @@ export default function Forecasts() {
           </CardContent>
         </Card>
       ) : (
-        <div aria-label="Lista de previsões" className="grid grid-cols-1 gap-3">
+        <div aria-label="Lista de previsões" className="mx-auto grid w-full max-w-[1080px] grid-cols-1 gap-2">
           {activeBills.map((bill) => {
             const payment = getPayment(bill.id);
             const effectiveAmount = payment ? getEffectiveAmount(bill, payment) : bill.amount;
@@ -321,9 +321,9 @@ export default function Forecasts() {
 
             return (
               <Card key={bill.id} className="min-w-0 border-border bg-card transition-colors hover:bg-accent/30">
-                 <CardContent className="flex flex-col gap-3 p-3.5 sm:p-4 md:flex-row md:items-center md:justify-between md:gap-6">
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <div className={`p-2 rounded-lg shrink-0 mt-0.5 ${
+                 <CardContent className="grid grid-cols-1 gap-2 px-3 py-2.5 sm:px-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-4">
+                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
+                    <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
                        status.kind === "paid" ? "bg-primary/10" :
                        status.kind === "overdue" ? "bg-destructive/10" :
                        status.kind === "upcoming" ? "bg-muted" :
@@ -337,7 +337,7 @@ export default function Forecasts() {
                       <div className="font-medium text-foreground break-words leading-snug">
                         {bill.name}
                       </div>
-                      <div className="flex flex-wrap items-center gap-2 mt-1">
+                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
                         <Badge variant="outline" className="text-[10px] shrink-0">
                           Dia {Number(status.dueDate.slice(-2))}
                         </Badge>
@@ -364,7 +364,7 @@ export default function Forecasts() {
                           </Badge>
                         )}
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-1.5">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-1">
                         <span>{bill.category}</span>
                         {account && (
                           <>
@@ -376,7 +376,7 @@ export default function Forecasts() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-3 md:shrink-0 md:justify-end md:border-t-0 md:pt-0">
+                  <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-2 text-sm md:justify-end md:border-t-0 md:pt-0">
                     {effectiveAmountDiffers ? (
                       <div className="text-right text-xs">
                         <div className="text-muted-foreground">

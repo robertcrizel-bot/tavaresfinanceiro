@@ -188,6 +188,7 @@ describe("Forecasts budget indicator", () => {
     const list = screen.getByLabelText("Lista de previsões");
     expect(list.className).toContain("grid-cols-1");
     expect(list.className).not.toContain("xl:grid-cols-2");
+    expect(list).toHaveClass("mx-auto", "w-full", "max-w-[1080px]");
     expect(screen.getByText("Internet")).toBeInTheDocument();
     expect(screen.getByText("Financiamento")).toBeInTheDocument();
     expect(screen.getAllByTitle("Editar previsão")).toHaveLength(2);

@@ -191,6 +191,14 @@ describe("ExpenseAnalytics default period", () => {
     expect(sidebar).not.toContainElement(screen.getByText("Gasto Total"));
     expect(sidebar.parentElement).toHaveClass("grid-cols-1", "lg:grid-cols-[230px_minmax(0,1fr)]");
     expect(sidebar.nextElementSibling).toHaveClass("min-w-0");
+    const lowerSummary = screen.getByRole("region", { name: "Resumo detalhado do período" });
+    for (const title of ["Onde meu dinheiro aumentou?", "Orçamento × Realizado", "Destaques do Período"]) {
+      expect(within(lowerSummary).getByRole("heading", { name: title })).toBeInTheDocument();
+    }
+    expect(sidebar).not.toContainElement(lowerSummary);
+    const transactions = screen.getByRole("heading", { name: "Transações do Período" }).closest("section");
+    expect(sidebar).not.toContainElement(transactions);
+    expect(lowerSummary).not.toContainElement(transactions);
   });
 
   it("starts on Mês with the current-month totals, average and top category", () => {
