@@ -306,6 +306,35 @@ export function sumExpenses(transactions: Transaction[]): number {
   return roundCents(transactions.reduce((total, transaction) => total + transaction.amount, 0));
 }
 
+/** Breakdown of the same expenses already selected by the analytics filters. */
+export interface PaymentMethodSummary {
+  method: string;
+  total: number;
+  count: number;
+  percentage: number;
+}
+
+export function summarizePaymentMethods(transactions: Transaction[]): PaymentMethodSummary[] {
+  const groups = new Map<string, { cents: number; count: number }>();
+  for (const transaction of transactions) {
+    // A linked credit card is explicit evidence when the method is missing.
+    const method = transaction.paymentMethod || (transaction.creditCardId ? "Cartão de Crédito" : "Não informado");
+    const current = groups.get(method) ?? { cents: 0, count: 0 };
+    current.cents += Math.round(transaction.amount * 100);
+    current.count++;
+    groups.set(method, current);
+  }
+  const totalCents = [...groups.values()].reduce((sum, group) => sum + group.cents, 0);
+  return [...groups.entries()]
+    .map(([method, group]) => ({
+      method,
+      total: group.cents / 100,
+      count: group.count,
+      percentage: totalCents > 0 ? (group.cents / totalCents) * 100 : 0,
+    }))
+    .sort((a, b) => b.total - a.total || a.method.localeCompare(b.method, "pt-BR"));
+}
+
 export function totalByCategory(transactions: Transaction[]): Record<string, number> {
   return transactions.reduce<Record<string, number>>((acc, transaction) => {
     acc[transaction.category] = roundCents((acc[transaction.category] || 0) + transaction.amount);
