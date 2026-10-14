@@ -545,14 +545,17 @@ describe("payment summary in the analytics sidebar", () => {
     const summary = screen.getByRole("region", { name: "Gastos por forma de pagamento" });
     expect(within(summary).getByText("Pix")).toBeInTheDocument();
     expect(within(summary).getByText("Cartão de Crédito")).toBeInTheDocument();
-    expect(within(summary).getByText(fmt(35))).toBeInTheDocument();
-    expect(within(summary).getByText(fmt(20))).toBeInTheDocument();
+    const pixRow = within(summary).getByText("Pix").parentElement;
+    const cardRow = within(summary).getByText("Cartão de Crédito").parentElement;
+    expect(pixRow).toHaveTextContent(/R\$\s*35,00/);
+    expect(cardRow).toHaveTextContent(/R\$\s*20,00/);
 
     fireEvent.change(screen.getByRole("textbox", { name: "Pesquisar por estabelecimento ou descrição" }), {
       target: { value: "padaria alvorada" },
     });
     expect(within(summary).queryByText("Dinheiro")).not.toBeInTheDocument();
-    expect(within(summary).getByText(fmt(55))).toBeInTheDocument();
+    const totalRow = within(summary).getByText("Total").parentElement;
+    expect(totalRow).toHaveTextContent(/R\$\s*55,00/);
     expect(kpiValue("Gasto Total")).toBe(fmt(55));
   });
 });
