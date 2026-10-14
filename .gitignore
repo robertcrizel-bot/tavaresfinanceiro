@@ -12,6 +12,9 @@ dist
 dist-ssr
 *.local
 
+# Cloudflare Wrangler local state (never contains secrets; they live in the dashboard)
+.wrangler
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

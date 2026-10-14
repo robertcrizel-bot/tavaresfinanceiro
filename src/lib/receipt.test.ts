@@ -1,10 +1,12 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   compressImageFile: vi.fn(),
   inspectJpegOrientation: vi.fn(),
   correctDocumentOrientation: vi.fn(),
   functionsInvoke: vi.fn(),
+  getSession: vi.fn(),
+  fetch: vi.fn(),
 }));
 
 vi.mock("@/lib/image-compression", () => ({
@@ -19,8 +21,13 @@ vi.mock("@/lib/receipt-image-orientation", () => ({
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
-  supabase: { functions: { invoke: mocks.functionsInvoke } },
+  supabase: {
+    functions: { invoke: mocks.functionsInvoke },
+    auth: { getSession: mocks.getSession },
+  },
 }));
+
+const SESSION_TOKEN = "supabase-access-token-123";
 
 beforeEach(() => {
   mocks.compressImageFile.mockReset();
@@ -28,6 +35,14 @@ beforeEach(() => {
   mocks.correctDocumentOrientation.mockReset();
   mocks.correctDocumentOrientation.mockImplementation(async (image: File) => image);
   mocks.functionsInvoke.mockReset();
+  mocks.getSession.mockReset();
+  mocks.getSession.mockResolvedValue({ data: { session: { access_token: SESSION_TOKEN } }, error: null });
+  mocks.fetch.mockReset();
+  vi.stubGlobal("fetch", mocks.fetch);
+});
+
+afterEach(() => {
+  vi.unstubAllGlobals();
 });
 
 describe("receiptToImageDataUrl orientation correction", () => {
@@ -157,31 +172,61 @@ function stubImagePipeline() {
   mocks.compressImageFile.mockImplementation(async (file: File) => file);
 }
 
+/** Public URL of the free-reader Worker (also asserted so both flows stay in sync). */
+const FREE_AI_WORKER_URL = "https://financecontrol-gemini-free.financecontrol-gemini-free.workers.dev";
+
+function jsonResponse(status: number, body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
+
+function lastFetchCall(): { url: string; init: RequestInit } {
+  const calls = mocks.fetch.mock.calls;
+  const [url, init] = calls[calls.length - 1] as unknown as [string, RequestInit];
+  return { url, init };
+}
+
 describe("parseReceiptFree", () => {
-  it("sends the image to the free edge function and returns the parsed receipt", async () => {
+  it("posts the image to the Cloudflare Worker with the session token and returns the parsed receipt", async () => {
     stubImagePipeline();
     const receipt = { is_receipt: true, type: "expense", amount: 42.5 };
-    mocks.functionsInvoke.mockResolvedValue({ data: receipt, error: null });
+    mocks.fetch.mockResolvedValue(jsonResponse(200, receipt));
     const { parseReceiptFree } = await import("@/lib/receipt");
 
     const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
-    const result = await parseReceiptFree(file, { categories: ["Alimenta��o"], accounts: ["Nubank (Banco)"] });
+    const result = await parseReceiptFree(file, { categories: ["Alimentação"], accounts: ["Nubank (Banco)"] });
 
     expect(result).toEqual(receipt);
-    expect(mocks.functionsInvoke).toHaveBeenCalledTimes(1);
-    const [fn, options] = mocks.functionsInvoke.mock.calls[0];
-    expect(fn).toBe("parse-receipt-free");
-    expect(options.body.imageDataUrl).toMatch(/^data:image\//);
-    expect(options.body.categories).toEqual(["Alimenta��o"]);
-    expect(options.body.accounts).toEqual(["Nubank (Banco)"]);
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    const { url, init } = lastFetchCall();
+    expect(url).toBe(`${FREE_AI_WORKER_URL}/`);
+    expect(init.method).toBe("POST");
+    expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${SESSION_TOKEN}`);
+    const body = JSON.parse(String(init.body));
+    expect(body.imageDataUrl).toMatch(/^data:image\//);
+    expect(body.categories).toEqual(["Alimentação"]);
+    expect(body.accounts).toEqual(["Nubank (Banco)"]);
+    // The session token only travels in the header, never in the body.
+    expect(String(init.body)).not.toContain(SESSION_TOKEN);
+  });
+
+  it("refuses to call the worker when there is no Supabase session", async () => {
+    stubImagePipeline();
+    mocks.getSession.mockResolvedValue({ data: { session: null }, error: null });
+    const { parseReceiptFree } = await import("@/lib/receipt");
+
+    const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
+    await expect(parseReceiptFree(file, { categories: [], accounts: [] })).rejects.toThrow(
+      "Sessão inválida ou ausente para usar a leitura com IA grátis.",
+    );
+    expect(mocks.fetch).not.toHaveBeenCalled();
   });
 
   it("surfaces the backend error message (quota, auth, config)", async () => {
     stubImagePipeline();
-    mocks.functionsInvoke.mockResolvedValue({
-      data: null,
-      error: { context: { json: async () => ({ error: "A cota gratuita de IA foi atingida no momento." }) } },
-    });
+    mocks.fetch.mockResolvedValue(jsonResponse(429, { error: "A cota gratuita de IA foi atingida no momento." }));
     const { parseReceiptFree } = await import("@/lib/receipt");
 
     const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
@@ -192,17 +237,12 @@ describe("parseReceiptFree", () => {
 
   it("appends the backend request id (ref) so the failure can be matched to server logs", async () => {
     stubImagePipeline();
-    mocks.functionsInvoke.mockResolvedValue({
-      data: null,
-      error: {
-        context: {
-          json: async () => ({
-            error: "O serviço gratuito de IA está temporariamente indisponível. Tente novamente.",
-            requestId: "ab12cd34",
-          }),
-        },
-      },
-    });
+    mocks.fetch.mockResolvedValue(
+      jsonResponse(503, {
+        error: "O serviço gratuito de IA está temporariamente indisponível. Tente novamente.",
+        requestId: "ab12cd34",
+      }),
+    );
     const { parseReceiptFree } = await import("@/lib/receipt");
 
     const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
@@ -213,65 +253,98 @@ describe("parseReceiptFree", () => {
 
   it("throws error payloads returned inside a 2xx body", async () => {
     stubImagePipeline();
-    mocks.functionsInvoke.mockResolvedValue({ data: { error: "Imagem inv�lida." }, error: null });
+    mocks.fetch.mockResolvedValue(jsonResponse(200, { error: "Imagem inválida." }));
     const { parseReceiptFree } = await import("@/lib/receipt");
 
     const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
-    await expect(parseReceiptFree(file, { categories: [], accounts: [] })).rejects.toThrow("Imagem inv�lida.");
+    await expect(parseReceiptFree(file, { categories: [], accounts: [] })).rejects.toThrow("Imagem inválida.");
+  });
+
+  it("reports a network failure without leaking anything", async () => {
+    stubImagePipeline();
+    mocks.fetch.mockRejectedValue(new TypeError("fetch failed"));
+    const { parseReceiptFree } = await import("@/lib/receipt");
+
+    const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
+    await expect(parseReceiptFree(file, { categories: [], accounts: [] })).rejects.toThrow(
+      "Não foi possível ler o comprovante com IA grátis agora.",
+    );
+  });
+
+  it("keeps the paid reader on the Supabase Edge Function (free reading never falls back to it)", async () => {
+    stubImagePipeline();
+    mocks.functionsInvoke.mockResolvedValue({ data: { is_receipt: true }, error: null });
+    const { parseReceipt } = await import("@/lib/receipt");
+
+    const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
+    await parseReceipt(file, { categories: [], accounts: [] });
+
+    expect(mocks.functionsInvoke).toHaveBeenCalledTimes(1);
+    expect(mocks.functionsInvoke.mock.calls[0][0]).toBe("parse-receipt");
+    expect(mocks.fetch).not.toHaveBeenCalled();
   });
 });
 
 describe("getFreeAiStatus", () => {
-  it("reports available only when the backend confirms the integration", async () => {
-    mocks.functionsInvoke.mockResolvedValue({ data: { available: true }, error: null });
+  it("checks availability on the same Worker used for reading, with the session token", async () => {
+    mocks.fetch.mockResolvedValue(jsonResponse(200, { available: true }));
     const { getFreeAiStatus } = await import("@/lib/receipt");
+
     await expect(getFreeAiStatus()).resolves.toEqual({ state: "available" });
-    expect(mocks.functionsInvoke).toHaveBeenCalledWith("parse-receipt-free", { method: "GET" });
+    expect(mocks.fetch).toHaveBeenCalledTimes(1);
+    const { url, init } = lastFetchCall();
+    expect(url).toBe(`${FREE_AI_WORKER_URL}/`);
+    expect(init.method).toBe("GET");
+    expect((init.headers as Record<string, string>).Authorization).toBe(`Bearer ${SESSION_TOKEN}`);
   });
 
-  it("reports unavailable when the backend says the integration is not configured", async () => {
+  it("reports unavailable when the worker says the key is not configured", async () => {
+    mocks.fetch.mockResolvedValue(jsonResponse(200, { available: false }));
     const { getFreeAiStatus } = await import("@/lib/receipt");
-    mocks.functionsInvoke.mockResolvedValue({ data: { available: false }, error: null });
     await expect(getFreeAiStatus()).resolves.toEqual({ state: "unavailable" });
   });
 
-  it("reports unavailable when the function is not deployed (404)", async () => {
+  it("reports unavailable when the worker is not deployed (404)", async () => {
+    mocks.fetch.mockResolvedValue(jsonResponse(404, { error: "not found" }));
     const { getFreeAiStatus } = await import("@/lib/receipt");
-    mocks.functionsInvoke.mockResolvedValue({
-      data: null,
-      error: Object.assign(new Error("not found"), { context: { status: 404 } }),
-    });
     await expect(getFreeAiStatus()).resolves.toEqual({ state: "unavailable" });
   });
 
   it("reports an unauthorized error for 401 and 403 responses", async () => {
     const { getFreeAiStatus } = await import("@/lib/receipt");
-    mocks.functionsInvoke.mockResolvedValue({
-      data: null,
-      error: Object.assign(new Error("unauthorized"), { context: { status: 401 } }),
-    });
+    mocks.fetch.mockResolvedValue(jsonResponse(401, { error: "unauthorized" }));
     await expect(getFreeAiStatus()).resolves.toEqual({ state: "error", reason: "unauthorized" });
-    mocks.functionsInvoke.mockResolvedValue({
-      data: null,
-      error: Object.assign(new Error("forbidden"), { context: { status: 403 } }),
-    });
+    mocks.fetch.mockResolvedValue(jsonResponse(403, { error: "forbidden" }));
     await expect(getFreeAiStatus()).resolves.toEqual({ state: "error", reason: "unauthorized" });
   });
 
   it("reports a server error for 5xx responses", async () => {
+    mocks.fetch.mockResolvedValue(jsonResponse(503, { error: "upstream" }));
     const { getFreeAiStatus } = await import("@/lib/receipt");
-    mocks.functionsInvoke.mockResolvedValue({
-      data: null,
-      error: Object.assign(new Error("upstream"), { context: { status: 503 } }),
-    });
     await expect(getFreeAiStatus()).resolves.toEqual({ state: "error", reason: "server" });
   });
 
-  it("fails closed as a network error when the invocation fails without a response", async () => {
+  it("fails closed as a network error when the request never reaches the worker", async () => {
     const { getFreeAiStatus } = await import("@/lib/receipt");
-    mocks.functionsInvoke.mockResolvedValue({ data: null, error: new Error("offline") });
+    mocks.fetch.mockRejectedValue(new TypeError("offline"));
     await expect(getFreeAiStatus()).resolves.toEqual({ state: "error", reason: "network" });
-    mocks.functionsInvoke.mockRejectedValue(new Error("no session"));
-    await expect(getFreeAiStatus()).resolves.toEqual({ state: "error", reason: "network" });
+  });
+
+  it("fails closed as unauthorized when there is no session, without touching the network", async () => {
+    mocks.getSession.mockResolvedValue({ data: { session: null }, error: null });
+    const { getFreeAiStatus } = await import("@/lib/receipt");
+    await expect(getFreeAiStatus()).resolves.toEqual({ state: "error", reason: "unauthorized" });
+    expect(mocks.fetch).not.toHaveBeenCalled();
+  });
+});
+
+describe("FREE_AI_WORKER_URL", () => {
+  it("is pinned to the deployed production Worker so availability and reading stay in sync", async () => {
+    const mod = await import("@/lib/receipt");
+    expect(mod.FREE_AI_WORKER_URL).toBe(FREE_AI_WORKER_URL);
+    expect(mod.FREE_AI_WORKER_URL).toBe(
+      "https://financecontrol-gemini-free.financecontrol-gemini-free.workers.dev",
+    );
+    expect(mod.FREE_AI_WORKER_URL.startsWith("https://")).toBe(true);
   });
 });

@@ -1,7 +1,9 @@
 /**
  * Pure, Deno-free logic for the free receipt reader backed by Google Gemini.
- * The thin Deno glue lives in index.ts; everything here is unit-tested with
- * vitest.
+ * The same handler is served by two runtimes: the Supabase Edge Function
+ * (supabase/functions/parse-receipt-free/index.ts, Deno) and the Cloudflare
+ * Worker (cloudflare/financecontrol-gemini-free/src/index.ts, Workers `env`
+ * bindings); everything here is unit-tested with vitest.
  *
  * Billing honesty: pinning gemini-2.5-flash does NOT guarantee free tier.
  * The operator MUST use a Google project WITHOUT billing enabled. If Gemini
@@ -63,6 +65,7 @@ export const FREE_AI_MESSAGES = {
   invalidRequest: "O Gemini recusou a requisição de leitura (erro de configuração no servidor). Tente mais tarde ou contate o suporte.",
   modelUnavailable: "O modelo de IA grátis não está disponível para esta configuração do servidor. Verifique a chave (projeto Google sem faturamento).",
   unavailable: "O serviço gratuito de IA está temporariamente indisponível. Tente novamente.",
+  originNotAllowed: "Origem não permitida para usar a leitura com IA grátis.",
   invalidImage: "Imagem inválida.",
   invalidImageType: "Tipo de imagem não suportado. Envie JPEG, PNG, WebP ou HEIC.",
   imageTooLarge: "Imagem muito grande para a leitura grátis. Envie uma foto menor (até 5 MB).",
@@ -554,6 +557,42 @@ export const FREE_AI_CORS_HEADERS = {
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
 } as const;
 
+/**
+ * CORS is configurable on purpose. The Supabase Edge Function keeps the
+ * historical `*` (the platform already gates it with verify_jwt), while the
+ * Cloudflare Worker passes an exact-match allowlist so only the production
+ * domain and the local dev origins can read the responses from a browser.
+ *
+ * A request without an Origin header (curl, server-to-server, unit tests) is
+ * not a browser CORS case: it is neither granted nor blocked here.
+ */
+export function resolveFreeAiCorsOrigin(
+  origin: string | null,
+  allowedOrigins?: readonly string[],
+): string | null {
+  if (!allowedOrigins) return FREE_AI_CORS_HEADERS["Access-Control-Allow-Origin"];
+  const value = origin?.trim();
+  if (!value) return null;
+  return allowedOrigins.includes(value) ? value : null;
+}
+
+/** CORS headers for one request (echoes the allowed origin, never `*` when restricted). */
+export function freeAiCorsHeaders(
+  origin: string | null,
+  allowedOrigins?: readonly string[],
+): Record<string, string> {
+  const headers: Record<string, string> = {
+    "Access-Control-Allow-Headers": FREE_AI_CORS_HEADERS["Access-Control-Allow-Headers"],
+    "Access-Control-Allow-Methods": FREE_AI_CORS_HEADERS["Access-Control-Allow-Methods"],
+  };
+  const allowOrigin = resolveFreeAiCorsOrigin(origin, allowedOrigins);
+  if (allowOrigin) {
+    headers["Access-Control-Allow-Origin"] = allowOrigin;
+    if (allowOrigin !== "*") headers.Vary = "Origin";
+  }
+  return headers;
+}
+
 /** ~8 MB of JSON (base64 image ~6 MB). */
 export const FREE_AI_MAX_BODY_BYTES = 8 * 1024 * 1024;
 
@@ -561,6 +600,11 @@ export interface FreeAiHandlerDeps {
   envGet: (name: string) => string | undefined;
   /** Verifies the access token and returns the user id, or null. Required; missing = reject all. */
   verifyUser?: (token: string) => Promise<string | null>;
+  /**
+   * Exact-match origin allowlist. When omitted the historical `*` is kept
+   * (Supabase Edge Function); when present, only these origins are granted.
+   */
+  allowedOrigins?: readonly string[];
   fetchImpl?: typeof fetch;
   now?: () => number;
   rateBuckets?: Map<string, FreeAiRateBucket>;
@@ -570,10 +614,10 @@ export interface FreeAiHandlerDeps {
   log?: FreeAiLogger;
 }
 
-function jsonResponse(status: number, body: unknown): Response {
+function jsonResponse(status: number, body: unknown, cors: Record<string, string> = FREE_AI_CORS_HEADERS): Response {
   return new Response(JSON.stringify(body), {
     status,
-    headers: { ...FREE_AI_CORS_HEADERS, "Content-Type": "application/json" },
+    headers: { ...cors, "Content-Type": "application/json" },
   });
 }
 
@@ -609,53 +653,66 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
   };
 
   return async function handle(req: Request): Promise<Response> {
+    const origin = req.headers.get("Origin");
+    const cors = freeAiCorsHeaders(origin, deps.allowedOrigins);
+
+    // Exact-match origin allowlist (Worker): a browser origin outside the
+    // list is refused before auth or Gemini. Absent Origin = non-browser.
+    if (deps.allowedOrigins && origin && !resolveFreeAiCorsOrigin(origin, deps.allowedOrigins)) {
+      return jsonResponse(403, { error: FREE_AI_MESSAGES.originNotAllowed }, cors);
+    }
+
     if (req.method === "OPTIONS") {
-      return new Response(null, { status: 204, headers: FREE_AI_CORS_HEADERS });
+      return new Response(null, { status: 204, headers: cors });
     }
 
     if (req.method !== "GET" && req.method !== "POST") {
-      return jsonResponse(405, { error: "Método não permitido." });
+      return jsonResponse(405, { error: "Método não permitido." }, cors);
     }
 
     // Cryptographically verified user (Supabase Auth); never trust a self-declared sub.
     const userId = await authenticate(req);
     if (!userId) {
-      return jsonResponse(401, { error: FREE_AI_MESSAGES.unauthorized });
+      return jsonResponse(401, { error: FREE_AI_MESSAGES.unauthorized }, cors);
     }
 
     if (req.method === "GET") {
       const available = Boolean(normalizeGeminiApiKey(deps.envGet(GEMINI_API_KEY_ENV)));
-      return jsonResponse(200, { available });
+      return jsonResponse(200, { available }, cors);
     }
 
     const apiKey = normalizeGeminiApiKey(deps.envGet(GEMINI_API_KEY_ENV));
     if (!apiKey) {
-      return jsonResponse(503, { error: FREE_AI_MESSAGES.unconfigured });
+      return jsonResponse(503, { error: FREE_AI_MESSAGES.unconfigured }, cors);
     }
 
     // Per-instance limiter only (best effort, not global).
     const rate = checkFreeAiRateLimit(buckets, userId, now());
     if (!rate.allowed) {
-      return jsonResponse(429, {
-        error: FREE_AI_MESSAGES.rateLimited,
-        retryAfterSeconds: Math.ceil(rate.retryAfterMs / 1000),
-      });
+      return jsonResponse(
+        429,
+        {
+          error: FREE_AI_MESSAGES.rateLimited,
+          retryAfterSeconds: Math.ceil(rate.retryAfterMs / 1000),
+        },
+        cors,
+      );
     }
 
     const declaredLength = Number(req.headers.get("content-length") ?? "0");
     if (Number.isFinite(declaredLength) && declaredLength > FREE_AI_MAX_BODY_BYTES) {
-      return jsonResponse(413, { error: FREE_AI_MESSAGES.imageTooLarge });
+      return jsonResponse(413, { error: FREE_AI_MESSAGES.imageTooLarge }, cors);
     }
 
     let body: { imageDataUrl?: unknown; categories?: unknown; accounts?: unknown };
     try {
       const rawText = await req.text();
       if (rawText.length > FREE_AI_MAX_BODY_BYTES) {
-        return jsonResponse(413, { error: FREE_AI_MESSAGES.imageTooLarge });
+        return jsonResponse(413, { error: FREE_AI_MESSAGES.imageTooLarge }, cors);
       }
       body = JSON.parse(rawText);
     } catch {
-      return jsonResponse(400, { error: FREE_AI_MESSAGES.invalidImage });
+      return jsonResponse(400, { error: FREE_AI_MESSAGES.invalidImage }, cors);
     }
     if (
       !body ||
@@ -663,7 +720,7 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
       typeof body.imageDataUrl !== "string" ||
       !body.imageDataUrl.startsWith("data:image/")
     ) {
-      return jsonResponse(400, { error: FREE_AI_MESSAGES.invalidImage });
+      return jsonResponse(400, { error: FREE_AI_MESSAGES.invalidImage }, cors);
     }
 
     const sanitizeList = (value: unknown): string[] =>
@@ -688,13 +745,13 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
         log: scopedLog,
       });
       const parsed = normalizeGeminiReceipt(raw);
-      return jsonResponse(200, parsed);
+      return jsonResponse(200, parsed, cors);
     } catch (error) {
       if (error instanceof FreeAiError) {
-        return jsonResponse(error.status, { error: error.message, requestId });
+        return jsonResponse(error.status, { error: error.message, requestId }, cors);
       }
       log({ scope: "handler", requestId, reason: "unexpected" });
-      return jsonResponse(500, { error: FREE_AI_MESSAGES.unexpected, requestId });
+      return jsonResponse(500, { error: FREE_AI_MESSAGES.unexpected, requestId }, cors);
     }
   };
 }

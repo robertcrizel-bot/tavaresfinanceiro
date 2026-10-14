@@ -48,6 +48,8 @@ vi.mock("@/lib/receipt", async (importOriginal) => ({
   parseReceipt: vi.fn(),
   receiptToImageDataUrl: mocks.receiptToImageDataUrl,
   prepareReceiptForLocalOcr: mocks.prepareReceiptForLocalOcr,
+  // The free reader lives on a Cloudflare Worker: never hit the network here.
+  getFreeAiStatus: vi.fn(async () => ({ state: "unavailable" as const })),
 }));
 vi.mock("@/lib/ocr-paddle-test/recognize", () => ({
   paddleRecognize: mocks.paddleRecognize,

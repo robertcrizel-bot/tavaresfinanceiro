@@ -194,33 +194,55 @@ export async function parseReceipt(
   return data as ParsedReceipt;
 }
 
+/**
+ * Cloudflare Worker that reads receipts with the Google Gemini free tier and
+ * replaces the Supabase Edge Function for the free reader. The URL is public
+ * (not a secret); it can be overridden at build time with
+ * VITE_FREE_AI_WORKER_URL — availability and reading always use this same
+ * URL so the app never reports a service it cannot actually reach.
+ */
+export const FREE_AI_WORKER_URL = (
+  (import.meta.env.VITE_FREE_AI_WORKER_URL as string | undefined)?.trim() ||
+  "https://financecontrol-gemini-free.financecontrol-gemini-free.workers.dev"
+).replace(/\/+$/, "");
+
+const FREE_AI_UNAUTHORIZED_MESSAGE =
+  "Sessão inválida ou ausente para usar a leitura com IA grátis.";
+const FREE_AI_UNREACHABLE_MESSAGE = "Não foi possível ler o comprovante com IA grátis agora.";
+
+/** Current Supabase Auth access token, or null when there is no session. */
+async function freeAiSessionToken(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getSession();
+    const token = data?.session?.access_token;
+    return typeof token === "string" && token ? token : null;
+  } catch {
+    return null;
+  }
+}
+
 /** Explicit availability of the free external AI reader. */
 export type FreeAiAvailability =
   | { state: "available" }
   | { state: "unavailable" }
   | { state: "error"; reason: "unauthorized" | "network" | "server" };
 
-function invokeErrorStatus(error: unknown): number | undefined {
-  const status = (error as { context?: { status?: number } } | null)?.context?.status;
-  return typeof status === "number" ? status : undefined;
-}
-
 /** Reports whether the free external AI reader is configured on the backend. */
 export async function getFreeAiStatus(): Promise<FreeAiAvailability> {
+  const token = await freeAiSessionToken();
+  if (!token) return { state: "error", reason: "unauthorized" };
   try {
-    const { data, error } = await supabase.functions.invoke("parse-receipt-free", {
+    const response = await fetch(`${FREE_AI_WORKER_URL}/`, {
       method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
     });
-    if (error) {
-      const status = invokeErrorStatus(error);
-      if (status === 401 || status === 403) return { state: "error", reason: "unauthorized" };
-      if (typeof status === "number" && status >= 500) return { state: "error", reason: "server" };
-      if (typeof status === "number" && status >= 400) return { state: "unavailable" };
-      return { state: "error", reason: "network" };
+    if (response.ok) {
+      const body = (await response.json().catch(() => null)) as { available?: boolean } | null;
+      return body?.available === true ? { state: "available" } : { state: "unavailable" };
     }
-    return (data as { available?: boolean } | null)?.available === true
-      ? { state: "available" }
-      : { state: "unavailable" };
+    if (response.status === 401 || response.status === 403) return { state: "error", reason: "unauthorized" };
+    if (response.status >= 500) return { state: "error", reason: "server" };
+    return { state: "unavailable" };
   } catch {
     return { state: "error", reason: "network" };
   }
@@ -232,31 +254,37 @@ export async function parseReceiptFree(
   context: { categories: string[]; accounts: string[] },
 ): Promise<ParsedReceipt> {
   const imageDataUrl = await receiptToImageDataUrl(file);
-  const { data, error } = await supabase.functions.invoke("parse-receipt-free", {
-    body: { imageDataUrl, categories: context.categories, accounts: context.accounts },
-  });
+  const token = await freeAiSessionToken();
+  if (!token) throw new Error(FREE_AI_UNAUTHORIZED_MESSAGE);
 
-  if (error) {
-    let message = "Não foi possível ler o comprovante com IA grátis agora.";
-    const ctx = (error as { context?: Response }).context;
-    if (ctx && typeof ctx.json === "function") {
-      try {
-        const body = await ctx.json();
-        if (body?.error) message = body.error;
-        // Correlation id from the backend: lets the operator match this exact
-        // failure to the server log entry (safe short token, no user data).
-        if (body?.requestId && typeof body.requestId === "string") {
-          message = `${message} (ref: ${body.requestId})`;
-        }
-      } catch {
-        /* ignore */
-      }
-    }
-    throw new Error(message);
+  let response: Response;
+  try {
+    response = await fetch(`${FREE_AI_WORKER_URL}/`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify({ imageDataUrl, categories: context.categories, accounts: context.accounts }),
+    });
+  } catch {
+    throw new Error(FREE_AI_UNREACHABLE_MESSAGE);
   }
 
-  if ((data as { error?: string })?.error) throw new Error((data as { error: string }).error);
-  return data as ParsedReceipt;
+  let body: (ParsedReceipt & { error?: string; requestId?: string }) | null = null;
+  try {
+    body = (await response.json()) as typeof body;
+  } catch {
+    body = null;
+  }
+
+  if (!response.ok) {
+    // Correlation id from the backend: lets the operator match this exact
+    // failure to the server log entry (safe short token, no user data).
+    const message = body?.error || FREE_AI_UNREACHABLE_MESSAGE;
+    throw new Error(body?.requestId ? `${message} (ref: ${body.requestId})` : message);
+  }
+
+  if (!body) throw new Error(FREE_AI_UNREACHABLE_MESSAGE);
+  if (body.error) throw new Error(body.error);
+  return body;
 }
 
 const normalize = (v: string) =>
