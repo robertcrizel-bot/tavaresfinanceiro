@@ -306,7 +306,7 @@ export default function Forecasts() {
           </CardContent>
         </Card>
       ) : (
-        <div className="grid gap-2 xl:grid-cols-2">
+        <div aria-label="Lista de previsões" className="grid grid-cols-1 gap-3">
           {activeBills.map((bill) => {
             const payment = getPayment(bill.id);
             const effectiveAmount = payment ? getEffectiveAmount(bill, payment) : bill.amount;
@@ -320,9 +320,9 @@ export default function Forecasts() {
             const account = accounts.find((a) => a.id === bill.accountId);
 
             return (
-              <Card key={bill.id} className="border-border bg-card hover:bg-accent/30 transition-colors">
-                 <CardContent className="flex flex-col gap-2.5 p-3 sm:flex-row sm:items-center sm:justify-between">
-                  <div className="flex items-start gap-3 min-w-0">
+              <Card key={bill.id} className="min-w-0 border-border bg-card transition-colors hover:bg-accent/30">
+                 <CardContent className="flex flex-col gap-3 p-3.5 sm:p-4 md:flex-row md:items-center md:justify-between md:gap-6">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
                     <div className={`p-2 rounded-lg shrink-0 mt-0.5 ${
                        status.kind === "paid" ? "bg-primary/10" :
                        status.kind === "overdue" ? "bg-destructive/10" :
@@ -376,7 +376,7 @@ export default function Forecasts() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 sm:justify-end sm:shrink-0 border-t border-border/40 pt-2 sm:border-t-0 sm:pt-0">
+                  <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-3 md:shrink-0 md:justify-end md:border-t-0 md:pt-0">
                     {effectiveAmountDiffers ? (
                       <div className="text-right text-xs">
                         <div className="text-muted-foreground">
