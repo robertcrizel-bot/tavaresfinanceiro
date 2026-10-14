@@ -400,146 +400,6 @@ export default function ExpenseAnalytics() {
           )}
         </div>
 
-        <div className="workspace-panel space-y-2 p-2 sm:p-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="grid flex-1 grid-cols-2 gap-1 sm:flex sm:flex-none">
-              {PERIOD_OPTIONS.map((option) => (
-                <Button
-                  key={option.value}
-                  size="sm"
-                  variant={period === option.value ? "default" : "outline"}
-                  className="h-9 rounded-xl px-4 text-xs shadow-none"
-                  onClick={() => handlePeriodChange(option.value)}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  size="sm"
-                  variant={period === "custom" ? "default" : "outline"}
-                  className="h-9 gap-1.5 rounded-xl px-4 text-xs shadow-none"
-                  onClick={() => {
-                    if (period !== "custom") {
-                      setPeriod("custom");
-                      setAnchor(new Date());
-                      if (!customRange?.from) {
-                        setCustomRange({
-                          from: new Date(today.getFullYear(), today.getMonth(), 1),
-                          to: today,
-                        });
-                      }
-                    }
-                  }}
-                >
-                  <CalendarIcon className="h-3.5 w-3.5" />
-                  Personalizado
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="range"
-                  selected={customRange}
-                  onSelect={(value) => {
-                    setCustomRange(value);
-                    setPeriod("custom");
-                    if (value?.from && value?.to) setCalendarOpen(false);
-                  }}
-                  numberOfMonths={1}
-                  locale={ptBR}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-          {/* Scope filters: category, establishment, origin, payment */}
-          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:flex lg:flex-wrap">
-            <Select
-              value={selectedCategory ?? "all"}
-              onValueChange={(value) => setSelectedCategory(value === "all" ? null : value)}
-            >
-              <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[170px]" aria-label="Filtrar por categoria">
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as categorias</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category.name} value={category.name}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <div className="relative sm:col-span-2 lg:col-auto lg:flex-1 lg:min-w-[12rem]">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
-                placeholder="Estabelecimento ou descrição..."
-                aria-label="Pesquisar por estabelecimento ou descrição"
-                className="h-9 rounded-xl pl-9 text-xs"
-              />
-            </div>
-
-            <Select
-              value={selectedOrigin ?? "all"}
-              onValueChange={(value) => setSelectedOrigin(value === "all" ? null : value)}
-            >
-              <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[180px]" aria-label="Filtrar por conta ou cartão">
-                <SelectValue placeholder="Conta ou cartão" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as contas</SelectItem>
-                {accounts.map((account) => (
-                  <SelectItem key={account.id} value={`a:${account.id}`}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-                {creditCards.map((card) => (
-                  <SelectItem key={card.id} value={`c:${card.id}`}>
-                    {card.name} (Cartão)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            <Select
-              value={selectedPayment ?? "all"}
-              onValueChange={(value) => setSelectedPayment(value === "all" ? null : value)}
-            >
-              <SelectTrigger className="h-9 w-full rounded-xl text-xs lg:w-[160px]" aria-label="Filtrar por forma de pagamento">
-                <SelectValue placeholder="Pagamento" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">Todas as formas</SelectItem>
-                {PAYMENT_METHODS.map((method) => (
-                  <SelectItem key={method} value={method}>
-                    {method}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-
-            {hasAnyActiveFilter && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-9 gap-1 rounded-xl px-3 text-xs text-muted-foreground"
-                onClick={clearAllFilters}
-              >
-                <X className="h-3.5 w-3.5" />
-                Limpar filtros
-              </Button>
-            )}
-          </div>
-        </div>
-
         {hasAnyActiveFilter && (
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
             <span className="text-muted-foreground">Filtros ativos:</span>
@@ -610,6 +470,151 @@ export default function ExpenseAnalytics() {
         )}
       </div>
 
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[230px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
+        <aside aria-label="Filtros de despesas" className="workspace-panel space-y-3 p-3 lg:sticky lg:top-4">
+          <h3 className="text-sm font-semibold">Filtros</h3>
+          <div className="space-y-2">
+          <div className="space-y-2">
+            <div className="grid grid-cols-2 gap-1">
+              {PERIOD_OPTIONS.map((option) => (
+                <Button
+                  key={option.value}
+                  size="sm"
+                  variant={period === option.value ? "default" : "outline"}
+                  className="h-9 rounded-xl px-4 text-xs shadow-none"
+                  onClick={() => handlePeriodChange(option.value)}
+                >
+                  {option.label}
+                </Button>
+              ))}
+            </div>
+
+            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  size="sm"
+                  variant={period === "custom" ? "default" : "outline"}
+                  className="h-9 w-full gap-1.5 rounded-xl px-4 text-xs shadow-none"
+                  onClick={() => {
+                    if (period !== "custom") {
+                      setPeriod("custom");
+                      setAnchor(new Date());
+                      if (!customRange?.from) {
+                        setCustomRange({
+                          from: new Date(today.getFullYear(), today.getMonth(), 1),
+                          to: today,
+                        });
+                      }
+                    }
+                  }}
+                >
+                  <CalendarIcon className="h-3.5 w-3.5" />
+                  Personalizado
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  selected={customRange}
+                  onSelect={(value) => {
+                    setCustomRange(value);
+                    setPeriod("custom");
+                    if (value?.from && value?.to) setCalendarOpen(false);
+                  }}
+                  numberOfMonths={1}
+                  locale={ptBR}
+                  initialFocus
+                  className="p-3 pointer-events-auto"
+                />
+              </PopoverContent>
+            </Popover>
+          </div>
+
+
+        </div>
+          {/* Filtros laterais: categoria, estabelecimento, conta/cartão e pagamento */}
+          <div className="grid grid-cols-1 gap-3">
+            <Select
+              value={selectedCategory ?? "all"}
+              onValueChange={(value) => setSelectedCategory(value === "all" ? null : value)}
+            >
+              <SelectTrigger className="h-9 w-full rounded-xl text-xs" aria-label="Filtrar por categoria">
+                <SelectValue placeholder="Categoria" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as categorias</SelectItem>
+                {categories.map((category) => (
+                  <SelectItem key={category.name} value={category.name}>
+                    {category.name}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+                placeholder="Estabelecimento ou descrição..."
+                aria-label="Pesquisar por estabelecimento ou descrição"
+                className="h-9 rounded-xl pl-9 text-xs"
+              />
+            </div>
+
+            <Select
+              value={selectedOrigin ?? "all"}
+              onValueChange={(value) => setSelectedOrigin(value === "all" ? null : value)}
+            >
+              <SelectTrigger className="h-9 w-full rounded-xl text-xs" aria-label="Filtrar por conta ou cartão">
+                <SelectValue placeholder="Conta ou cartão" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as contas</SelectItem>
+                {accounts.map((account) => (
+                  <SelectItem key={account.id} value={`a:${account.id}`}>
+                    {account.name}
+                  </SelectItem>
+                ))}
+                {creditCards.map((card) => (
+                  <SelectItem key={card.id} value={`c:${card.id}`}>
+                    {card.name} (Cartão)
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            <Select
+              value={selectedPayment ?? "all"}
+              onValueChange={(value) => setSelectedPayment(value === "all" ? null : value)}
+            >
+              <SelectTrigger className="h-9 w-full rounded-xl text-xs" aria-label="Filtrar por forma de pagamento">
+                <SelectValue placeholder="Pagamento" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">Todas as formas</SelectItem>
+                {PAYMENT_METHODS.map((method) => (
+                  <SelectItem key={method} value={method}>
+                    {method}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+
+            {hasAnyActiveFilter && (
+              <Button
+                size="sm"
+                variant="ghost"
+                className="h-9 gap-1 rounded-xl px-3 text-xs text-muted-foreground"
+                onClick={clearAllFilters}
+              >
+                <X className="h-3.5 w-3.5" />
+                Limpar filtros
+              </Button>
+            )}
+          </div>
+        </aside>
+        <div className="min-w-0 space-y-4">
       {!invalidCustom && (
         <>
           {/* KPIs */}
@@ -1178,6 +1183,9 @@ export default function ExpenseAnalytics() {
           </ChartCard>
         </>
       )}
+
+        </div>
+      </div>
 
       <TransactionDetail
         transaction={detailTransaction}

@@ -63,6 +63,19 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  // Synchronous lock: prevents repeated submits before React can render disabled state.
+  const submitInFlightRef = useRef(false);
+  const submitSucceededRef = useRef(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [hasSaved, setHasSaved] = useState(false);
+
+  useEffect(() => {
+    // Reset only for a closed/reopened form, never for a field rerender.
+    if (!submitInFlightRef.current) {
+      submitSucceededRef.current = false;
+      setHasSaved(false);
+    }
+  }, [open]);
 
   useEffect(() => {
     if (initial) {
@@ -239,6 +252,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!open || submitInFlightRef.current || submitSucceededRef.current) return;
     if (isCashPaymentMethod(paymentMethod) && (!accountId || accountId === "none")) {
       toast({ title: "Selecione a conta", description: "Pagamentos em Dinheiro precisam de uma conta/caixa.", variant: "destructive" });
       return;
@@ -248,6 +262,8 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
     const opts: { installments?: number; attachments?: File[] } = {};
     if (isInstallment) opts.installments = installmentsNum;
     if (attachments.length > 0) opts.attachments = attachments;
+    submitInFlightRef.current = true;
+    setIsSaving(true);
     beginAppBusy("saving");
     try {
       const saved = await onSubmit(
@@ -266,8 +282,16 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
         },
         Object.keys(opts).length > 0 ? opts : undefined,
       );
-      if (saved !== false) onClose();
+      if (saved !== false) {
+        submitSucceededRef.current = true;
+        setHasSaved(true);
+        onClose();
+      }
+    } catch {
+      toast({ title: "Não foi possível salvar o registro", description: "Tente novamente.", variant: "destructive" });
     } finally {
+      submitInFlightRef.current = false;
+      setIsSaving(false);
       endAppBusy("saving");
     }
   };
@@ -277,7 +301,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
   const showInstallments = showCreditCard && !initial && type === "expense";
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
+    <Dialog open={open} onOpenChange={(o) => !o && !submitInFlightRef.current && onClose()}>
       <DialogContent className="max-h-[90vh] gap-3 overflow-y-auto p-4 sm:max-w-md sm:gap-4 sm:p-6">
         <DialogHeader>
           <DialogTitle>{dialogTitle ?? (initial ? "Editar Registro" : "Novo Registro")}</DialogTitle>
@@ -481,8 +505,10 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
             </div>
           )}
           <div className="flex justify-end gap-2 pt-1">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
-            <Button type="submit">{submitLabel ?? (initial ? "Salvar" : "Adicionar")}</Button>
+            <Button type="button" variant="ghost" disabled={isSaving} onClick={onClose}>Cancelar</Button>
+            <Button type="submit" disabled={isSaving || hasSaved} aria-busy={isSaving}>
+              {isSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Salvando...</> : hasSaved ? "Salvo" : (submitLabel ?? (initial ? "Salvar" : "Adicionar"))}
+            </Button>
           </div>
         </form>
       </DialogContent>
