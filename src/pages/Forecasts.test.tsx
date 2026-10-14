@@ -179,6 +179,20 @@ describe("Forecasts budget indicator", () => {
     vi.useRealTimers();
   });
 
+  it("displays full-width forecast rows instead of two compressed columns", () => {
+    mockData.bills = [
+      makeBill({ id: "bill-a", name: "Internet" }),
+      makeBill({ id: "bill-b", name: "Financiamento" }),
+    ];
+    render(<Forecasts />);
+    const list = screen.getByLabelText("Lista de previsões");
+    expect(list.className).toContain("grid-cols-1");
+    expect(list.className).not.toContain("xl:grid-cols-2");
+    expect(screen.getByText("Internet")).toBeInTheDocument();
+    expect(screen.getByText("Financiamento")).toBeInTheDocument();
+    expect(screen.getAllByTitle("Editar previsão")).toHaveLength(2);
+  });
+
   const openForm = () => {
     fireEvent.click(screen.getByText("Nova Previsão"));
   };
