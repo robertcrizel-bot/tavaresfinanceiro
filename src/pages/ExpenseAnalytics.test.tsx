@@ -94,6 +94,7 @@ vi.mock("lucide-react", () => {
     Percent: Icon,
     PieChart: Icon,
     Search: Icon,
+    SlidersHorizontal: Icon,
     Tag: Icon,
     Wallet: Icon,
     X: Icon,
@@ -189,7 +190,7 @@ describe("ExpenseAnalytics default period", () => {
     }
     expect(within(sidebar).getByRole("textbox")).toBeInTheDocument();
     expect(sidebar).not.toContainElement(screen.getByText("Gasto Total"));
-    expect(sidebar.parentElement).toHaveClass("grid-cols-1", "lg:grid-cols-[230px_minmax(0,1fr)]");
+    expect(sidebar.parentElement).toHaveClass("grid-cols-1", "xl:grid-cols-[260px_minmax(0,1fr)]");
     expect(sidebar.nextElementSibling).toHaveClass("min-w-0");
     const lowerSummary = screen.getByRole("region", { name: "Resumo detalhado do período" });
     for (const title of ["Onde meu dinheiro aumentou?", "Orçamento × Realizado", "Destaques do Período"]) {

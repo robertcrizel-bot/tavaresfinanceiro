@@ -56,11 +56,13 @@ import {
 import {
   CalendarDays,
   CalendarIcon,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Percent,
   PieChart,
   Search,
+  SlidersHorizontal,
   Tag,
   Wallet,
   X,
@@ -105,6 +107,7 @@ export default function ExpenseAnalytics() {
   const [anchor, setAnchor] = useState<Date>(() => new Date());
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [filtersOpen, setFiltersOpen] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
   const [searchText, setSearchText] = useState("");
   const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
@@ -359,7 +362,7 @@ export default function ExpenseAnalytics() {
     : visibleSummary.total;
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4 pb-4 sm:space-y-5">
+    <div className="mx-auto max-w-[1500px] space-y-4 pb-4">
       {/* Header + period */}
       <div className="space-y-4">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
@@ -473,8 +476,12 @@ export default function ExpenseAnalytics() {
         )}
       </div>
 
-      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-[230px_minmax(0,1fr)] xl:grid-cols-[260px_minmax(0,1fr)]">
-        <aside aria-label="Filtros de despesas" className="workspace-panel space-y-3 p-3 lg:row-span-2 lg:sticky lg:top-4">
+      <button type="button" aria-expanded={filtersOpen} aria-controls="expense-filters" onClick={() => setFiltersOpen(open => !open)} className="workspace-panel flex w-full items-center justify-between p-3 text-left xl:hidden">
+        <span className="flex items-center gap-2 text-sm font-bold"><SlidersHorizontal className="h-4 w-4" />Filtros e período</span>
+        <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
+      </button>
+      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[260px_minmax(0,1fr)]">
+        <aside id="expense-filters" aria-label="Filtros de despesas" className={`${filtersOpen ? "block" : "hidden"} workspace-panel space-y-3 p-4 xl:sticky xl:top-20 xl:block`}>
           <h3 className="text-sm font-semibold">Filtros</h3>
           <div className="space-y-2">
           <div className="space-y-2">
@@ -536,7 +543,7 @@ export default function ExpenseAnalytics() {
 
         </div>
           {/* Filtros laterais: categoria, estabelecimento, conta/cartão e pagamento */}
-          <div className="grid grid-cols-1 gap-3">
+          <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-3 [&>*]:min-w-0 [&>*]:break-words">
             <Select
               value={selectedCategory ?? "all"}
               onValueChange={(value) => setSelectedCategory(value === "all" ? null : value)}
@@ -652,13 +659,71 @@ export default function ExpenseAnalytics() {
               </>
             )}
           </section>
+          {/* Ranking */}
+          {!invalidCustom && visibleExpenses.length > 0 && (
+              <div className="min-w-0 border-t border-border/70 pt-4 [&>section]:border-0 [&>section]:bg-transparent [&>section]:p-0 [&>section]:shadow-none">
+              <ChartCard title="Ranking de Gastos">
+                <ol className="max-h-72 space-y-2 overflow-y-auto overscroll-contain pr-1">
+                  {donutData.map((entry, index) => {
+                    const active = selectedCategory === entry.category;
+                    const dimmed = selectedCategory !== null && !active;
+                    return (
+                      <li key={entry.category}>
+                        <button
+                          type="button"
+                          onClick={() => toggleCategory(entry.category)}
+                          className={cn(
+                            "w-full rounded-md px-1 py-0.5 text-left transition-colors hover:bg-accent/40",
+                            active && "ring-1 ring-primary/50 bg-primary/10",
+                          )}
+                        >
+                          <div className="flex items-baseline gap-1.5 text-xs">
+                            <span className="w-4 shrink-0 tabular-nums text-muted-foreground">
+                              {index + 1}.
+                            </span>
+                            <span
+                              className={cn(
+                                "min-w-0 flex-1 truncate font-medium",
+                                dimmed ? "text-muted-foreground" : "text-foreground",
+                              )}
+                            >
+                              {entry.category}
+                            </span>
+                          </div>
+                          <div className="ml-5 mt-0.5 flex items-baseline justify-between gap-2 text-xs">
+                            <span className="shrink-0 tabular-nums text-foreground">
+                              {money(entry.value)}
+                            </span>
+                            <span className="w-10 shrink-0 text-right tabular-nums text-xs text-muted-foreground">
+                              {percent(Math.round(entry.percentage))}
+                            </span>
+                          </div>
+                          <div className="ml-5 mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{
+                                width: `${rankingMax > 0 ? (entry.value / rankingMax) * 100 : 0}%`,
+                                background: colorForIndex(index),
+                                opacity: dimmed ? 0.4 : 1,
+                              }}
+                            />
+                          </div>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </ChartCard>
+              </div>
+
+          )}
         </aside>
-        <div className="contents min-w-0">
+        <div className="min-w-0 space-y-4">
       {!invalidCustom && (
         <>
           {/* KPIs */}
-          <section aria-label="Indicadores do período" className="grid min-w-0 grid-cols-2 gap-3 lg:col-start-2 lg:grid-cols-5">
-            <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(var(--expense)/.80),hsl(352_44%_26%))] p-4 text-white lg:p-5">
+          <section aria-label="Indicadores do período" className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-5">
+            <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(var(--expense)/.80),hsl(352_44%_26%))] p-3.5 text-white">
               <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-expense/30" />
               <div className="relative flex items-center justify-between gap-3">
                 <span className="text-[13px] font-bold uppercase tracking-[0.18em] text-white/75">
@@ -677,7 +742,7 @@ export default function ExpenseAnalytics() {
               </p>
             </article>
 
-            <article className="dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:min-h-[132px] lg:p-5">
+            <article className="dashboard-card flex min-h-[104px] flex-col justify-center gap-2 p-3.5 lg:min-h-[112px]">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] font-semibold text-muted-foreground">Média por Dia</span>
                 <CalendarDays className="h-4 w-4 shrink-0 text-info" />
@@ -690,7 +755,7 @@ export default function ExpenseAnalytics() {
               </p>
             </article>
 
-            <article className="dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:min-h-[132px] lg:p-5">
+            <article className="dashboard-card flex min-h-[104px] flex-col justify-center gap-2 p-3.5 lg:min-h-[112px]">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] font-semibold text-muted-foreground">Maior Categoria</span>
                 <Tag className="h-4 w-4 shrink-0 text-warning" />
@@ -705,7 +770,7 @@ export default function ExpenseAnalytics() {
               </p>
             </article>
 
-            <article className="dashboard-card col-span-2 flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:col-span-1 lg:min-h-[132px] lg:p-5">
+            <article className="dashboard-card col-span-2 flex min-h-[104px] flex-col justify-center gap-2 p-4 lg:col-span-1 lg:min-h-[112px]">
               <div className="flex items-center justify-between gap-2">
                 <span className="text-[13px] font-semibold text-muted-foreground">Variação</span>
                 <Percent className="h-4 w-4 shrink-0 text-primary" />
@@ -729,7 +794,7 @@ export default function ExpenseAnalytics() {
           </section>
 
           {periodExpenses.length === 0 ? (
-            <div className="dashboard-card flex min-w-0 flex-col items-center justify-center px-6 py-12 text-center lg:col-start-2">
+            <div className="dashboard-card flex min-w-0 flex-col items-center justify-center px-6 py-12 text-center">
               <PieChart className="h-10 w-10 text-muted-foreground mb-3" />
               <h3 className="text-base font-semibold text-foreground">Sem despesas no período</h3>
               <p className="mt-1 max-w-sm text-sm text-muted-foreground">
@@ -750,7 +815,7 @@ export default function ExpenseAnalytics() {
               )}
             </div>
           ) : visibleExpenses.length === 0 ? (
-            <div className="dashboard-card flex min-w-0 flex-col items-center justify-center px-6 py-12 text-center lg:col-start-2">
+            <div className="dashboard-card flex min-w-0 flex-col items-center justify-center px-6 py-12 text-center">
               <PieChart className="h-10 w-10 text-muted-foreground mb-3" />
               <h3 className="text-base font-semibold text-foreground">Nenhum resultado para os filtros</h3>
               <p className="mt-1 max-w-sm text-sm text-muted-foreground">
@@ -764,10 +829,10 @@ export default function ExpenseAnalytics() {
           ) : (
             <>
               {/* Distribution + evolution */}
-              <div className="grid min-w-0 grid-cols-1 gap-4 lg:col-start-2 lg:grid-cols-[0.82fr_1.18fr]">
+              <div className="grid min-w-0 grid-cols-1 gap-4 lg:grid-cols-2">
                 <ChartCard title="Gastos por Categoria">
                   <div className="relative">
-                    <ResponsiveContainer width="100%" height={256}>
+                    <ResponsiveContainer width="100%" height={220}>
                       <RechartsPieChart>
                         <Pie
                           data={donutData}
@@ -860,7 +925,7 @@ export default function ExpenseAnalytics() {
                           </span>
                         </div>
                       )}
-                      <ResponsiveContainer width="100%" height={256}>
+                      <ResponsiveContainer width="100%" height={220}>
                         <LineChart data={chartData}>
                           <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
                           <XAxis
@@ -914,69 +979,15 @@ export default function ExpenseAnalytics() {
                 </ChartCard>
               </div>
 
-              {/* Ranking */}
-              <div className="min-w-0 lg:col-span-2">
-              <ChartCard title="Ranking de Gastos">
-                <ol className="space-y-2.5">
-                  {donutData.map((entry, index) => {
-                    const active = selectedCategory === entry.category;
-                    const dimmed = selectedCategory !== null && !active;
-                    return (
-                      <li key={entry.category}>
-                        <button
-                          type="button"
-                          onClick={() => toggleCategory(entry.category)}
-                          className={cn(
-                            "w-full rounded-md px-1 py-0.5 text-left transition-colors hover:bg-accent/40",
-                            active && "ring-1 ring-primary/50 bg-primary/10",
-                          )}
-                        >
-                          <div className="flex items-baseline gap-2 text-sm">
-                            <span className="w-5 shrink-0 tabular-nums text-muted-foreground">
-                              {index + 1}.
-                            </span>
-                            <span
-                              className={cn(
-                                "min-w-0 flex-1 truncate font-medium",
-                                dimmed ? "text-muted-foreground" : "text-foreground",
-                              )}
-                            >
-                              {entry.category}
-                            </span>
-                            <span className="shrink-0 tabular-nums text-foreground">
-                              {money(entry.value)}
-                            </span>
-                            <span className="w-10 shrink-0 text-right tabular-nums text-xs text-muted-foreground">
-                              {percent(Math.round(entry.percentage))}
-                            </span>
-                          </div>
-                          <div className="ml-7 mt-1 h-2 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{
-                                width: `${rankingMax > 0 ? (entry.value / rankingMax) * 100 : 0}%`,
-                                background: colorForIndex(index),
-                                opacity: dimmed ? 0.4 : 1,
-                              }}
-                            />
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ol>
-              </ChartCard>
-              </div>
-
               {/* Variações + Orçamento */}
-              <section aria-label="Resumo detalhado do período" className="grid min-w-0 grid-cols-[repeat(auto-fit,minmax(min(100%,320px),1fr))] items-start gap-4 lg:col-span-2">
+              <section aria-label="Resumo detalhado do período" className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-2">
                 <ChartCard title="Onde meu dinheiro aumentou?">
                   {changes.length === 0 ? (
                     <p className="py-8 text-center text-sm text-muted-foreground">
                       Sem dados do período anterior para comparar variações.
                     </p>
                   ) : (
-                    <div className="space-y-2">
+                    <div className="max-h-56 space-y-2 overflow-y-auto overscroll-contain pr-1">
                       {changes.slice(0, 6).map((change) => (
                         <button
                           key={change.category}
@@ -1097,7 +1108,7 @@ export default function ExpenseAnalytics() {
                         </p>
                       )}
 
-                      <div className="mt-4 space-y-3.5">
+                      <div className="mt-3 max-h-48 space-y-3 overflow-y-auto overscroll-contain pr-1">
                         {budgetRows.map((row) => {
                           const width =
                             row.budget > 0
@@ -1161,11 +1172,11 @@ export default function ExpenseAnalytics() {
 
               {/* Insights */}
               {insights.length > 0 && (
-                <div className="dashboard-card min-w-0 p-4">
+                <div className="dashboard-card min-w-0 p-4 lg:col-span-2">
                   <h2 className="relative mb-2 pl-3 text-base font-bold text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-foreground sm:before:hidden">
                     Destaques do Período
                   </h2>
-                  <div className="grid grid-cols-1 gap-3">
+                  <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-3 [&>*]:min-w-0 [&>*]:break-words">
                     {insights.map((text, index) => (
                       <InsightCard key={index} text={text} />
                     ))}
@@ -1177,7 +1188,7 @@ export default function ExpenseAnalytics() {
           )}
 
           {/* Transactions */}
-          <div className="min-w-0 lg:col-span-2">
+          <div className="min-w-0">
           <ChartCard title="Transações do Período">
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>
@@ -1198,7 +1209,7 @@ export default function ExpenseAnalytics() {
                 {selectedCategory ? ` para ${selectedCategory}` : ""}.
               </p>
             ) : (
-              <div className="-mx-5 max-h-[30rem] divide-y divide-border/60 overflow-y-auto border-t border-border/60">
+              <div className="-mx-5 max-h-96 divide-y divide-border/60 overflow-y-auto border-t border-border/60">
                 {sortedTransactions.map((transaction) => (
                   <button
                     key={transaction.id}
