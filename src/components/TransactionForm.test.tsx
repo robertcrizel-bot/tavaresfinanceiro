@@ -1,5 +1,5 @@
 import React, { type ReactNode } from "react";
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { TransactionForm } from "@/components/TransactionForm";
 import type { ReceiptDetails, Transaction } from "@/lib/types";
@@ -116,6 +116,29 @@ const initial: Transaction = {
   category: "Outros",
   date: "2026-09-11",
 };
+
+describe("TransactionForm duplicate submission protection", () => {
+  it("submits only once while save is pending and allows retry after failure", async () => {
+    let finishFirst: (value: boolean) => void = () => {};
+    const first = new Promise<boolean>((resolve) => { finishFirst = resolve; });
+    const onSubmit = vi.fn().mockReturnValueOnce(first).mockResolvedValueOnce(true);
+    const onClose = vi.fn();
+    render(<TransactionForm open onClose={onClose} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByPlaceholderText("Ex: Supermercado"), { target: { value: "Compra" } });
+    fireEvent.change(screen.getByPlaceholderText("0,00"), { target: { value: "25" } });
+    const save = screen.getByRole("button", { name: "Adicionar" });
+    fireEvent.click(save);
+    fireEvent.submit(save.closest("form")!);
+    fireEvent.submit(save.closest("form")!);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /Salvando/ })).toBeDisabled();
+    finishFirst(false);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Adicionar" })).toBeEnabled());
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(2));
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+  });
+});
 
 describe("TransactionForm receipt details", () => {
   const onSubmit = vi.fn();
