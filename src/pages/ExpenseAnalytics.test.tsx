@@ -533,3 +533,26 @@ describe("ExpenseAnalytics scope filters (establishment, origin, payment)", () =
     expect(kpiValue("Gasto Total")).toBe(fmt(587.5));
   });
 });
+
+describe("payment summary in the analytics sidebar", () => {
+  it("uses the same establishment filter as the charts and shows payment amounts", () => {
+    mocks.transactions = [
+      expense("pix", day1, 35, { title: "Padaria Alvorada", paymentMethod: "Pix" }),
+      expense("card", day1, 20, { title: "Padaria Alvorada", paymentMethod: "Cartão de Crédito" }),
+      expense("other", day1, 5, { title: "Outro mercado", paymentMethod: "Dinheiro" }),
+    ];
+    renderPage();
+    const summary = screen.getByRole("region", { name: "Gastos por forma de pagamento" });
+    expect(within(summary).getByText("Pix")).toBeInTheDocument();
+    expect(within(summary).getByText("Cartão de Crédito")).toBeInTheDocument();
+    expect(within(summary).getByText(fmt(35))).toBeInTheDocument();
+    expect(within(summary).getByText(fmt(20))).toBeInTheDocument();
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Pesquisar por estabelecimento ou descrição" }), {
+      target: { value: "padaria alvorada" },
+    });
+    expect(within(summary).queryByText("Dinheiro")).not.toBeInTheDocument();
+    expect(within(summary).getByText(fmt(55))).toBeInTheDocument();
+    expect(kpiValue("Gasto Total")).toBe(fmt(55));
+  });
+});
