@@ -598,6 +598,9 @@ export const FREE_AI_MAX_BODY_BYTES = 8 * 1024 * 1024;
 
 export interface FreeAiHandlerDeps {
   envGet: (name: string) => string | undefined;
+  /** Alternate provider; omission preserves the original Gemini handler. */
+  isConfigured?: () => boolean;
+  requestReceipt?: (input: Omit<GeminiRequestInput, "apiKey">) => Promise<Record<string, unknown>>;
   /** Verifies the access token and returns the user id, or null. Required; missing = reject all. */
   verifyUser?: (token: string) => Promise<string | null>;
   /**
@@ -677,12 +680,14 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
     }
 
     if (req.method === "GET") {
-      const available = Boolean(normalizeGeminiApiKey(deps.envGet(GEMINI_API_KEY_ENV)));
+      const available = deps.isConfigured
+        ? deps.isConfigured()
+        : Boolean(normalizeGeminiApiKey(deps.envGet(GEMINI_API_KEY_ENV)));
       return jsonResponse(200, { available }, cors);
     }
 
     const apiKey = normalizeGeminiApiKey(deps.envGet(GEMINI_API_KEY_ENV));
-    if (!apiKey) {
+    if (!(deps.isConfigured ? deps.isConfigured() : Boolean(apiKey))) {
       return jsonResponse(503, { error: FREE_AI_MESSAGES.unconfigured }, cors);
     }
 
@@ -735,7 +740,7 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
     const scopedLog: FreeAiLogger = (entry) => log({ requestId, ...entry });
 
     try {
-      const raw = await requestGeminiReceipt({
+      const input = {
         apiKey,
         imageDataUrl: body.imageDataUrl,
         categories: sanitizeList(body.categories),
@@ -743,7 +748,10 @@ export function createFreeAiHandler(deps: FreeAiHandlerDeps) {
         fetchImpl: deps.fetchImpl,
         imageLimits,
         log: scopedLog,
-      });
+      };
+      const raw = deps.requestReceipt
+        ? await deps.requestReceipt(input)
+        : await requestGeminiReceipt(input);
       const parsed = normalizeGeminiReceipt(raw);
       return jsonResponse(200, parsed, cors);
     } catch (error) {

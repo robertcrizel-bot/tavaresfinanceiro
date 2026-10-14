@@ -140,13 +140,13 @@ describe("ReceiptImport free external AI reader (test)", () => {
     selectFile();
     fireEvent.click(await screen.findByRole("button", { name: FREE_BUTTON }));
     expect(
-      await screen.findByText(/envia a foto do comprovante para o Google Gemini no modo gratuito/),
+      await screen.findByText(/envia a foto do comprovante para a Cloudflare Workers AI/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/cota limitada/)).toBeInTheDocument();
+    expect(screen.getByText(/cota diária limitada/)).toBeInTheDocument();
     expect(mocks.parseReceiptFree).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
-    await waitFor(() => expect(screen.queryByText(/Google Gemini/)).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/Cloudflare Workers AI/)).not.toBeInTheDocument());
     expect(mocks.parseReceiptFree).not.toHaveBeenCalled();
   });
 

@@ -726,8 +726,8 @@ export default function ReceiptImport() {
           <DialogHeader>
             <DialogTitle>Ler com IA grátis (teste)</DialogTitle>
             <DialogDescription>
-              Esta leitura envia a foto do comprovante para o Google Gemini no modo gratuito
-              (serviço externo, cota limitada, sem cobrança e sem usar seus créditos do Lovable).
+              Esta leitura envia a foto do comprovante para a Cloudflare Workers AI,
+              usando o Gemma no plano gratuito (serviço externo, cota diária limitada e sem cobrança).
               Confira os dados antes de salvar. Deseja continuar?
             </DialogDescription>
           </DialogHeader>

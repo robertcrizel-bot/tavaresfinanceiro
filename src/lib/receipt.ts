@@ -195,7 +195,7 @@ export async function parseReceipt(
 }
 
 /**
- * Cloudflare Worker that reads receipts with the Google Gemini free tier and
+ * Cloudflare Worker that reads receipts with Gemma on Workers AI Free and
  * replaces the Supabase Edge Function for the free reader. The URL is public
  * (not a secret); it can be overridden at build time with
  * VITE_FREE_AI_WORKER_URL — availability and reading always use this same
@@ -203,7 +203,7 @@ export async function parseReceipt(
  */
 export const FREE_AI_WORKER_URL = (
   (import.meta.env.VITE_FREE_AI_WORKER_URL as string | undefined)?.trim() ||
-  "https://financecontrol-gemini-free.financecontrol-gemini-free.workers.dev"
+  "https://financecontrol-workers-ai-poc.financecontrol-gemini-free.workers.dev"
 ).replace(/\/+$/, "");
 
 const FREE_AI_UNAUTHORIZED_MESSAGE =
@@ -248,7 +248,7 @@ export async function getFreeAiStatus(): Promise<FreeAiAvailability> {
   }
 }
 
-/** Reads a receipt with the free external AI reader (Google Gemini free tier). */
+/** Reads a receipt with Gemma on Cloudflare Workers AI Free. */
 export async function parseReceiptFree(
   file: File,
   context: { categories: string[]; accounts: string[] },

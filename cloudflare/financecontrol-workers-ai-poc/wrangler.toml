@@ -1,0 +1,17 @@
+name = "financecontrol-workers-ai-poc"
+main = "index.ts"
+compatibility_date = "2026-09-01"
+account_id = "4a3795c3aa9ddf227b344c7d4f66a2bd"
+workers_dev = true
+
+[ai]
+binding = "AI"
+
+[vars]
+SUPABASE_URL = "https://onhmpgevkttysbfllhjq.supabase.co"
+SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uaG1wZ2V2a3R0eXNiZmxsaGpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMzQyOTksImV4cCI6MjA5MDYxMDI5OX0.KxNphDYxDAxFKhNG2YTiIaVDqV0tk7iPWzSq-UEVqD4"
+ALLOWED_ORIGINS = ""
+
+[observability]
+enabled = true
+head_sampling_rate = 1

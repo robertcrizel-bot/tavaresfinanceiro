@@ -173,7 +173,7 @@ function stubImagePipeline() {
 }
 
 /** Public URL of the free-reader Worker (also asserted so both flows stay in sync). */
-const FREE_AI_WORKER_URL = "https://financecontrol-gemini-free.financecontrol-gemini-free.workers.dev";
+const FREE_AI_WORKER_URL = "https://financecontrol-workers-ai-poc.financecontrol-gemini-free.workers.dev";
 
 function jsonResponse(status: number, body: unknown) {
   return new Response(JSON.stringify(body), {
@@ -343,7 +343,7 @@ describe("FREE_AI_WORKER_URL", () => {
     const mod = await import("@/lib/receipt");
     expect(mod.FREE_AI_WORKER_URL).toBe(FREE_AI_WORKER_URL);
     expect(mod.FREE_AI_WORKER_URL).toBe(
-      "https://financecontrol-gemini-free.financecontrol-gemini-free.workers.dev",
+      "https://financecontrol-workers-ai-poc.financecontrol-gemini-free.workers.dev",
     );
     expect(mod.FREE_AI_WORKER_URL.startsWith("https://")).toBe(true);
   });
