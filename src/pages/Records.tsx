@@ -1,4 +1,4 @@
-import { categoryColor, paymentColor } from "@/lib/chart-theme";
+import { categoryColor, paymentColor, entityColor, colorAccent } from "@/lib/chart-theme";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useCategories } from "@/contexts/CategoryContext";
@@ -131,6 +131,10 @@ export default function Records() {
   const { transactions, creditCardInvoices, addTransaction, updateTransaction, deleteTransaction } = useFinance();
   const { allCategoryNames } = useCategories();
   const { accounts, creditCards } = useAccounts();
+  const sourceColor = (t: Transaction) => {
+    const item = t.accountId ? accounts.find(a => a.id === t.accountId) : creditCards.find(c => c.id === t.creditCardId);
+    return entityColor(item?.id ?? t.accountId ?? t.creditCardId ?? "other", item?.color);
+  };
 
   const sourceMap = useMemo(() => {
     const m: Record<string, string> = {};
@@ -281,7 +285,7 @@ export default function Records() {
   );
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
+    <div className="data-subtle mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <div><p className="eyebrow">Histórico completo</p><h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl">Meus Registros</h1></div>
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
@@ -364,7 +368,7 @@ export default function Records() {
           {/* Mobile card layout */}
           <div className="flex flex-col gap-2 md:hidden">
             {filtered.map((t) => (
-              <div key={t.id} className="glass-card animate-fade-in space-y-2 rounded-xl p-3">
+              <div key={t.id} className="glass-card data-surface animate-fade-in space-y-2 rounded-xl p-3" style={colorAccent(categoryColor(t.category))}>
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1.5 min-w-0">
@@ -383,15 +387,15 @@ export default function Records() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2 flex-wrap">
-                    <Badge variant="outline" className="text-xs" style={{ borderColor: categoryColor(t.category) }}>{t.category}</Badge>
-                    <Badge variant={isNeutral(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isNeutral(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
+                    <Badge variant="outline" className="data-chip text-xs" style={colorAccent(categoryColor(t.category))}>{t.category}</Badge>
+                    <Badge variant={isNeutral(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`neutral-tag text-xs ${isNeutral(t) ? "text-muted-foreground" : isForecast(t) ? "text-warning" : t.type === "income" ? "text-income" : "text-expense"}`}>
                       {getTypeLabel(t)}
                     </Badge>
                     {t.paymentMethod && (
-                      <Badge variant="outline" className="text-xs" style={{ borderColor: paymentColor(t.paymentMethod) }}>{t.paymentMethod}</Badge>
+                      <Badge variant="outline" className="data-chip text-xs" style={colorAccent(paymentColor(t.paymentMethod))}>{t.paymentMethod}</Badge>
                     )}
                     {getSourceKey(t) && (
-                      <Badge variant="outline" className="text-xs">{getSourceName(t)}</Badge>
+                      <Badge variant="outline" className="data-chip text-xs" style={colorAccent(sourceColor(t))}>{getSourceName(t)}</Badge>
                     )}
                   </div>
                   <div className="flex gap-1 shrink-0">
@@ -454,9 +458,9 @@ export default function Records() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell><Badge variant="outline" className="text-xs" style={{ borderColor: categoryColor(t.category) }}>{t.category}</Badge></TableCell>
+                    <TableCell><Badge variant="outline" className="data-chip text-xs" style={colorAccent(categoryColor(t.category))}>{t.category}</Badge></TableCell>
                     <TableCell>
-                      <Badge variant={isNeutral(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isNeutral(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
+                      <Badge variant={isNeutral(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`neutral-tag text-xs ${isNeutral(t) ? "text-muted-foreground" : isForecast(t) ? "text-warning" : t.type === "income" ? "text-income" : "text-expense"}`}>
                         {getTypeLabel(t)}
                       </Badge>
                     </TableCell>
@@ -464,10 +468,10 @@ export default function Records() {
                       {isNeutral(t) ? fmt(t.amount) : `${t.type === "income" ? "+" : "-"}${fmt(t.amount)}`}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {t.paymentMethod || "—"}
+                      {t.paymentMethod ? <Badge variant="outline" className="data-chip text-xs" style={colorAccent(paymentColor(t.paymentMethod))}>{t.paymentMethod}</Badge> : "—"}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {getSourceName(t)}
+                      {getSourceKey(t) ? <Badge variant="outline" className="data-chip text-xs" style={colorAccent(sourceColor(t))}>{getSourceName(t)}</Badge> : getSourceName(t)}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm max-w-[240px]">
                       <span className="block truncate" title={t.description || ""}>

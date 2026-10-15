@@ -1,4 +1,4 @@
-import { categoryColor } from "@/lib/chart-theme";
+import { categoryColor, colorAccent } from "@/lib/chart-theme";
 import { useState } from "react";
 import { useCategories, UserCategory } from "@/contexts/CategoryContext";
 import { Button } from "@/components/ui/button";
@@ -80,13 +80,13 @@ export default function Categories() {
     ) : (
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
         {list.map((cat) => (
-          <div key={cat.id} className="glass-card min-w-0 animate-fade-in rounded-xl p-3">
+          <div key={cat.id} className="glass-card data-surface min-w-0 animate-fade-in rounded-xl p-3" style={colorAccent(categoryColor(cat.name))}>
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
                 <Tag className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0">
-                  <p className="truncate font-medium text-foreground" style={{ borderColor: categoryColor(cat.name), borderLeftWidth: 3, paddingLeft: 6 }}>{cat.name}</p>
-                  <Badge variant={typeBadgeVariant[cat.type]} className="text-xs mt-1">
+                  <p className="data-chip break-words rounded-md border px-2 py-0.5 font-medium" style={colorAccent(categoryColor(cat.name))}>{cat.name}</p>
+                  <Badge variant={typeBadgeVariant[cat.type]} className={`neutral-tag text-xs mt-1 ${cat.type === "income" ? "text-income" : cat.type === "expense" ? "text-expense" : "text-muted-foreground"}`}>
                     {typeLabels[cat.type]}
                   </Badge>
                 </div>
@@ -130,7 +130,7 @@ export default function Categories() {
   );
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
+    <div className="data-subtle mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
       <div className="flex items-center justify-between">
         <div><p className="eyebrow">Organização</p><h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl">Categorias</h1></div>
         <Button onClick={openNew} className="gap-2">

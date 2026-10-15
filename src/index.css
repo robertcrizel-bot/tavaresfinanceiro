@@ -125,6 +125,51 @@
   .eyebrow {
     @apply text-[10px] font-extrabold uppercase tracking-[0.22em] text-primary;
   }
+
+  .data-surface {
+    border-color: color-mix(in srgb, var(--data-color) 30%, hsl(var(--border)));
+    background-image: linear-gradient(125deg, color-mix(in srgb, var(--data-color) 9%, transparent), transparent 65%);
+  }
+
+  .data-chip {
+    max-width: 100%;
+    white-space: normal;
+    overflow-wrap: break-word;
+    color: hsl(var(--foreground));
+    border-color: color-mix(in srgb, var(--data-color) 45%, hsl(var(--border)));
+    background-color: color-mix(in srgb, var(--data-color) 12%, hsl(var(--card)));
+    box-shadow: inset 3px 0 var(--data-color);
+  }
+
+
+  .data-subtle .data-surface {
+    border-color: hsl(var(--border));
+    background-color: hsl(var(--card));
+    background-image: none;
+  }
+
+  .data-subtle .data-chip,
+  .data-subtle .neutral-tag,
+  .data-subtle .data-chip:hover,
+  .data-subtle .neutral-tag:hover {
+    border-color: hsl(var(--border));
+    background-color: hsl(var(--card));
+    background-image: none;
+    box-shadow: none;
+  }
+
+
+  .data-subtle .data-chip::before {
+    content: "";
+    display: inline-block;
+    width: 0.375rem;
+    height: 0.375rem;
+    margin-inline-end: 0.375rem;
+    border-radius: 50%;
+    background-color: var(--data-color);
+    flex-shrink: 0;
+    vertical-align: middle;
+  }
 }
 
 /* Recharts tooltip */

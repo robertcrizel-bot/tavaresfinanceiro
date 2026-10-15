@@ -1,3 +1,5 @@
+import type { CSSProperties } from "react";
+
 /**
  * Shared chart theme used across
  * Dashboard, ExpenseAnalytics and Statements. Visual only — never
@@ -54,6 +56,18 @@ export const CHART_SEMANTIC = {
   trend: "hsl(169 66% 47%)",
   previous: "hsl(214 12% 58%)",
 } as const;
+
+export const CHART_ACCENTS = {
+  categories: CHART_CATEGORICAL[7],
+  payments: CHART_CATEGORICAL[1],
+  accounts: CHART_CATEGORICAL[2],
+  time: CHART_CATEGORICAL[1],
+  budget: CHART_CATEGORICAL[3],
+} as const;
+
+/** A shared accent for subtle surfaces, icons and chips; labels keep theme foreground contrast. */
+export const colorAccent = (color: string): CSSProperties =>
+  ({ "--data-color": color }) as CSSProperties;
 
 export const CHART_GRID = "hsl(var(--border))";
 

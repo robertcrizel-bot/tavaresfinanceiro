@@ -1,4 +1,4 @@
-import { categoryColor } from "@/lib/chart-theme";
+import { categoryColor, entityColor, colorAccent } from "@/lib/chart-theme";
 import { useState, useMemo } from "react";
 import { useForecast, BillPayment, RecurringBill } from "@/contexts/ForecastContext";
 import { useAccounts } from "@/contexts/AccountContext";
@@ -228,7 +228,7 @@ export default function Forecasts() {
   }
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
+    <div className="data-subtle mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
       {/* Header */}
       <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
         <div>
@@ -245,7 +245,7 @@ export default function Forecasts() {
       <div className="workspace-panel grid grid-cols-1 overflow-hidden sm:grid-cols-3">
         <Card className="rounded-none border-0 border-b border-border/70 bg-card shadow-none sm:border-b-0 sm:border-r">
           <CardContent className="flex items-center gap-3 p-3.5">
-            <div className="p-2 rounded-lg bg-destructive/10">
+            <div className="p-2 rounded-lg bg-muted">
               <ArrowUpRight className="h-5 w-5 text-destructive" />
             </div>
             <div>
@@ -258,7 +258,7 @@ export default function Forecasts() {
         </Card>
         <Card className="rounded-none border-0 border-b border-border/70 bg-card shadow-none sm:border-b-0 sm:border-r">
           <CardContent className="flex items-center gap-3 p-3.5">
-            <div className="p-2 rounded-lg bg-income/10">
+            <div className="p-2 rounded-lg bg-muted">
               <ArrowDownLeft className="h-5 w-5 text-income" />
             </div>
             <div>
@@ -271,7 +271,7 @@ export default function Forecasts() {
         </Card>
         <Card className="rounded-none border-0 bg-card shadow-none">
           <CardContent className="flex items-center gap-3 p-3.5">
-            <div className={`p-2 rounded-lg ${saldoProjetado > 0 ? "bg-income/10" : saldoProjetado < 0 ? "bg-destructive/10" : "bg-muted"}`}>
+            <div className="p-2 rounded-lg bg-muted">
               <CircleDollarSign className={`h-5 w-5 ${saldoProjetado > 0 ? "text-income" : saldoProjetado < 0 ? "text-destructive" : "text-muted-foreground"}`} />
             </div>
             <div>
@@ -321,15 +321,10 @@ export default function Forecasts() {
             const account = accounts.find((a) => a.id === bill.accountId);
 
             return (
-              <Card key={bill.id} className="min-w-0 border-border bg-card transition-colors hover:bg-accent/30">
+              <Card key={bill.id} className="data-surface min-w-0 border-border bg-card transition-colors hover:bg-accent/30" style={colorAccent(categoryColor(bill.category))}>
                  <CardContent className="grid grid-cols-1 gap-2 px-3 py-2.5 sm:px-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-4">
                   <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                    <div className={`p-1.5 rounded-lg shrink-0 mt-0.5 ${
-                       status.kind === "paid" ? "bg-primary/10" :
-                       status.kind === "overdue" ? "bg-destructive/10" :
-                       status.kind === "upcoming" ? "bg-muted" :
-                       "bg-warning/10"
-                      }`}>
+                    <div className="p-1.5 rounded-lg shrink-0 mt-0.5 bg-muted">
                       {status.kind === "paid" ? <Check className="h-4 w-4 text-primary" /> :
                        status.kind === "overdue" ? <AlertTriangle className="h-4 w-4 text-destructive" /> :
                        <Clock className={`h-4 w-4 ${status.kind === "upcoming" ? "text-muted-foreground" : "text-warning"}`} />}
@@ -339,15 +334,15 @@ export default function Forecasts() {
                         {bill.name}
                       </div>
                       <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                        <Badge variant="outline" className="text-[10px] shrink-0">
+                        <Badge variant="outline" className="neutral-tag text-[10px] shrink-0">
                           Dia {Number(status.dueDate.slice(-2))}
                         </Badge>
                         <Badge
                           variant="outline"
                           className={`text-[10px] shrink-0 ${
                             bill.type === "income"
-                              ? "border-primary/40 bg-primary/10 text-primary"
-                              : "border-destructive/40 bg-destructive/10 text-destructive"
+                              ? "neutral-tag text-income"
+                              : "neutral-tag text-expense"
                           }`}
                         >
                           {bill.type === "income" ? "Entrada" : "Saída"}
@@ -355,10 +350,11 @@ export default function Forecasts() {
                         {status.label && (
                           <Badge
                             variant={status.kind === "overdue" ? "destructive" : status.kind === "paid" ? "default" : "outline"}
-                            className={`text-[10px] shrink-0 ${
+                            className={`neutral-tag text-[10px] shrink-0 ${
                               status.kind === "due-today" || status.kind === "due-soon"
-                                ? "border-warning/40 bg-warning/10 text-warning"
-                                : ""
+                                ? "text-warning"
+                                : status.kind === "paid" ? "text-income"
+                                : status.kind === "overdue" ? "text-expense" : "text-muted-foreground"
                             }`}
                           >
                             {status.label}
@@ -366,11 +362,11 @@ export default function Forecasts() {
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-1">
-                        <span style={{ color: categoryColor(bill.category) }}>{bill.category}</span>
+                        <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(categoryColor(bill.category))}>{bill.category}</span>
                         {account && (
                           <>
                             <span>•</span>
-                            <span>{account.name}</span>
+                            <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(entityColor(account.id, account.color))}>{account.name}</span>
                           </>
                         )}
                       </div>

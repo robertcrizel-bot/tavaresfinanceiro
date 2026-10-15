@@ -56,6 +56,8 @@ import {
   categoryColor,
   paymentColor,
   entityColor,
+  colorAccent,
+  CHART_ACCENTS,
   chartMoneyTick,
 } from "@/lib/chart-theme";
 import {
@@ -89,7 +91,7 @@ export default function Statements() {
   const originColor = (key: string) => {
     const item = key.startsWith("a:") ? accounts.find((account) => account.id === key.slice(2))
       : key.startsWith("c:") ? creditCards.find((card) => card.id === key.slice(2)) : undefined;
-    return key === "cash" ? paymentColor("Dinheiro") : entityColor(key, item?.color);
+    return key === "cash" ? paymentColor("Dinheiro") : entityColor(item?.id ?? key.replace(/^[ac]:/, ""), item?.color);
   };
 
   const today = useMemo(() => toLocalDateString(new Date()), []);
@@ -236,14 +238,14 @@ export default function Statements() {
   }, []);
 
   const renderTypeBadge = (transaction: Transaction) => {
-    if (transaction.financialKind === "card_invoice_payment") return <Badge variant="secondary">Pagamento de Fatura</Badge>;
+    if (transaction.financialKind === "card_invoice_payment") return <Badge variant="secondary" className="neutral-tag text-muted-foreground">Pagamento de Fatura</Badge>;
     return transaction.type === "income"
-      ? <Badge variant="default">Entrada</Badge>
-      : <Badge variant="destructive">Saída</Badge>;
+      ? <Badge variant="default" className="neutral-tag text-income">Entrada</Badge>
+      : <Badge variant="destructive" className="neutral-tag text-expense">Saída</Badge>;
   };
 
   return (
-    <div className="mx-auto max-w-[1500px] space-y-4 pb-4 sm:space-y-5">
+    <div className="data-subtle mx-auto max-w-[1500px] space-y-4 pb-4 sm:space-y-5">
       <div className="flex items-end justify-between gap-3">
         <div>
           <p className="eyebrow">Histórico financeiro</p>
@@ -427,7 +429,7 @@ export default function Statements() {
       ) : (
         <>
           <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-            <ChartCard title="Por categoria">
+            <ChartCard title="Por categoria" color={CHART_ACCENTS.categories}>
               {categories.length === 0 ? (
                 <p className="text-sm text-muted-foreground">Sem saídas no período.</p>
               ) : (
@@ -468,7 +470,7 @@ export default function Statements() {
                         className="flex w-full items-center gap-2 py-1.5 text-left text-sm hover:bg-accent/40"
                       >
                         <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: categoryColor(slice.category) }} />
-                        <span className="flex-1 truncate">{slice.category}</span>
+                        <span className="min-w-0 flex-1 break-words">{slice.category}</span>
                         <span className="text-muted-foreground text-xs">{percent(slice.share)}</span>
                         <span className="font-medium">{money(slice.total)}</span>
                       </button>
@@ -478,7 +480,7 @@ export default function Statements() {
               )}
             </ChartCard>
 
-            <ChartCard title="Evolução no tempo">
+            <ChartCard title="Evolução no tempo" color={CHART_ACCENTS.time}>
               <ResponsiveContainer width="100%" height={200}>
                 <AreaChart data={daily} margin={{ left: 4, right: 12, top: 8 }}>
                   <defs>
@@ -523,7 +525,7 @@ export default function Statements() {
               </ResponsiveContainer>
             </ChartCard>
 
-            <ChartCard title="Maiores movimentações">
+            <ChartCard title="Maiores movimentações" color={CHART_ACCENTS.budget}>
               <div className="divide-y divide-border/60" data-testid="top-movements">
                 {top.slice(0, 8).map((transaction) => {
                   const signed = signedAmount(transaction);
@@ -552,7 +554,7 @@ export default function Statements() {
               </div>
             </ChartCard>
 
-            <ChartCard title={parsedOrigin.kind === "all" ? "Distribuição por origem" : "Formas de pagamento"}>
+            <ChartCard title={parsedOrigin.kind === "all" ? "Distribuição por origem" : "Formas de pagamento"} color={parsedOrigin.kind === "all" ? CHART_ACCENTS.accounts : CHART_ACCENTS.payments}>
               {parsedOrigin.kind === "all" ? (
                 byOrigin.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Sem movimentações no período.</p>
@@ -587,7 +589,8 @@ export default function Statements() {
                           type="button"
                           variant="secondary"
                           size="sm"
-                          className="h-7 text-xs"
+                          className="data-chip h-auto min-h-7 text-left text-xs"
+                          style={colorAccent(originColor(slice.key))}
                           disabled={slice.key === "other"}
                           onClick={() => setOrigin(slice.key === "cash" ? "cash" : slice.key)}
                         >
@@ -628,7 +631,7 @@ export default function Statements() {
                         className="flex w-full items-center gap-2 py-1.5 text-left text-sm hover:bg-accent/40"
                       >
                         <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: paymentColor(slice.method) }} />
-                        <span className="flex-1 truncate">{slice.method}</span>
+                        <span className="min-w-0 flex-1 break-words">{slice.method}</span>
                         <span className="font-medium">{money(slice.volume)}</span>
                       </button>
                     ))}
@@ -649,13 +652,14 @@ export default function Statements() {
             <div className="flex flex-col gap-3 md:hidden" data-testid="statement-cards">
               {rows.map((transaction) => {
                 const signed = signedAmount(transaction);
-                const { label } = originLabel(transaction, accounts, creditCards);
+                const { label, key } = originLabel(transaction, accounts, creditCards);
                 return (
                   <button
                     key={transaction.id}
                     type="button"
                     onClick={() => setViewing(transaction)}
-                    className="rounded-xl border border-border/80 bg-secondary/20 p-3 text-left transition-transform active:scale-[0.99]"
+                    className="data-surface rounded-xl border border-border/80 bg-secondary/20 p-3 text-left transition-transform active:scale-[0.99]"
+                    style={colorAccent(categoryColor(transaction.category))}
                   >
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-xs text-muted-foreground">{formatDateBR(transaction.date)}</span>
@@ -665,8 +669,8 @@ export default function Statements() {
                     </div>
                     <p className="truncate text-sm font-semibold">{transaction.title}</p>
                     <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
-                      <Badge variant="outline" className="border-primary/30 bg-primary/[0.06]">{transaction.category}</Badge>
-                      <span>{label}</span>
+                      <Badge variant="outline" className="data-chip" style={colorAccent(categoryColor(transaction.category))}>{transaction.category}</Badge>
+                      <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(originColor(key))}>{label}</span>
                     </div>
                   </button>
                 );
@@ -690,7 +694,7 @@ export default function Statements() {
                 <TableBody>
                   {rows.map((transaction) => {
                     const signed = signedAmount(transaction);
-                    const { label } = originLabel(transaction, accounts, creditCards);
+                    const { label, key } = originLabel(transaction, accounts, creditCards);
                     return (
                       <TableRow key={transaction.id} className="transition-colors hover:bg-accent/40">
                         <TableCell className="whitespace-nowrap tabular-nums">{formatDateBR(transaction.date)}</TableCell>
@@ -699,12 +703,12 @@ export default function Statements() {
                             {transaction.title}
                           </button>
                         </TableCell>
-                        <TableCell><Badge variant="outline" className="border-primary/30 bg-primary/[0.06] font-medium">{transaction.category}</Badge></TableCell>
+                        <TableCell><Badge variant="outline" className="data-chip font-medium" style={colorAccent(categoryColor(transaction.category))}>{transaction.category}</Badge></TableCell>
                         <TableCell className="whitespace-nowrap">
-                          <Badge variant="secondary" className="font-normal">{label}</Badge>
+                          <Badge variant="outline" className="data-chip font-normal" style={colorAccent(originColor(key))}>{label}</Badge>
                         </TableCell>
                         <TableCell>{renderTypeBadge(transaction)}</TableCell>
-                        <TableCell className="whitespace-nowrap text-muted-foreground">{transaction.paymentMethod ?? "—"}</TableCell>
+                        <TableCell className="text-muted-foreground">{transaction.paymentMethod ? <Badge variant="outline" className="data-chip" style={colorAccent(paymentColor(transaction.paymentMethod))}>{transaction.paymentMethod}</Badge> : "—"}</TableCell>
                         <TableCell className={`text-right font-bold tabular-nums whitespace-nowrap ${signed >= 0 ? "text-income" : "text-expense"}`}>
                           {signed >= 0 ? `+ ${money(signed)}` : `- ${money(Math.abs(signed))}`}
                         </TableCell>
