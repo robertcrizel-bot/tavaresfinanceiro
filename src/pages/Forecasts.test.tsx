@@ -2,6 +2,7 @@ import React, { type ReactNode } from "react";
 import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi, beforeEach } from "vitest";
 import Forecasts from "@/pages/Forecasts";
+import { categoryColor } from "@/lib/chart-theme";
 import type { RecurringBill } from "@/contexts/ForecastContext";
 import type { Transaction } from "@/lib/types";
 import { emptyScopedEdits, isRecurringBillActiveInMonth } from "@/lib/recurring-bill-editing";
@@ -106,8 +107,8 @@ vi.mock("@/components/ui/select", () => ({
 }));
 
 vi.mock("@/components/ui/progress", () => ({
-  Progress: ({ value, className, indicatorClassName }: any) => (
-    <div data-testid="progress-bar" data-value={value} className={className}>
+  Progress: ({ value, className, indicatorClassName, style }: any) => (
+    <div data-testid="progress-bar" data-value={value} className={className} style={style}>
       {indicatorClassName && <div data-testid="progress-indicator" className={indicatorClassName} />}
     </div>
   ),
@@ -545,7 +546,9 @@ describe("Forecasts budget indicator", () => {
 
     const indicator = screen.getByTestId("progress-indicator");
     expect(indicator).not.toHaveClass("bg-destructive");
-    expect(indicator).toHaveClass("bg-primary");
+    expect(indicator).toHaveClass("bg-[var(--category-color)]");
+    expect(screen.getByTestId("progress-bar").style.getPropertyValue("--category-color"))
+      .toBe(categoryColor(mockData.categories[0].name));
   });
 
   it("progress bar uses destructive when budget is exceeded", () => {

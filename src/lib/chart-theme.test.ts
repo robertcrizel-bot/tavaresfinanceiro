@@ -6,6 +6,9 @@ import {
   CHART_TICK,
   CHART_TOOLTIP_STYLE,
   chartColor,
+  categoryColor,
+  paymentColor,
+  entityColor,
 } from "@/lib/chart-theme";
 
 describe("chart-theme", () => {
@@ -17,10 +20,26 @@ describe("chart-theme", () => {
     }
   });
 
-  it("cycles colors by index", () => {
-    expect(chartColor(0)).toBe(CHART_CATEGORICAL[0]);
-    expect(chartColor(CHART_CATEGORICAL.length)).toBe(CHART_CATEGORICAL[0]);
-    expect(chartColor(CHART_CATEGORICAL.length + 3)).toBe(CHART_CATEGORICAL[3]);
+  it("keeps identities stable through reordering, filtering and new categories", () => {
+    const names = ["Alimentação", "Moradia", "Categoria personalizada"];
+    const colors = Object.fromEntries(names.map(name => [name, categoryColor(name)]));
+    categoryColor("Outra categoria");
+    for (const name of [...names].reverse().slice(1)) expect(categoryColor(name)).toBe(colors[name]);
+    expect(categoryColor("  ALIMENTACAO ")).toBe(categoryColor("Alimentação"));
+    expect(categoryColor("Alimentação")).toBe(CHART_CATEGORICAL[0]);
+    expect(categoryColor("Moradia")).not.toBe(categoryColor("Alimentação"));
+    expect(chartColor("stable-id")).toBe(chartColor("stable-id"));
+  });
+
+  it("uses stable payment identities and registered account/card colors", () => {
+    expect(paymentColor("Crédito")).toBe(paymentColor("Cartão de Crédito"));
+    expect(paymentColor("Pix")).not.toBe(paymentColor("Dinheiro"));
+    expect(entityColor("a:123", "purple")).toBe("#a855f7");
+    expect(entityColor("c:456", "purple")).toBe(entityColor("a:123", "purple"));
+    expect(entityColor("a:123", "#123456")).toBe("#123456");
+    expect(entityColor("a:123")).toBe(entityColor("a:123", "invalid"));
+    expect(CHART_TOOLTIP_STYLE.color).toContain("var(--popover-foreground)");
+    expect(CHART_TICK.fill).toContain("var(--muted-foreground)");
   });
 
   it("provides semantic, grid, tick and tooltip tokens", () => {

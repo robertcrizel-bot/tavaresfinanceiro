@@ -1,3 +1,4 @@
+import { entityColor } from "@/lib/chart-theme";
 import { useState, useEffect } from "react";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useTransfers } from "@/contexts/TransferContext";
@@ -137,7 +138,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
               {accounts.map((acc) => {
                 const balance = accountBalances[acc.id];
                 return (
-                  <div key={acc.id} className={`glass-card animate-fade-in rounded-xl border-l-2 p-3.5 ${colorClasses[acc.color] || "border-primary"}`}>
+                  <div key={acc.id} className={`glass-card animate-fade-in rounded-xl border-l-2 p-3.5 ${colorClasses[acc.color] || "border-primary"}`} style={{ borderColor: entityColor(acc.id, acc.color) }}>
                     <div className="mb-2 flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         <Landmark className="h-5 w-5" />
@@ -210,7 +211,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                   ? accounts.find((account) => account.id === invoice.paymentAccountId)
                   : undefined;
                 return (
-                  <div key={cc.id} className={`glass-card animate-fade-in rounded-xl border-l-2 p-4 ${colorClasses[cc.color] || "border-primary"}`}>
+                  <div key={cc.id} className={`glass-card animate-fade-in rounded-xl border-l-2 p-4 ${colorClasses[cc.color] || "border-primary"}`} style={{ borderColor: entityColor(cc.id, cc.color) }}>
                     <div className="mb-2 flex items-start justify-between">
                       <div className="flex items-center gap-2">
                         <CreditCardIcon className="h-5 w-5" />

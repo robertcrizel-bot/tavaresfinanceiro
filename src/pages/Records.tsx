@@ -1,3 +1,4 @@
+import { categoryColor, paymentColor } from "@/lib/chart-theme";
 import { useState, useMemo, useEffect, useCallback } from "react";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useCategories } from "@/contexts/CategoryContext";
@@ -382,12 +383,12 @@ export default function Records() {
                 </div>
                 <div className="flex items-center justify-between">
                   <div className="flex gap-2 flex-wrap">
-                    <Badge variant="outline" className="text-xs">{t.category}</Badge>
+                    <Badge variant="outline" className="text-xs" style={{ borderColor: categoryColor(t.category) }}>{t.category}</Badge>
                     <Badge variant={isNeutral(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isNeutral(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
                       {getTypeLabel(t)}
                     </Badge>
                     {t.paymentMethod && (
-                      <Badge variant="secondary" className="text-xs">{t.paymentMethod}</Badge>
+                      <Badge variant="outline" className="text-xs" style={{ borderColor: paymentColor(t.paymentMethod) }}>{t.paymentMethod}</Badge>
                     )}
                     {getSourceKey(t) && (
                       <Badge variant="outline" className="text-xs">{getSourceName(t)}</Badge>
@@ -453,7 +454,7 @@ export default function Records() {
                         )}
                       </div>
                     </TableCell>
-                    <TableCell><Badge variant="outline" className="text-xs">{t.category}</Badge></TableCell>
+                    <TableCell><Badge variant="outline" className="text-xs" style={{ borderColor: categoryColor(t.category) }}>{t.category}</Badge></TableCell>
                     <TableCell>
                       <Badge variant={isNeutral(t) ? "secondary" : t.type === "income" ? "default" : "destructive"} className={`text-xs ${isForecast(t) && !isNeutral(t) ? "bg-amber-500/80 hover:bg-amber-500" : ""}`}>
                         {getTypeLabel(t)}

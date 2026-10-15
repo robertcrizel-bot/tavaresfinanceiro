@@ -1,3 +1,4 @@
+import { categoryColor } from "@/lib/chart-theme";
 import { useState, useMemo } from "react";
 import { useForecast, BillPayment, RecurringBill } from "@/contexts/ForecastContext";
 import { useAccounts } from "@/contexts/AccountContext";
@@ -365,7 +366,7 @@ export default function Forecasts() {
                         )}
                       </div>
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-1">
-                        <span>{bill.category}</span>
+                        <span style={{ color: categoryColor(bill.category) }}>{bill.category}</span>
                         {account && (
                           <>
                             <span>•</span>
@@ -502,7 +503,8 @@ export default function Forecasts() {
                   <Progress
                     value={Math.min(formBudgetProjection.percentage, 100)}
                     className="h-2"
-                    indicatorClassName={formBudgetProjection.percentage > 100 ? "bg-destructive" : "bg-primary"}
+                    style={{ "--category-color": categoryColor(formCategory) } as React.CSSProperties}
+                    indicatorClassName={formBudgetProjection.percentage > 100 ? "bg-destructive" : "bg-[var(--category-color)]"}
                   />
                   <p className={`text-xs font-medium ${formBudgetProjection.exceeded > 0 ? "text-destructive" : "text-muted-foreground"}`}>
                     {formBudgetProjection.exceeded > 0

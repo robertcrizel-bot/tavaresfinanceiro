@@ -1,3 +1,4 @@
+import { categoryColor } from "@/lib/chart-theme";
 import { useState } from "react";
 import { useCategories, UserCategory } from "@/contexts/CategoryContext";
 import { Button } from "@/components/ui/button";
@@ -84,7 +85,7 @@ export default function Categories() {
               <div className="flex min-w-0 items-center gap-3">
                 <Tag className="h-4 w-4 shrink-0 text-muted-foreground" />
                 <div className="min-w-0">
-                  <p className="truncate font-medium text-foreground">{cat.name}</p>
+                  <p className="truncate font-medium text-foreground" style={{ borderColor: categoryColor(cat.name), borderLeftWidth: 3, paddingLeft: 6 }}>{cat.name}</p>
                   <Badge variant={typeBadgeVariant[cat.type]} className="text-xs mt-1">
                     {typeLabels[cat.type]}
                   </Badge>
@@ -111,7 +112,8 @@ export default function Categories() {
                   </div>
                   <Progress
                     value={Math.min(usage.percentage, 100)}
-                    className={`h-1.5 ${usage.exceeded > 0 ? "[&>div]:bg-destructive" : ""}`}
+                    style={{ "--category-color": categoryColor(cat.name) } as React.CSSProperties}
+                    className={`h-1.5 ${usage.exceeded > 0 ? "[&>div]:bg-destructive" : "[&>div]:bg-[var(--category-color)]"}`}
                   />
                   <p className={usage.exceeded > 0 ? "font-medium text-destructive" : "text-muted-foreground"}>
                     {usage.exceeded > 0

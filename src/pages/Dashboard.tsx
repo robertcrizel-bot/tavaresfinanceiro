@@ -29,7 +29,7 @@ import {
   CHART_SEMANTIC,
   CHART_TICK,
   CHART_TOOLTIP_STYLE,
-  chartColor,
+  categoryColor,
   chartMoneyTick,
 } from "@/lib/chart-theme";
 import { calculateAccountBalances, calculateFinancialTotals } from "@/lib/financial-calculations";
@@ -160,7 +160,7 @@ export default function Dashboard() {
     });
     return Object.entries(map)
       .sort(([, a], [, b]) => b - a)
-      .map(([category, total], i) => ({ category, total, fill: chartColor(i) }));
+      .map(([category, total]) => ({ category, total, fill: categoryColor(category) }));
   }, [filtered]);
 
   // Insights
@@ -400,8 +400,8 @@ export default function Dashboard() {
               />
               <Tooltip
                 contentStyle={CHART_TOOLTIP_STYLE}
-                labelStyle={{ color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}
-                itemStyle={{ color: "#f1f5f9" }}
+                labelStyle={{ color: "hsl(var(--popover-foreground))", fontWeight: 600, marginBottom: 4 }}
+                itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                 cursor={{ stroke: "hsl(215 15% 52%)", strokeWidth: 1, strokeDasharray: "3 3" }}
                 formatter={(value: number) => [fmt(value), "Total"]}
               />
@@ -429,8 +429,8 @@ export default function Dashboard() {
               />
               <Tooltip
                 contentStyle={CHART_TOOLTIP_STYLE}
-                labelStyle={{ color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}
-                itemStyle={{ color: "#f1f5f9" }}
+                labelStyle={{ color: "hsl(var(--popover-foreground))", fontWeight: 600, marginBottom: 4 }}
+                itemStyle={{ color: "hsl(var(--popover-foreground))" }}
                 cursor={{ fill: "hsl(224 14% 22% / 0.4)" }}
                 formatter={(value: number) => [fmt(value), "Total"]}
               />

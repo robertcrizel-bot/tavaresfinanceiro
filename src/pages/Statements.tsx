@@ -53,7 +53,9 @@ import {
   CHART_SEMANTIC,
   CHART_TICK,
   CHART_TOOLTIP_STYLE,
-  chartColor,
+  categoryColor,
+  paymentColor,
+  entityColor,
   chartMoneyTick,
 } from "@/lib/chart-theme";
 import {
@@ -64,7 +66,6 @@ import {
   type StatementsExportPayload,
 } from "@/lib/statements-export";
 
-const colorForIndex = (index: number) => chartColor(index);
 
 const money = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const percent = (value: number) => `${value.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%`;
@@ -85,6 +86,11 @@ export default function Statements() {
   const { transactions, creditCardInvoices } = useFinance();
   const { accounts, creditCards } = useAccounts();
   const { allCategoryNames } = useCategories();
+  const originColor = (key: string) => {
+    const item = key.startsWith("a:") ? accounts.find((account) => account.id === key.slice(2))
+      : key.startsWith("c:") ? creditCards.find((card) => card.id === key.slice(2)) : undefined;
+    return key === "cash" ? paymentColor("Dinheiro") : entityColor(key, item?.color);
+  };
 
   const today = useMemo(() => toLocalDateString(new Date()), []);
   const defaultMonth = useMemo(() => monthBounds(new Date()), []);
@@ -442,7 +448,7 @@ export default function Statements() {
                           {categories.map((slice, index) => (
                             <Cell
                               key={slice.category}
-                              fill={colorForIndex(index)}
+                              fill={categoryColor(slice.category)}
                               fillOpacity={!category || category === STATEMENT_ALL || category === slice.category ? 1 : 0.25}
                               onClick={() => setCategory((current) => (current === slice.category ? STATEMENT_ALL : slice.category))}
                               className="cursor-pointer"
@@ -461,7 +467,7 @@ export default function Statements() {
                         onClick={() => setCategory((current) => (current === slice.category ? STATEMENT_ALL : slice.category))}
                         className="flex w-full items-center gap-2 py-1.5 text-left text-sm hover:bg-accent/40"
                       >
-                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: colorForIndex(index) }} />
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: categoryColor(slice.category) }} />
                         <span className="flex-1 truncate">{slice.category}</span>
                         <span className="text-muted-foreground text-xs">{percent(slice.share)}</span>
                         <span className="font-medium">{money(slice.total)}</span>
@@ -490,7 +496,7 @@ export default function Statements() {
                   <YAxis tick={axisTick} width={CHART_MONEY_AXIS_WIDTH} tickFormatter={chartMoneyTick} />
                   <Tooltip
                     contentStyle={tooltipStyle}
-                    labelStyle={{ color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}
+                    labelStyle={{ color: "hsl(var(--popover-foreground))", fontWeight: 600, marginBottom: 4 }}
                     formatter={(value: number, name: string) => [money(Number(value)), name]}
                   />
                   <Area
@@ -562,7 +568,7 @@ export default function Statements() {
                           {byOrigin.map((slice, index) => (
                             <Cell
                               key={slice.key}
-                              fill={colorForIndex(index)}
+                              fill={originColor(slice.key)}
                               onClick={() => {
                                 if (slice.key === "cash" || slice.key.startsWith("a:") || slice.key.startsWith("c:")) {
                                   setOrigin(slice.key === "cash" ? "cash" : slice.key);
@@ -605,7 +611,7 @@ export default function Statements() {
                         {byPayment.map((slice, index) => (
                           <Cell
                             key={slice.method}
-                            fill={colorForIndex(index)}
+                            fill={paymentColor(slice.method)}
                             onClick={() => setPaymentMethod(slice.method === "Não informada" ? paymentMethod : slice.method)}
                             className="cursor-pointer"
                           />
@@ -621,7 +627,7 @@ export default function Statements() {
                         onClick={() => setPaymentMethod((current) => (current === slice.method ? STATEMENT_ALL : slice.method))}
                         className="flex w-full items-center gap-2 py-1.5 text-left text-sm hover:bg-accent/40"
                       >
-                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: colorForIndex(index) }} />
+                        <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: paymentColor(slice.method) }} />
                         <span className="flex-1 truncate">{slice.method}</span>
                         <span className="font-medium">{money(slice.volume)}</span>
                       </button>

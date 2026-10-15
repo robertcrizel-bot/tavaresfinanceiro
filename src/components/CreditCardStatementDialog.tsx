@@ -12,7 +12,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { ChevronLeft, ChevronRight, Download, Calendar } from "lucide-react";
 import { format, addMonths, subMonths, startOfMonth, endOfMonth, subDays } from "date-fns";
-import { ptBR } from "date-fns/locale";
 import { buildCreditCardPeriodStatement, type CardStatementTransaction } from "@/lib/credit-card-statement";
 import type { CreditCard } from "@/lib/types";
 import { exportCreditCardStatementToExcel, exportCreditCardStatementToPdf, type CreditCardExportContext } from "@/lib/credit-card-statement-export";
@@ -28,7 +27,7 @@ type PeriodPreset = "this-month" | "last-month" | "30-days" | "custom";
 
 const fmt = (v: number) => v.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 const fmtDate = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric" });
-const fmtMonthYear = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR", { month: "long", year: "numeric", locale: ptBR });
+const fmtMonthYear = (date: string) => new Date(`${date}T12:00:00`).toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 
 const getPeriodBounds = (preset: PeriodPreset, customStart?: string, customEnd?: string) => {
   const today = new Date();

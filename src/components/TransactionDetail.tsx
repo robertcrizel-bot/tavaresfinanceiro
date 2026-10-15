@@ -1,3 +1,4 @@
+import { categoryColor } from "@/lib/chart-theme";
 import { useEffect, useMemo, useState } from "react";
 import { Transaction } from "@/lib/types";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
@@ -235,7 +236,7 @@ export function TransactionDetail({ transaction, open, onClose }: TransactionDet
             <dl className="grid gap-x-6 gap-y-3 rounded-lg border border-border p-4 sm:grid-cols-2 lg:grid-cols-3">
               <div className="min-w-0">
                 <dt className="text-muted-foreground">Categoria</dt>
-                <dd className="break-words font-medium text-foreground">{transaction.category}</dd>
+                <dd className="break-words font-medium text-foreground" style={{ borderLeft: `3px solid ${categoryColor(transaction.category)}`, paddingLeft: 6 }}>{transaction.category}</dd>
               </div>
               <div className="min-w-0">
                 <dt className="text-muted-foreground">Data</dt>
@@ -274,7 +275,8 @@ export function TransactionDetail({ transaction, open, onClose }: TransactionDet
               <div className="relative">
                 <Progress
                   value={Math.min(budgetInfo.usage.percentage, 100)}
-                  className={`h-6 ${budgetInfo.usage.exceeded > 0 ? "[&>div]:bg-destructive" : ""}`}
+                  style={{ "--category-color": categoryColor(transaction.category) } as React.CSSProperties}
+                  className={`h-6 ${budgetInfo.usage.exceeded > 0 ? "[&>div]:bg-destructive" : "[&>div]:bg-[var(--category-color)]"}`}
                 />
                 <span className="absolute inset-0 flex items-center justify-center text-[11px] font-semibold text-white pointer-events-none select-none">
                   {Math.round(budgetInfo.usage.percentage)}%

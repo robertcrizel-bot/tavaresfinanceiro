@@ -21,7 +21,7 @@ import {
   CHART_SEMANTIC,
   CHART_TICK,
   CHART_TOOLTIP_STYLE,
-  chartColor,
+  categoryColor,
   chartMoneyTick,
 } from "@/lib/chart-theme";
 import { cn } from "@/lib/utils";
@@ -87,7 +87,6 @@ const PERIOD_OPTIONS: { value: AnalyticsPeriod; label: string }[] = [
   { value: "year", label: "Ano" },
 ];
 
-const colorForIndex = (index: number) => chartColor(index);
 
 const money = (value: number) =>
   value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -703,7 +702,7 @@ export default function ExpenseAnalytics() {
                               className="h-full rounded-full transition-all"
                               style={{
                                 width: `${rankingMax > 0 ? (entry.value / rankingMax) * 100 : 0}%`,
-                                background: colorForIndex(index),
+                                background: categoryColor(entry.category),
                                 opacity: dimmed ? 0.4 : 1,
                               }}
                             />
@@ -847,7 +846,7 @@ export default function ExpenseAnalytics() {
                           {donutData.map((entry, index) => (
                             <Cell
                               key={entry.category}
-                              fill={colorForIndex(index)}
+                              fill={categoryColor(entry.category)}
                               fillOpacity={
                                 !selectedCategory || selectedCategory === entry.category
                                   ? 1
@@ -859,7 +858,7 @@ export default function ExpenseAnalytics() {
                         </Pie>
                         <Tooltip
                           contentStyle={CHART_TOOLTIP_STYLE}
-                          labelStyle={{ color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}
+                          labelStyle={{ color: "hsl(var(--popover-foreground))", fontWeight: 600, marginBottom: 4 }}
                           formatter={(value: number, name: string) => [
                             money(Number(value)),
                             name,
@@ -891,7 +890,7 @@ export default function ExpenseAnalytics() {
                         >
                           <span
                             className="h-2.5 w-2.5 shrink-0 rounded-full"
-                            style={{ background: colorForIndex(index) }}
+                            style={{ background: categoryColor(entry.category) }}
                           />
                           <span className="flex-1 truncate text-foreground">{entry.category}</span>
                           <span className="tabular-nums text-muted-foreground">
@@ -942,7 +941,7 @@ export default function ExpenseAnalytics() {
                           />
                           <Tooltip
                             contentStyle={CHART_TOOLTIP_STYLE}
-                            labelStyle={{ color: "#f8fafc", fontWeight: 600, marginBottom: 4 }}
+                            labelStyle={{ color: "hsl(var(--popover-foreground))", fontWeight: 600, marginBottom: 4 }}
                             formatter={(value: number, name: string) => [
                               money(Number(value)),
                               name === "previous" ? "Período anterior" : "Período atual",
@@ -1140,7 +1139,7 @@ export default function ExpenseAnalytics() {
                                     "h-full rounded-full transition-all",
                                     over ? "bg-expense" : "bg-primary",
                                   )}
-                                  style={{ width: `${width}%` }}
+                                  style={{ width: `${width}%`, backgroundColor: over ? CHART_SEMANTIC.expense : categoryColor(row.category) }}
                                 />
                               </div>
                               <div className="mt-1 flex items-center justify-between text-xs">
