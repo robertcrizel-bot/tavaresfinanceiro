@@ -118,6 +118,79 @@ const initial: Transaction = {
 };
 
 describe("TransactionForm duplicate submission protection", () => {
+  it.each(
+    (["manual", "edited", "receipt"] as const).flatMap(mode =>
+      (["false", "rejection"] as const).map(failure => ({ mode, failure }))),
+  )("allows exactly one retry for $mode after $failure", async ({ mode, failure }) => {
+    let resolveSave!: (value: boolean) => void;
+    let rejectSave!: (reason: Error) => void;
+    const pending = new Promise<boolean>((resolve, reject) => {
+      resolveSave = resolve;
+      rejectSave = reject;
+    });
+    const onSubmit = vi.fn().mockReturnValueOnce(pending).mockResolvedValueOnce(true);
+    const onClose = vi.fn();
+    render(<TransactionForm open onClose={onClose} onSubmit={onSubmit}
+      initial={mode === "edited" ? initial : undefined}
+      prefill={mode === "receipt" ? { title: "Comprovante", amount: 25, receiptRef: "receipt-test", receiptDetails: details } : undefined}
+    />);
+    if (mode === "manual") {
+      fireEvent.change(screen.getByPlaceholderText("Ex: Supermercado"), { target: { value: "Compra" } });
+      fireEvent.change(screen.getByPlaceholderText("0,00"), { target: { value: "25" } });
+    }
+    const save = screen.getByRole("button", { name: mode === "edited" ? "Salvar" : "Adicionar" });
+    const form = save.closest("form")!;
+    act(() => { for (let i = 0; i < 10; i++) fireEvent.click(save); });
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: /Salvando/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /Salvando/ })).toHaveAttribute("aria-busy", "true");
+    expect(screen.getByRole("button", { name: "Cancelar" })).toBeDisabled();
+    await act(async () => {
+      if (failure === "false") resolveSave(false);
+      else rejectSave(new Error("save failed"));
+      await pending.catch(() => {});
+    });
+    expect(onClose).not.toHaveBeenCalled();
+    expect(save).toBeEnabled();
+    expect(save).toHaveAttribute("aria-busy", "false");
+    act(() => {
+      for (let i = 0; i < 10; i++) fireEvent.click(save);
+      for (let i = 0; i < 10; i++) fireEvent.submit(form);
+    });
+    await waitFor(() => expect(onClose).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledTimes(2);
+    expect(onSubmit.mock.calls[1]).toEqual(onSubmit.mock.calls[0]);
+  });
+
+  it.each(["manual", "receipt"] as const)("keeps %s installments and attachments in a single save", async (mode) => {
+    let finish!: (value: boolean) => void;
+    const pending = new Promise<boolean>(resolve => { finish = resolve; });
+    const onSubmit = vi.fn().mockReturnValue(pending);
+    const onClose = vi.fn();
+    const receipt = new File(["receipt"], "receipt.pdf", { type: "application/pdf" });
+    render(<TransactionForm open onClose={onClose} onSubmit={onSubmit}
+      prefill={mode === "receipt" ? { title: "Compra parcelada", amount: 120, receiptRef: "receipt-test", receiptDetails: details } : undefined}
+      prefillAttachments={mode === "receipt" ? [receipt] : undefined}
+    />);
+    if (mode === "manual") {
+      fireEvent.change(screen.getByPlaceholderText("Ex: Supermercado"), { target: { value: "Compra parcelada" } });
+      fireEvent.change(screen.getByPlaceholderText("0,00"), { target: { value: "120" } });
+    }
+    fireEvent.click(screen.getByTestId("select-item-Cartão de Crédito"));
+    fireEvent.click(screen.getByTestId("select-item-card-1"));
+    fireEvent.click(screen.getByTestId("select-item-3"));
+    const save = screen.getByRole("button", { name: "Adicionar" });
+    act(() => { for (let i = 0; i < 10; i++) fireEvent.click(save); });
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      title: "Compra parcelada", amount: 120, creditCardId: "card-1",
+    }), mode === "receipt" ? { installments: 3, attachments: [receipt] } : { installments: 3 });
+    expect(screen.getByRole("button", { name: /Salvando/ })).toBeDisabled();
+    await act(async () => { finish(true); await pending; });
+    expect(onClose).toHaveBeenCalledTimes(1);
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
   it.each(["manual", "edited", "receipt"] as const)("saves %s records once after 10 rapid clicks and stays locked until reopening", async (mode) => {
     let finish: (value: boolean) => void = () => {};
     const pending = new Promise<boolean>(resolve => { finish = resolve; });
