@@ -479,18 +479,18 @@ export default function ExpenseAnalytics() {
         <span className="flex items-center gap-2 text-sm font-bold"><SlidersHorizontal className="h-4 w-4" />Filtros e período</span>
         <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
       </button>
-      <div className="grid grid-cols-1 items-start gap-4 xl:grid-cols-[260px_minmax(0,1fr)]">
-        <aside id="expense-filters" aria-label="Filtros de despesas" className={`${filtersOpen ? "block" : "hidden"} workspace-panel space-y-3 p-4 xl:sticky xl:top-20 xl:block`}>
-          <h3 className="text-sm font-semibold">Filtros</h3>
+      <div className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
+        <aside id="expense-filters" aria-label="Filtros de despesas" className={`${filtersOpen ? "block" : "hidden"} workspace-panel min-w-0 space-y-4 p-4 xl:block`}>
+          <h3 className="text-base font-bold text-foreground">Filtros</h3>
           <div className="space-y-2">
           <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-1">
+            <div className="grid grid-cols-2 gap-1.5">
               {PERIOD_OPTIONS.map((option) => (
                 <Button
                   key={option.value}
                   size="sm"
                   variant={period === option.value ? "default" : "outline"}
-                  className="h-9 rounded-xl px-4 text-xs shadow-none"
+                  className="h-9 min-w-0 w-full rounded-xl px-2 text-xs shadow-none"
                   onClick={() => handlePeriodChange(option.value)}
                 >
                   {option.label}
@@ -542,15 +542,17 @@ export default function ExpenseAnalytics() {
 
         </div>
           {/* Filtros laterais: categoria, estabelecimento, conta/cartão e pagamento */}
-          <div className="grid min-w-0 grid-cols-1 gap-3 lg:grid-cols-3 [&>*]:min-w-0 [&>*]:break-words">
+          <div className="grid min-w-0 grid-cols-1 gap-3 [&>*]:min-w-0">
+            <div className="space-y-1">
+            <label htmlFor="expense-category" className="block text-xs font-medium text-muted-foreground">Categoria</label>
             <Select
               value={selectedCategory ?? "all"}
               onValueChange={(value) => setSelectedCategory(value === "all" ? null : value)}
             >
-              <SelectTrigger className="h-9 w-full rounded-xl text-xs" aria-label="Filtrar por categoria">
+              <SelectTrigger id="expense-category" className="h-auto min-h-9 w-full gap-2 rounded-xl py-2 text-xs [&>span]:min-w-0 [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:break-words [&>span]:text-left [&>svg]:shrink-0" aria-label="Filtrar por categoria">
                 <SelectValue placeholder="Categoria" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)] [&_[role=option]]:whitespace-normal [&_[role=option]]:break-words">
                 <SelectItem value="all">Todas as categorias</SelectItem>
                 {categories.map((category) => (
                   <SelectItem key={category.name} value={category.name}>
@@ -559,26 +561,34 @@ export default function ExpenseAnalytics() {
                 ))}
               </SelectContent>
             </Select>
-
-            <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                value={searchText}
-                onChange={(event) => setSearchText(event.target.value)}
-                placeholder="Estabelecimento ou descrição..."
-                aria-label="Pesquisar por estabelecimento ou descrição"
-                className="h-9 rounded-xl pl-9 text-xs"
-              />
             </div>
 
+            <div className="space-y-1">
+              <label htmlFor="expense-establishment" className="block text-xs font-medium text-muted-foreground">Estabelecimento ou descrição</label>
+              <div className="relative">
+              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                id="expense-establishment"
+                value={searchText}
+                title={searchText || undefined}
+                onChange={(event) => setSearchText(event.target.value)}
+                placeholder="Nome ou descrição..."
+                aria-label="Pesquisar por estabelecimento ou descrição"
+                className="h-9 w-full rounded-xl pl-9 text-xs"
+              />
+              </div>
+            </div>
+
+            <div className="space-y-1">
+            <label htmlFor="expense-origin" className="block text-xs font-medium text-muted-foreground">Conta ou cartão</label>
             <Select
               value={selectedOrigin ?? "all"}
               onValueChange={(value) => setSelectedOrigin(value === "all" ? null : value)}
             >
-              <SelectTrigger className="h-9 w-full rounded-xl text-xs" aria-label="Filtrar por conta ou cartão">
+              <SelectTrigger id="expense-origin" className="h-auto min-h-9 w-full gap-2 rounded-xl py-2 text-xs [&>span]:min-w-0 [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:break-words [&>span]:text-left [&>svg]:shrink-0" aria-label="Filtrar por conta ou cartão">
                 <SelectValue placeholder="Conta ou cartão" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)] [&_[role=option]]:whitespace-normal [&_[role=option]]:break-words">
                 <SelectItem value="all">Todas as contas</SelectItem>
                 {accounts.map((account) => (
                   <SelectItem key={account.id} value={`a:${account.id}`}>
@@ -592,15 +602,18 @@ export default function ExpenseAnalytics() {
                 ))}
               </SelectContent>
             </Select>
+            </div>
 
+            <div className="space-y-1">
+            <label htmlFor="expense-payment" className="block text-xs font-medium text-muted-foreground">Forma de pagamento</label>
             <Select
               value={selectedPayment ?? "all"}
               onValueChange={(value) => setSelectedPayment(value === "all" ? null : value)}
             >
-              <SelectTrigger className="h-9 w-full rounded-xl text-xs" aria-label="Filtrar por forma de pagamento">
+              <SelectTrigger id="expense-payment" className="h-auto min-h-9 w-full gap-2 rounded-xl py-2 text-xs [&>span]:min-w-0 [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:break-words [&>span]:text-left [&>svg]:shrink-0" aria-label="Filtrar por forma de pagamento">
                 <SelectValue placeholder="Pagamento" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)] [&_[role=option]]:whitespace-normal [&_[role=option]]:break-words">
                 <SelectItem value="all">Todas as formas</SelectItem>
                 {PAYMENT_METHODS.map((method) => (
                   <SelectItem key={method} value={method}>
@@ -609,6 +622,7 @@ export default function ExpenseAnalytics() {
                 ))}
               </SelectContent>
             </Select>
+            </div>
 
             {hasAnyActiveFilter && (
               <Button
@@ -624,7 +638,7 @@ export default function ExpenseAnalytics() {
           </div>
           <section aria-label="Gastos por forma de pagamento" className="mt-4 space-y-3 border-t border-border/70 pt-4">
             <div>
-              <h3 className="text-sm font-semibold text-foreground">Gastos por pagamento</h3>
+              <h3 className="text-sm font-semibold leading-snug text-foreground">Gastos por pagamento</h3>
               <p className="mt-1 text-xs text-muted-foreground">Valores do filtro atual</p>
             </div>
             {paymentBreakdown.length === 0 ? (
@@ -635,7 +649,7 @@ export default function ExpenseAnalytics() {
                   {paymentBreakdown.map((entry) => (
                     <div key={entry.method} className="space-y-1.5">
                       <div className="flex items-start justify-between gap-2 text-xs">
-                        <span className="min-w-0 font-medium text-foreground">{entry.method}</span>
+                        <span className="min-w-0 break-words font-medium text-foreground">{entry.method}</span>
                         <span className="shrink-0 font-semibold tabular-nums text-foreground">{money(entry.total)}</span>
                       </div>
                       <div className="h-2 overflow-hidden rounded-full bg-muted">
@@ -660,9 +674,9 @@ export default function ExpenseAnalytics() {
           </section>
           {/* Ranking */}
           {!invalidCustom && visibleExpenses.length > 0 && (
-              <div className="min-w-0 border-t border-border/70 pt-4 [&>section]:border-0 [&>section]:bg-transparent [&>section]:p-0 [&>section]:shadow-none">
+              <div className="min-w-0 border-t border-border/70 pt-4 [&>section]:border-0 [&>section]:bg-transparent [&>section]:p-0 [&>section]:shadow-none [&_h3]:text-sm [&_h3]:font-semibold">
               <ChartCard title="Ranking de Gastos">
-                <ol className="max-h-72 space-y-2 overflow-y-auto overscroll-contain pr-1">
+                <ol className="space-y-2">
                   {donutData.map((entry, index) => {
                     const active = selectedCategory === entry.category;
                     const dimmed = selectedCategory !== null && !active;
@@ -682,7 +696,7 @@ export default function ExpenseAnalytics() {
                             </span>
                             <span
                               className={cn(
-                                "min-w-0 flex-1 truncate font-medium",
+                                "min-w-0 flex-1 break-words font-medium",
                                 dimmed ? "text-muted-foreground" : "text-foreground",
                               )}
                             >
