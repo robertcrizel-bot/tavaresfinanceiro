@@ -30,6 +30,10 @@ import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/typ
 
 type FreeAiUiState = "checking" | "available" | "unavailable" | "error";
 
+// Keep capture and processing leases across route remounts.
+let cameraEncoding = false;
+const receiptReadInFlight = { current: false };
+
 export default function ReceiptImport() {
   const navigate = useNavigate();
   const { addTransaction } = useFinance();
@@ -54,6 +58,10 @@ export default function ReceiptImport() {
   const freeAiMountedRef = useRef(true);
   const previousPendingFileRef = useRef<File | null>(null);
   const [cameraStarting, setCameraStarting] = useState(false);
+  const cameraOpeningRef = useRef(false);
+  const captureRunRef = useRef(0);
+  const captureCanvasRef = useRef<HTMLCanvasElement | null>(null);
+  const [capturing, setCapturing] = useState(false);
   const [cameraReady, setCameraReady] = useState(false);
   const [cameraStream, setCameraStream] = useState<MediaStream | null>(null);
   const [readStatus, setReadStatus] = useState("");
@@ -67,7 +75,7 @@ export default function ReceiptImport() {
   const [localStatus, setLocalStatus] = useState("");
   const [localMetrics, setLocalMetrics] = useState<LocalInterpretationMetrics | null>(null);
   const localRunId = useRef(0);
-  const freeReadInFlight = useRef(false);
+  const freeReadInFlight = receiptReadInFlight;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
   const cameraStreamRef = useRef<MediaStream | null>(null);
@@ -125,7 +133,7 @@ export default function ReceiptImport() {
   const processFileFast = useCallback(
     async (file: File) => {
       // Repeated taps must never start a second concurrent OCR read.
-      if (freeReadInFlight.current) return;
+      if (freeReadInFlight.current || cameraEncoding || cameraOpeningRef.current || cameraStreamRef.current) return;
       freeReadInFlight.current = true;
       const totalStart = performance.now();
       let completedRun: {
@@ -294,7 +302,7 @@ export default function ReceiptImport() {
 
   const processFileWithAi = useCallback(
     async (file: File) => {
-      if (freeReadInFlight.current) return;
+      if (freeReadInFlight.current || cameraEncoding || cameraOpeningRef.current || cameraStreamRef.current) return;
       freeReadInFlight.current = true;
       setLoading(true);
       setError(null);
@@ -337,7 +345,7 @@ export default function ReceiptImport() {
 
   const processFileWithFreeAi = useCallback(
     async (file: File) => {
-      if (freeReadInFlight.current) return;
+      if (freeReadInFlight.current || cameraEncoding || cameraOpeningRef.current || cameraStreamRef.current) return;
       freeReadInFlight.current = true;
       setLoading(true);
       setError(null);
@@ -383,12 +391,20 @@ export default function ReceiptImport() {
 
   const releaseCamera = useCallback(() => {
     cameraRequestRef.current++;
+    cameraOpeningRef.current = false;
     cameraStreamRef.current?.getTracks().forEach((track) => track.stop());
     cameraStreamRef.current = null;
     if (videoRef.current) videoRef.current.srcObject = null;
   }, []);
 
   const closeCamera = useCallback(() => {
+    captureRunRef.current++;
+    if (captureCanvasRef.current) {
+      captureCanvasRef.current.width = 0;
+      captureCanvasRef.current.height = 0;
+      captureCanvasRef.current = null;
+    }
+    setCapturing(false);
     releaseCamera();
     setCameraStream(null);
     setCameraStarting(false);
@@ -396,7 +412,15 @@ export default function ReceiptImport() {
     setCameraOpen(false);
   }, [releaseCamera]);
 
-  useEffect(() => () => releaseCamera(), [releaseCamera]);
+  useEffect(() => () => {
+    captureRunRef.current++;
+    if (captureCanvasRef.current) {
+      captureCanvasRef.current.width = 0;
+      captureCanvasRef.current.height = 0;
+      captureCanvasRef.current = null;
+    }
+    releaseCamera();
+  }, [releaseCamera]);
 
   const finishFilePicker = useCallback(() => {
     if (pickerReturnTimerRef.current) clearTimeout(pickerReturnTimerRef.current);
@@ -413,7 +437,7 @@ export default function ReceiptImport() {
   }, [loading, localLoading]);
 
   const openFilePicker = () => {
-    if (loading || localLoading || pickerOpenRef.current) return;
+    if (loading || localLoading || pickerOpenRef.current || cameraEncoding || freeReadInFlight.current || cameraOpeningRef.current || cameraStreamRef.current) return;
     closeCamera();
     releaseIdleReaderMemory();
     pickerOpenRef.current = true;
@@ -435,13 +459,16 @@ export default function ReceiptImport() {
       if (pickerReturnTimerRef.current) clearTimeout(pickerReturnTimerRef.current);
       pickerReturnTimerRef.current = setTimeout(finishFilePicker, 300);
     };
-    const visibility = () => {
-      if (document.visibilityState === "hidden") {
-        closeCamera();
-        releaseIdleReaderMemory();
-      } else returned();
+    const hide = () => {
+      const interrupted = cameraOpeningRef.current || cameraStreamRef.current || captureCanvasRef.current;
+      closeCamera();
+      releaseIdleReaderMemory();
+      if (interrupted) setError("Câmera interrompida. Toque em Tirar foto para tentar novamente. O arquivo anterior foi mantido.");
     };
-    const hide = () => { closeCamera(); releaseIdleReaderMemory(); };
+    const visibility = () => {
+      if (document.visibilityState === "hidden") hide();
+      else returned();
+    };
     input?.addEventListener("cancel", finishFilePicker);
     window.addEventListener("focus", returned);
     window.addEventListener("pageshow", returned);
@@ -464,7 +491,7 @@ export default function ReceiptImport() {
     void video.play().catch(() => {
       if (cameraStreamRef.current !== cameraStream) return;
       closeCamera();
-      setError("Não foi possível iniciar a câmera. Use Escolher arquivo para enviar a foto.");
+      setError("Não foi possível iniciar a câmera. Use Galeria/arquivo para enviar a foto.");
     });
     return () => {
       if (video.srcObject === cameraStream) video.srcObject = null;
@@ -472,12 +499,14 @@ export default function ReceiptImport() {
   }, [cameraStream, closeCamera]);
 
   const openCamera = async () => {
+    if (cameraOpeningRef.current || cameraStreamRef.current || cameraEncoding || freeReadInFlight.current || localLoading || pickerOpenRef.current) return;
     setError(null);
     if (!navigator.mediaDevices?.getUserMedia) {
-      setError("A câmera não está disponível neste navegador. Use Escolher arquivo para enviar a foto.");
+      setError("A câmera não está disponível neste navegador. Use Galeria/arquivo para enviar a foto.");
       return;
     }
 
+    cameraOpeningRef.current = true;
     const requestId = ++cameraRequestRef.current;
     setCameraOpen(true);
     setCameraStarting(true);
@@ -486,8 +515,9 @@ export default function ReceiptImport() {
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: { ideal: "environment" },
-          width: { ideal: 1280 },
-          height: { ideal: 1920 },
+          width: { ideal: 960, max: 1280 },
+          height: { ideal: 1280, max: 1280 },
+          frameRate: { ideal: 15, max: 15 },
           // Ask for the portrait aspect the preview frame uses; ideal, so a
           // camera that ignores it still works via the center-crop below.
           aspectRatio: { ideal: CAMERA_FRAME_ASPECT },
@@ -498,6 +528,7 @@ export default function ReceiptImport() {
         stream.getTracks().forEach((track) => track.stop());
         return;
       }
+      cameraOpeningRef.current = false;
       cameraStreamRef.current = stream;
       setCameraStream(stream);
       setCameraStarting(false);
@@ -506,12 +537,13 @@ export default function ReceiptImport() {
       closeCamera();
       const permissionDenied = (cameraError as { name?: string })?.name === "NotAllowedError";
       setError(permissionDenied
-        ? "A permissão da câmera foi negada. Autorize o acesso ou use Escolher arquivo."
-        : "Não foi possível abrir a câmera. Use Escolher arquivo para enviar a foto.");
+        ? "A permissão da câmera foi negada. Autorize o acesso ou use Galeria/arquivo."
+        : "Não foi possível abrir a câmera. Use Galeria/arquivo para enviar a foto.");
     }
   };
 
   const captureCameraPhoto = async () => {
+    if (cameraEncoding || freeReadInFlight.current || !cameraStreamRef.current) return;
     const video = videoRef.current;
     if (!video || !video.videoWidth || !video.videoHeight) {
       setError("A câmera ainda não está pronta. Aguarde um instante e tente novamente.");
@@ -524,37 +556,66 @@ export default function ReceiptImport() {
       return;
     }
 
-    // Capture exactly the framed rectangle (same crop as the preview), then
-    // downscale only when larger than 1920px — never upscale.
-    const maxDimension = 1920;
+    // One bounded RGBA surface, at most 960 × 1280 (~4.7 MiB), no image decode.
+    const maxDimension = 1280;
     const scale = Math.min(1, maxDimension / Math.max(crop.sWidth, crop.sHeight));
+    cameraEncoding = true;
+    setCapturing(true);
     const canvas = document.createElement("canvas");
+    captureCanvasRef.current = canvas;
     canvas.width = Math.round(crop.sWidth * scale);
     canvas.height = Math.round(crop.sHeight * scale);
 
+    const captureRun = captureRunRef.current;
+    let encodingPending = false;
     try {
       const ctx = canvas.getContext("2d", { alpha: false });
       if (!ctx) throw new Error("canvas unavailable");
       ctx.drawImage(video, crop.sx, crop.sy, crop.sWidth, crop.sHeight, 0, 0, canvas.width, canvas.height);
-      closeCamera();
-
-      const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, "image/jpeg", 0.9));
+      // Release video buffers before encoding; keep the modal and lease busy.
+      releaseCamera();
+      setCameraStream(null);
+      setCameraReady(false);
+      const blob = await new Promise<Blob | null>((resolve, reject) => {
+        const timer = window.setTimeout(() => reject(new Error("capture timeout")), 12000);
+        try {
+          encodingPending = true;
+          canvas.toBlob((result) => {
+            encodingPending = false;
+            cameraEncoding = false;
+            window.clearTimeout(timer);
+            resolve(result);
+          }, "image/jpeg", 0.85);
+        } catch (error) {
+          encodingPending = false;
+          window.clearTimeout(timer);
+          reject(error);
+        }
+      });
+      if (captureRunRef.current !== captureRun) return;
       if (!blob) throw new Error("capture failed");
       const file = new File([blob], `comprovante-${new Date().toISOString().replace(/[:.]/g, "-")}.jpg`, {
         type: "image/jpeg",
         lastModified: Date.now(),
       });
+      closeCamera();
       setPendingFile(file);
       localSnapshotRef.current = null;
       setLocalSnapshotAvailable(false);
       setLocalMetrics(null);
       setLocalStatus("");
     } catch {
+      if (captureRunRef.current !== captureRun) return;
       closeCamera();
-      setError("Não foi possível fotografar o comprovante. Tente novamente ou use Escolher arquivo.");
+      setError(encodingPending
+        ? "A câmera demorou para preparar a foto. Aguarde a liberação da imagem; se persistir, recarregue a página. O arquivo anterior foi mantido."
+        : "Não foi possível fotografar o comprovante. O arquivo anterior foi mantido. Tente novamente ou use Galeria/arquivo.");
     } finally {
       canvas.width = 0;
       canvas.height = 0;
+      if (captureCanvasRef.current === canvas) captureCanvasRef.current = null;
+      if (!encodingPending) cameraEncoding = false;
+      if (captureRunRef.current === captureRun) setCapturing(false);
     }
   };
 
@@ -636,7 +697,7 @@ export default function ReceiptImport() {
 
       {openedByShare && shareDiag && !shareDiag.page.found && (
         <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-foreground">
-          Não foi possível receber a imagem compartilhada neste aparelho. Use 'Escolher arquivo' abaixo.
+          Não foi possível receber a imagem compartilhada neste aparelho. Use 'Galeria/arquivo' abaixo.
         </div>
       )}
 
@@ -661,15 +722,15 @@ export default function ReceiptImport() {
         ) : (
           <>
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button className="gap-2" onClick={openFilePicker}>
-                <Paperclip className="h-4 w-4" /> Escolher arquivo
+              <Button className="gap-2" disabled={capturing || cameraOpen || localLoading} onClick={openFilePicker}>
+                <Paperclip className="h-4 w-4" /> Galeria/arquivo
               </Button>
-              <Button variant="outline" className="gap-2" onClick={() => void openCamera()}>
+              <Button variant="outline" className="gap-2" disabled={capturing || cameraOpen || localLoading} onClick={() => void openCamera()}>
                 <Camera className="h-4 w-4" /> Tirar foto
               </Button>
             </div>
             <p className="text-xs text-muted-foreground" data-testid="receipt-picker-hint">
-              Para fotografar, use "Tirar foto", a câmera interna do app. Em "Escolher arquivo", escolha
+              Para fotografar, use "Tirar foto", a câmera interna do app. Em "Galeria/arquivo", escolha
               uma foto já salva na galeria ou um PDF. Se o seletor do Android oferecer "Câmera", prefira
               voltar e usar "Tirar foto". O app não controla a câmera externa nem a memória do Android.
             </p>
@@ -682,7 +743,7 @@ export default function ReceiptImport() {
                 finishFilePicker();
                 const f = e.target.files?.[0];
                 e.target.value = "";
-                if (f) {
+                if (f && !cameraEncoding && !freeReadInFlight.current && !cameraOpeningRef.current && !cameraStreamRef.current) {
                   setReceiptFile(null);
                   setReceiptRef(null);
                   setPrefill(null);
@@ -706,7 +767,7 @@ export default function ReceiptImport() {
                 </div>
                 <div className="flex flex-col gap-2 sm:flex-row">
                   {freeAiState === "available" && (
-                    <Button className="gap-2 sm:flex-1" disabled={loading} onClick={() => setFreeAiConfirmOpen(true)}>
+                    <Button className="gap-2 sm:flex-1" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => setFreeAiConfirmOpen(true)}>
                       ✨ Ler com IA grátis (teste)
                     </Button>
                   )}
@@ -716,7 +777,7 @@ export default function ReceiptImport() {
                     </Button>
                   )}
                   {freeAiState === "error" && (
-                    <Button type="button" variant="outline" className="gap-2" disabled={loading} onClick={() => void checkFreeAi()}>
+                    <Button type="button" variant="outline" className="gap-2" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => void checkFreeAi()}>
                       <RefreshCw className="h-4 w-4" /> Verificar novamente
                     </Button>
                   )}
@@ -734,10 +795,10 @@ export default function ReceiptImport() {
                 <div className="space-y-2 border-t border-border pt-3">
                   <p className="text-xs font-medium text-muted-foreground">Outras opções · somente por escolha manual</p>
                   <div className="flex flex-col gap-2 sm:flex-row">
-                    <Button variant="outline" className="gap-2" disabled={loading} onClick={() => void processFileFast(pendingFile)}>
+                    <Button variant="outline" className="gap-2" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => void processFileFast(pendingFile)}>
                       <ScanLine className="h-4 w-4" /> Ler gratuitamente
                     </Button>
-                    <Button variant="ghost" disabled={loading} onClick={() => setAiConfirmOpen(true)}>
+                    <Button variant="ghost" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => setAiConfirmOpen(true)}>
                       ✨ Ler com IA
                     </Button>
                   </div>
@@ -838,7 +899,7 @@ export default function ReceiptImport() {
           </DialogHeader>
           <div
             data-testid="receipt-camera-frame"
-            className="relative mx-auto aspect-[3/4] h-[min(68dvh,calc(100dvh-12rem),calc((100vw-2rem)*4/3))] min-h-[14rem] overflow-hidden rounded-md bg-black"
+            className="relative mx-auto aspect-[3/4] h-[min(68dvh,calc(100dvh-12rem),calc((100vw-2rem)*4/3))] min-h-0 shrink overflow-hidden rounded-md bg-black"
           >
             {(cameraStarting || !cameraReady) && (
               <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 text-sm text-white">
@@ -857,7 +918,7 @@ export default function ReceiptImport() {
           </div>
           <div className="flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
             <Button type="button" variant="outline" className="w-full sm:w-auto" onClick={closeCamera}>Cancelar</Button>
-            <Button type="button" className="w-full gap-2 sm:w-auto" onClick={() => void captureCameraPhoto()} disabled={cameraStarting || !cameraReady}>
+            <Button type="button" className="w-full gap-2 sm:w-auto" onClick={() => void captureCameraPhoto()} disabled={capturing || cameraStarting || !cameraReady}>
               <Camera className="h-4 w-4" /> Fotografar
             </Button>
           </div>

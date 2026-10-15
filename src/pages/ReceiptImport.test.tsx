@@ -242,7 +242,7 @@ describe("ReceiptImport metadata", () => {
     );
   });
 
-  it("keeps Escolher arquivo on the normal file input and requires 'Ler gratuitamente' to trigger the PaddleOCR worker", async () => {
+  it("keeps Galeria/arquivo on the normal file input and requires 'Ler gratuitamente' to trigger the PaddleOCR worker", async () => {
     const { container } = render(<ReceiptImport />);
     const inputs = container.querySelectorAll<HTMLInputElement>('input[type="file"]');
     const input = inputs[0];
@@ -332,13 +332,13 @@ describe("ReceiptImport metadata", () => {
   it("releases the picker lock on native cancel without reading or losing the selected file", async () => {
     const { container } = render(<ReceiptImport />);
     const input = container.querySelector('input[type="file"]')!;
-    fireEvent.click(screen.getByRole("button", { name: "Escolher arquivo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Galeria/arquivo" }));
     expect(isAppBusy()).toBe(true);
     fireEvent(input, new Event("cancel", { bubbles: true }));
     expect(isAppBusy()).toBe(false);
     const file = new File(["synthetic"], "keep.jpg", { type: "image/jpeg" });
     fireEvent.change(input, { target: { files: [file] } });
-    fireEvent.click(screen.getByRole("button", { name: "Escolher arquivo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Galeria/arquivo" }));
     fireEvent(input, new Event("cancel", { bubbles: true }));
     expect(screen.getByText("keep.jpg")).toBeInTheDocument();
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
@@ -347,7 +347,7 @@ describe("ReceiptImport metadata", () => {
 
   it("handles focus/pageshow without a change event and never starts a read on return", async () => {
     render(<ReceiptImport />);
-    fireEvent.click(screen.getByRole("button", { name: "Escolher arquivo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Galeria/arquivo" }));
     expect(isAppBusy()).toBe(true);
     fireEvent.focus(window);
     fireEvent(window, new Event("pageshow"));
@@ -376,8 +376,9 @@ describe("ReceiptImport metadata", () => {
     await waitFor(() => expect(getUserMedia).toHaveBeenCalledWith({
       video: {
         facingMode: { ideal: "environment" },
-        width: { ideal: 1280 },
-        height: { ideal: 1920 },
+        width: { ideal: 960, max: 1280 },
+        height: { ideal: 1280, max: 1280 },
+        frameRate: { ideal: 15, max: 15 },
         aspectRatio: { ideal: 3 / 4 },
       },
       audio: false,
@@ -420,9 +421,9 @@ describe("ReceiptImport metadata", () => {
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
     // Landscape 3840x2160 cropped to the framed 3:4 window: 1620x2160 at x=1110,
-    // downscaled to 1440x1920 (longest edge 1920).
-    expect(drawImage).toHaveBeenCalledWith(video, 1110, 0, 1620, 2160, 0, 0, 1440, 1920);
-    expect(toBlob).toHaveBeenCalledWith(expect.any(Function), "image/jpeg", 0.9);
+    // downscaled to 960x1280 (longest edge 1280).
+    expect(drawImage).toHaveBeenCalledWith(video, 1110, 0, 1620, 2160, 0, 0, 960, 1280);
+    expect(toBlob).toHaveBeenCalledWith(expect.any(Function), "image/jpeg", 0.85);
     expect(track.stop).toHaveBeenCalledTimes(1);
     expect(video.srcObject).toBeNull();
     expect(canvases[0].width).toBe(0);
@@ -448,8 +449,8 @@ describe("ReceiptImport metadata", () => {
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
     // Portrait 2160x3840 cropped to 3:4: keeps width, trims top/bottom by 480px,
-    // then downscales to 1440x1920.
-    expect(drawImage).toHaveBeenCalledWith(video, 0, 480, 2160, 2880, 0, 0, 1440, 1920);
+    // then downscales to 960x1280.
+    expect(drawImage).toHaveBeenCalledWith(video, 0, 480, 2160, 2880, 0, 0, 960, 1280);
     expect(track.stop).toHaveBeenCalledTimes(1);
   });
 
@@ -467,7 +468,7 @@ describe("ReceiptImport metadata", () => {
     fireEvent.click(screen.getByRole("button", { name: "Fotografar" }));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
-    expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 1200, 1600, 0, 0, 1200, 1600);
+    expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 1200, 1600, 0, 0, 960, 1280);
   });
 
   it("stops the camera without creating a file when cancelled", async () => {
@@ -518,6 +519,111 @@ describe("ReceiptImport metadata", () => {
     expect(tracks[1].stop).toHaveBeenCalledTimes(1);
   });
 
+  it("preserves a selected PDF on picker cancellation without decoding or reading", () => {
+    const { container } = render(<ReceiptImport />);
+    const input = container.querySelector('input[type="file"]')!;
+    const file = new File(["%PDF-1.4"], "saved.pdf", { type: "application/pdf" });
+    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.change(input, { target: { files: [] } });
+    expect(screen.getByText("saved.pdf")).toBeInTheDocument();
+    expect(mocks.prepareReceiptForLocalOcr).not.toHaveBeenCalled();
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+  });
+
+  it("retains a PDF for retry when explicit processing fails", async () => {
+    const file = new File(["%PDF-1.4"], "retry.pdf", { type: "application/pdf" });
+    mocks.prepareReceiptForLocalOcr.mockRejectedValueOnce(new Error("PDF indisponível"));
+    const { container } = render(<ReceiptImport />);
+    fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    expect(await screen.findByText("PDF indisponível")).toBeInTheDocument();
+    expect(screen.getByText("retry.pdf")).toBeInTheDocument();
+    expect(mocks.prepareReceiptForLocalOcr).toHaveBeenCalledWith(file);
+    expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeEnabled();
+  });
+
+  it("invalidates a pending permission request when the document becomes hidden", async () => {
+    const { cameraStream, getUserMedia, track } = installCamera();
+    let finish!: (stream: MediaStream) => void;
+    getUserMedia.mockReturnValueOnce(new Promise<MediaStream>((resolve) => { finish = resolve; }));
+    render(<ReceiptImport />);
+    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+    fireEvent(document, new Event("visibilitychange"));
+    await act(async () => finish(cameraStream));
+    expect(track.stop).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    visibility.mockRestore();
+  });
+
+  it("stops the camera on app switching and preserves the selected image", async () => {
+    const { cameraStream, track } = installCamera();
+    const { container } = render(<ReceiptImport />);
+    fireEvent.change(container.querySelector('input[type="file"]')!, {
+      target: { files: [new File(["old"], "saved.jpg", { type: "image/jpeg" })] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
+    await waitFor(() => expect(video.srcObject).toBe(cameraStream));
+    fireEvent(window, new Event("pagehide"));
+    expect(track.stop).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText("saved.jpg")).toBeInTheDocument();
+    expect(screen.getByText(/Câmera interrompida/)).toBeInTheDocument();
+  });
+
+  it("encodes once on repeated taps and ignores a JPEG arriving after cancellation and remount", async () => {
+    const { cameraStream, getUserMedia } = installCamera();
+    installCameraCanvas();
+    let finish!: BlobCallback;
+    const encode = vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback) => { finish = callback; });
+    const { unmount } = render(<ReceiptImport />);
+    const open = screen.getByRole("button", { name: "Tirar foto" });
+    fireEvent.click(open);
+    fireEvent.click(open);
+    const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
+    await waitFor(() => expect(video.srcObject).toBe(cameraStream));
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+    Object.defineProperty(video, "videoWidth", { configurable: true, value: 1280 });
+    Object.defineProperty(video, "videoHeight", { configurable: true, value: 960 });
+    fireEvent.canPlay(video);
+    const capture = screen.getByRole("button", { name: "Fotografar" });
+    fireEvent.click(capture);
+    fireEvent.click(capture);
+    expect(encode).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
+    unmount();
+    render(<ReceiptImport />);
+    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    expect(getUserMedia).toHaveBeenCalledTimes(1);
+    await act(async () => finish(new Blob(["late"], { type: "image/jpeg" })));
+    expect(screen.queryByRole("button", { name: "Ler gratuitamente" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(2));
+  });
+
+  it("keeps the prior file when JPEG encoding fails and frees the canvas", async () => {
+    const { cameraStream, track } = installCamera();
+    const { canvases } = installCameraCanvas();
+    vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback) => callback(null));
+    const { container } = render(<ReceiptImport />);
+    fireEvent.change(container.querySelector('input[type="file"]')!, {
+      target: { files: [new File(["old"], "previous.pdf", { type: "application/pdf" })] },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
+    await waitFor(() => expect(video.srcObject).toBe(cameraStream));
+    Object.defineProperty(video, "videoWidth", { configurable: true, value: 1280 });
+    Object.defineProperty(video, "videoHeight", { configurable: true, value: 960 });
+    fireEvent.canPlay(video);
+    fireEvent.click(screen.getByRole("button", { name: "Fotografar" }));
+    expect(await screen.findByText(/Não foi possível fotografar/)).toBeInTheDocument();
+    expect(screen.getByText("previous.pdf")).toBeInTheDocument();
+    expect(track.stop).toHaveBeenCalledTimes(1);
+    expect(canvases[0].width).toBe(0);
+    expect(canvases[0].height).toBe(0);
+  });
+
   it("shows a friendly error when camera permission is denied", async () => {
     const { getUserMedia } = installCamera();
     getUserMedia.mockRejectedValueOnce(new DOMException("denied", "NotAllowedError"));
@@ -525,8 +631,8 @@ describe("ReceiptImport metadata", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
 
-    expect(await screen.findByText("A permissão da câmera foi negada. Autorize o acesso ou use Escolher arquivo.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Escolher arquivo" })).toBeInTheDocument();
+    expect(await screen.findByText("A permissão da câmera foi negada. Autorize o acesso ou use Galeria/arquivo.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Galeria/arquivo" })).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -538,8 +644,8 @@ describe("ReceiptImport metadata", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
 
-    expect(await screen.findByText("A câmera não está disponível neste navegador. Use Escolher arquivo para enviar a foto.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Escolher arquivo" })).toBeInTheDocument();
+    expect(await screen.findByText("A câmera não está disponível neste navegador. Use Galeria/arquivo para enviar a foto.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Galeria/arquivo" })).toBeInTheDocument();
   });
 });
 
@@ -848,7 +954,7 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
     render(<ReceiptImport />);
 
     const summary = await screen.findByText("Diagnóstico do compartilhamento: arquivo não encontrado");
-    expect(screen.getByText("Não foi possível receber a imagem compartilhada neste aparelho. Use 'Escolher arquivo' abaixo.")).toBeInTheDocument();
+    expect(screen.getByText("Não foi possível receber a imagem compartilhada neste aparelho. Use 'Galeria/arquivo' abaixo.")).toBeInTheDocument();
     expect(summary.closest("details")).not.toHaveAttribute("open");
     expect(screen.getByText("swVersion: share-v3")).toBeInTheDocument();
     expect(screen.getByText("Service Worker desatualizado")).toBeInTheDocument();
