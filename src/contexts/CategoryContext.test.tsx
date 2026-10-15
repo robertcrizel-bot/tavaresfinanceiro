@@ -128,4 +128,21 @@ describe("CategoryContext shared category lists", () => {
     expect(context?.getCategoriesByType("expense")).toEqual(["Alimentação", "Outros"]);
     expect(context?.getCategoriesByType("income")).toEqual(["Salário", "Outros"]);
   });
+
+  it("deduplicates UI names across types, casing, whitespace and Unicode without changing records", async () => {
+    mocks.rows.push(
+      { id: "duplicate-1", name: "Alimenta\u00e7\u00e3o", type: "expense", monthly_budget: 25 },
+      { id: "duplicate-2", name: " alimentac\u0327a\u0303o ", type: "both", monthly_budget: null },
+      { id: "duplicate-3", name: "Outros", type: "income", monthly_budget: null },
+    );
+    await renderProvider();
+    expect(context?.allCategoryNames).toEqual(["Alimenta\u00e7\u00e3o", "Sal\u00e1rio", "Outros"]);
+    expect(context?.getCategoriesByType("expense")).toEqual(["Alimenta\u00e7\u00e3o", "Outros"]);
+    expect(context?.getCategoriesByType("income")).toEqual(["Sal\u00e1rio", "Outros", " alimentac\u0327a\u0303o "]);
+    expect(context?.categories).toHaveLength(6);
+    expect(context?.categories.find(c => c.id === "duplicate-1")?.monthlyBudget).toBe(25);
+    expect(mocks.insert).not.toHaveBeenCalled();
+    expect(mocks.update).not.toHaveBeenCalled();
+    expect(mocks.deleteEq).not.toHaveBeenCalled();
+  });
 });

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useCallback, useEffect } fr
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { uniqueCategoryNames } from "@/lib/category-options";
 
 export interface UserCategory {
   id: string;
@@ -141,12 +142,12 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
   }, [fetchCategories]);
 
   const getCategoriesByType = useCallback((type: "income" | "expense") => {
-    return categories
+    return uniqueCategoryNames(categories
       .filter((c) => c.type === type || c.type === "both")
-      .map((c) => c.name);
+      .map((c) => c.name));
   }, [categories]);
 
-  const allCategoryNames = categories.map((c) => c.name);
+  const allCategoryNames = uniqueCategoryNames(categories.map((c) => c.name));
 
   return (
     <CategoryContext.Provider value={{ categories, loading, addCategory, updateCategory, deleteCategory, getCategoriesByType, allCategoryNames, refetch: fetchCategories }}>

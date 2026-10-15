@@ -118,6 +118,30 @@ const initial: Transaction = {
 };
 
 describe("TransactionForm duplicate submission protection", () => {
+  it("shows one option per name while preserving the selected legacy spelling on save", async () => {
+    const duplicate = { id: "duplicate", name: " outros ", type: "expense" as const, monthlyBudget: null };
+    mockData.categories.push(duplicate);
+    try {
+      const onSubmit = vi.fn().mockResolvedValue(true);
+      render(<TransactionForm open onClose={vi.fn()} onSubmit={onSubmit} initial={{ ...initial, category: "OUTROS" }} />);
+      expect(screen.getAllByTestId("select-item-OUTROS")).toHaveLength(1);
+      expect(screen.queryByTestId("select-item-Outros")).not.toBeInTheDocument();
+      expect(screen.queryByTestId("select-item- outros ")).not.toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+      await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ category: "OUTROS" }), undefined));
+    } finally {
+      mockData.categories.splice(mockData.categories.indexOf(duplicate), 1);
+    }
+  });
+
+  it.each(["2026-08-30", "2026-09-30"])("preserves receipt date %s until explicitly edited", async date => {
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    render(<TransactionForm open onClose={vi.fn()} onSubmit={onSubmit} prefill={{ title: "Synthetic receipt", amount: 25, date, receiptDetails: details }} />);
+    expect(screen.getByLabelText(/^Data/)).toHaveValue(date);
+    expect(screen.getByText("Confira dia, m\u00eas e ano no comprovante original.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Adicionar" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({ date }), undefined));
+  });
   it.each(
     (["manual", "edited", "receipt"] as const).flatMap(mode =>
       (["false", "rejection"] as const).map(failure => ({ mode, failure }))),

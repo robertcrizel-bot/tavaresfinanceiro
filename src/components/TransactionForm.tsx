@@ -16,6 +16,7 @@ import { toast } from "@/hooks/use-toast";
 import { findCashAccount, isCashPaymentMethod } from "@/lib/cash-account";
 import { beginAppBusy, endAppBusy } from "@/lib/app-update";
 import { calculateCurrentMonthCategorySpending, calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
+import { uniqueCategoryNames } from "@/lib/category-options";
 
 const ACCOUNT_PAYMENT_METHODS = new Set<PaymentMethod>(["Dinheiro", "Cartão de Débito", "Pix", "Transferência", "Boleto"]);
 
@@ -105,7 +106,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initial, open, prefill, prefillAttachments]);
 
-  const categories = getCategoriesByType(type);
+  const categories = uniqueCategoryNames([...getCategoriesByType(type), category], category);
 
   const budgetInfo = useMemo(() => {
     if (type !== "expense") return null;
@@ -309,8 +310,9 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
         <form onSubmit={handleSubmit} className="space-y-1.5 sm:space-y-2">
           <div className="grid grid-cols-2 gap-x-2 gap-y-1.5 min-[360px]:gap-x-3 sm:grid-cols-8 sm:gap-x-4 sm:gap-y-2">
             <div className="order-1 min-w-0 space-y-1 sm:col-span-3 sm:space-y-1.5">
-              <Label>Data <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="date" /></Label>
-              <Input className="h-9 sm:h-10" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              <Label htmlFor="transaction-date">Data <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="date" /></Label>
+              <Input id="transaction-date" aria-describedby={!initial && prefill?.receiptDetails ? "receipt-date-review" : undefined} className="h-9 sm:h-10" type="date" value={date} onChange={(e) => setDate(e.target.value)} required />
+              {!initial && prefill?.receiptDetails && <p id="receipt-date-review" className="text-xs text-muted-foreground">Confira dia, mês e ano no comprovante original.</p>}
             </div>
             <div className="order-3 col-span-2 min-w-0 space-y-1 sm:order-2 sm:col-span-5 sm:space-y-1.5">
               <Label>Título <span className="text-destructive" aria-hidden="true">*</span> <LowConfidenceHint field="counterparty" /></Label>
@@ -333,10 +335,10 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
             <div className="order-5 col-span-2 min-w-0 space-y-1 min-[360px]:col-span-1 sm:col-span-4 sm:space-y-1.5">
               <Label>Categoria <span className="text-destructive" aria-hidden="true">*</span></Label>
               <Select value={category} onValueChange={(v: Category) => setCategory(v)}>
-                <SelectTrigger className="h-9 sm:h-10"><SelectValue /></SelectTrigger>
-                <SelectContent>
+                <SelectTrigger aria-label="Categoria" title={category} className="h-9 min-w-0 gap-2 sm:h-10 [&>span]:min-w-0 [&>span]:flex-1 [&>span]:text-left"><SelectValue /></SelectTrigger>
+                <SelectContent position="popper" side="bottom" align="start" sideOffset={4} collisionPadding={12} className="z-[60] w-[var(--radix-select-trigger-width)] min-w-0 max-w-[calc(100vw-1.5rem)] max-h-[min(20rem,var(--radix-select-content-available-height))]">
                   {categories.map((c) => (
-                    <SelectItem key={c} value={c}>{c}</SelectItem>
+                    <SelectItem key={c} value={c} className="min-h-9 items-start whitespace-normal break-words [&>span:last-child]:min-w-0 [&>span:last-child]:flex-1">{c.trim().replace(/\s+/g, " ")}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>
