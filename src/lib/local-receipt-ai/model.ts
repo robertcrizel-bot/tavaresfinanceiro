@@ -58,6 +58,13 @@ export function resetLocalReceiptModelState(): void {
   nextRequestId = 0;
 }
 
+/** Release cached WASM/model memory without interrupting a pending interpretation. */
+export function releaseIdleLocalReceiptModel(): boolean {
+  if (pendingCalls.size > 0) return false;
+  destroyWorker();
+  return true;
+}
+
 function ensureWorker(createWorker: () => Worker): Worker {
   if (cachedWorker) return cachedWorker;
   const worker = createWorker();

@@ -118,6 +118,22 @@ export function createWorkerHandler(
 
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
-    return createWorkerHandler(env)(request);
+    const startedAt = Date.now();
+    const response = await createWorkerHandler(env)(request);
+    // One sanitized request line for `wrangler tail`/dashboard logs: method,
+    // HTTP status and duration only. Never the key, the token or the image.
+    try {
+      console.log(
+        JSON.stringify({
+          scope: "worker",
+          method: request.method,
+          status: response.status,
+          ms: Date.now() - startedAt,
+        }),
+      );
+    } catch {
+      // Logging must never break the request.
+    }
+    return response;
   },
 };

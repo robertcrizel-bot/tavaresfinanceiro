@@ -23,6 +23,7 @@ import {
   type LocalInterpretationMetrics,
 } from "@/lib/local-receipt-ai";
 import { releaseDocumentOrientationSession } from "@/lib/receipt-image-orientation";
+import { releaseIdleLocalReceiptModel } from "@/lib/local-receipt-ai/model";
 import { CAMERA_FRAME_ASPECT, coverCropForAspect } from "@/lib/camera-crop";
 import { supabase } from "@/integrations/supabase/client";
 import { Transaction, PaymentMethod, PAYMENT_METHODS, Category } from "@/lib/types";
@@ -72,6 +73,8 @@ export default function ReceiptImport() {
   const cameraStreamRef = useRef<MediaStream | null>(null);
   const cameraRequestRef = useRef(0);
   const sharedChecked = useRef(false);
+  const pickerOpenRef = useRef(false);
+  const pickerReturnTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [shareDiag, setShareDiag] = useState<ShareDiagnostics | null>(null);
   const openedByShare = new URLSearchParams(window.location.search).has("shared");
   const prefillAttachments = useMemo(
@@ -291,6 +294,8 @@ export default function ReceiptImport() {
 
   const processFileWithAi = useCallback(
     async (file: File) => {
+      if (freeReadInFlight.current) return;
+      freeReadInFlight.current = true;
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -323,6 +328,7 @@ export default function ReceiptImport() {
       } catch (e) {
         setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com IA.");
       } finally {
+        freeReadInFlight.current = false;
         setLoading(false);
       }
     },
@@ -331,6 +337,8 @@ export default function ReceiptImport() {
 
   const processFileWithFreeAi = useCallback(
     async (file: File) => {
+      if (freeReadInFlight.current) return;
+      freeReadInFlight.current = true;
       setLoading(true);
       setError(null);
       setDuplicate(false);
@@ -365,6 +373,7 @@ export default function ReceiptImport() {
       } catch (e) {
         setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com IA grátis.");
       } finally {
+        freeReadInFlight.current = false;
         setLoading(false);
         setReadStatus("");
       }
@@ -388,6 +397,65 @@ export default function ReceiptImport() {
   }, [releaseCamera]);
 
   useEffect(() => () => releaseCamera(), [releaseCamera]);
+
+  const finishFilePicker = useCallback(() => {
+    if (pickerReturnTimerRef.current) clearTimeout(pickerReturnTimerRef.current);
+    pickerReturnTimerRef.current = null;
+    if (!pickerOpenRef.current) return;
+    pickerOpenRef.current = false;
+    endAppBusy("file-picker");
+  }, []);
+
+  const releaseIdleReaderMemory = useCallback(() => {
+    if (loading || localLoading) return;
+    releaseIdleLocalReceiptModel();
+    void releaseDocumentOrientationSession().catch(() => {});
+  }, [loading, localLoading]);
+
+  const openFilePicker = () => {
+    if (loading || localLoading || pickerOpenRef.current) return;
+    closeCamera();
+    releaseIdleReaderMemory();
+    pickerOpenRef.current = true;
+    // Block foreground update/reload while Android's external selector owns the screen.
+    beginAppBusy("file-picker");
+    try {
+      fileInputRef.current?.click();
+    } catch {
+      finishFilePicker();
+      setError("Não foi possível abrir a galeria. Tente a câmera interna.");
+    }
+  };
+
+  useEffect(() => {
+    const input = fileInputRef.current;
+    const returned = () => {
+      if (!pickerOpenRef.current || document.visibilityState === "hidden") return;
+      // Focus can precede change/cancel. Never read, decode or retry on focus alone.
+      if (pickerReturnTimerRef.current) clearTimeout(pickerReturnTimerRef.current);
+      pickerReturnTimerRef.current = setTimeout(finishFilePicker, 300);
+    };
+    const visibility = () => {
+      if (document.visibilityState === "hidden") {
+        closeCamera();
+        releaseIdleReaderMemory();
+      } else returned();
+    };
+    const hide = () => { closeCamera(); releaseIdleReaderMemory(); };
+    input?.addEventListener("cancel", finishFilePicker);
+    window.addEventListener("focus", returned);
+    window.addEventListener("pageshow", returned);
+    window.addEventListener("pagehide", hide);
+    document.addEventListener("visibilitychange", visibility);
+    return () => {
+      input?.removeEventListener("cancel", finishFilePicker);
+      window.removeEventListener("focus", returned);
+      window.removeEventListener("pageshow", returned);
+      window.removeEventListener("pagehide", hide);
+      document.removeEventListener("visibilitychange", visibility);
+      finishFilePicker();
+    };
+  }, [closeCamera, finishFilePicker, releaseIdleReaderMemory]);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -560,7 +628,7 @@ export default function ReceiptImport() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-3xl font-bold text-primary">Ler comprovante</h1>
+        <h1 className="text-3xl font-bold text-foreground">Ler comprovante</h1>
         <p className="text-muted-foreground mt-1">
           Envie a foto ou o PDF do comprovante e o app preenche o registro para você conferir.
         </p>
@@ -593,7 +661,7 @@ export default function ReceiptImport() {
         ) : (
           <>
             <div className="flex flex-col sm:flex-row gap-3">
-              <Button className="gap-2" onClick={() => fileInputRef.current?.click()}>
+              <Button className="gap-2" onClick={openFilePicker}>
                 <Paperclip className="h-4 w-4" /> Escolher arquivo
               </Button>
               <Button variant="outline" className="gap-2" onClick={() => void openCamera()}>
@@ -601,19 +669,26 @@ export default function ReceiptImport() {
               </Button>
             </div>
             <p className="text-xs text-muted-foreground" data-testid="receipt-picker-hint">
-              Para fotografar, prefira "Tirar foto", que usa a câmera do próprio app. "Escolher arquivo" abre
-              a galeria; em alguns celulares, abrir a câmera pelo seletor do Android e voltar pode esgotar a
-              memória e fechar a página.
+              Para fotografar, use "Tirar foto", a câmera interna do app. Em "Escolher arquivo", escolha
+              uma foto já salva na galeria ou um PDF. Se o seletor do Android oferecer "Câmera", prefira
+              voltar e usar "Tirar foto". O app não controla a câmera externa nem a memória do Android.
             </p>
             <input
               ref={fileInputRef}
               type="file"
-              accept="image/*,application/pdf"
+              accept="image/jpeg,image/png,image/webp,application/pdf"
               className="hidden"
               onChange={(e) => {
+                finishFilePicker();
                 const f = e.target.files?.[0];
                 e.target.value = "";
                 if (f) {
+                  setReceiptFile(null);
+                  setReceiptRef(null);
+                  setPrefill(null);
+                  setLowConfidence([]);
+                  setDuplicate(false);
+                  setError(null);
                   setPendingFile(f);
                   localSnapshotRef.current = null;
                   setLocalSnapshotAvailable(false);
@@ -624,16 +699,14 @@ export default function ReceiptImport() {
             />
             {pendingFile && (
               <div className="space-y-3 rounded-md border border-border p-3">
-                <p className="truncate text-sm font-medium">{pendingFile.name}</p>
+                <p className="break-words text-sm font-medium">{pendingFile.name}</p>
+                <div>
+                  <h2 className="text-base font-semibold">Gemma · leitura gratuita</h2>
+                  <p className="text-xs text-muted-foreground">Leitura externa da imagem, iniciada somente após sua confirmação.</p>
+                </div>
                 <div className="flex flex-col gap-2 sm:flex-row">
-                  <Button className="gap-2 sm:flex-1" disabled={loading} onClick={() => void processFileFast(pendingFile)}>
-                    <ScanLine className="h-4 w-4" /> Ler gratuitamente
-                  </Button>
-                  <Button variant="outline" disabled={loading} onClick={() => setAiConfirmOpen(true)}>
-                    ✨ Ler com IA
-                  </Button>
                   {freeAiState === "available" && (
-                    <Button variant="outline" disabled={loading} onClick={() => setFreeAiConfirmOpen(true)}>
+                    <Button className="gap-2 sm:flex-1" disabled={loading} onClick={() => setFreeAiConfirmOpen(true)}>
                       ✨ Ler com IA grátis (teste)
                     </Button>
                   )}
@@ -658,7 +731,18 @@ export default function ReceiptImport() {
                     IA grátis indisponível no servidor no momento.
                   </p>
                 )}
-                <p className="text-xs text-muted-foreground">A leitura gratuita usa o OCR local e tem custo R$ 0,00.</p>
+                <div className="space-y-2 border-t border-border pt-3">
+                  <p className="text-xs font-medium text-muted-foreground">Outras opções · somente por escolha manual</p>
+                  <div className="flex flex-col gap-2 sm:flex-row">
+                    <Button variant="outline" className="gap-2" disabled={loading} onClick={() => void processFileFast(pendingFile)}>
+                      <ScanLine className="h-4 w-4" /> Ler gratuitamente
+                    </Button>
+                    <Button variant="ghost" disabled={loading} onClick={() => setAiConfirmOpen(true)}>
+                      ✨ Ler com IA
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground"><span>A leitura gratuita usa o OCR local e tem custo R$ 0,00.</span> “Ler com IA” é opcional e pode consumir créditos. Nenhuma opção é acionada automaticamente se o Gemma falhar.</p>
+                </div>
               </div>
             )}
             <p className="text-xs text-muted-foreground flex items-start gap-2">

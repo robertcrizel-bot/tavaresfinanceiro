@@ -16,3 +16,7 @@ SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZS
 # Extra CORS origins appended to the built-in allowlist (production domain +
 # local dev origins), comma separated. Never "*".
 ALLOWED_ORIGINS = ""
+
+[observability]
+enabled = true
+head_sampling_rate = 1

@@ -5,6 +5,7 @@ import {
   resetLocalReceiptModelState,
   runLocalReceiptModel,
 } from "@/lib/local-receipt-ai";
+import { releaseIdleLocalReceiptModel } from "@/lib/local-receipt-ai/model";
 
 interface FakeWorker {
   postMessage: (message: { id: number; prompt: string }) => void;
@@ -38,6 +39,17 @@ describe("runLocalReceiptModel", () => {
 
   it("keeps max_new_tokens aggressively low for short receipt JSON", () => {
     expect(LOCAL_RECEIPT_MAX_NEW_TOKENS).toBeLessThanOrEqual(384);
+  });
+
+  it("releases an idle cached model but never interrupts an active request", async () => {
+    const { worker, calls } = stubWorker();
+    const pending = runLocalReceiptModel("synthetic", undefined, { createWorker: () => worker as unknown as Worker });
+    expect(releaseIdleLocalReceiptModel()).toBe(false);
+    expect(worker.terminate).not.toHaveBeenCalled();
+    respond(worker, calls[0].id, { type: "result", text: "{}", backend: "wasm", initializationMs: 0, inferenceMs: 0, totalMs: 0 });
+    await pending;
+    expect(releaseIdleLocalReceiptModel()).toBe(true);
+    expect(worker.terminate).toHaveBeenCalledTimes(1);
   });
 
   it("resolves with model output and keeps the worker alive for the next run", async () => {

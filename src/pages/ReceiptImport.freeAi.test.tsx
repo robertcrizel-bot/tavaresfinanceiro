@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ReceiptImport from "@/pages/ReceiptImport";
 
@@ -66,6 +66,7 @@ vi.mock("@/components/TransactionForm", () => ({
 const FREE_BUTTON = /Ler com IA grátis \(teste\)/;
 const PAID_BUTTON = /Ler com IA$/;
 
+
 function freeParsedReceipt(overrides: Record<string, unknown> = {}) {
   return {
     is_receipt: true,
@@ -116,6 +117,31 @@ describe("ReceiptImport free external AI reader (test)", () => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
   });
+
+describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (provider) => {
+  it("sends one request for ten rapid confirmations and permits retry after failure", async () => {
+    mocks.getFreeAiStatus.mockResolvedValue({ state: "available" });
+    const parse = provider === "free" ? mocks.parseReceiptFree : mocks.parseReceipt;
+    let reject!: (error: Error) => void;
+    parse.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
+    selectFile();
+    fireEvent.click(await screen.findByRole("button", { name: provider === "free" ? FREE_BUTTON : PAID_BUTTON }));
+    const confirmationName = provider === "free" ? "Continuar gr\u00e1tis" : "Continuar com IA";
+    const confirmation = await screen.findByRole("button", { name: confirmationName });
+    act(() => { for (let i = 0; i < 10; i++) fireEvent.click(confirmation); });
+    expect(parse).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Lendo o comprovante...")).toBeInTheDocument();
+    await act(async () => { reject(new Error("Synthetic read failure")); });
+    expect(await screen.findByText("Synthetic read failure")).toBeInTheDocument();
+    expect(provider === "free" ? mocks.parseReceipt : mocks.parseReceiptFree).not.toHaveBeenCalled();
+    parse.mockResolvedValueOnce(freeParsedReceipt());
+    fireEvent.click(screen.getByRole("button", { name: provider === "free" ? FREE_BUTTON : PAID_BUTTON }));
+    fireEvent.click(await screen.findByRole("button", { name: confirmationName }));
+    expect(await screen.findByTestId("review-form")).toBeInTheDocument();
+    expect(parse).toHaveBeenCalledTimes(2);
+  });
+});
+
 
   it("shows an explicit unavailable status while the integration is not configured", async () => {
     mocks.getFreeAiStatus.mockResolvedValue({ state: "unavailable" });

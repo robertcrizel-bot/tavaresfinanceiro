@@ -20,6 +20,14 @@ function request(body: unknown = { imageDataUrl: "data:image/jpeg;base64,YWJj", 
   }, body: JSON.stringify(body) });
 }
 describe("authenticated Workers AI reader (local regression tests)", () => {
+  it("exposes only deployment metadata without authentication or inference", async () => {
+    const { env, auth, run } = setup();
+    const response = await createPocHandler({ ...env, BUILD_COMMIT: "test-commit" }, auth as typeof fetch)(new Request("https://poc.invalid/version"));
+    expect(await response.json()).toEqual({ commit: "test-commit", model: MODEL, maxCompletionTokens: 2048 });
+    expect(response.headers.get("Cache-Control")).toBe("no-store");
+    expect(auth).not.toHaveBeenCalled();
+    expect(run).not.toHaveBeenCalled();
+  });
   it("passes image to Gemma and preserves the financial response contract", async () => {
     const { handle, run, auth } = setup();
     const response = await handle(request());

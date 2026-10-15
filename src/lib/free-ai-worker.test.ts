@@ -318,6 +318,32 @@ describe("financecontrol-gemini-free worker", () => {
     expect(response.status).toBe(405);
   });
 
+  it("exposes a default fetch handler that logs only sanitized request facts", async () => {
+    const backend = fakeBackend();
+    vi.stubGlobal("fetch", backend.fetchImpl);
+    const printed: string[] = [];
+    const originalLog = console.log;
+    console.log = (...args: unknown[]) => {
+      printed.push(args.map(String).join(" "));
+    };
+    try {
+      const worker = (await import("../../cloudflare/financecontrol-gemini-free/src/index")).default;
+      const response = await worker.fetch(postRequest({ Origin: PRODUCTION_ORIGIN }), ENV);
+      expect(response.status).toBe(200);
+    } finally {
+      console.log = originalLog;
+      vi.unstubAllGlobals();
+    }
+
+    expect(printed).toHaveLength(1);
+    const entry = JSON.parse(printed[0]);
+    expect(entry).toMatchObject({ scope: "worker", method: "POST", status: 200 });
+    expect(typeof entry.ms).toBe("number");
+    expect(printed[0]).not.toContain(GEMINI_API_KEY);
+    expect(printed[0]).not.toContain("valid-token");
+    expect(printed[0]).not.toContain("Y29ycmVjdGVk");
+  });
+
   it("caps the token length accepted by the auth verifier", async () => {
     const backend = fakeBackend();
     expect(

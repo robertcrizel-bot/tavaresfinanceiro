@@ -1,6 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ReceiptImport from "@/pages/ReceiptImport";
+import { isAppBusy } from "@/lib/app-update";
 import { fonsecaRegions } from "@/lib/ocr-paddle-test/__fixtures__/fonseca.fixture";
 
 const mocks = vi.hoisted(() => ({
@@ -249,7 +250,7 @@ describe("ReceiptImport metadata", () => {
 
     expect(inputs).toHaveLength(1);
     expect(input).toBeDefined();
-    expect(input.accept).toBe("image/*,application/pdf");
+    expect(input.accept.split(",")).toEqual(["image/jpeg", "image/png", "image/webp", "application/pdf"]);
     expect(input).not.toHaveAttribute("capture");
 
     fireEvent.change(input, { target: { files: [file] } });
@@ -326,6 +327,44 @@ describe("ReceiptImport metadata", () => {
     const hint = screen.getByTestId("receipt-picker-hint");
     expect(hint).toHaveTextContent(/Tirar foto/);
     expect(hint).toHaveTextContent(/seletor do Android/);
+  });
+
+  it("releases the picker lock on native cancel without reading or losing the selected file", async () => {
+    const { container } = render(<ReceiptImport />);
+    const input = container.querySelector('input[type="file"]')!;
+    fireEvent.click(screen.getByRole("button", { name: "Escolher arquivo" }));
+    expect(isAppBusy()).toBe(true);
+    fireEvent(input, new Event("cancel", { bubbles: true }));
+    expect(isAppBusy()).toBe(false);
+    const file = new File(["synthetic"], "keep.jpg", { type: "image/jpeg" });
+    fireEvent.change(input, { target: { files: [file] } });
+    fireEvent.click(screen.getByRole("button", { name: "Escolher arquivo" }));
+    fireEvent(input, new Event("cancel", { bubbles: true }));
+    expect(screen.getByText("keep.jpg")).toBeInTheDocument();
+    expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+  });
+
+  it("handles focus/pageshow without a change event and never starts a read on return", async () => {
+    render(<ReceiptImport />);
+    fireEvent.click(screen.getByRole("button", { name: "Escolher arquivo" }));
+    expect(isAppBusy()).toBe(true);
+    fireEvent.focus(window);
+    fireEvent(window, new Event("pageshow"));
+    await waitFor(() => expect(isAppBusy()).toBe(false));
+    expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+  });
+
+  it("stops the internal camera when the page is hidden", async () => {
+    const { track } = installCamera();
+    render(<ReceiptImport />);
+    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    await waitFor(() => expect(screen.getByTestId("receipt-camera-video")).toBeInTheDocument());
+    fireEvent(window, new Event("pagehide"));
+    expect(track.stop).toHaveBeenCalled();
+    expect(screen.queryByTestId("receipt-camera-video")).not.toBeInTheDocument();
+    expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
   });
 
   it("opens the internal rear camera without a capture input", async () => {

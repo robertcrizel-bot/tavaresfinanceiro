@@ -1,11 +1,13 @@
 import { resolveAllowedOrigins, verifySupabaseUser, type Env } from "../financecontrol-gemini-free/src/index";
 import {
   buildFreeReceiptInstruction, createFreeAiHandler, FREE_AI_MESSAGES,
-  FreeAiError, parseGeminiJsonText, parseImageDataUrl, type FreeAiRateBucket,
+  FreeAiError, parseImageDataUrl, type FreeAiRateBucket,
 } from "../../supabase/functions/parse-receipt-free/lib";
+import { GEMMA_MAX_COMPLETION_TOKENS, parseGemmaResponse } from "./response";
 
 export const MODEL = "@cf/google/gemma-4-26b-a4b-it";
 export interface PocEnv extends Omit<Env, "GEMINI_API_KEY"> {
+  BUILD_COMMIT?: string;
   AI?: { run(model: string, input: Record<string, unknown>): Promise<unknown> };
 }
 const buckets = new Map<string, FreeAiRateBucket>();
@@ -19,10 +21,10 @@ export async function runGemma(env: PocEnv, instruction: string, imageDataUrl: s
     ] }],
     stream: false,
     temperature: 0,
-    max_completion_tokens: 2048,
+    max_completion_tokens: GEMMA_MAX_COMPLETION_TOKENS,
     response_format: { type: "json_object" },
     store: false,
-  }) as { choices?: { message?: { content?: unknown } }[]; usage?: unknown };
+  });
 }
 
 /** Gemma provider: reuse the verified Supabase user, CORS, limits, prompt and
@@ -49,14 +51,18 @@ export function createPocHandler(env: PocEnv, authFetch: typeof fetch = fetch) {
           cloudflareCode: typeof failure?.code === "number" ? failure.code : undefined });
         throw new FreeAiError(status, status === 429 ? FREE_AI_MESSAGES.quotaExceeded : FREE_AI_MESSAGES.unavailable);
       }
-      const text = output?.choices?.[0]?.message?.content;
-      if (typeof text !== "string") throw new FreeAiError(422, FREE_AI_MESSAGES.unreadable);
-      return parseGeminiJsonText(text);
+      return parseGemmaResponse(output, input.log);
     },
   });
-  return (request: Request) => new URL(request.url).pathname === "/"
-    ? handle(request)
-    : Promise.resolve(new Response(null, { status: 404 }));
+  return (request: Request) => {
+    const path = new URL(request.url).pathname;
+    if (path === "/version" && request.method === "GET") {
+      return Promise.resolve(Response.json({ commit: env.BUILD_COMMIT ?? "development",
+        model: MODEL, maxCompletionTokens: GEMMA_MAX_COMPLETION_TOKENS },
+      { headers: { "Cache-Control": "no-store" } }));
+    }
+    return path === "/" ? handle(request) : Promise.resolve(new Response(null, { status: 404 }));
+  };
 }
 
 export default {
