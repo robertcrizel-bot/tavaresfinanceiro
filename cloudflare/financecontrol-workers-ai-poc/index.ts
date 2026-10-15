@@ -21,6 +21,7 @@ export async function runGemma(env: PocEnv, instruction: string, imageDataUrl: s
     ] }],
     stream: false,
     temperature: 0,
+    chat_template_kwargs: { enable_thinking: false },
     max_completion_tokens: GEMMA_MAX_COMPLETION_TOKENS,
     response_format: { type: "json_object" },
     store: false,

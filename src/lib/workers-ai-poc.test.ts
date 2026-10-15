@@ -35,6 +35,7 @@ describe("authenticated Workers AI reader (local regression tests)", () => {
     expect(await response.json()).toMatchObject({ amount: 12.34, payment_method: "Pix", date: "2026-10-14", purchased_items: [] });
     expect(auth).toHaveBeenCalledTimes(1);
     expect(run).toHaveBeenCalledWith(MODEL, expect.objectContaining({ store: false, stream: false,
+      chat_template_kwargs: { enable_thinking: false }, max_completion_tokens: 2048,
       messages: [expect.objectContaining({ content: [expect.objectContaining({ type: "text" }),
         { type: "image_url", image_url: { url: "data:image/jpeg;base64,YWJj" } }] })] }));
   });
