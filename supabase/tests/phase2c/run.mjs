@@ -135,7 +135,7 @@ try {
   const [{ operation_version: version }] = await sql`select operation_version from public.credit_card_invoices where id=${invoice}`;
   const closeKey = randomUUID();
   const close = (tx,k=closeKey,v=version,restore=[tx2],exclude=[]) => tx`
-    select public.close_credit_card_invoice_atomic(${k},${invoice},${v},null,${tx.array(exclude,'uuid')},null,${tx.array(restore,'uuid')}) as result`.then(x=>x[0].result);
+    select public.close_credit_card_invoice_atomic(${k},${invoice},${v},null,${tx.array(exclude,2950)}::uuid[],null,${tx.array(restore,2950)}::uuid[]) as result`.then(x=>x[0].result);
   await test('failed close restores moved transactions, obligations and invoice states',()=>mustRollback(
     ()=>asUser(own,tx=>close(tx),'close'),/Injected failure/));
   await test('invalid IDs and overlapping restore/exclude selections roll back',async()=>{
@@ -171,6 +171,69 @@ try {
     assert.equal(await cash(),before-200);
     await asUser(own,tx=>tx`select public.reverse_credit_card_invoice_payment(${invoice})`);
     assert.equal(await cash(),before);
+  });
+  await test('scoped future/month precedence, inactive forecasts and unknown legacy type',async()=>{
+    const scoped = randomUUID();
+    await sql`insert into public.recurring_bills(id,user_id,name,amount,category,start_date,type,scoped_edits)
+      values (${scoped},${own},'Scoped',10,'Outros','2026-01-01','expense',${sql.json({
+        future:[{from:'2026-08',values:{amount:20,type:'income'}}],
+        months:{'2026-10':{amount:30,type:'expense'}},deletedMonths:{'2026-12':true},deletedFrom:'2027-02',
+      })})`;
+    for (const [month,amount,type] of [['2026-07',10,'expense'],['2026-09',20,'income'],['2026-10',30,'expense']]) {
+      const result = await asUser(own,tx=>mark(tx,randomUUID(),scoped,month));
+      const [t] = await sql`select amount,type from public.transactions where id=${result.transaction_id}`;
+      assert.equal(Number(t.amount),amount); assert.equal(t.type,type);
+    }
+    for (const month of ['2025-12','2026-12','2027-02'])
+      await mustRollback(()=>asUser(own,tx=>mark(tx,randomUUID(),scoped,month)),/inactive/);
+    await sql`update public.recurring_bills set type=null,scoped_edits='{}' where id=${scoped}`;
+    await mustRollback(()=>asUser(own,tx=>mark(tx,randomUUID(),scoped,'2027-01')),/forecast type/);
+  });
+  await test('legacy null/shared links fail closed without deleting financial records',async()=>{
+    const nullId = randomUUID(), sharedId = randomUUID();
+    const [existing] = await sql`select transaction_id from public.bill_payments where recurring_bill_id=${bill} and reference_month='2026-10'`;
+    await sql`insert into public.bill_payments(id,user_id,recurring_bill_id,reference_month,transaction_id) values
+      (${nullId},${own},${bill},'2027-03',null),(${sharedId},${own},${bill},'2027-04',${existing.transaction_id})`;
+    await mustRollback(()=>asUser(own,tx=>unmark(tx,randomUUID(),bill,nullId,'2027-03')),/link invalid/);
+    await mustRollback(()=>asUser(own,tx=>unmark(tx,randomUUID(),bill,sharedId,'2027-04')),/reconciliation/);
+    await sql`delete from public.bill_payments where id in (${nullId},${sharedId})`;
+  });
+  async function invoiceCase(amount,type='expense') {
+    const cardId=randomUUID(), transactionId=randomUUID();
+    await sql`insert into public.credit_cards(id,user_id,name,bank,closing_day,due_day) values (${cardId},${own},'Case','Test',10,20)`;
+    await asUser(own,tx=>tx`insert into public.transactions(id,user_id,title,amount,type,category,date,payment_method,credit_card_id,is_paid)
+      values (${transactionId},${own},'Case',${amount},${type},'Outros','2026-09-05','Cartão de Crédito',${cardId},true)`);
+    const [i] = await sql`select i.* from public.credit_card_invoices i join public.transactions t on t.credit_card_invoice_id=i.id where t.id=${transactionId}`;
+    return {i,transactionId,cardId};
+  }
+  await test('foreign card and real HTTP close permissions',async()=>{
+    const foreignCard=randomUUID();
+    await sql`insert into public.credit_cards(id,user_id,name,bank) values (${foreignCard},${other},'Foreign','Test')`;
+    await mustRollback(()=>asUser(own,tx=>mark(tx,randomUUID(),bill,'2027-01',{
+      creditCardId:foreignCard,accountId:null,paymentMethod:'Cartão de Crédito',
+    })),/Card not found/);
+    const {i} = await invoiceCase(10);
+    const request={p_operation_id:randomUUID(),p_invoice_id:i.id,p_expected_version:i.operation_version};
+    for (const api of [anonApi,otherApi]) await mustRollback(()=>ok(api.rpc('close_credit_card_invoice_atomic',request)));
+    const results=await Promise.all([1,2].map(()=>ok(ownerApi.rpc('close_credit_card_invoice_atomic',request))));
+    assert.deepEqual(results[0],results[1]); assert.equal(Number(results[0].total),10);
+    await mustRollback(()=>ok(ownerApi.rpc('close_credit_card_invoice_atomic',{...request,p_operation_id:randomUUID()})));
+  });
+  await test('all exclusions preserve empty target; refund carries credit without cash debit',async()=>{
+    for (const type of ['expense','income']) {
+      const {i,transactionId,cardId}=await invoiceCase(25,type);
+      const result=await ok(ownerApi.rpc('close_credit_card_invoice_atomic',{
+        p_operation_id:randomUUID(),p_invoice_id:i.id,p_expected_version:i.operation_version,
+        p_exclude_transaction_ids:type==='expense'?[transactionId]:[],
+      }));
+      assert.equal(Number(result.total),type==='expense'?0:-25); assert.equal(result.obligation_id,null);
+      assert.equal((await sql`select status from public.credit_card_invoices where id=${i.id}`)[0].status,'PAID');
+      assert.equal((await sql`select count(*)::int n from public.transactions where credit_card_id=${cardId} and account_id is not null`)[0].n,0);
+      if(type==='income') {
+        const [credit]=await sql`select amount from public.transactions where credit_card_id=${cardId} and financial_kind='manual_adjustment'`;
+        assert.equal(Number(credit.amount),25);
+      }
+    }
   });
   console.log(`${checks} checks passed on full disposable Supabase: PostgreSQL, Auth, PostgREST and RLS.`);
 } finally { await sql.end({ timeout: 2 }); }
