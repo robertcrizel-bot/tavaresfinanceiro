@@ -86,7 +86,15 @@ Supabase completo descartável. A suíte real importa o mesmo executor de
 intenções usado pelo frontend e acrescenta três casos: resposta HTTP perdida
 após commit de marcar, desmarcar e fechar, seguida de recuperação/reload.
 Não usa o bootstrap PostgreSQL com mocks nem arquivos de ambiente de produção.
-O resultado final de CI e build será registrado após a execução.
+
+**Resultado final aprovado:** [CI completo](https://github.com/robertcrizel-bot/tavaresfinanceiro/actions/runs/38925659893),
+commit de código `12098e460d8384c479d18b1d6b2bf70f75f49397`.
+19 grupos reais de integração, 1.387 testes/78 arquivos, TypeScript app/node
+e build aprovados. Build também passou localmente; revisão de diff aprovada.
+Avisos preexistentes de act(), React Router, Browserslist, externalização de
+módulos Node/OpenCV e tamanho de chunks não impediram a validação.
+Este registro posterior modifica somente documentação e não repete os testes
+de código já aprovados.
 
 ## Sequência proposta — ainda exige autorização
 
