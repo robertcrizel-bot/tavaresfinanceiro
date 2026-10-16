@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { randomUUID } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { createClient } from '@supabase/supabase-js';
+import { executeFinancialIntent,resumeFinancialIntents } from '../../../src/lib/financial-intents.ts';
 
 // Status comes only from `supabase status` in an unlinked runner-temp project.
 assert.ok(process.env.PHASE2C_STATUS_FILE,'Disposable Supabase status file required');
@@ -235,5 +236,42 @@ try {
       }
     }
   });
-  console.log(`${checks} checks passed on full disposable Supabase: PostgreSQL, Auth, PostgREST and RLS.`);
+  const durable = new Map();
+  const environment = () => ({
+    storage:{get length(){return durable.size;},key:i=>[...durable.keys()][i]??null,
+      getItem:k=>durable.get(k)??null,setItem:(k,v)=>durable.set(k,v),removeItem:k=>durable.delete(k)},
+    uuid:randomUUID,lock:async(_key,task)=>task(),
+  });
+  const httpRpc=async(name,args)=>ownerApi.rpc(name,args);
+  const loseResponse=async(name,args)=>{const response=await httpRpc(name,args);assert.equal(response.error,null);throw Error('Committed response lost');};
+  await test('frontend persisted mark survives lost HTTP response and reload without duplication',async()=>{
+    const args={p_bill_id:bill,p_reference_month:'2028-01',p_overrides:{}};
+    await assert.rejects(()=>executeFinancialIntent(environment(),own,'recovery-mark','mark_forecast_payment',args,loseResponse),/Committed response lost/);
+    const [before]=await sql`select transaction_id from public.bill_payments where recurring_bill_id=${bill} and reference_month='2028-01'`;
+    assert.equal(durable.size,1);
+    const result=await executeFinancialIntent(environment(),own,'recovery-mark','mark_forecast_payment',args,httpRpc);
+    assert.equal(result.transaction_id,before.transaction_id);assert.equal(durable.size,0);
+    assert.equal((await sql`select count(*)::int n from public.bill_payments where recurring_bill_id=${bill} and reference_month='2028-01'`)[0].n,1);
+  });
+  await test('frontend resumes lost unmark response even when payment has disappeared from refreshed UI',async()=>{
+    const [payment]=await sql`select id from public.bill_payments where recurring_bill_id=${bill} and reference_month='2028-01'`;
+    const args={p_bill_id:bill,p_payment_id:payment.id,p_reference_month:'2028-01'};
+    await assert.rejects(()=>executeFinancialIntent(environment(),own,'recovery-unmark','unmark_forecast_payment',args,loseResponse));
+    assert.equal((await sql`select count(*)::int n from public.bill_payments where id=${payment.id}`)[0].n,0);
+    assert.equal(await resumeFinancialIntents(environment(),own,['unmark_forecast_payment'],httpRpc),1);
+    assert.equal(durable.size,0);
+  });
+  await test('frontend replays original close version after lost response with one obligation',async()=>{
+    const {i}=await invoiceCase(15);
+    const args={p_invoice_id:i.id,p_expected_version:i.operation_version,p_restore_transaction_ids:[],p_exclude_transaction_ids:[]};
+    await assert.rejects(()=>executeFinancialIntent(environment(),own,'recovery-close','close_credit_card_invoice_atomic',args,loseResponse));
+    const [updated]=await sql`select operation_version from public.credit_card_invoices where id=${i.id}`;
+    assert.notEqual(updated.operation_version,i.operation_version);
+    const result=await executeFinancialIntent(environment(),own,'recovery-close','close_credit_card_invoice_atomic',{
+      ...args,p_expected_version:updated.operation_version,
+    },httpRpc);
+    assert.equal(Number(result.total),15);assert.equal(durable.size,0);
+    assert.equal((await sql`select count(*)::int n from public.transactions where credit_card_invoice_id=${i.id} and financial_kind='card_invoice_obligation'`)[0].n,1);
+  });
+  console.log(`${checks} checks passed on full disposable Supabase: PostgreSQL, Auth, PostgREST, RLS and frontend intent recovery.`);
 } finally { await sql.end({ timeout: 2 }); }

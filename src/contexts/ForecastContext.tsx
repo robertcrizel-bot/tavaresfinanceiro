@@ -3,6 +3,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useFinance } from "@/contexts/FinanceContext";
 import { toast } from "@/hooks/use-toast";
+import { runFinancialOperation } from "@/lib/financial-rpc";
+import { useFinancialRecovery } from "@/hooks/use-financial-recovery";
 import type { Json } from "@/integrations/supabase/types";
 import {
   applyRecurringBillEdit,
@@ -45,7 +47,7 @@ export const useForecast = () => {
 
 export const ForecastProvider = ({ children }: { children: React.ReactNode }) => {
   const { user } = useAuth();
-  const { addTransaction, refetch: refetchTransactions } = useFinance();
+  const { refetch: refetchTransactions } = useFinance();
   const [bills, setBills] = useState<RecurringBill[]>([]);
   const [payments, setPayments] = useState<BillPayment[]>([]);
   const paymentsRef = useRef<BillPayment[]>([]);
@@ -140,116 +142,47 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
     else { toast({ title: "Previsão excluída", variant: "destructive" }); fetchData(); }
   }, [bills, fetchData]);
 
+  const financialFailure = useFinancialRecovery(user?.id, ["mark_forecast_payment", "unmark_forecast_payment"], async () => {
+    await Promise.all([fetchData(), refetchTransactions()]);
+  });
+
   const markAsPaid = useCallback(async (bill: RecurringBill, referenceMonth: string, overrides?: { amount?: number; date?: string; paymentMethod?: string; accountId?: string | null; creditCardId?: string | null; description?: string | null; }) => {
     if (!user) return;
-    const key = `${user.id}:${bill.id}:${referenceMonth}`;
+    const key = `forecast:${bill.id}:${referenceMonth}`;
     if (paymentOperations.current.has(key)) return;
-    if (paymentsRef.current.some(p => p.recurringBillId === bill.id && p.referenceMonth === referenceMonth)) {
-      toast({ title: "Pagamento já registrado", description: "Atualize os dados para conferir o pagamento existente." });
-      return;
-    }
     paymentOperations.current.add(key);
-    let writeStarted = false;
     try {
-      let dateStr: string;
-      if (overrides?.date) {
-        dateStr = overrides.date;
-      } else {
-        const [year, month] = referenceMonth.split("-").map(Number);
-        const dueDate = new Date(year, month - 1, bill.dueDay);
-        dateStr = dueDate.toISOString().split("T")[0];
-      }
-
-      // When paying with a credit card, the transaction should not have an account_id
-      // because the payment is made via credit card (the account will be debited when the invoice is paid)
-      const isCreditCardPayment = overrides?.creditCardId !== undefined && overrides.creditCardId !== null;
-      const accountId = isCreditCardPayment ? null : (overrides?.accountId !== undefined ? overrides.accountId : bill.accountId);
-
-      // Create a real transaction
-      writeStarted = true;
-      const { data: txData, error: txError } = await supabase.from("transactions").insert({
-        user_id: user.id,
-        title: bill.name,
-        amount: overrides?.amount ?? bill.amount,
-        type: bill.type,
-        category: bill.category,
-        date: dateStr,
-        description: overrides?.description ?? (bill.description || (bill.type === "income" ? `Recebimento de ${bill.name}` : `Pagamento de ${bill.name}`)),
-        payment_method: overrides?.paymentMethod ?? "Transferência",
-        account_id: accountId,
-        credit_card_id: overrides?.creditCardId ?? null,
-        is_paid: true,
-      }).select("id").single();
-
-      if (txError || !txData?.id) {
-        toast({ title: bill.type === "income" ? "Erro ao registrar recebimento" : "Erro ao registrar pagamento", description: txError?.message ?? "O lançamento não foi confirmado. Confira os registros antes de tentar novamente.", variant: "destructive" });
-        return;
-      }
-
-      // Record the payment
-      const { error } = await supabase.from("bill_payments").insert({
-        user_id: user.id,
-        recurring_bill_id: bill.id,
-        reference_month: referenceMonth,
-        transaction_id: txData.id,
+      await runFinancialOperation(user.id,key,"mark_forecast_payment",{
+        p_bill_id:bill.id,p_reference_month:referenceMonth,p_overrides:overrides ?? {},
       });
-
-      if (error) {
-        toast({ title: bill.type === "income" ? "Erro ao marcar como recebido" : "Erro ao marcar como pago", description: `${error.message} O lançamento pode ter sido criado. Confira os registros antes de tentar novamente.`, variant: "destructive" });
-      } else {
-        toast({ title: bill.type === "income" ? "Recebimento registrado!" : "Conta paga!", description: `${bill.name} — ${referenceMonth}` });
-      }
-    } catch {
-      toast({ title: "Não foi possível confirmar o pagamento", description: "Confira os registros antes de tentar novamente. A operação pode ter sido gravada parcialmente.", variant: "destructive" });
-    } finally {
-      try {
-        if (writeStarted) await Promise.all([fetchData(), refetchTransactions()]);
-      } catch {
-        toast({ title: "Erro ao atualizar os dados", description: "Recarregue os registros antes de tentar novamente.", variant: "destructive" });
-      } finally {
-        paymentOperations.current.delete(key);
-      }
+      toast({title:bill.type === "income" ? "Recebimento registrado!" : "Conta paga!"});
+    } catch(error) { financialFailure("Não foi possível confirmar o pagamento",error); }
+    finally {
+      try { await Promise.all([fetchData(),refetchTransactions()]); }
+      catch(error) { financialFailure("Erro ao atualizar os dados",error); }
+      finally { paymentOperations.current.delete(key); }
     }
-  }, [user, fetchData, refetchTransactions]);
+  },[user,fetchData,refetchTransactions,financialFailure]);
 
   const unmarkAsPaid = useCallback(async (paymentId: string) => {
     if (!user) return;
-    // Find the payment to get transaction_id
-    const payment = payments.find(p => p.id === paymentId);
-    const bill = payment ? bills.find(b => b.id === payment.recurringBillId) : null;
-    if (!payment?.transactionId) {
-      toast({ title: "Erro ao desmarcar", description: "Pagamento ou lançamento vinculado não encontrado. Atualize os dados e confira os registros.", variant: "destructive" });
-      return;
-    }
-    const key = `${user.id}:${payment.recurringBillId}:${payment.referenceMonth}`;
+    const payment = paymentsRef.current.find(p=>p.id===paymentId);
+    if (!payment) { financialFailure("Pagamento não encontrado",new Error("Atualize os dados antes de desmarcar.")); return; }
+    const key = `forecast:${payment.recurringBillId}:${payment.referenceMonth}`;
     if (paymentOperations.current.has(key)) return;
     paymentOperations.current.add(key);
     try {
-      // Confirm deletion before removing the link; this is still not atomic.
-      const { data: deletedTransactions, error: transactionError } = await supabase.from("transactions").delete().eq("id", payment.transactionId).select("id");
-      if (transactionError || deletedTransactions?.length !== 1) {
-        toast({ title: "Erro ao desmarcar", description: transactionError?.message ?? "A exclusão do lançamento não foi confirmada. O vínculo foi preservado.", variant: "destructive" });
-        return;
-      }
-
-      const { data: deletedPayments, error } = await supabase.from("bill_payments").delete().eq("id", paymentId).select("id");
-      if (error || deletedPayments?.length !== 1) {
-        toast({ title: "Erro ao desmarcar", description: `${error?.message ?? "A exclusão do pagamento não foi confirmada."} O lançamento foi excluído; confira os registros antes de tentar novamente.`, variant: "destructive" });
-      } else {
-        toast({ title: bill?.type === "income" ? "Recebimento desmarcado" : "Pagamento desmarcado" });
-      }
-    } catch {
-      toast({ title: "Erro ao desmarcar", description: "Não foi possível confirmar o desfazimento. Confira os registros; pode haver alteração parcial.", variant: "destructive" });
-    } finally {
-      try {
-        await Promise.all([fetchData(), refetchTransactions()]);
-      } catch {
-        toast({ title: "Erro ao atualizar os dados", description: "Recarregue os registros antes de tentar novamente.", variant: "destructive" });
-      } finally {
-        paymentOperations.current.delete(key);
-      }
+      await runFinancialOperation(user.id,key,"unmark_forecast_payment",{
+        p_bill_id:payment.recurringBillId,p_payment_id:paymentId,p_reference_month:payment.referenceMonth,
+      });
+      toast({title:"Pagamento desmarcado"});
+    } catch(error) { financialFailure("Não foi possível confirmar o desfazimento",error); }
+    finally {
+      try { await Promise.all([fetchData(),refetchTransactions()]); }
+      catch(error) { financialFailure("Erro ao atualizar os dados",error); }
+      finally { paymentOperations.current.delete(key); }
     }
-  }, [user, payments, bills, fetchData, refetchTransactions]);
+  },[user,fetchData,refetchTransactions,financialFailure]);
 
   return (
     <ForecastContext.Provider value={{ bills, payments, loading, addBill, updateBill, deleteBill, markAsPaid, unmarkAsPaid, refetch: fetchData }}>
