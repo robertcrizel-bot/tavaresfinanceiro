@@ -259,7 +259,7 @@ describe("mobile OCR values reach the TransactionForm", () => {
     const file = new File(["receipt"], "android-fonseca.jpg", { type: "image/jpeg" });
 
     fireEvent.change(input!, { target: { files: [file] } });
-    fireEvent.click(await screen.findByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(await findAlternativeButton("OCR local"));
 
     await waitFor(() =>
       expect(mocks.paddleRecognizeWorker).toHaveBeenCalledWith(file, expect.any(Function)),
@@ -288,3 +288,14 @@ describe("mobile OCR values reach the TransactionForm", () => {
     expect(description).toContain("BISC WAFER MINUETO 81GR CHOCOLATE 1UN — R$ 1,99");
   });
 });
+
+// Alternatives are manual: open the presentation disclosure before choosing one.
+function alternativeButton(name: string) {
+  const summary = screen.getByText(/Outros m\u00e9todos de leitura/);
+  if (!summary.closest("details")!.open) fireEvent.click(summary);
+  return screen.getByRole("button", { name });
+}
+async function findAlternativeButton(name: string) {
+  await screen.findByText(/Outros m\u00e9todos de leitura/);
+  return alternativeButton(name);
+}

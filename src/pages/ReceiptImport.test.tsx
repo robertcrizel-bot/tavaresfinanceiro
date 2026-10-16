@@ -218,11 +218,11 @@ describe("ReceiptImport metadata", () => {
     expect(input).not.toBeNull();
 
     fireEvent.change(input!, { target: { files: [file] } });
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    await waitFor(() => expect(alternativeButton("OCR local")).toBeInTheDocument());
     expect(mocks.paddleRecognize).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: "Confirmar importação" }));
 
@@ -255,11 +255,11 @@ describe("ReceiptImport metadata", () => {
 
     fireEvent.change(input, { target: { files: [file] } });
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    await waitFor(() => expect(alternativeButton("OCR local")).toBeInTheDocument());
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
 
     await waitFor(() =>
       expect(mocks.paddleRecognizeWorker).toHaveBeenCalledWith(file, expect.any(Function)),
@@ -276,12 +276,12 @@ describe("ReceiptImport metadata", () => {
 
     fireEvent.change(input!, { target: { files: [file] } });
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    await waitFor(() => expect(alternativeButton("OCR local")).toBeInTheDocument());
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: "⚡ Testar OCR rápido" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "📋 Copiar diagnóstico" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
     expect(mocks.prepareReceiptForLocalOcr).toHaveBeenCalledWith(file);
@@ -314,7 +314,7 @@ describe("ReceiptImport metadata", () => {
 
     fireEvent.change(input!, { target: { files: [file] } });
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    await waitFor(() => expect(alternativeButton("OCR local")).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: "Testar OCR local" })).not.toBeInTheDocument();
     expect(screen.queryByText("Resultado do OCR Local")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "🚀 Testar OCR híbrido" })).not.toBeInTheDocument();
@@ -322,23 +322,24 @@ describe("ReceiptImport metadata", () => {
     expect(screen.queryByTestId("hybrid-ocr-crop-previews")).not.toBeInTheDocument();
   });
 
-  it("warns about the external Android picker and points to the in-app camera", async () => {
+  it("shows short file and camera instructions", async () => {
     render(<ReceiptImport />);
     const hint = screen.getByTestId("receipt-picker-hint");
     expect(hint).toHaveTextContent(/Tirar foto/);
-    expect(hint).toHaveTextContent(/seletor do Android/);
+    expect(hint).toHaveTextContent(/imagem ou PDF/);
+    expect(hint).not.toHaveTextContent(/Android/);
   });
 
   it("releases the picker lock on native cancel without reading or losing the selected file", async () => {
     const { container } = render(<ReceiptImport />);
     const input = container.querySelector('input[type="file"]')!;
-    fireEvent.click(screen.getByRole("button", { name: "Galeria/arquivo" }));
+    fireEvent.click(screen.getByRole("button", { name: /Galeria\/arquivo|Trocar arquivo/ }));
     expect(isAppBusy()).toBe(true);
     fireEvent(input, new Event("cancel", { bubbles: true }));
     expect(isAppBusy()).toBe(false);
     const file = new File(["synthetic"], "keep.jpg", { type: "image/jpeg" });
     fireEvent.change(input, { target: { files: [file] } });
-    fireEvent.click(screen.getByRole("button", { name: "Galeria/arquivo" }));
+    fireEvent.click(screen.getByRole("button", { name: /Galeria\/arquivo|Trocar arquivo/ }));
     fireEvent(input, new Event("cancel", { bubbles: true }));
     expect(screen.getByText("keep.jpg")).toBeInTheDocument();
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
@@ -347,7 +348,7 @@ describe("ReceiptImport metadata", () => {
 
   it("handles focus/pageshow without a change event and never starts a read on return", async () => {
     render(<ReceiptImport />);
-    fireEvent.click(screen.getByRole("button", { name: "Galeria/arquivo" }));
+    fireEvent.click(screen.getByRole("button", { name: /Galeria\/arquivo|Trocar arquivo/ }));
     expect(isAppBusy()).toBe(true);
     fireEvent.focus(window);
     fireEvent(window, new Event("pageshow"));
@@ -359,7 +360,7 @@ describe("ReceiptImport metadata", () => {
   it("stops the internal camera when the page is hidden", async () => {
     const { track } = installCamera();
     render(<ReceiptImport />);
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     await waitFor(() => expect(screen.getByTestId("receipt-camera-video")).toBeInTheDocument());
     fireEvent(window, new Event("pagehide"));
     expect(track.stop).toHaveBeenCalled();
@@ -371,7 +372,7 @@ describe("ReceiptImport metadata", () => {
     const { getUserMedia } = installCamera();
     const { container } = render(<ReceiptImport />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
 
     await waitFor(() => expect(getUserMedia).toHaveBeenCalledWith({
       video: {
@@ -391,7 +392,7 @@ describe("ReceiptImport metadata", () => {
     installCamera();
     render(<ReceiptImport />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
 
     const frame = await screen.findByTestId("receipt-camera-frame");
     expect(frame.className).toContain("aspect-[3/4]");
@@ -409,7 +410,7 @@ describe("ReceiptImport metadata", () => {
     const { canvases, drawImage, toBlob } = installCameraCanvas();
     render(<ReceiptImport />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
     await waitFor(() => expect(video.srcObject).toBe(cameraStream));
     Object.defineProperty(video, "videoWidth", { configurable: true, value: 3840 });
@@ -417,7 +418,7 @@ describe("ReceiptImport metadata", () => {
     fireEvent.canPlay(video);
     fireEvent.click(screen.getByRole("button", { name: "Fotografar" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    await waitFor(() => expect(alternativeButton("OCR local")).toBeInTheDocument());
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
     // Landscape 3840x2160 cropped to the framed 3:4 window: 1620x2160 at x=1110,
@@ -429,7 +430,7 @@ describe("ReceiptImport metadata", () => {
     expect(canvases[0].width).toBe(0);
     expect(canvases[0].height).toBe(0);
 
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
     await waitFor(() => expect(mocks.paddleRecognizeWorker).toHaveBeenCalled());
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
   });
@@ -439,7 +440,7 @@ describe("ReceiptImport metadata", () => {
     const { drawImage } = installCameraCanvas();
     render(<ReceiptImport />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
     await waitFor(() => expect(video.srcObject).toBe(cameraStream));
     Object.defineProperty(video, "videoWidth", { configurable: true, value: 2160 });
@@ -447,7 +448,7 @@ describe("ReceiptImport metadata", () => {
     fireEvent.canPlay(video);
     fireEvent.click(screen.getByRole("button", { name: "Fotografar" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    await waitFor(() => expect(alternativeButton("OCR local")).toBeInTheDocument());
     // Portrait 2160x3840 cropped to 3:4: keeps width, trims top/bottom by 480px,
     // then downscales to 960x1280.
     expect(drawImage).toHaveBeenCalledWith(video, 0, 480, 2160, 2880, 0, 0, 960, 1280);
@@ -459,7 +460,7 @@ describe("ReceiptImport metadata", () => {
     const { drawImage } = installCameraCanvas();
     render(<ReceiptImport />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
     await waitFor(() => expect(video.srcObject).toBe(cameraStream));
     Object.defineProperty(video, "videoWidth", { configurable: true, value: 1200 });
@@ -467,7 +468,7 @@ describe("ReceiptImport metadata", () => {
     fireEvent.canPlay(video);
     fireEvent.click(screen.getByRole("button", { name: "Fotografar" }));
 
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    await waitFor(() => expect(alternativeButton("OCR local")).toBeInTheDocument());
     expect(drawImage).toHaveBeenCalledWith(video, 0, 0, 1200, 1600, 0, 0, 960, 1280);
   });
 
@@ -475,7 +476,7 @@ describe("ReceiptImport metadata", () => {
     const { cameraStream, track } = installCamera();
     const { unmount } = render(<ReceiptImport />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
     await waitFor(() => expect(video.srcObject).toBe(cameraStream));
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
@@ -496,7 +497,7 @@ describe("ReceiptImport metadata", () => {
     getUserMedia.mockReturnValueOnce(pendingStream);
     render(<ReceiptImport />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     fireEvent.click(await screen.findByRole("button", { name: "Cancelar" }));
     resolveStream!(cameraStream);
 
@@ -510,7 +511,7 @@ describe("ReceiptImport metadata", () => {
     const { cameraStream } = installCamera(stream);
     const { unmount } = render(<ReceiptImport />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
     await waitFor(() => expect(video.srcObject).toBe(cameraStream));
     unmount();
@@ -535,11 +536,11 @@ describe("ReceiptImport metadata", () => {
     mocks.prepareReceiptForLocalOcr.mockRejectedValueOnce(new Error("PDF indisponível"));
     const { container } = render(<ReceiptImport />);
     fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [file] } });
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
     expect(await screen.findByText("PDF indisponível")).toBeInTheDocument();
     expect(screen.getByText("retry.pdf")).toBeInTheDocument();
     expect(mocks.prepareReceiptForLocalOcr).toHaveBeenCalledWith(file);
-    expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeEnabled();
+    expect(alternativeButton("OCR local")).toBeEnabled();
   });
 
   it("invalidates a pending permission request when the document becomes hidden", async () => {
@@ -547,7 +548,7 @@ describe("ReceiptImport metadata", () => {
     let finish!: (stream: MediaStream) => void;
     getUserMedia.mockReturnValueOnce(new Promise<MediaStream>((resolve) => { finish = resolve; }));
     render(<ReceiptImport />);
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
     fireEvent(document, new Event("visibilitychange"));
     await act(async () => finish(cameraStream));
@@ -562,7 +563,7 @@ describe("ReceiptImport metadata", () => {
     fireEvent.change(container.querySelector('input[type="file"]')!, {
       target: { files: [new File(["old"], "saved.jpg", { type: "image/jpeg" })] },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
     await waitFor(() => expect(video.srcObject).toBe(cameraStream));
     fireEvent(window, new Event("pagehide"));
@@ -578,7 +579,7 @@ describe("ReceiptImport metadata", () => {
     let finish!: BlobCallback;
     const encode = vi.spyOn(HTMLCanvasElement.prototype, "toBlob").mockImplementation((callback) => { finish = callback; });
     const { unmount } = render(<ReceiptImport />);
-    const open = screen.getByRole("button", { name: "Tirar foto" });
+    const open = screen.getByRole("button", { name: /Tirar (?:nova )?foto/ });
     fireEvent.click(open);
     fireEvent.click(open);
     const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
@@ -594,11 +595,11 @@ describe("ReceiptImport metadata", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     unmount();
     render(<ReceiptImport />);
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     expect(getUserMedia).toHaveBeenCalledTimes(1);
     await act(async () => finish(new Blob(["late"], { type: "image/jpeg" })));
-    expect(screen.queryByRole("button", { name: "Ler gratuitamente" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    expect(screen.queryByRole("button", { name: "OCR local" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     await waitFor(() => expect(getUserMedia).toHaveBeenCalledTimes(2));
   });
 
@@ -610,7 +611,7 @@ describe("ReceiptImport metadata", () => {
     fireEvent.change(container.querySelector('input[type="file"]')!, {
       target: { files: [new File(["old"], "previous.pdf", { type: "application/pdf" })] },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
     await waitFor(() => expect(video.srcObject).toBe(cameraStream));
     Object.defineProperty(video, "videoWidth", { configurable: true, value: 1280 });
@@ -629,10 +630,10 @@ describe("ReceiptImport metadata", () => {
     getUserMedia.mockRejectedValueOnce(new DOMException("denied", "NotAllowedError"));
     render(<ReceiptImport />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
 
     expect(await screen.findByText("A permissão da câmera foi negada. Autorize o acesso ou use Galeria/arquivo.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Galeria/arquivo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Galeria\/arquivo|Trocar arquivo/ })).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
@@ -642,10 +643,10 @@ describe("ReceiptImport metadata", () => {
     vi.stubGlobal("navigator", mockedNavigator);
     render(<ReceiptImport />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
 
     expect(await screen.findByText("A câmera não está disponível neste navegador. Use Galeria/arquivo para enviar a foto.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Galeria/arquivo" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Galeria\/arquivo|Trocar arquivo/ })).toBeInTheDocument();
   });
 });
 
@@ -698,11 +699,11 @@ describe("Lovable AI receipt flow", () => {
     });
     const file = selectFile();
 
-    expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Ler com IA/ })).toBeInTheDocument();
-    expect(screen.getByText("A leitura gratuita usa o OCR local e tem custo R$ 0,00.")).toBeInTheDocument();
+    expect(alternativeButton("OCR local")).toBeInTheDocument();
+    expect(alternativeButton("IA do Lovable")).toBeInTheDocument();
+    expect(screen.queryByText(/custo R\$/)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /Ler com IA/ }));
+    fireEvent.click(alternativeButton("IA do Lovable"));
     expect(screen.getByText("Esta leitura utiliza a IA do Lovable e pode consumir seus créditos. Deseja continuar?")).toBeInTheDocument();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
@@ -710,7 +711,7 @@ describe("Lovable AI receipt flow", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: /Ler com IA/ }));
+    fireEvent.click(alternativeButton("IA do Lovable"));
     fireEvent.click(screen.getByRole("button", { name: "Continuar com IA" }));
 
     await waitFor(() => expect(mocks.parseReceipt).toHaveBeenCalledWith(file, {
@@ -738,13 +739,13 @@ describe("Lovable AI receipt flow", () => {
     mocks.parseReceipt.mockRejectedValueOnce(new Error("A leitura com IA falhou. Tente novamente."));
     selectFile();
 
-    fireEvent.click(screen.getByRole("button", { name: /Ler com IA/ }));
+    fireEvent.click(alternativeButton("IA do Lovable"));
     fireEvent.click(screen.getByRole("button", { name: "Continuar com IA" }));
 
     expect(await screen.findByText("A leitura com IA falhou. Tente novamente.")).toBeInTheDocument();
     expect(screen.getByText("comprovante-ia.jpg")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /Ler com IA/ })).toBeInTheDocument();
+    expect(alternativeButton("OCR local")).toBeInTheDocument();
+    expect(alternativeButton("IA do Lovable")).toBeInTheDocument();
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
   });
 });
@@ -775,10 +776,10 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
 
   it("clicking 'Ler gratuitamente' uses the PaddleOCR worker and never parseReceipt, passing the original file as attachment", async () => {
     const { file } = selectFile();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    await waitFor(() => expect(alternativeButton("OCR local")).toBeInTheDocument());
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
 
     await waitFor(() => expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument());
     expect(mocks.prepareReceiptForLocalOcr).toHaveBeenCalledWith(file);
@@ -808,7 +809,7 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
     );
 
     selectFile();
-    const button = await screen.findByRole("button", { name: "Ler gratuitamente" });
+    const button = await findAlternativeButton("OCR local");
     fireEvent.click(button);
     fireEvent.click(button);
     fireEvent.click(button);
@@ -841,7 +842,7 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
     }));
     selectFile();
 
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
 
     await waitFor(() => expect(mocks.buildPaddleReceiptResult).toHaveBeenCalledTimes(1));
     await waitFor(() => expect(mocks.releaseDocumentOrientationSession).toHaveBeenCalledTimes(1));
@@ -850,7 +851,7 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
     expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument();
 
     finishOrientationRelease!();
-    expect(await screen.findByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument();
+    expect(await findAlternativeButton("OCR local")).toBeInTheDocument();
   });
 
   it("saves known Fonseca item values without inventing missing values", async () => {
@@ -860,7 +861,7 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
     stubPaddleSuccess(receiptResultModule.buildPaddleReceiptResult(fonsecaRegions));
 
     selectFile();
-    fireEvent.click(await screen.findByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(await findAlternativeButton("OCR local"));
     fireEvent.click(await screen.findByRole("button", { name: "Confirmar importação" }));
 
     const transaction = mocks.addTransaction.mock.calls[0][0];
@@ -875,7 +876,7 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
     mocks.paddleRecognizeWorker.mockRejectedValue(new Error("Falha simulada no worker."));
 
     selectFile();
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
 
     expect(
       await screen.findByText("Falha simulada no worker."),
@@ -893,7 +894,7 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
     mocks.prepareReceiptForLocalOcr.mockRejectedValueOnce(new Error("orientation failed"));
 
     selectFile();
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
 
     expect(await screen.findByText("orientation failed")).toBeInTheDocument();
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
@@ -973,7 +974,7 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
     );
 
     selectFile();
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument(),
@@ -987,3 +988,14 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
   });
 });
+
+// Alternatives are manual: open the presentation disclosure before choosing one.
+function alternativeButton(name: string) {
+  const summary = screen.getByText(/Outros m\u00e9todos de leitura/);
+  if (!summary.closest("details")!.open) fireEvent.click(summary);
+  return screen.getByRole("button", { name });
+}
+async function findAlternativeButton(name: string) {
+  await screen.findByText(/Outros m\u00e9todos de leitura/);
+  return alternativeButton(name);
+}

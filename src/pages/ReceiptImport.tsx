@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Camera, Loader2, Paperclip, RefreshCw, ScanLine, AlertTriangle } from "lucide-react";
+import { Camera, Loader2, Paperclip, RefreshCw, ScanLine, AlertTriangle, FileText, ChevronDown } from "lucide-react";
 import { TransactionForm } from "@/components/TransactionForm";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
@@ -687,7 +687,7 @@ export default function ReceiptImport() {
   const shareWorkerOutdated = isShareWorkerOutdated(reportedSwVersion);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-5 pb-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Ler comprovante</h1>
         <p className="text-muted-foreground mt-1">
@@ -712,7 +712,7 @@ export default function ReceiptImport() {
         </details>
       )}
 
-      <Card className="p-6 space-y-4">
+      <Card className="p-4 space-y-4 sm:p-6">
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -721,19 +721,27 @@ export default function ReceiptImport() {
           </div>
         ) : (
           <>
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button className="gap-2" disabled={capturing || cameraOpen || localLoading} onClick={openFilePicker}>
-                <Paperclip className="h-4 w-4" /> Galeria/arquivo
+            {pendingFile ? (
+              <div className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+                <FileText aria-hidden="true" className="h-6 w-6 shrink-0 text-primary" />
+                <div className="min-w-0 flex-1">
+                  <p className="text-xs text-muted-foreground">Arquivo selecionado</p>
+                  <p className="break-all text-sm font-medium">{pendingFile.name}</p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-sm text-muted-foreground" data-testid="receipt-picker-hint">
+                Escolha uma imagem ou PDF. Para fotografar, use "Tirar foto".
+              </p>
+            )}
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button variant={pendingFile ? "ghost" : "default"} className="gap-2" disabled={capturing || cameraOpen || localLoading} onClick={openFilePicker}>
+                <Paperclip className="h-4 w-4" /> {pendingFile ? "Trocar arquivo" : "Galeria/arquivo"}
               </Button>
-              <Button variant="outline" className="gap-2" disabled={capturing || cameraOpen || localLoading} onClick={() => void openCamera()}>
-                <Camera className="h-4 w-4" /> Tirar foto
+              <Button variant={pendingFile ? "ghost" : "outline"} className="gap-2" disabled={capturing || cameraOpen || localLoading} onClick={() => void openCamera()}>
+                <Camera className="h-4 w-4" /> {pendingFile ? "Tirar nova foto" : "Tirar foto"}
               </Button>
             </div>
-            <p className="text-xs text-muted-foreground" data-testid="receipt-picker-hint">
-              Para fotografar, use "Tirar foto", a câmera interna do app. Em "Galeria/arquivo", escolha
-              uma foto já salva na galeria ou um PDF. Se o seletor do Android oferecer "Câmera", prefira
-              voltar e usar "Tirar foto". O app não controla a câmera externa nem a memória do Android.
-            </p>
             <input
               ref={fileInputRef}
               type="file"
@@ -759,16 +767,11 @@ export default function ReceiptImport() {
               }}
             />
             {pendingFile && (
-              <div className="space-y-3 rounded-md border border-border p-3">
-                <p className="break-words text-sm font-medium">{pendingFile.name}</p>
-                <div>
-                  <h2 className="text-base font-semibold">Gemma · leitura gratuita</h2>
-                  <p className="text-xs text-muted-foreground">Leitura externa da imagem, iniciada somente após sua confirmação.</p>
-                </div>
+              <div className="space-y-4">
                 <div className="flex flex-col gap-2 sm:flex-row">
                   {freeAiState === "available" && (
-                    <Button className="gap-2 sm:flex-1" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => setFreeAiConfirmOpen(true)}>
-                      ✨ Ler com IA grátis (teste)
+                    <Button className="min-h-12 w-full gap-2 text-base" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => setFreeAiConfirmOpen(true)}>
+                      Ler comprovante grátis
                     </Button>
                   )}
                   {freeAiState === "checking" && (
@@ -792,25 +795,23 @@ export default function ReceiptImport() {
                     IA grátis indisponível no servidor no momento.
                   </p>
                 )}
-                <div className="space-y-2 border-t border-border pt-3">
-                  <p className="text-xs font-medium text-muted-foreground">Outras opções · somente por escolha manual</p>
+                <details className="group border-t border-border pt-3">
+                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+                    Outros métodos de leitura
+                    <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
+                  </summary>
                   <div className="flex flex-col gap-2 sm:flex-row">
                     <Button variant="outline" className="gap-2" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => void processFileFast(pendingFile)}>
-                      <ScanLine className="h-4 w-4" /> Ler gratuitamente
+                      <ScanLine className="h-4 w-4" /> OCR local
                     </Button>
                     <Button variant="ghost" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => setAiConfirmOpen(true)}>
-                      ✨ Ler com IA
+                      IA do Lovable
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground"><span>A leitura gratuita usa o OCR local e tem custo R$ 0,00.</span> “Ler com IA” é opcional e pode consumir créditos. Nenhuma opção é acionada automaticamente se o Gemma falhar.</p>
-                </div>
+                </details>
               </div>
             )}
-            <p className="text-xs text-muted-foreground flex items-start gap-2">
-              <ScanLine className="h-4 w-4 shrink-0 mt-0.5" />
-              Funciona com comprovantes de Pix, boletos pagos, compras no cartão e cupons fiscais. Nada é salvo sem a sua
-              confirmação.
-            </p>
+            {!pendingFile && <p className="text-xs text-muted-foreground">Confira os dados antes de salvar.</p>}
           </>
         )}
 

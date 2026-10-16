@@ -65,6 +65,7 @@ const getValues = (bill: RecurringBillValues): RecurringBillValues => ({
   durationMonths: bill.durationMonths,
   accountId: bill.accountId,
   description: bill.description,
+  type: bill.type,
 });
 
 export const resolveRecurringBill = (bill: EditableRecurringBill, referenceMonth: string): EditableRecurringBill => {

@@ -63,8 +63,8 @@ vi.mock("@/components/TransactionForm", () => ({
   ) : null,
 }));
 
-const FREE_BUTTON = /Ler com IA grátis \(teste\)/;
-const PAID_BUTTON = /Ler com IA$/;
+const FREE_BUTTON = /Ler comprovante gr\u00e1tis/;
+const PAID_BUTTON = /IA do Lovable/;
 
 
 function freeParsedReceipt(overrides: Record<string, unknown> = {}) {
@@ -95,10 +95,9 @@ function freeParsedReceipt(overrides: Record<string, unknown> = {}) {
   };
 }
 
-function selectFile() {
+function selectFile(file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" })) {
   const { container } = render(<ReceiptImport />);
   const input = container.querySelector('input[type="file"]');
-  const file = new File(["receipt"], "cupom.jpg", { type: "image/jpeg" });
   fireEvent.change(input!, { target: { files: [file] } });
   return file;
 }
@@ -118,6 +117,36 @@ describe("ReceiptImport free external AI reader (test)", () => {
     vi.unstubAllGlobals();
   });
 
+  it.each(["image/jpeg", "application/pdf"])("keeps %s selection compact and alternatives collapsed without starting a reader", async (type) => {
+    mocks.getFreeAiStatus.mockResolvedValue({ state: "available" });
+    const file = new File(["receipt"], type === "application/pdf" ? "comprovante.pdf" : "foto.jpg", { type });
+    selectFile(file);
+    expect(screen.getByText("Arquivo selecionado")).toBeInTheDocument();
+    expect(screen.getByText(file.name)).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: FREE_BUTTON })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Tirar nova foto" })).toBeEnabled();
+    const summary = screen.getByText("Outros métodos de leitura");
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    expect(screen.getByRole("button", { name: "OCR local" })).not.toBeVisible();
+    expect(screen.getByRole("button", { name: PAID_BUTTON })).not.toBeVisible();
+    expect(screen.queryByText(/créditos|custo R\$/)).not.toBeInTheDocument();
+    expect(document.querySelector("img, iframe, embed, object, canvas")).toBeNull();
+    const picker = document.querySelector<HTMLInputElement>('input[type="file"]')!;
+    const click = vi.spyOn(picker, "click");
+    fireEvent.click(screen.getByRole("button", { name: "Trocar arquivo" }));
+    expect(click).toHaveBeenCalledOnce();
+    fireEvent(picker, new Event("cancel"));
+    expect(screen.getByText(file.name)).toBeInTheDocument();
+    fireEvent.click(summary);
+    expect(screen.getByRole("button", { name: "OCR local" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: PAID_BUTTON })).toBeEnabled();
+    fireEvent.click(summary);
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+    expect(mocks.parseReceiptFree).not.toHaveBeenCalled();
+    expect(mocks.parseReceipt).not.toHaveBeenCalled();
+    expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
+  });
+
 describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (provider) => {
   it("sends one request for ten rapid confirmations and permits retry after failure", async () => {
     mocks.getFreeAiStatus.mockResolvedValue({ state: "available" });
@@ -125,6 +154,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     let reject!: (error: Error) => void;
     parse.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
     selectFile();
+    if (provider === "paid") alternativeButton("IA do Lovable");
     fireEvent.click(await screen.findByRole("button", { name: provider === "free" ? FREE_BUTTON : PAID_BUTTON }));
     const confirmationName = provider === "free" ? "Continuar gr\u00e1tis" : "Continuar com IA";
     const confirmation = await screen.findByRole("button", { name: confirmationName });
@@ -135,6 +165,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     expect(await screen.findByText("Synthetic read failure")).toBeInTheDocument();
     expect(provider === "free" ? mocks.parseReceipt : mocks.parseReceiptFree).not.toHaveBeenCalled();
     parse.mockResolvedValueOnce(freeParsedReceipt());
+    if (provider === "paid") alternativeButton("IA do Lovable");
     fireEvent.click(screen.getByRole("button", { name: provider === "free" ? FREE_BUTTON : PAID_BUTTON }));
     fireEvent.click(await screen.findByRole("button", { name: confirmationName }));
     expect(await screen.findByTestId("review-form")).toBeInTheDocument();
@@ -146,7 +177,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
   it("shows an explicit unavailable status while the integration is not configured", async () => {
     mocks.getFreeAiStatus.mockResolvedValue({ state: "unavailable" });
     selectFile();
-    await waitFor(() => expect(screen.getByRole("button", { name: "Ler gratuitamente" })).toBeInTheDocument());
+    await waitFor(() => expect(alternativeButton("OCR local")).toBeInTheDocument());
     expect(screen.queryByRole("button", { name: FREE_BUTTON })).not.toBeInTheDocument();
     expect(await screen.findByText("IA grátis indisponível no servidor no momento.")).toBeInTheDocument();
     expect(mocks.parseReceiptFree).not.toHaveBeenCalled();
@@ -197,7 +228,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
   it("keeps the paid Lovable flow untouched when the free reader is enabled", async () => {
     mocks.getFreeAiStatus.mockResolvedValue({ state: "available" });
     selectFile();
-    fireEvent.click(await screen.findByRole("button", { name: PAID_BUTTON }));
+    fireEvent.click(await findAlternativeButton("IA do Lovable"));
     expect(
       await screen.findByText("Esta leitura utiliza a IA do Lovable e pode consumir seus créditos. Deseja continuar?"),
     ).toBeInTheDocument();
@@ -300,3 +331,14 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
   });
 });
+
+// Alternatives are manual: open the presentation disclosure before choosing one.
+function alternativeButton(name: string) {
+  const summary = screen.getByText(/Outros m\u00e9todos de leitura/);
+  if (!summary.closest("details")!.open) fireEvent.click(summary);
+  return screen.getByRole("button", { name });
+}
+async function findAlternativeButton(name: string) {
+  await screen.findByText(/Outros m\u00e9todos de leitura/);
+  return alternativeButton(name);
+}

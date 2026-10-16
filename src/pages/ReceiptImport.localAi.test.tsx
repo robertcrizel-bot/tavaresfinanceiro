@@ -184,7 +184,7 @@ describe("ReceiptImport local AI interpretation", () => {
 
     expect(screen.queryByTestId("review-form")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Melhorar leitura localmente/ })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
 
     // The review form opens with the deterministic result and the local action visible inside it.
     expect(await screen.findByTestId("review-form")).toBeInTheDocument();
@@ -194,7 +194,7 @@ describe("ReceiptImport local AI interpretation", () => {
     expect(mocks.toLocalReceiptInput).not.toHaveBeenCalled();
 
     // Manual paid AI button is untouched and only opens confirmation.
-    fireEvent.click(screen.getByRole("button", { name: /Ler com IA/ }));
+    fireEvent.click(alternativeButton("IA do Lovable"));
     expect(await screen.findByText("Esta leitura utiliza a IA do Lovable e pode consumir seus créditos. Deseja continuar?")).toBeInTheDocument();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
     expect(mocks.interpretReceiptLocally).not.toHaveBeenCalled();
@@ -223,7 +223,7 @@ describe("ReceiptImport local AI interpretation", () => {
       return options.fallback;
     });
     selectFile();
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
     fireEvent.click(await screen.findByRole("button", { name: /Melhorar leitura localmente/ }));
 
     expect(await screen.findByTestId("review-form")).toBeInTheDocument();
@@ -251,10 +251,10 @@ describe("ReceiptImport local AI interpretation", () => {
     const { container } = render(<ReceiptImport />);
     const input = container.querySelector('input[type="file"]')!;
     fireEvent.change(input, { target: { files: [new File(["one"], "um.jpg", { type: "image/jpeg" })] } });
-    fireEvent.click(screen.getByRole("button", { name: "Ler gratuitamente" }));
+    fireEvent.click(alternativeButton("OCR local"));
     await screen.findByRole("button", { name: /Melhorar leitura localmente/ });
 
-    fireEvent.click(screen.getByRole("button", { name: "Tirar foto" }));
+    fireEvent.click(screen.getByRole("button", { name: /Tirar (?:nova )?foto/ }));
     const video = await screen.findByTestId("receipt-camera-video") as HTMLVideoElement;
     await waitFor(() => expect(video.srcObject).toBe(cameraStream));
     Object.defineProperty(video, "videoWidth", { configurable: true, value: 1920 });
@@ -267,3 +267,14 @@ describe("ReceiptImport local AI interpretation", () => {
     expect(mocks.interpretReceiptLocally).not.toHaveBeenCalled();
   });
 });
+
+// Alternatives are manual: open the presentation disclosure before choosing one.
+function alternativeButton(name: string) {
+  const summary = screen.getByText(/Outros m\u00e9todos de leitura/);
+  if (!summary.closest("details")!.open) fireEvent.click(summary);
+  return screen.getByRole("button", { name });
+}
+async function findAlternativeButton(name: string) {
+  await screen.findByText(/Outros m\u00e9todos de leitura/);
+  return alternativeButton(name);
+}

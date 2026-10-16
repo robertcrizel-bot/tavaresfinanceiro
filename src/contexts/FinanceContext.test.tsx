@@ -202,6 +202,56 @@ describe("FinanceContext receipt details", () => {
     }
   });
 
+  // Regression coverage for exact installment totals and civil monthly dates.
+  it.each([
+    { amount: 100, installments: 3, expectedAmounts: [33.34, 33.33, 33.33] },
+    { amount: 100, installments: 6, expectedAmounts: [16.67, 16.67, 16.67, 16.67, 16.66, 16.66] },
+    { amount: 0.01, installments: 3, expectedAmounts: [0.01, 0, 0] },
+    { amount: 1.01, installments: 2, expectedAmounts: [0.51, 0.50] },
+    { amount: 120, installments: 3, expectedAmounts: [40, 40, 40] },
+  ])("REGRESSION: $amount / $installments preserves every cent", async ({ amount, installments, expectedAmounts }) => {
+    await renderProvider();
+    let saved = false;
+    await act(async () => { saved = await context!.addTransaction({ ...transactionInput, amount, creditCardId: "card-1" }, { installments }); });
+    const parent = mocks.insert.mock.calls[0][0];
+    const children = mocks.insert.mock.calls[1][0] as Array<{ amount: number }>;
+    const total = [parent, ...children].reduce((sum, row) => sum + Math.round(row.amount * 100), 0);
+    expect(saved).toBe(true);
+    expect(total).toBe(Math.round(amount * 100));
+    expect([parent, ...children].map(row => row.amount)).toEqual(expectedAmounts);
+  });
+
+  it.each([
+    { date: "2026-01-29", actual: "2026-02-28" },
+    { date: "2026-01-30", actual: "2026-02-28" },
+    { date: "2026-01-31", actual: "2026-02-28" },
+    { date: "2024-01-30", actual: "2024-02-29" },
+    { date: "2024-01-31", actual: "2024-02-29" },
+  ])("REGRESSION: $date clamps February to $actual and restores the original day in March", async ({ date, actual }) => {
+    await renderProvider();
+    await act(async () => { await context!.addTransaction({ ...transactionInput, date, amount: 120, creditCardId: "card-1" }, { installments: 3 }); });
+    const children = mocks.insert.mock.calls[1][0] as Array<{ date: string }>;
+    expect(children[0].date).toBe(actual);
+    expect(children[1].date).toBe(date.slice(0, 4) + "-03-" + date.slice(-2));
+    expect(mocks.insert.mock.calls[0][0].date).toBe(date);
+  });
+
+  it("AUDIT control: leap-day installment remains in February when that day exists", async () => {
+    await renderProvider();
+    await act(async () => { await context!.addTransaction({ ...transactionInput, date: "2024-01-29", creditCardId: "card-1" }, { installments: 2 }); });
+    expect(mocks.insert.mock.calls[1][0][0].date).toBe("2024-02-29");
+  });
+
+  it.each([
+    { date: "2026-03-31", expected: ["2026-04-30", "2026-05-31"] },
+    { date: "2026-12-31", expected: ["2027-01-31", "2027-02-28"] },
+    { date: "2024-02-29", expected: ["2024-03-29", "2024-04-29"] },
+  ])("REGRESSION: $date advances across month and year boundaries", async ({ date, expected }) => {
+    await renderProvider();
+    await act(async () => { await context!.addTransaction({ ...transactionInput, date, creditCardId: "card-1" }, { installments: 3 }); });
+    expect(mocks.insert.mock.calls[1][0].map((row: { date: string }) => row.date)).toEqual(expected);
+  });
+
   it("closes an invoice through the atomic lifecycle RPC", async () => {
     await renderProvider();
 

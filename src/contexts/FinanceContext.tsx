@@ -165,15 +165,26 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }
 
     // Installments: split into N monthly transactions on the credit card
-    const baseDate = new Date(t.date + "T12:00:00");
-    const perInstallment = +(t.amount / installments).toFixed(2);
+    const [year, month, day] = t.date.split("-").map(Number);
+    const totalCents = Math.round(t.amount * 100);
+    const baseCents = Math.floor(totalCents / installments);
+    const remainder = totalCents - baseCents * installments;
+    // Distribute remaining cents to the first installments deterministically.
+    const installmentAmount = (index: number) => (baseCents + (index < remainder ? 1 : 0)) / 100;
+    const perInstallment = installmentAmount(0);
+    const installmentDate = (offset: number) => {
+      const target = new Date(Date.UTC(year, month - 1 + offset, 1));
+      const lastDay = new Date(Date.UTC(target.getUTCFullYear(), target.getUTCMonth() + 1, 0)).getUTCDate();
+      target.setUTCDate(Math.min(day, lastDay));
+      return target.toISOString().split("T")[0];
+    };
     const { data: parent, error: parentErr } = await supabase.from("transactions").insert({
       user_id: user.id,
       title: `${t.title} (1/${installments})`,
       amount: perInstallment,
       type: t.type,
       category: t.category,
-      date: baseDate.toISOString().split("T")[0],
+      date: t.date,
       description: t.description || null,
       payment_method: t.paymentMethod || null,
       account_id: t.accountId || null,
@@ -194,15 +205,13 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
 
     const rows = [];
     for (let i = 2; i <= installments; i++) {
-      const d = new Date(baseDate);
-      d.setMonth(d.getMonth() + (i - 1));
       rows.push({
         user_id: user.id,
         title: `${t.title} (${i}/${installments})`,
-        amount: perInstallment,
+        amount: installmentAmount(i - 1),
         type: t.type,
         category: t.category,
-        date: d.toISOString().split("T")[0],
+        date: installmentDate(i - 1),
         description: t.description || null,
         payment_method: t.paymentMethod || null,
         account_id: t.accountId || null,
@@ -224,7 +233,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     if (attachments.length > 0) {
       await uploadAttachments(user.id, parent.id, attachments);
     }
-    toast({ title: "Compra parcelada", description: `${installments}x de ${perInstallment.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` });
+    toast({ title: "Compra parcelada", description: `${installments} parcelas, total de ${t.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}` });
     await fetchTransactions();
     return true;
   }, [user, fetchTransactions]);
