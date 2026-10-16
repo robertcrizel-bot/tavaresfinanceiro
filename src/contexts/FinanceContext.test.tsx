@@ -286,6 +286,54 @@ describe("FinanceContext receipt details", () => {
     });
   });
 
+  it("aborts closing when restoration fails and refreshes instead of reporting success", async () => {
+    await renderProvider();
+    mocks.updateIn.mockResolvedValueOnce({ error: { message: "protected purchase" } });
+    const reads = mocks.transactionOrder.mock.calls.length;
+    let result = true;
+    await act(async () => { result = await context!.closeCardInvoice("invoice-1", undefined, [], undefined, ["tx-1"]); });
+    expect(result).toBe(false); expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.transactionOrder.mock.calls.length).toBeGreaterThan(reads);
+    expect(mocks.toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "Fatura fechada" }));
+  });
+
+  it.each(["error", "exception"])("refreshes after restoration and RPC %s, without a compensating update", async mode => {
+    await renderProvider();
+    if (mode === "error") mocks.rpc.mockResolvedValueOnce({ data: null, error: { message: "invalid due date" } });
+    else mocks.rpc.mockRejectedValueOnce(new Error("response lost"));
+    const reads = mocks.transactionOrder.mock.calls.length;
+    let result = true;
+    await act(async () => { result = await context!.closeCardInvoice("invoice-1", undefined, [], undefined, ["tx-1"]); });
+    expect(result).toBe(false); expect(mocks.update).toHaveBeenCalledTimes(1);
+    expect(mocks.transactionOrder.mock.calls.length).toBeGreaterThan(reads);
+    expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" }));
+    expect(mocks.toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "Fatura fechada" }));
+  });
+
+  it("blocks simultaneous closes until refresh finishes and permits retry after failure", async () => {
+    await renderProvider();
+    let finish!: (value: unknown) => void;
+    mocks.rpc.mockReturnValueOnce(new Promise(resolve => { finish = resolve; }));
+    let first!: Promise<boolean>;
+    act(() => { first = context!.closeCardInvoice("invoice-1"); });
+    let second = true;
+    await act(async () => {
+      second = await context!.closeCardInvoice("invoice-1");
+      finish({ data: null, error: { message: "rejected" } }); await first;
+    });
+    expect(second).toBe(false); expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    await act(async () => { expect(await context!.closeCardInvoice("invoice-1")).toBe(true); });
+    expect(mocks.rpc).toHaveBeenCalledTimes(2);
+  });
+
+  it("refreshes after a lost restoration response and never calls the closing RPC", async () => {
+    await renderProvider(); mocks.updateIn.mockRejectedValueOnce(new Error("network"));
+    const reads = mocks.transactionOrder.mock.calls.length;
+    await act(async () => { expect(await context!.closeCardInvoice("invoice-1", undefined, [], undefined, ["tx-1"])).toBe(false); });
+    expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.transactionOrder.mock.calls.length).toBeGreaterThan(reads);
+  });
+
   it("reopens a closed invoice through the atomic lifecycle RPC", async () => {
     await renderProvider();
 

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
+import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { CreditCardInvoice, ReceiptDetails, Transaction } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -57,6 +57,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [creditCardInvoices, setCreditCardInvoices] = useState<CreditCardInvoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const closingInvoices = useRef(new Set<string>());
 
   const fetchTransactions = useCallback(async () => {
     if (!user) { setTransactions([]); setCreditCardInvoices([]); setLoading(false); return; }
@@ -284,32 +285,51 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, [transactions, fetchTransactions]);
 
-const closeCardInvoice = useCallback(async (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[], dueDate?: string, restoreTransactionIds?: string[]) => {
-    if (restoreTransactionIds?.length) {
-      const { error: restoreError } = await supabase
-        .from("transactions")
-        .update({ credit_card_invoice_id: invoiceId })
-        .in("id", restoreTransactionIds);
-      if (restoreError) {
-        toast({ title: "Erro ao restaurar compras", description: restoreError.message, variant: "destructive" });
+  const closeCardInvoice = useCallback(async (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[], dueDate?: string, restoreTransactionIds?: string[]) => {
+    if (!user || closingInvoices.current.has(invoiceId)) return false;
+    closingInvoices.current.add(invoiceId);
+    let refreshNeeded = false;
+    try {
+      if (restoreTransactionIds?.length) {
+        // A lost response can still follow an applied UPDATE. Never compensate blindly.
+        refreshNeeded = true;
+        const { error: restoreError } = await supabase
+          .from("transactions")
+          .update({ credit_card_invoice_id: invoiceId })
+          .in("id", restoreTransactionIds);
+        if (restoreError) {
+          toast({ title: "Erro ao restaurar compras", description: restoreError.message, variant: "destructive" });
+          return false;
+        }
+      }
+
+      const { error } = await supabase.rpc("close_credit_card_invoice", {
+        p_invoice_id: invoiceId,
+        p_actual_closed_date: actualClosedDate || null,
+        p_exclude_transaction_ids: excludeTransactionIds || null,
+        p_due_date: dueDate || null,
+      });
+      if (error) {
+        toast({ title: "Erro ao fechar fatura", description: error.message, variant: "destructive" });
         return false;
       }
-    }
-
-    const { error } = await supabase.rpc("close_credit_card_invoice", {
-      p_invoice_id: invoiceId,
-      p_actual_closed_date: actualClosedDate || null,
-      p_exclude_transaction_ids: excludeTransactionIds || null,
-      p_due_date: dueDate || null,
-    });
-    if (error) {
-      toast({ title: "Erro ao fechar fatura", description: error.message, variant: "destructive" });
+      toast({ title: "Fatura fechada", description: "O valor do ciclo foi consolidado com sucesso." });
+      refreshNeeded = true;
+      return true;
+    } catch {
+      refreshNeeded = true;
+      toast({ title: "Erro ao fechar fatura", description: "Não foi possível confirmar o fechamento. Atualize os dados antes de tentar novamente.", variant: "destructive" });
       return false;
+    } finally {
+      try {
+        if (refreshNeeded) await fetchTransactions();
+      } catch {
+        toast({ title: "Erro ao atualizar faturas", description: "Recarregue os registros para conferir o estado atual.", variant: "destructive" });
+      } finally {
+        closingInvoices.current.delete(invoiceId);
+      }
     }
-    toast({ title: "Fatura fechada", description: "O valor do ciclo foi consolidado com sucesso." });
-    await fetchTransactions();
-    return true;
-  }, [fetchTransactions]);
+  }, [user, fetchTransactions]);
 
   const reopenCardInvoice = useCallback(async (invoiceId: string) => {
     const { error } = await supabase.rpc("reopen_credit_card_invoice", {

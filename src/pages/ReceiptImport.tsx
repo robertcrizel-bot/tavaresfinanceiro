@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { Camera, Loader2, Paperclip, RefreshCw, ScanLine, AlertTriangle, FileText, ChevronDown } from "lucide-react";
+import { Camera, Loader2, Paperclip, RefreshCw, ScanLine, AlertTriangle, FileText, ChevronDown, Sparkles } from "lucide-react";
 import { TransactionForm } from "@/components/TransactionForm";
 import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
@@ -770,7 +770,8 @@ export default function ReceiptImport() {
               <div className="space-y-4">
                 <div className="flex flex-col gap-2 sm:flex-row">
                   {freeAiState === "available" && (
-                    <Button className="min-h-12 w-full gap-2 text-base" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => setFreeAiConfirmOpen(true)}>
+                    <Button className="min-h-12 w-full gap-2.5 rounded-xl border border-primary/30 bg-primary px-5 text-base font-semibold text-primary-foreground shadow-sm shadow-primary/15 hover:bg-primary/90 active:bg-primary/80 active:shadow-none disabled:shadow-none" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => setFreeAiConfirmOpen(true)}>
+                      <Sparkles aria-hidden="true" className="h-4 w-4 shrink-0" />
                       Ler comprovante grátis
                     </Button>
                   )}
