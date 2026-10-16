@@ -770,8 +770,8 @@ export default function ReceiptImport() {
               <div className="space-y-4">
                 <div className="flex flex-col gap-2 sm:flex-row">
                   {freeAiState === "available" && (
-                    <Button className="min-h-12 w-full gap-2.5 rounded-xl border border-primary/30 bg-primary px-5 text-base font-semibold text-primary-foreground shadow-sm shadow-primary/15 hover:bg-primary/90 active:bg-primary/80 active:shadow-none disabled:shadow-none" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => setFreeAiConfirmOpen(true)}>
-                      <Sparkles aria-hidden="true" className="h-4 w-4 shrink-0" />
+                      <Button className="min-h-12 w-full gap-2.5 rounded-xl border border-primary/30 bg-[hsl(169_66%_28%)] px-5 text-base font-bold text-white shadow-sm shadow-primary/15 hover:bg-[hsl(169_66%_25%)] hover:text-white active:bg-[hsl(169_66%_22%)] active:text-white active:shadow-none disabled:shadow-none" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => setFreeAiConfirmOpen(true)}>
+                      <Sparkles aria-hidden="true" className="h-4 w-4 shrink-0 text-white" />
                       Ler comprovante grátis
                     </Button>
                   )}
