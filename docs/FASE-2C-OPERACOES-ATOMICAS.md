@@ -1,4 +1,10 @@
-# Fase 2C — implementação local, ainda sem validação PostgreSQL
+# Fase 2C — implementação e histórico da preparação local
+
+**Atualização 2026-10-16:** validação real concluída no GitHub Actions, em
+Supabase completo descartável. Ver [relatório atual e plano seguro](FASE-2C-VALIDACAO-REAL.md).
+Os resultados de indisponibilidade abaixo são o histórico da primeira entrega;
+a branch isolada de testes foi autorizada posteriormente. Não houve aplicação
+das migrations, publicação do frontend ou acesso a Supabase de produção.
 
 Base: `26980125c7e450dc176e8eeaf47f76666f481a27`.
 Worktree: `.worktrees/financial-phase2c`, branch `dev/financial-phase2c`.
