@@ -37,6 +37,10 @@ jobs:
         env:
           PHASE2C_STATUS_FILE: ${{ runner.temp }}/phase2c-status.json
         run: node --experimental-strip-types supabase/tests/phase2c/run.mjs
+      - name: Pre-cutover permissions and ordinary writes
+        env:
+          PHASE2C_STATUS_FILE: ${{ runner.temp }}/phase2c-status.json
+        run: node supabase/tests/phase2c/permissions.test.mjs
       - name: Container diagnostics
         if: failure()
         run: docker ps -a --format '{{.Names}} {{.Status}}'
