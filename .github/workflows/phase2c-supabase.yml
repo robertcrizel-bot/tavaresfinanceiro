@@ -1,7 +1,7 @@
 name: Phase 2C disposable Supabase
 on:
   push:
-    branches: [test/financial-phase2c-frontend]
+    branches: [test/financial-phase2c-frontend, prep/phase2c-permissions-safety]
 permissions:
   contents: read
 concurrency:
