@@ -333,13 +333,13 @@ export default function Forecasts() {
                       <div className="break-words font-semibold text-[17px] leading-snug text-foreground sm:text-lg">
                         {bill.name}
                       </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <Badge variant="outline" className="neutral-tag shrink-0 text-[12px]">
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="neutral-tag min-h-8 shrink-0 px-3 py-1 text-[14px] font-bold leading-none">
                           Dia {Number(status.dueDate.slice(-2))}
                         </Badge>
                         <Badge
                           variant="outline"
-                          className={`shrink-0 text-[12px] ${
+                          className={`min-h-8 shrink-0 px-3 py-1 text-[14px] font-bold leading-none ${
                             bill.type === "income"
                               ? "neutral-tag text-income"
                               : "neutral-tag text-expense"
@@ -350,11 +350,11 @@ export default function Forecasts() {
                         {status.label && (
                           <Badge
                             variant={status.kind === "overdue" ? "destructive" : status.kind === "paid" ? "default" : "outline"}
-                            className={`neutral-tag text-[10px] shrink-0 ${
+                            className={`neutral-tag min-h-8 shrink-0 border px-3 py-1 text-[14px] font-bold leading-none ${
                               status.kind === "due-today" || status.kind === "due-soon"
                                 ? "text-warning"
-                                : status.kind === "paid" ? "text-income"
-                                : status.kind === "overdue" ? "text-expense" : "text-muted-foreground"
+                                : status.kind === "paid" ? "border-income/40 bg-income/10 text-income"
+                                : status.kind === "overdue" ? "border-expense/40 bg-expense/10 text-expense" : "text-muted-foreground"
                             }`}
                           >
                             {status.label}

@@ -555,11 +555,6 @@ export default function Statements() {
             </ChartCard>
 
             <ChartCard title={parsedOrigin.kind === "all" ? "Movimentado por conta ou cartão" : "Formas de pagamento"} color={parsedOrigin.kind === "all" ? CHART_ACCENTS.accounts : CHART_ACCENTS.payments}>
-              {parsedOrigin.kind === "all" && (
-                <p className="mb-3 text-[13px] leading-relaxed text-muted-foreground">
-                  Total movimentado em cada conta, cartão ou dinheiro no período: soma de entradas e saídas, sem compensar uma pela outra. Não é saldo.
-                </p>
-              )}
               {parsedOrigin.kind === "all" ? (
                 byOrigin.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Sem movimentações no período.</p>
@@ -572,35 +567,21 @@ export default function Statements() {
                         <YAxis type="category" dataKey="label" tick={{ ...axisTick, fontSize: 11 }} width={120} />
                         <Tooltip contentStyle={tooltipStyle} formatter={(value: number) => [money(Number(value)), "Movimentado"]} cursor={{ fill: "hsl(224 14% 22% / 0.35)" }} />
                           <Bar dataKey="volume" radius={[4, 8, 8, 4]} background={{ fill: "hsl(215 18% 15%)", radius: 8 } as never}>
-                          {byOrigin.map((slice, index) => (
-                            <Cell
-                              key={slice.key}
-                              fill={originColor(slice.key)}
-                              onClick={() => {
-                                if (slice.key === "cash" || slice.key.startsWith("a:") || slice.key.startsWith("c:")) {
-                                  setOrigin(slice.key === "cash" ? "cash" : slice.key);
-                                }
-                              }}
-                              className="cursor-pointer"
-                            />
+                          {byOrigin.map((slice) => (
+                            <Cell key={slice.key} fill={originColor(slice.key)} />
                           ))}
                         </Bar>
                       </BarChart>
                     </ResponsiveContainer>
                     <div className="mt-2 flex flex-wrap gap-2">
                       {byOrigin.map((slice) => (
-                        <Button
+                        <span
                           key={slice.key}
-                          type="button"
-                          variant="secondary"
-                          size="sm"
-                          className="data-chip h-auto min-h-7 text-left text-xs"
+                          className="data-chip inline-flex min-h-7 items-center rounded-md border px-2 py-1 text-left text-xs"
                           style={colorAccent(originColor(slice.key))}
-                          disabled={slice.key === "other"}
-                          onClick={() => setOrigin(slice.key === "cash" ? "cash" : slice.key)}
                         >
                           {slice.label} · {money(slice.volume)}
-                        </Button>
+                        </span>
                       ))}
                     </div>
                   </>

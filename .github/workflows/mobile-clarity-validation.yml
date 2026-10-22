@@ -1,7 +1,7 @@
 name: Mobile clarity UI validation
 on:
   push:
-    branches: [ui/mobile-clarity-20261022]
+    branches: [ui/mobile-clarity-20261022, fix/mobile-clarity-followup-20261022]
 permissions:
   contents: read
 jobs:
