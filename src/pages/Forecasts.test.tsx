@@ -232,6 +232,23 @@ describe("Forecasts budget indicator", () => {
 
   const normalizeMoney = (text?: string | null) => (text ?? "").replace(/\u00A0/g, " ");
 
+  it("ignores a second click while a forecast create is still saving", async () => {
+    let resolveSave!: (value: boolean) => void;
+    mockData.addBill.mockReturnValueOnce(new Promise<boolean>((resolve) => { resolveSave = resolve; }));
+    render(<Forecasts />);
+    openForm();
+    fireEvent.change(screen.getByPlaceholderText("Ex: Aluguel"), { target: { value: "Unimed Joaquim" } });
+    setAmount("600");
+    selectCategoryByName("Alimentação");
+    const button = screen.getByText("Criar");
+    fireEvent.click(button);
+    fireEvent.click(button);
+
+    expect(mockData.addBill).toHaveBeenCalledTimes(1);
+    expect(mockData.addBill.mock.calls[0][1]).toMatch(/^[\da-f]{8}-[\da-f]{4}-4[\da-f]{3}-[89ab][\da-f]{3}-[\da-f]{12}$/i);
+    resolveSave(true);
+  });
+
   it.each([
     { type: "income" as const, category: "Salário" },
     { type: "expense" as const, category: "Alimentação" },
