@@ -273,5 +273,48 @@ try {
     assert.equal(Number(result.total),15);assert.equal(durable.size,0);
     assert.equal((await sql`select count(*)::int n from public.transactions where credit_card_invoice_id=${i.id} and financial_kind='card_invoice_obligation'`)[0].n,1);
   });
+  await test('two real Auth users cannot attach another owner account/bill/receipt through PostgREST',async()=>{
+    // All operations below use real Supabase Auth JWTs and the production schema
+    // in an unlinked disposable stack, not a mocked policy/function.
+    const createTransaction = (userId, accountId, title) => ({
+      user_id:userId,account_id:accountId,title,amount:1,type:'expense',
+      category:'Outros',date:'2026-10-10',is_paid:false,
+    });
+    const foreignTx = await ok(otherApi.from('transactions')
+      .insert(createTransaction(other,foreignAccount,'Tenant test foreign'))
+      .select('id').single());
+    const attempts=[
+      ['other account on transaction', () => ownerApi.from('transactions').insert(
+        createTransaction(own,foreignAccount,'Cross-owner account'))],
+      ['other account on forecast', () => ownerApi.from('recurring_bills').insert({
+        user_id:own,account_id:foreignAccount,name:'Cross-owner forecast',
+        amount:1,category:'Outros',type:'expense',start_date:'2026-10-01',
+      })],
+      ['other account on transfer', () => ownerApi.from('transfers').insert({
+        user_id:own,from_account_id:account,to_account_id:foreignAccount,
+        amount:1,date:'2026-10-10',
+      })],
+      ['other bill on payment', () => ownerApi.from('bill_payments').insert({
+        user_id:own,recurring_bill_id:foreignBill,reference_month:'2028-02',
+      })],
+      ['other transaction on attachment', () => ownerApi.from('transaction_attachments').insert({
+        user_id:own,transaction_id:foreignTx.id,
+        file_name:'test-only.png',file_path:`${own}/test-only.png`,
+      })],
+    ];
+    for(const [name,attempt] of attempts) {
+      const {error}=await attempt();
+      assert.equal(error?.code,'23503',`${name}: require tenant owner trigger to reject cross-owner link`);
+    }
+    const ownTx=await ok(ownerApi.from('transactions')
+      .insert(createTransaction(own,account,'Tenant test own'))
+      .select('id').single());
+    const [stored]=await sql`select user_id,account_id from public.transactions where id=${ownTx.id}`;
+    assert.equal(stored.user_id,own);
+    assert.equal(stored.account_id,account);
+    assert.equal((await ok(otherApi.from('transactions').select('id').eq('id',ownTx.id))).length,0);
+    await ok(ownerApi.from('transactions').delete().eq('id',ownTx.id).select('id'));
+    await ok(otherApi.from('transactions').delete().eq('id',foreignTx.id).select('id'));
+  });
   console.log(`${checks} checks passed on full disposable Supabase: PostgreSQL, Auth, PostgREST, RLS and frontend intent recovery.`);
 } finally { await sql.end({ timeout: 2 }); }
