@@ -279,21 +279,19 @@ export default function Dashboard() {
           </p>
         </article>
 
-        <article className="dashboard-card col-span-2 flex flex-wrap items-center gap-x-7 gap-y-3 p-4 lg:p-5">
-          <div className="flex items-baseline gap-2">
-            <span className="text-[12px] text-muted-foreground">Lançamentos</span>
-            <span className="text-[15px] font-bold tabular-nums text-foreground">{filtered.length}</span>
+        <article className="dashboard-card col-span-2 grid grid-cols-3 items-center divide-x divide-border/80 px-2 py-3 sm:px-4 lg:py-5" aria-label="Resumo do período">
+          <div className="flex min-w-0 items-center justify-center gap-1 px-1">
+            <span className="whitespace-nowrap text-[clamp(9px,2.4vw,12px)] font-medium text-muted-foreground">Lançamentos</span>
+            <strong className="shrink-0 text-[14px] font-bold tabular-nums text-foreground sm:text-base">{filtered.length}</strong>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-[12px] text-muted-foreground">Dias no período</span>
-            <span className="text-[15px] font-bold tabular-nums text-foreground">{days}</span>
+          <div className="flex min-w-0 items-center justify-center gap-1 px-1">
+            <span className="whitespace-nowrap text-[clamp(9px,2.4vw,12px)] font-medium text-muted-foreground"><span className="sm:hidden">Dias</span><span className="hidden sm:inline">Dias no período</span></span>
+            <strong className="shrink-0 text-[14px] font-bold tabular-nums text-foreground sm:text-base">{days}</strong>
           </div>
-          {holdings > 0 && (
-            <div className="flex items-baseline gap-2">
-              <span className="text-[12px] text-muted-foreground">Contas & cartões</span>
-              <span className="text-[15px] font-bold tabular-nums text-foreground">{holdings}</span>
-            </div>
-          )}
+          <div className="flex min-w-0 items-center justify-center gap-1 px-1">
+            <span className="whitespace-nowrap text-[clamp(9px,2.4vw,12px)] font-medium text-muted-foreground"><span className="sm:hidden">Contas/cartões</span><span className="hidden sm:inline">Contas & cartões</span></span>
+            <strong className="shrink-0 text-[14px] font-bold tabular-nums text-foreground sm:text-base">{holdings}</strong>
+          </div>
         </article>
       </section>
 
