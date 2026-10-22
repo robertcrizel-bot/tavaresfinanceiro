@@ -33,7 +33,9 @@
 
 1. **Recuperação de senha** (`src/pages/PasswordRecovery.tsx`, rota pública e link no login): sem expor se a conta existe; exige token/session e confirmação. Necessário **configurar** no Supabase Auth Redirect URLs o endereço `https://tavares1989finance.lovable.app/recuperar-senha?recovery=1` e testar link real no Moto G32. Não alegar pronto antes.
 2. **RPCs antigas**: `20261022130000_harden_legacy_invoice_rpc_anonymous.sql` preserva execução autenticada, retira `PUBLIC`/`anon` das sete funções antigas de faturas. **Não foi aplicado a produção**. Testar em Postgres descartável e primeiro validar momento seguro para aplicar; não confundir com Fase 2C.
-3. Testes de recuperação de senha, grants, TypeScript/build no workflow `product-readiness-foundation.yml`.
+3. Exportação financeira em JSON sob comando do próprio usuário: dez tabelas paginadas, escopo limitado a `user_id`, comprovantes somente como metadados (binários pendentes de fluxo específico), com testes de erro parcial.
+4. Trava do `seedUserData` para não gerar dados de demonstração em produção e remoção da importação não utilizada no AuthContext.
+5. Testes de recuperação de senha, grants, exportação, TypeScript/build no workflow `product-readiness-foundation.yml`.
 4. Consulta READ ONLY ao banco de produção: oito grupos de ligações entre registros diferentes têm **zero** divergências de `user_id` na fotografia consultada. Necessário impedimento preventivo contra inserção de vínculo de outro titular.
 
 ## Arquitetura planejada de venda
