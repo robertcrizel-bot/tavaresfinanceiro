@@ -188,23 +188,23 @@ describe("Statements page", () => {
     expect(table().getByText("Aluguel")).toBeInTheDocument();
   });
 
-  it("shows card purchases without invoice records and the payment once on the account", () => {
+  it("keeps the origin chart informative without trapping users in drilldown", () => {
     mocks.transactions = [purchaseA, purchaseB, obligation, payment];
     const { container } = render(<Statements />);
     setPeriod(container, "2026-09-01", "2026-09-30");
 
-    fireEvent.click(screen.getByRole("button", { name: /Caixa Master Camila.*R\$/ }));
-    expect(screen.getByText("Total líquido")).toBeInTheDocument();
-    expect(screen.getByText("Qtd. compras")).toBeInTheDocument();
-    expect(table().queryByText("Fatura Cartão")).not.toBeInTheDocument();
-    expect(table().getByText("Supermercado")).toBeInTheDocument();
-    expect(table().getByText("Farmácia")).toBeInTheDocument();
-    expect(table().getByText("- R$ 100,00")).toBeInTheDocument();
+    expect(screen.getByText("Movimentado por conta ou cartão")).toBeInTheDocument();
+    const accountLabel = screen.getByText(/Conta Caixa · R\$/);
+    const cardLabel = screen.getByText(/Caixa Master Camila \(Cartão\) · R\$/);
 
-    fireEvent.click(screen.getByRole("button", { name: "Remover filtro de origem" }));
-    fireEvent.click(screen.getByRole("button", { name: /Conta Caixa.*R\$/ }));
-    expect(table().getAllByRole("row")).toHaveLength(2);
-    expect(table().getAllByText("Pagamento de Fatura")).toHaveLength(2);
+    expect(accountLabel.closest("button")).toBeNull();
+    expect(cardLabel.closest("button")).toBeNull();
+    const initialRows = table().getAllByRole("row").length;
+    fireEvent.click(cardLabel);
+    fireEvent.click(accountLabel);
+    expect(table().getAllByRole("row")).toHaveLength(initialRows);
+    expect(screen.queryByRole("button", { name: "Remover filtro de origem" })).not.toBeInTheDocument();
+    expect(screen.getByText("Movimentado por conta ou cartão")).toBeInTheDocument();
   });
 
   it("filters the table by clicking a category and clears it", () => {
