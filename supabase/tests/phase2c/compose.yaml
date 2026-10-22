@@ -1,0 +1,12 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: disposable-local-only
+      POSTGRES_DB: financecontrol_phase2c_disposable
+    ports:
+      - "127.0.0.1:55432:5432"
+    # No shared volume, production config, env file, or remote endpoint.
+    tmpfs:
+      - /var/lib/postgresql/data
