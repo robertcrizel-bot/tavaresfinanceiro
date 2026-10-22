@@ -3,6 +3,8 @@ import { CreditCardInvoice, ReceiptDetails, Transaction } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
+import { runFinancialOperation } from "@/lib/financial-rpc";
+import { useFinancialRecovery } from "@/hooks/use-financial-recovery";
 import { isSystemInvoiceTransaction } from "@/lib/transaction-classification";
 
 interface FinanceContextType {
@@ -109,6 +111,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     } else {
       setCreditCardInvoices((invoiceRes.data || []).map((invoice) => ({
         id: invoice.id,
+        operationVersion: invoice.operation_version,
         creditCardId: invoice.credit_card_id,
         competence: invoice.competence,
         cycleStart: invoice.cycle_start,
@@ -285,51 +288,28 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     }
   }, [transactions, fetchTransactions]);
 
+  const financialFailure = useFinancialRecovery(user?.id,["close_credit_card_invoice_atomic"],fetchTransactions);
   const closeCardInvoice = useCallback(async (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[], dueDate?: string, restoreTransactionIds?: string[]) => {
     if (!user || closingInvoices.current.has(invoiceId)) return false;
     closingInvoices.current.add(invoiceId);
-    let refreshNeeded = false;
     try {
-      if (restoreTransactionIds?.length) {
-        // A lost response can still follow an applied UPDATE. Never compensate blindly.
-        refreshNeeded = true;
-        const { error: restoreError } = await supabase
-          .from("transactions")
-          .update({ credit_card_invoice_id: invoiceId })
-          .in("id", restoreTransactionIds);
-        if (restoreError) {
-          toast({ title: "Erro ao restaurar compras", description: restoreError.message, variant: "destructive" });
-          return false;
-        }
-      }
-
-      const { error } = await supabase.rpc("close_credit_card_invoice", {
-        p_invoice_id: invoiceId,
-        p_actual_closed_date: actualClosedDate || null,
-        p_exclude_transaction_ids: excludeTransactionIds || null,
-        p_due_date: dueDate || null,
+      const invoice = creditCardInvoices.find(i=>i.id===invoiceId);
+      if (!invoice || !Number.isSafeInteger(invoice.operationVersion)) throw new Error("Atualize a fatura antes de fechar. A versão da operação não foi carregada.");
+      await runFinancialOperation(user.id,`invoice:${invoiceId}`,"close_credit_card_invoice_atomic",{
+        p_invoice_id:invoiceId,p_expected_version:invoice.operationVersion,
+        p_actual_closed_date:actualClosedDate || null,p_due_date:dueDate || null,
+        p_exclude_transaction_ids:[...new Set(excludeTransactionIds ?? [])].sort(),
+        p_restore_transaction_ids:[...new Set(restoreTransactionIds ?? [])].sort(),
       });
-      if (error) {
-        toast({ title: "Erro ao fechar fatura", description: error.message, variant: "destructive" });
-        return false;
-      }
-      toast({ title: "Fatura fechada", description: "O valor do ciclo foi consolidado com sucesso." });
-      refreshNeeded = true;
+      toast({title:"Fatura fechada",description:"O valor do ciclo foi consolidado com sucesso."});
       return true;
-    } catch {
-      refreshNeeded = true;
-      toast({ title: "Erro ao fechar fatura", description: "Não foi possível confirmar o fechamento. Atualize os dados antes de tentar novamente.", variant: "destructive" });
-      return false;
-    } finally {
-      try {
-        if (refreshNeeded) await fetchTransactions();
-      } catch {
-        toast({ title: "Erro ao atualizar faturas", description: "Recarregue os registros para conferir o estado atual.", variant: "destructive" });
-      } finally {
-        closingInvoices.current.delete(invoiceId);
-      }
+    } catch(error) { financialFailure("Não foi possível confirmar o fechamento",error); return false; }
+    finally {
+      try { await fetchTransactions(); }
+      catch(error) { financialFailure("Erro ao atualizar faturas",error); }
+      finally { closingInvoices.current.delete(invoiceId); }
     }
-  }, [user, fetchTransactions]);
+  },[user,creditCardInvoices,fetchTransactions,financialFailure]);
 
   const reopenCardInvoice = useCallback(async (invoiceId: string) => {
     const { error } = await supabase.rpc("reopen_credit_card_invoice", {

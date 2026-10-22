@@ -1,0 +1,67 @@
+name: Phase 2C disposable Supabase
+on:
+  push:
+    branches: [test/financial-phase2c-frontend, prep/phase2c-permissions-safety]
+permissions:
+  contents: read
+concurrency:
+  group: phase2c-supabase-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  integration:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - uses: supabase/setup-cli@v1
+        with:
+          version: 2.121.0
+      - name: Install isolated test dependencies
+        run: npm ci --ignore-scripts --prefix supabase/tests/phase2c
+      - name: Create unlinked disposable project
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/phase2c"
+          supabase init --workdir "$RUNNER_TEMP/phase2c"
+          cp -R supabase/migrations "$RUNNER_TEMP/phase2c/supabase/migrations"
+          # No repository config, .env, project link, or production secret copied.
+          supabase start --workdir "$RUNNER_TEMP/phase2c" -x studio,edge-runtime,imgproxy,logflare,vector,supavisor
+          supabase status --workdir "$RUNNER_TEMP/phase2c" -o json > "$RUNNER_TEMP/phase2c-status.json"
+      - name: SQL atomicity and full Auth / PostgREST / RLS
+        env:
+          PHASE2C_STATUS_FILE: ${{ runner.temp }}/phase2c-status.json
+        run: node --experimental-strip-types supabase/tests/phase2c/run.mjs
+      - name: Pre-cutover permissions and ordinary writes
+        env:
+          PHASE2C_STATUS_FILE: ${{ runner.temp }}/phase2c-status.json
+        run: node supabase/tests/phase2c/permissions.test.mjs
+      - name: Container diagnostics
+        if: failure()
+        run: docker ps -a --format '{{.Names}} {{.Status}}'
+      - name: Stop disposable stack
+        if: always()
+        run: supabase stop --workdir "$RUNNER_TEMP/phase2c" --no-backup
+  frontend:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    env:
+      VITE_SUPABASE_URL: http://127.0.0.1:54321
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-local-only
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+      - run: npm ci --ignore-scripts
+      - run: npm test -- --maxWorkers=2
+      - run: npx tsc -p tsconfig.app.json --noEmit
+      - run: npx tsc -p tsconfig.node.json --noEmit
+      - run: npm run build
