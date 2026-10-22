@@ -30,3 +30,4 @@ jobs:
         run: |
           psql -h 127.0.0.1 -U postgres -d test_tenant -v ON_ERROR_STOP=1 -f supabase/tests/tenant-ownership-guards.sql
           psql -h 127.0.0.1 -U postgres -d test_tenant -v ON_ERROR_STOP=1 -f supabase/tests/tenant-rls-two-users.sql
+          psql -h 127.0.0.1 -U postgres -d test_tenant -v ON_ERROR_STOP=1 -f supabase/tests/tenant-storage-two-users.sql
