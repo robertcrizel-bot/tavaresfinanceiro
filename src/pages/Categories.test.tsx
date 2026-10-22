@@ -70,6 +70,20 @@ describe("Categories monthly budget", () => {
     await waitFor(() => expect(mocks.addCategory).toHaveBeenCalledWith("Mercado", "expense", 1000));
   });
 
+  it("submits the new category only once during a slow save", async () => {
+    let finish!: (saved: boolean) => void;
+    mocks.addCategory.mockReturnValueOnce(new Promise<boolean>(resolve => { finish = resolve; }));
+    render(<Categories />);
+    const input = openNewCategory();
+    fireEvent.change(input, { target: { value: "Pets" } });
+    const form = input.closest("form")!;
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+    expect(mocks.addCategory).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("button", { name: "Salvando..." })).toBeDisabled();
+    finish(true);
+  });
+
   it("does not offer a budget for income categories", () => {
     render(<Categories />);
     openNewCategory();
