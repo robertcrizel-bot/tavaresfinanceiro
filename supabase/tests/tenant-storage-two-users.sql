@@ -6,7 +6,7 @@
 CREATE SCHEMA storage;
 CREATE FUNCTION storage.foldername(path text) RETURNS text[]
 LANGUAGE sql IMMUTABLE SET search_path = ''
-AS $$ SELECT pg_catalog.string_to_array(path, '/')[:(pg_catalog.array_length(pg_catalog.string_to_array(path, '/'), 1) - 1)] $$;
+AS $ SELECT pg_catalog.string_to_array(path, '/') $;
 
 CREATE TABLE storage.objects (
   id uuid PRIMARY KEY,
