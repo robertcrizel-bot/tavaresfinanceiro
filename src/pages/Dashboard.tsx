@@ -384,7 +384,6 @@ export default function Dashboard() {
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
               <XAxis dataKey="date" tick={{ ...CHART_TICK, fontSize: 11 }} interval="preserveStartEnd" minTickGap={32} tickMargin={10} />
               <YAxis
-                tick={CHART_TICK}
                 width={86}
                 tick={{ ...CHART_TICK, fontSize: 11 }}
                 tickFormatter={chartMoneyTick}
