@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { Link } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -76,6 +77,13 @@ export default function Auth() {
               minLength={6}
             />
           </div>
+          {isLogin && (
+            <div className="text-right">
+              <Link className="text-sm font-medium text-primary hover:underline" to="/recuperar-senha">
+                Esqueci minha senha
+              </Link>
+            </div>
+          )}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isLogin ? "Entrar" : "Criar Conta"}

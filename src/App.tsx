@@ -20,6 +20,7 @@ import ReceiptImport from "@/pages/ReceiptImport";
 import Statements from "@/pages/Statements";
 import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
+import PasswordRecovery from "@/pages/PasswordRecovery";
 import NotFound from "@/pages/NotFound";
 import Install from "@/pages/Install";
 import { Loader2 } from "lucide-react";
@@ -83,6 +84,7 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<AuthRoute />} />
+            <Route path="/recuperar-senha" element={<PasswordRecovery />} />
             <Route path="/install" element={<Install />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
