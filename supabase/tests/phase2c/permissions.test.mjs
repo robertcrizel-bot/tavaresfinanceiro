@@ -11,6 +11,21 @@ const sql=postgres(url.toString(),{max:1,connect_timeout:3});
 try {
   const [before]=await sql`SELECT COUNT(*)::int AS count FROM public.transactions`;
   assert.ok(before.count>0,'Run after existing integration suite populated the disposable DB');
+  // Production already received this additive migration in an earlier
+  // partial cutover. Re-run it against the populated DB and confirm no
+  // constraint duplication, loss of records or changed definition.
+  const [priorTypeConstraint] = await sql`SELECT pg_get_constraintdef(oid) AS definition
+    FROM pg_constraint
+    WHERE conrelid='public.recurring_bills'::regclass
+      AND conname='recurring_bills_type_phase2c'`;
+  assert.ok(priorTypeConstraint?.definition,'Existing type constraint missing before reapply');
+  const typeMigration = await readFile('supabase/migrations/20261016115000_reconcile_recurring_bill_type.sql','utf8');
+  await sql.unsafe(typeMigration).simple();
+  const [afterTypeConstraint] = await sql`SELECT pg_get_constraintdef(oid) AS definition
+    FROM pg_constraint
+    WHERE conrelid='public.recurring_bills'::regclass
+      AND conname='recurring_bills_type_phase2c'`;
+  assert.equal(afterTypeConstraint?.definition,priorTypeConstraint.definition,'Type constraint changed during reapply');
   const functions=[
     'ensure_credit_card_invoice(uuid,date)',
     'close_credit_card_invoice(uuid)',
