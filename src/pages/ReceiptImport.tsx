@@ -687,11 +687,14 @@ export default function ReceiptImport() {
   const shareWorkerOutdated = isShareWorkerOutdated(reportedSwVersion);
 
   return (
-    <div className="space-y-5 pb-6">
-      <div>
-        <h1 className="text-3xl font-bold text-foreground">Ler comprovante</h1>
-        <p className="text-muted-foreground mt-1">
-          Envie a foto ou o PDF do comprovante e o app preenche o registro para você conferir.
+    <div className="mx-auto max-w-4xl space-y-4 pb-4">
+      <div className="space-y-1">
+        <p className="eyebrow">Leitura de documentos</p>
+        <h1 className="font-display text-[26px] font-bold leading-tight tracking-[-0.035em] text-foreground sm:text-3xl">
+          Ler comprovante
+        </h1>
+        <p className="max-w-2xl text-[13px] leading-relaxed text-muted-foreground sm:text-sm">
+          Selecione uma foto ou PDF para preencher seu registro automaticamente.
         </p>
       </div>
 
@@ -712,7 +715,7 @@ export default function ReceiptImport() {
         </details>
       )}
 
-      <Card className="p-4 space-y-4 sm:p-6">
+      <Card className="workspace-panel space-y-3 rounded-xl p-3 sm:space-y-4 sm:p-5">
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
@@ -722,7 +725,7 @@ export default function ReceiptImport() {
         ) : (
           <>
             {pendingFile ? (
-              <div className="flex min-w-0 items-center gap-3 rounded-lg border border-border bg-muted/30 p-3">
+              <div className="flex min-w-0 items-center gap-2.5 rounded-lg border border-border/80 bg-muted/20 p-2.5 sm:p-3">
                 <FileText aria-hidden="true" className="h-6 w-6 shrink-0 text-primary" />
                 <div className="min-w-0 flex-1">
                   <p className="text-xs text-muted-foreground">Arquivo selecionado</p>
@@ -734,12 +737,12 @@ export default function ReceiptImport() {
                 Escolha uma imagem ou PDF. Para fotografar, use "Tirar foto".
               </p>
             )}
-            <div className="flex flex-col gap-2 sm:flex-row">
-              <Button variant={pendingFile ? "ghost" : "default"} className="gap-2" disabled={capturing || cameraOpen || localLoading} onClick={openFilePicker}>
-                <Paperclip className="h-4 w-4" /> {pendingFile ? "Trocar arquivo" : "Galeria/arquivo"}
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant={pendingFile ? "outline" : "default"} className="min-h-10 w-full gap-2 rounded-lg px-2 text-[13px] sm:text-sm" disabled={capturing || cameraOpen || localLoading} onClick={openFilePicker}>
+                <Paperclip className="h-4 w-4 shrink-0" /> {pendingFile ? "Trocar arquivo" : "Galeria/arquivo"}
               </Button>
-              <Button variant={pendingFile ? "ghost" : "outline"} className="gap-2" disabled={capturing || cameraOpen || localLoading} onClick={() => void openCamera()}>
-                <Camera className="h-4 w-4" /> {pendingFile ? "Tirar nova foto" : "Tirar foto"}
+              <Button variant="outline" className="min-h-10 w-full gap-2 rounded-lg px-2 text-[13px] sm:text-sm" disabled={capturing || cameraOpen || localLoading} onClick={() => void openCamera()}>
+                <Camera className="h-4 w-4 shrink-0" /> {pendingFile ? "Tirar nova foto" : "Tirar foto"}
               </Button>
             </div>
             <input
@@ -767,10 +770,10 @@ export default function ReceiptImport() {
               }}
             />
             {pendingFile && (
-              <div className="space-y-4">
+              <div className="space-y-3">
                 <div className="flex flex-col gap-2 sm:flex-row">
                   {freeAiState === "available" && (
-                      <Button className="min-h-12 w-full gap-2.5 rounded-xl border border-primary/30 bg-[hsl(169_66%_28%)] px-5 text-base font-bold text-white shadow-sm shadow-primary/15 hover:bg-[hsl(169_66%_25%)] hover:text-white active:bg-[hsl(169_66%_22%)] active:text-white active:shadow-none disabled:shadow-none" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => setFreeAiConfirmOpen(true)}>
+                      <Button className="min-h-11 w-full gap-2 rounded-lg border border-primary/30 bg-[hsl(169_66%_28%)] px-4 text-sm font-semibold text-white shadow-sm shadow-primary/15 hover:bg-[hsl(169_66%_25%)] hover:text-white active:bg-[hsl(169_66%_22%)] active:text-white active:shadow-none disabled:shadow-none" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => setFreeAiConfirmOpen(true)}>
                       <Sparkles aria-hidden="true" className="h-4 w-4 shrink-0 text-white" />
                       Ler comprovante grátis
                     </Button>
@@ -796,8 +799,8 @@ export default function ReceiptImport() {
                     IA grátis indisponível no servidor no momento.
                   </p>
                 )}
-                <details className="group border-t border-border pt-3">
-                  <summary className="flex min-h-11 cursor-pointer list-none items-center justify-between gap-2 text-sm font-medium [&::-webkit-details-marker]:hidden">
+                <details className="group border-t border-border pt-2">
+                  <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 text-[13px] font-medium sm:text-sm [&::-webkit-details-marker]:hidden">
                     Outros métodos de leitura
                     <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
                   </summary>
