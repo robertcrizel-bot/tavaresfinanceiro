@@ -7,6 +7,11 @@ function daysAgo(n: number) {
 }
 
 export async function seedUserData(userId: string) {
+  // Never generate demonstration money or transactions in a real customer account.
+  // Only manually called local development fixtures may populate demo records.
+  if (import.meta.env.PROD) {
+    throw new Error("Dados de demonstração não podem ser criados em produção.");
+  }
   // Check if user already has data
   const { count } = await supabase
     .from("transactions")

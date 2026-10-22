@@ -1,0 +1,46 @@
+name: Commercial readiness foundation
+on:
+  push:
+    branches: [product/commercial-readiness-foundation]
+  pull_request:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: test_commercial
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d test_commercial"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: ci-only-password
+      VITE_SUPABASE_URL: http://127.0.0.1:54321
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-local-placeholder
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Tests and regressions
+        run: npm test -- --maxWorkers=2
+      - name: TypeScript and build
+        run: |
+          npx tsc -p tsconfig.app.json --noEmit
+          npx tsc -p tsconfig.node.json --noEmit
+          npm run build
+      - name: Invoice function privileges (disposable database)
+        run: psql -h 127.0.0.1 -U postgres -d test_commercial -v ON_ERROR_STOP=1 -f supabase/tests/commercial-invoice-grants.sql
