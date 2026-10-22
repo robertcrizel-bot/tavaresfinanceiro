@@ -4,7 +4,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { LogOut, Mail, User, Pencil } from "lucide-react";
+import { LogOut, Mail, User, Pencil, Download } from "lucide-react";
+import { downloadOwnFinancialExport } from "@/lib/export-own-financial-data";
 import { toast } from "@/hooks/use-toast";
 import { BUILD_COMMIT, BUILD_TIME } from "@/lib/build-info";
 
@@ -20,6 +21,7 @@ export default function Profile() {
   const [displayName, setDisplayName] = useState("");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   useEffect(() => {
     if (!user) return;
@@ -39,6 +41,19 @@ export default function Profile() {
     else toast({ title: "Perfil atualizado" });
     setSaving(false);
     setEditing(false);
+  };
+
+  const handleExportData = async () => {
+    if (!user || exporting) return;
+    setExporting(true);
+    try {
+      await downloadOwnFinancialExport(user.id, user.email);
+      toast({ title: "Exportação iniciada", description: "O arquivo JSON contém seus dados financeiros. Guarde-o com segurança." });
+    } catch {
+      toast({ title: "Não foi possível exportar", description: "Nenhum registro foi alterado. Tente novamente mais tarde.", variant: "destructive" });
+    } finally {
+      setExporting(false);
+    }
   };
 
   const handleLogout = async () => {
@@ -89,6 +104,17 @@ export default function Profile() {
           Build: {BUILD_COMMIT} · {formatBuildTime(BUILD_TIME)}
         </p>
         <p>Origem: {typeof window !== "undefined" ? window.location.origin : "—"}</p>
+      </div>
+
+      <div className="glass-card space-y-3 rounded-xl p-4">
+        <h2 className="font-semibold text-foreground">Seus dados financeiros</h2>
+        <p className="text-xs leading-relaxed text-muted-foreground">
+          Exporte seus lançamentos, contas, cartões, previsões e dados dos comprovantes em JSON.
+          As imagens e PDFs dos comprovantes não são incluídos. O arquivo contém informações pessoais: guarde-o em local seguro.
+        </p>
+        <Button variant="outline" className="w-full gap-2" disabled={exporting || !user} onClick={() => void handleExportData()}>
+          <Download className="h-4 w-4" />{exporting ? "Preparando exportação..." : "Exportar meus dados"}
+        </Button>
       </div>
 
       <Button
