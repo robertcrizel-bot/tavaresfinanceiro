@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ForecastProvider, useForecast, type RecurringBill } from "@/contexts/ForecastContext";
 
 const mocks = vi.hoisted(() => ({
+  user: { id: "u-one" },
   from: vi.fn(),
   insert: vi.fn(),
   order: vi.fn(),
@@ -12,7 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({ supabase: { from: mocks.from } }));
-vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: { id: "u-one" } }) }));
+vi.mock("@/contexts/AuthContext", () => ({ useAuth: () => ({ user: mocks.user }) }));
 vi.mock("@/contexts/FinanceContext", () => ({
   useFinance: () => ({ addTransaction: vi.fn(), refetch: vi.fn() }),
 }));
