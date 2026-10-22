@@ -1,5 +1,5 @@
 import { categoryColor, colorAccent } from "@/lib/chart-theme";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useCategories, UserCategory } from "@/contexts/CategoryContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -50,6 +50,8 @@ export default function Categories() {
   const [monthlyBudget, setMonthlyBudget] = useState("");
   const [budgetError, setBudgetError] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
+  const savingCategoryRef = useRef(false);
+  const [savingCategory, setSavingCategory] = useState(false);
 
   const openNew = () => {
     setEditing(undefined);
@@ -71,6 +73,7 @@ export default function Categories() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (savingCategoryRef.current) return;
     const parsedBudget = type === "expense" && monthlyBudget.trim() !== "" ? Number(monthlyBudget) : null;
     if (parsedBudget != null && (!Number.isFinite(parsedBudget) || parsedBudget <= 0)) {
       setBudgetError("Informe um orçamento maior que zero.");
@@ -81,13 +84,21 @@ export default function Categories() {
       setFormError("Já existe uma categoria com esse nome e tipo.");
       return;
     }
-    setFormError(null);
-    if (editing) {
-      await updateCategory(editing.id, name, type, parsedBudget);
-    } else {
-      await addCategory(name, type, parsedBudget);
+    savingCategoryRef.current = true;
+    setSavingCategory(true);
+    try {
+      setFormError(null);
+      if (editing) {
+        await updateCategory(editing.id, name, type, parsedBudget);
+        setFormOpen(false);
+      } else {
+        const saved = await addCategory(name, type, parsedBudget);
+        if (saved) setFormOpen(false);
+      }
+    } finally {
+      savingCategoryRef.current = false;
+      setSavingCategory(false);
     }
-    setFormOpen(false);
   };
 
   const expenseCategories = categories.filter((c) => c.type === "expense" || c.type === "both");
@@ -203,7 +214,7 @@ export default function Categories() {
       </Tabs>
 
       {/* Form Dialog */}
-      <Dialog open={formOpen} onOpenChange={(o) => !o && setFormOpen(false)}>
+      <Dialog open={formOpen} onOpenChange={(o) => !o && !savingCategoryRef.current && setFormOpen(false)}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>{editing ? "Editar Categoria" : "Nova Categoria"}</DialogTitle>
@@ -251,8 +262,8 @@ export default function Categories() {
             )}
             {formError && <p role="alert" className="text-sm text-destructive">{formError}</p>}
             <div className="flex justify-end gap-2 pt-2">
-              <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>Cancelar</Button>
-              <Button type="submit">{editing ? "Salvar" : "Criar"}</Button>
+              <Button type="button" variant="ghost" disabled={savingCategory} onClick={() => setFormOpen(false)}>Cancelar</Button>
+              <Button type="submit" disabled={savingCategory}>{savingCategory ? "Salvando..." : editing ? "Salvar" : "Criar"}</Button>
             </div>
           </form>
         </DialogContent>

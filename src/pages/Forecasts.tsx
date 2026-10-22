@@ -1,5 +1,5 @@
 import { categoryColor, entityColor, colorAccent } from "@/lib/chart-theme";
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { useForecast, BillPayment, RecurringBill } from "@/contexts/ForecastContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { findCashAccount, isCashPaymentMethod } from "@/lib/cash-account";
@@ -33,6 +33,9 @@ import {
 
 export default function Forecasts() {
   const { bills, payments, loading, addBill, updateBill, deleteBill, markAsPaid, unmarkAsPaid } = useForecast();
+  const savingForecastRef = useRef(false);
+  const createRequestIdRef = useRef<string | null>(null);
+  const [savingForecast, setSavingForecast] = useState(false);
   const { accounts, creditCards } = useAccounts();
   const { categories, getCategoriesByType } = useCategories();
   const { transactions } = useFinance();
@@ -114,6 +117,7 @@ export default function Forecasts() {
   }, [formType, formCategory, formAmount, editingBill, referenceMonth, transactions, payments, categories]);
 
   const openNew = () => {
+    createRequestIdRef.current = crypto.randomUUID();
     setEditingBill(null);
     setEditScope("");
     setFormName(""); setFormAmount(""); setFormType("expense"); setFormCategory(""); setFormDueDay("1");
@@ -122,6 +126,7 @@ export default function Forecasts() {
   };
 
   const openEdit = (bill: RecurringBill) => {
+    createRequestIdRef.current = null;
     setEditingBill(bill);
     setFormName(bill.name);
     setFormAmount(String(bill.amount));
@@ -136,26 +141,40 @@ export default function Forecasts() {
   };
 
   const handleSave = async () => {
-    const data = {
-      name: formName,
-      amount: Number(formAmount),
-      type: formType,
-      category: formCategory,
-      dueDay: Number(formDueDay),
-      startDate: editingBill?.startDate || `${referenceMonth}-01`,
-      durationMonths: editingBill && editScope === "this"
-        ? editingBill.durationMonths
-        : formDuration ? Number(formDuration) : null,
-      accountId: formAccountId || null,
-      description: formDescription || null,
-    };
-    if (editingBill) {
-      if (!editScope) return;
-      await updateBill({ ...editingBill, ...data }, editScope, referenceMonth);
-    } else {
-      await addBill(data);
+    if (savingForecastRef.current) return;
+    savingForecastRef.current = true; // immediate lock, independent of React render
+    setSavingForecast(true);
+    try {
+      const data = {
+        name: formName,
+        amount: Number(formAmount),
+        type: formType,
+        category: formCategory,
+        dueDay: Number(formDueDay),
+        startDate: editingBill?.startDate || `${referenceMonth}-01`,
+        durationMonths: editingBill && editScope === "this"
+          ? editingBill.durationMonths
+          : formDuration ? Number(formDuration) : null,
+        accountId: formAccountId || null,
+        description: formDescription || null,
+      };
+      if (editingBill) {
+        if (!editScope) return;
+        await updateBill({ ...editingBill, ...data }, editScope, referenceMonth);
+        setDialogOpen(false);
+      } else {
+        const requestId = createRequestIdRef.current ?? crypto.randomUUID();
+        createRequestIdRef.current = requestId;
+        const saved = await addBill(data, requestId);
+        if (saved) {
+          createRequestIdRef.current = null;
+          setDialogOpen(false);
+        }
+      }
+    } finally {
+      savingForecastRef.current = false;
+      setSavingForecast(false);
     }
-    setDialogOpen(false);
   };
 
   const openPay = (bill: RecurringBill) => {
@@ -420,7 +439,7 @@ export default function Forecasts() {
       )}
 
       {/* Add/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => { if (!savingForecastRef.current) setDialogOpen(open); }}>
         <DialogContent className="max-w-md max-h-[90vh] flex flex-col overflow-hidden p-0">
           <DialogHeader className="px-6 pt-6 pb-0 shrink-0">
             <DialogTitle>{editingBill ? "Editar Previsão" : "Nova Previsão"}</DialogTitle>
@@ -555,9 +574,9 @@ export default function Forecasts() {
           </div>
 
           <DialogFooter className="px-6 pb-6 pt-0 shrink-0">
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancelar</Button>
-            <Button onClick={handleSave} disabled={!formName || !formAmount || !formCategory || durationInvalid || Boolean(editingBill && !editScope)}>
-              {editingBill ? "Salvar" : "Criar"}
+            <Button variant="outline" disabled={savingForecast} onClick={() => setDialogOpen(false)}>Cancelar</Button>
+            <Button onClick={() => void handleSave()} disabled={savingForecast || !formName || !formAmount || !formCategory || durationInvalid || Boolean(editingBill && !editScope)}>
+              {savingForecast ? "Salvando..." : editingBill ? "Salvar" : "Criar"}
             </Button>
           </DialogFooter>
         </DialogContent>
