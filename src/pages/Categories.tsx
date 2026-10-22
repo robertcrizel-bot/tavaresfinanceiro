@@ -26,6 +26,19 @@ const typeBadgeVariant: Record<string, "default" | "destructive" | "secondary"> 
   both: "secondary",
 };
 
+const categoryKey = (name: string) => name.normalize("NFC").trim().replace(/\s+/g, " ").toLocaleLowerCase("pt-BR");
+
+const groupCategories = (list: UserCategory[]): UserCategory[][] => {
+  const groups = new Map<string, UserCategory[]>();
+  for (const category of list) {
+    const key = categoryKey(category.name) + ":" + category.type;
+    const existing = groups.get(key) ?? [];
+    existing.push(category);
+    groups.set(key, existing);
+  }
+  return [...groups.values()];
+};
+
 export default function Categories() {
   const { categories, addCategory, updateCategory, deleteCategory } = useCategories();
   const { transactions } = useFinance();
@@ -36,6 +49,7 @@ export default function Categories() {
   const [type, setType] = useState<UserCategory["type"]>("expense");
   const [monthlyBudget, setMonthlyBudget] = useState("");
   const [budgetError, setBudgetError] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
 
   const openNew = () => {
     setEditing(undefined);
@@ -43,6 +57,7 @@ export default function Categories() {
     setType("expense");
     setMonthlyBudget("");
     setBudgetError(null);
+    setFormError(null);
     setFormOpen(true);
   };
   const openEdit = (cat: UserCategory) => {
@@ -61,6 +76,12 @@ export default function Categories() {
       setBudgetError("Informe um orçamento maior que zero.");
       return;
     }
+    const sameIdentity = Boolean(editing && editing.type === type && categoryKey(editing.name) === categoryKey(name));
+    if (!sameIdentity && categories.some((c) => c.id !== editing?.id && c.type === type && categoryKey(c.name) === categoryKey(name))) {
+      setFormError("Já existe uma categoria com esse nome e tipo.");
+      return;
+    }
+    setFormError(null);
     if (editing) {
       await updateCategory(editing.id, name, type, parsedBudget);
     } else {
@@ -71,6 +92,7 @@ export default function Categories() {
 
   const expenseCategories = categories.filter((c) => c.type === "expense" || c.type === "both");
   const incomeCategories = categories.filter((c) => c.type === "income" || c.type === "both");
+  const duplicateGroups = groupCategories(categories).filter((group) => group.length > 1).length;
   const monthlySpending = calculateCurrentMonthCategorySpending(transactions);
   const formatCurrency = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
@@ -79,7 +101,9 @@ export default function Categories() {
       <div className="glass-card rounded-xl p-8 text-center text-muted-foreground">Nenhuma categoria.</div>
     ) : (
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-        {list.map((cat) => (
+        {groupCategories(list).map((group) => {
+          const cat = group.find((item) => item.monthlyBudget != null) ?? group[0]!;
+          return (
           <div key={cat.id} className="glass-card data-surface min-w-0 animate-fade-in rounded-xl p-3" style={colorAccent(categoryColor(cat.name))}>
             <div className="flex items-center justify-between gap-3">
               <div className="flex min-w-0 items-center gap-3">
@@ -123,8 +147,33 @@ export default function Categories() {
                 </div>
               );
             })()}
+            {group.length > 1 && (
+              <details className="mt-3 border-t border-border/60 pt-2 text-xs">
+                <summary className="cursor-pointer font-medium text-warning">
+                  {group.length} cadastros repetidos — revisar
+                </summary>
+                <div className="mt-2 space-y-2">
+                  {group.map((item, index) => (
+                    <div key={item.id} className="flex items-center justify-between gap-2 rounded-md border border-border/70 p-2">
+                      <span className="min-w-0 break-words text-muted-foreground">
+                        Cadastro {index + 1} · {item.monthlyBudget == null ? "Sem orçamento" : "Orçamento " + formatCurrency(item.monthlyBudget)}
+                      </span>
+                      <div className="flex shrink-0 gap-1">
+                        <Button aria-label={`Editar cadastro ${index + 1} de ${cat.name}`} variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}>
+                          <Pencil className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button aria-label={`Excluir cadastro ${index + 1} de ${cat.name}`} variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleting(item.id)}>
+                          <Trash2 className="h-3.5 w-3.5 text-destructive" />
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
           </div>
-        ))}
+          );
+        })}
       </div>
     )
   );
@@ -137,6 +186,12 @@ export default function Categories() {
           <Plus className="h-4 w-4" /> Nova Categoria
         </Button>
       </div>
+
+      {duplicateGroups > 0 && (
+        <p className="rounded-lg border border-warning/30 bg-warning/5 p-3 text-[13px] text-muted-foreground">
+          {duplicateGroups} categorias com cadastros repetidos foram agrupadas na tela. Os dados e orçamentos estão preservados. Abra "revisar" para conferir cada cadastro.
+        </p>
+      )}
 
       <Tabs defaultValue="expense">
         <TabsList>
@@ -157,13 +212,14 @@ export default function Categories() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label>Nome</Label>
-              <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ex: Investimentos" />
+              <Input value={name} onChange={(e) => { setName(e.target.value); setFormError(null); }} required placeholder="Ex: Investimentos" />
             </div>
             <div className="space-y-2">
               <Label>Tipo</Label>
               <Select value={type} onValueChange={(v) => {
                 const nextType = v as UserCategory["type"];
                 setType(nextType);
+                setFormError(null);
                 if (nextType !== "expense") {
                   setMonthlyBudget("");
                   setBudgetError(null);
@@ -193,6 +249,7 @@ export default function Categories() {
                 {budgetError && <p className="text-xs text-destructive">{budgetError}</p>}
               </div>
             )}
+            {formError && <p role="alert" className="text-sm text-destructive">{formError}</p>}
             <div className="flex justify-end gap-2 pt-2">
               <Button type="button" variant="ghost" onClick={() => setFormOpen(false)}>Cancelar</Button>
               <Button type="submit">{editing ? "Salvar" : "Criar"}</Button>
