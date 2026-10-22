@@ -25,7 +25,6 @@ import { Link } from "react-router-dom";
 import { isFinancialNeutralTransaction } from "@/lib/transaction-classification";
 import {
   CHART_GRID,
-  CHART_MONEY_AXIS_WIDTH,
   CHART_SEMANTIC,
   CHART_TICK,
   CHART_TOOLTIP_STYLE,
@@ -36,10 +35,7 @@ import { calculateAccountBalances, calculateFinancialTotals } from "@/lib/financ
 import { getCardCommittedAmount } from "@/lib/credit-card-billing";
 import { cn } from "@/lib/utils";
 import {
-  Bar,
-  BarChart,
   CartesianGrid,
-  Cell,
   Line,
   LineChart,
   ResponsiveContainer,
@@ -292,12 +288,6 @@ export default function Dashboard() {
             <span className="text-[12px] text-muted-foreground">Dias no período</span>
             <span className="text-[15px] font-bold tabular-nums text-foreground">{days}</span>
           </div>
-          <div className="flex items-baseline gap-2">
-            <span className="text-[12px] text-muted-foreground">Ticket médio de saída</span>
-            <span className="text-[15px] font-bold tabular-nums text-foreground">
-              {fmt(expenseCount > 0 ? totalExpense / expenseCount : 0)}
-            </span>
-          </div>
           {holdings > 0 && (
             <div className="flex items-baseline gap-2">
               <span className="text-[12px] text-muted-foreground">Contas & cartões</span>
@@ -389,13 +379,13 @@ export default function Dashboard() {
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.35fr_0.9fr]">
         <ChartCard title="Ritmo de gastos">
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={lineData}>
+          <ResponsiveContainer width="100%" height={250}>
+            <LineChart data={lineData} margin={{ top: 12, right: 8, bottom: 6, left: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
-              <XAxis dataKey="date" tick={CHART_TICK} tickMargin={8} />
+              <XAxis dataKey="date" tick={{ ...CHART_TICK, fontSize: 11 }} interval="preserveStartEnd" minTickGap={32} tickMargin={10} />
               <YAxis
-                tick={CHART_TICK}
-                width={CHART_MONEY_AXIS_WIDTH}
+                width={86}
+                tick={{ ...CHART_TICK, fontSize: 11 }}
                 tickFormatter={chartMoneyTick}
               />
               <Tooltip
@@ -418,29 +408,25 @@ export default function Dashboard() {
         </ChartCard>
 
         <ChartCard title="Categorias que mais pesam">
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={barData} margin={{ left: 4, right: 12 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
-              <XAxis dataKey="category" tick={CHART_TICK} tickMargin={8} interval={0} angle={-18} dy={8} height={52} />
-              <YAxis
-                tick={CHART_TICK}
-                width={CHART_MONEY_AXIS_WIDTH}
-                tickFormatter={chartMoneyTick}
-              />
-              <Tooltip
-                contentStyle={CHART_TOOLTIP_STYLE}
-                labelStyle={{ color: "hsl(var(--popover-foreground))", fontWeight: 600, marginBottom: 4 }}
-                itemStyle={{ color: "hsl(var(--popover-foreground))" }}
-                cursor={{ fill: "hsl(224 14% 22% / 0.4)" }}
-                formatter={(value: number) => [fmt(value), "Total"]}
-              />
-              <Bar dataKey="total" radius={[6, 6, 6, 6]} background={{ fill: "hsl(215 18% 15%)", radius: 6 } as never}>
-                {barData.map((entry, index) => (
-                  <Cell key={index} fill={entry.fill} />
-                ))}
-              </Bar>
-            </BarChart>
-          </ResponsiveContainer>
+          {barData.length === 0 ? (
+            <p className="text-sm text-muted-foreground">Sem despesas no período.</p>
+          ) : (
+            <div className="space-y-3" role="list" aria-label="Despesas por categoria, da maior para a menor">
+              {barData.map((entry) => (
+                <div key={entry.category} role="listitem" className="space-y-1.5">
+                  <div className="flex min-w-0 flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-[13px]">
+                    <span className="min-w-0 break-words font-medium text-foreground">{entry.category}</span>
+                    <span className="shrink-0 font-semibold tabular-nums text-foreground">{fmt(entry.total)}</span>
+                  </div>
+                  <div className="h-2.5 overflow-hidden rounded-full bg-muted/70">
+                    <div className="h-full rounded-full"
+                      style={{ width: Math.max(0, Math.min(100, entry.total / (barData[0]?.total || 1) * 100)) + "%", backgroundColor: entry.fill }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </ChartCard>
       </div>
 

@@ -554,7 +554,12 @@ export default function Statements() {
               </div>
             </ChartCard>
 
-            <ChartCard title={parsedOrigin.kind === "all" ? "Distribuição por origem" : "Formas de pagamento"} color={parsedOrigin.kind === "all" ? CHART_ACCENTS.accounts : CHART_ACCENTS.payments}>
+            <ChartCard title={parsedOrigin.kind === "all" ? "Movimentado por conta ou cartão" : "Formas de pagamento"} color={parsedOrigin.kind === "all" ? CHART_ACCENTS.accounts : CHART_ACCENTS.payments}>
+              {parsedOrigin.kind === "all" && (
+                <p className="mb-3 text-[13px] leading-relaxed text-muted-foreground">
+                  Total movimentado em cada conta, cartão ou dinheiro no período: soma de entradas e saídas, sem compensar uma pela outra. Não é saldo.
+                </p>
+              )}
               {parsedOrigin.kind === "all" ? (
                 byOrigin.length === 0 ? (
                   <p className="text-sm text-muted-foreground">Sem movimentações no período.</p>

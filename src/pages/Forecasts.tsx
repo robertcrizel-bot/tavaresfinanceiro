@@ -322,24 +322,24 @@ export default function Forecasts() {
 
             return (
               <Card key={bill.id} className="data-surface min-w-0 border-border bg-card transition-colors hover:bg-accent/30" style={colorAccent(categoryColor(bill.category))}>
-                 <CardContent className="grid grid-cols-1 gap-2 px-3 py-2.5 sm:px-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-4">
-                  <div className="flex min-w-0 flex-1 items-start gap-2.5">
-                    <div className="p-1.5 rounded-lg shrink-0 mt-0.5 bg-muted">
+                 <CardContent className="grid grid-cols-1 gap-3 px-4 py-3.5 sm:px-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-4">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <div className="rounded-lg bg-muted p-2 shrink-0 mt-0.5">
                       {status.kind === "paid" ? <Check className="h-4 w-4 text-primary" /> :
                        status.kind === "overdue" ? <AlertTriangle className="h-4 w-4 text-destructive" /> :
                        <Clock className={`h-4 w-4 ${status.kind === "upcoming" ? "text-muted-foreground" : "text-warning"}`} />}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <div className="font-medium text-foreground break-words leading-snug">
+                      <div className="break-words font-semibold text-[17px] leading-snug text-foreground sm:text-lg">
                         {bill.name}
                       </div>
-                      <div className="flex flex-wrap items-center gap-1.5 mt-1">
-                        <Badge variant="outline" className="neutral-tag text-[10px] shrink-0">
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <Badge variant="outline" className="neutral-tag shrink-0 text-[12px]">
                           Dia {Number(status.dueDate.slice(-2))}
                         </Badge>
                         <Badge
                           variant="outline"
-                          className={`text-[10px] shrink-0 ${
+                          className={`shrink-0 text-[12px] ${
                             bill.type === "income"
                               ? "neutral-tag text-income"
                               : "neutral-tag text-expense"
@@ -361,7 +361,7 @@ export default function Forecasts() {
                           </Badge>
                         )}
                       </div>
-                      <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-xs text-muted-foreground mt-1">
+                      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
                         <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(categoryColor(bill.category))}>{bill.category}</span>
                         {account && (
                           <>
@@ -373,9 +373,9 @@ export default function Forecasts() {
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-2 text-sm md:justify-end md:border-t-0 md:pt-0">
+                  <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-3 text-base md:justify-end md:border-t-0 md:pt-0">
                     {effectiveAmountDiffers ? (
-                      <div className="text-right text-xs">
+                      <div className="text-left text-sm leading-relaxed md:text-right">
                         <div className="text-muted-foreground">
                           Previsto: {bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                         </div>
@@ -384,7 +384,7 @@ export default function Forecasts() {
                         </div>
                       </div>
                     ) : (
-                      <span className="font-semibold text-foreground">
+                      <span className="text-base font-semibold text-foreground">
                         {effectiveAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
                       </span>
                     )}
