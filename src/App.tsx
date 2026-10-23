@@ -21,6 +21,7 @@ import Statements from "@/pages/Statements";
 import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
 import PasswordRecovery from "@/pages/PasswordRecovery";
+import Beta from "@/pages/Beta";
 import NotFound from "@/pages/NotFound";
 import Install from "@/pages/Install";
 import { Loader2 } from "lucide-react";
@@ -85,6 +86,7 @@ const App = () => (
           <Routes>
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/recuperar-senha" element={<PasswordRecovery />} />
+            <Route path="/beta" element={<Beta />} />
             <Route path="/install" element={<Install />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
