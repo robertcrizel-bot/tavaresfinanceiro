@@ -1,16 +1,16 @@
-# FinanceControl — oferta Beta de entrada (proposta interna, não publicada)
-**Data-base: 23/10/2026. Não constitui aprovação de preço ou abertura da cobrança.**
+# FinanceControl — oferta Beta de entrada (preço aprovado, não publicada)
+**Preço inicial aprovado em 23/10/2026: R$ 24,90/mês. Isso NÃO constitui autorização de abertura da cobrança ou publicação do produto.**
 
 ## Objetivo
 Vender as primeiras 5 a 10 assinaturas com operação manual controlada, SEM IA ilimitada, SEM Mercado Pago, sem checkout próprio. Público: pessoas com dificuldades para registrar gastos e controlar cartões/previsões.
 
 ## Oferta recomendada
-- **Proposta de teste de mercado:** R$ 24,90 por mês por usuário.
+- **Preço aprovado para a beta inicial:** R$ 24,90 por mês por usuário.
 - Cobrança mensal e sem compromisso anual; formalizar renovação, cancelamento e canais antes de vender.
 - Inclui: contas, lançamentos, cartões/faturas, previsões, comprovantes, exportação JSON de dados financeiros (sem binários das imagens).
 - A leitura de IA, OCR e captura automática não são benefícios garantidos pela oferta; antes de expandir, exigir franquia e limites de custo por usuário no servidor.
 - Não prometer app nativo, integração automática com bancos, automação fiscal ou aconselhamento financeiro.
-- **Não anunciar preço nem habilitar checkout na página /beta** até o titular aprovar o valor e confirmar sua conta Asaas.
+- **Preço pode aparecer na página /beta da versão candidata; checkout deve continuar desativado** até o Asaas estar aprovado, link recorrente mensal com valor conferido, termos publicados e controle de acesso ativado.
 
 ## Tarifas públicas Asaas, sujeitas à proposta do titular
 Fonte: https://www.asaas.com/precos-e-taxas (consultada em 23/10/2026)
@@ -32,7 +32,7 @@ Fonte: https://www.asaas.com/precos-e-taxas (consultada em 23/10/2026)
 
 ## Pendências mínimas antes da primeira cobrança
 - [ ] Verificação de documentos no Asaas concluída.
-- [ ] Preço e condições do plano aceitos, conferidas as taxas efetivas.
+- [x] Preço inicial escolhido: R$ 24,90/mês. [ ] Conferir taxas efetivas da conta e condições de contratação.
 - [ ] Conta proprietária identificada; controle de acesso ativado depois de grant prévio.
 - [ ] Versão PR #12 + #13 + #14 + #15 implantada e testada em dois usuários distintos.
 - [ ] Link oficial **recorrente mensal**, não parcelamento, testado com identidade do pagador.

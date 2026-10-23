@@ -4,6 +4,7 @@ import {
   LockKeyhole, ReceiptText, Smartphone, Wallet,
 } from "lucide-react";
 import { getBetaCheckoutUrl } from "@/lib/beta-checkout";
+import { BETA_MONTHLY_PRICE_LABEL } from "@/lib/beta-plan";
 
 const features = [
   { icon: Wallet, title: "Contas e lançamentos", description: "Registre receitas e despesas e acompanhe seu dinheiro em um só lugar." },
@@ -16,7 +17,7 @@ const features = [
 
 export default function Beta() {
   const checkoutUrl = getBetaCheckoutUrl(import.meta.env.VITE_BETA_CHECKOUT_URL);
-  const price = import.meta.env.VITE_BETA_MONTHLY_PRICE?.trim();
+  const price = BETA_MONTHLY_PRICE_LABEL;
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
@@ -93,9 +94,7 @@ export default function Beta() {
           </div>
           <div className="rounded-2xl border border-primary/20 bg-card p-7 shadow-sm">
             <p className="text-sm font-bold text-primary">Plano Beta</p>
-            {price ? (
-              <p className="mt-2 text-4xl font-black">{price}<span className="ml-2 text-sm font-normal text-muted-foreground">/ mês</span></p>
-            ) : <p className="mt-2 text-2xl font-bold">Condições em preparação</p>}
+            <p className="mt-2 text-4xl font-black">{price}<span className="ml-2 text-sm font-normal text-muted-foreground">/ mês</span></p>
             <div className="mt-6 space-y-3 text-sm">
               <p className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-primary" /> Registro de receitas e despesas</p>
               <p className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-primary" /> Contas, cartões e previsões</p>
