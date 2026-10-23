@@ -22,6 +22,7 @@ import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
 import PasswordRecovery from "@/pages/PasswordRecovery";
 import Beta from "@/pages/Beta";
+import { BetaAccessGate } from "@/components/BetaAccessGate";
 import NotFound from "@/pages/NotFound";
 import Install from "@/pages/Install";
 import { Loader2 } from "lucide-react";
@@ -42,6 +43,7 @@ function ProtectedRoutes() {
   if (!user) return <Navigate to="/auth" replace />;
 
   return (
+    <BetaAccessGate>
     <FinanceProvider>
       <AccountProvider>
         <CategoryProvider>
@@ -67,6 +69,7 @@ function ProtectedRoutes() {
         </CategoryProvider>
       </AccountProvider>
     </FinanceProvider>
+    </BetaAccessGate>
   );
 }
 
