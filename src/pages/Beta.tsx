@@ -4,6 +4,7 @@ import {
   LockKeyhole, ReceiptText, Smartphone, Wallet,
 } from "lucide-react";
 import { getBetaCheckoutUrl } from "@/lib/beta-checkout";
+import { BETA_MONTHLY_PRICE_LABEL } from "@/lib/beta-plan";
 
 const features = [
   { icon: Wallet, title: "Contas e lançamentos", description: "Registre receitas e despesas e acompanhe seu dinheiro em um só lugar." },
@@ -16,7 +17,7 @@ const features = [
 
 export default function Beta() {
   const checkoutUrl = getBetaCheckoutUrl(import.meta.env.VITE_BETA_CHECKOUT_URL);
-  const price = import.meta.env.VITE_BETA_MONTHLY_PRICE?.trim();
+  const price = BETA_MONTHLY_PRICE_LABEL;
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
@@ -93,9 +94,7 @@ export default function Beta() {
           </div>
           <div className="rounded-2xl border border-primary/20 bg-card p-7 shadow-sm">
             <p className="text-sm font-bold text-primary">Plano Beta</p>
-            {price ? (
-              <p className="mt-2 text-4xl font-black">{price}<span className="ml-2 text-sm font-normal text-muted-foreground">/ mês</span></p>
-            ) : <p className="mt-2 text-2xl font-bold">Condições em preparação</p>}
+            <p className="mt-2 text-4xl font-black">{price}<span className="ml-2 text-sm font-normal text-muted-foreground">/ mês</span></p>
             <div className="mt-6 space-y-3 text-sm">
               <p className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-primary" /> Registro de receitas e despesas</p>
               <p className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-primary" /> Contas, cartões e previsões</p>
@@ -113,6 +112,45 @@ export default function Beta() {
               </p>
             )}
           </div>
+        </section>
+
+        <section className="mx-auto max-w-6xl px-5 pb-20">
+          <h2 className="text-2xl font-bold sm:text-3xl">Perguntas frequentes</h2>
+          <div className="mt-7 grid gap-4 md:grid-cols-2">
+            <article className="rounded-2xl border border-border bg-card p-5">
+              <h3 className="font-semibold">Preciso instalar um aplicativo?</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Não. O FinanceControl funciona pelo navegador no celular ou no computador.
+              </p>
+            </article>
+            <article className="rounded-2xl border border-border bg-card p-5">
+              <h3 className="font-semibold">A leitura por inteligência artificial está incluída?</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Não como benefício garantido do plano Beta. A oferta é de organização
+                financeira manual; recursos de leitura automática estão em avaliação.
+              </p>
+            </article>
+            <article className="rounded-2xl border border-border bg-card p-5">
+              <h3 className="font-semibold">Quando meu acesso é liberado?</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Após o cadastro e a confirmação da cobrança no provedor de pagamento,
+                nossa equipe libera o acesso durante a fase Beta. O pagamento não
+                libera a conta automaticamente.
+              </p>
+            </article>
+            <article className="rounded-2xl border border-border bg-card p-5">
+              <h3 className="font-semibold">Consigo levar meus dados se sair?</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                A versão Beta permite exportar os registros financeiros em JSON.
+                Imagens e PDFs dos comprovantes não fazem parte desse arquivo.
+              </p>
+            </article>
+          </div>
+          <p className="mt-6 text-xs leading-6 text-muted-foreground">
+            As condições de contratação, cancelamento, privacidade e suporte serão
+            apresentadas antes da abertura das assinaturas. Nenhum pagamento é
+            solicitado enquanto o link oficial não estiver disponível.
+          </p>
         </section>
       </main>
       <footer className="border-t border-border px-5 py-7 text-center text-xs text-muted-foreground">

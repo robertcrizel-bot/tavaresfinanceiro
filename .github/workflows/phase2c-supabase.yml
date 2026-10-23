@@ -1,7 +1,7 @@
 name: Phase 2C disposable Supabase
 on:
   push:
-    branches: [integration/phase2c-safe-rebase-20261022, release/candidate-financecontrol-beta-20261022, sales/first-paying-beta-20261023, security/beta-entitlements-20261023, sales/beta-access-requests-20261023]
+    branches: [integration/phase2c-safe-rebase-20261022, release/candidate-financecontrol-beta-20261022, sales/first-paying-beta-20261023, security/beta-entitlements-20261023, sales/beta-access-requests-20261023, sales/beta-offer-faq-20261023]
 permissions:
   contents: read
 concurrency:
