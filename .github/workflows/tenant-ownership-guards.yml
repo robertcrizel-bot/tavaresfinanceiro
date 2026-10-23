@@ -1,0 +1,33 @@
+name: Tenant ownership isolation - database
+on:
+  push:
+    branches: [security/tenant-ownership-guards, release/candidate-financecontrol-beta-20261022]
+permissions:
+  contents: read
+jobs:
+  tenant-relations:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: test_tenant
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-only-password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d test_tenant"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGPASSWORD: ci-only-password
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Cross-user negative cases in disposable PostgreSQL 17
+        run: |
+          psql -h 127.0.0.1 -U postgres -d test_tenant -v ON_ERROR_STOP=1 -f supabase/tests/tenant-ownership-guards.sql
+          psql -h 127.0.0.1 -U postgres -d test_tenant -v ON_ERROR_STOP=1 -f supabase/tests/tenant-rls-two-users.sql
+          psql -h 127.0.0.1 -U postgres -d test_tenant -v ON_ERROR_STOP=1 -f supabase/tests/tenant-storage-two-users.sql

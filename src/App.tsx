@@ -20,6 +20,9 @@ import ReceiptImport from "@/pages/ReceiptImport";
 import Statements from "@/pages/Statements";
 import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
+import PasswordRecovery from "@/pages/PasswordRecovery";
+import Beta from "@/pages/Beta";
+import { BetaAccessGate } from "@/components/BetaAccessGate";
 import NotFound from "@/pages/NotFound";
 import Install from "@/pages/Install";
 import { Loader2 } from "lucide-react";
@@ -40,6 +43,7 @@ function ProtectedRoutes() {
   if (!user) return <Navigate to="/auth" replace />;
 
   return (
+    <BetaAccessGate>
     <FinanceProvider>
       <AccountProvider>
         <CategoryProvider>
@@ -65,6 +69,7 @@ function ProtectedRoutes() {
         </CategoryProvider>
       </AccountProvider>
     </FinanceProvider>
+    </BetaAccessGate>
   );
 }
 
@@ -83,6 +88,8 @@ const App = () => (
         <BrowserRouter>
           <Routes>
             <Route path="/auth" element={<AuthRoute />} />
+            <Route path="/recuperar-senha" element={<PasswordRecovery />} />
+            <Route path="/beta" element={<Beta />} />
             <Route path="/install" element={<Install />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>

@@ -67,6 +67,7 @@ export interface CreditCardInvoice {
   obligationTransactionId?: string;
   paymentTransactionId?: string;
   actualClosedAt?: string;
+  operationVersion?: number;
 }
 
 export type FinancialKind =
