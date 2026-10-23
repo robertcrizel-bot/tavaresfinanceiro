@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { LockKeyhole, Loader2, LogOut, RefreshCw } from "lucide-react";
+import { LockKeyhole, Loader2, LogOut, RefreshCw, Send } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,7 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
   const { user, signOut } = useAuth();
   const [state, setState] = useState<GateState>("loading");
   const [version, setVersion] = useState(0);
+  const [requestState, setRequestState] = useState<"idle" | "sending" | "sent" | "error">("idle");
 
   const refresh = useCallback(() => {
     setState("loading");
@@ -32,6 +33,19 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
     return () => { cancelled = true; };
   }, [user?.id, version]);
 
+  const requestAccess = async () => {
+    if (!user || requestState === "sending" || requestState === "sent") return;
+    setRequestState("sending");
+    try {
+      const { error } = await supabase.from("beta_access_requests").insert({ user_id: user.id });
+      if (error && error.code !== "23505") throw error;
+      // A request is NOT a payment or an access grant.
+      setRequestState("sent");
+    } catch {
+      setRequestState("error");
+    }
+  };
+
   if (state === "allowed") return <>{children}</>;
   if (state === "loading") return (
     <div className="flex min-h-screen items-center justify-center bg-background">
@@ -50,6 +64,31 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
             ? "Sua conta está cadastrada, mas o acesso ao FinanceControl ainda não foi liberado ou expirou. Confira sua assinatura ou convite."
             : "O acesso não foi confirmado. Nenhum registro foi alterado. Verifique a conexão e tente novamente."}
         </p>
+        {state === "denied" && (
+          <div className="space-y-3 rounded-xl border border-border bg-background/70 px-4 py-4">
+            <p className="text-xs leading-5 text-muted-foreground">
+              Já fez o pagamento ou recebeu um convite? Solicite uma conferência.
+              O envio não confirma pagamento e não libera acesso automaticamente.
+            </p>
+            <Button onClick={() => void requestAccess()}
+              disabled={requestState === "sending" || requestState === "sent"}>
+              {requestState === "sending"
+                ? <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                : <Send className="mr-2 h-4 w-4" />}
+              {requestState === "sent" ? "Solicitação registrada" : "Solicitar análise de acesso"}
+            </Button>
+            {requestState === "sent" && (
+              <p role="status" className="text-xs text-primary">
+                Pedido registrado. O pagamento precisa ser confirmado no provedor antes da liberação.
+              </p>
+            )}
+            {requestState === "error" && (
+              <p role="alert" className="text-xs text-destructive">
+                Não foi possível registrar a solicitação. Tente novamente.
+              </p>
+            )}
+          </div>
+        )}
         <div className="flex flex-wrap justify-center gap-3">
           <Button variant="outline" onClick={refresh}><RefreshCw className="mr-2 h-4 w-4" /> Verificar novamente</Button>
           <Button variant="ghost" onClick={() => void signOut()}><LogOut className="mr-2 h-4 w-4" /> Sair</Button>
