@@ -21,7 +21,7 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
     let cancelled = false;
     if (!user) { setState("denied"); return; }
     setState("loading");
-    supabase.rpc("beta_has_access")
+    Promise.resolve(supabase.rpc("beta_has_access"))
       .then(({ data, error }) => {
         if (cancelled) return;
         // Fail closed on DB/network/migration errors. No localStorage fallback.
