@@ -114,6 +114,45 @@ export default function Beta() {
             )}
           </div>
         </section>
+
+        <section className="mx-auto max-w-6xl px-5 pb-20">
+          <h2 className="text-2xl font-bold sm:text-3xl">Perguntas frequentes</h2>
+          <div className="mt-7 grid gap-4 md:grid-cols-2">
+            <article className="rounded-2xl border border-border bg-card p-5">
+              <h3 className="font-semibold">Preciso instalar um aplicativo?</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Não. O FinanceControl funciona pelo navegador no celular ou no computador.
+              </p>
+            </article>
+            <article className="rounded-2xl border border-border bg-card p-5">
+              <h3 className="font-semibold">A leitura por inteligência artificial está incluída?</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Não como benefício garantido do plano Beta. A oferta é de organização
+                financeira manual; recursos de leitura automática estão em avaliação.
+              </p>
+            </article>
+            <article className="rounded-2xl border border-border bg-card p-5">
+              <h3 className="font-semibold">Quando meu acesso é liberado?</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                Após o cadastro e a confirmação da cobrança no provedor de pagamento,
+                nossa equipe libera o acesso durante a fase Beta. O pagamento não
+                libera a conta automaticamente.
+              </p>
+            </article>
+            <article className="rounded-2xl border border-border bg-card p-5">
+              <h3 className="font-semibold">Consigo levar meus dados se sair?</h3>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">
+                A versão Beta permite exportar os registros financeiros em JSON.
+                Imagens e PDFs dos comprovantes não fazem parte desse arquivo.
+              </p>
+            </article>
+          </div>
+          <p className="mt-6 text-xs leading-6 text-muted-foreground">
+            As condições de contratação, cancelamento, privacidade e suporte serão
+            apresentadas antes da abertura das assinaturas. Nenhum pagamento é
+            solicitado enquanto o link oficial não estiver disponível.
+          </p>
+        </section>
       </main>
       <footer className="border-t border-border px-5 py-7 text-center text-xs text-muted-foreground">
         FinanceControl · Beta de controle financeiro pessoal · Não é instituição financeira
