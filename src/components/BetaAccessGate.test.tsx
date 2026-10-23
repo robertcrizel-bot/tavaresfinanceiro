@@ -1,14 +1,15 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import { BetaAccessGate } from "@/components/BetaAccessGate";
 
 const mocks=vi.hoisted(()=>({
   rpc:vi.fn(),
+  from:vi.fn(),
   signOut:vi.fn(),
   user:{id:"test-owner"},
 }));
-vi.mock("@/integrations/supabase/client",()=>({supabase:{rpc:mocks.rpc}}));
+vi.mock("@/integrations/supabase/client",()=>({supabase:{rpc:mocks.rpc,from:mocks.from}}));
 vi.mock("@/contexts/AuthContext",()=>({useAuth:()=>({
   user:mocks.user,signOut:mocks.signOut,
 })}));
@@ -29,6 +30,28 @@ describe("closed beta frontend access check",()=>{
     mocks.rpc.mockResolvedValue({data:false,error:null});
     renderGate();
     await screen.findByText("Acesso à beta pendente");
+    expect(screen.queryByText("Financial data loaded")).toBeNull();
+  });
+  it("a beta request is created for this account without unlocking any financial view",async()=>{
+    mocks.rpc.mockResolvedValue({data:false,error:null});
+    const insert=vi.fn().mockResolvedValue({error:null});
+    mocks.from.mockReturnValue({insert});
+    renderGate();
+    await screen.findByText("Acesso à beta pendente");
+    fireEvent.click(screen.getByText("Solicitar análise de acesso"));
+    await screen.findByText("Solicitação registrada");
+    expect(mocks.from).toHaveBeenCalledWith("beta_access_requests");
+    expect(insert).toHaveBeenCalledWith({user_id:"test-owner"});
+    expect(screen.queryByText("Financial data loaded")).toBeNull();
+  });
+  it("a duplicated pending beta request is acknowledged but never grants access",async()=>{
+    mocks.rpc.mockResolvedValue({data:false,error:null});
+    const insert=vi.fn().mockResolvedValue({error:{code:"23505"}});
+    mocks.from.mockReturnValue({insert});
+    renderGate();
+    await screen.findByText("Acesso à beta pendente");
+    fireEvent.click(screen.getByText("Solicitar análise de acesso"));
+    await screen.findByText("Solicitação registrada");
     expect(screen.queryByText("Financial data loaded")).toBeNull();
   });
   it("fails closed when RPC fails instead of treating an error as permission",async()=>{
