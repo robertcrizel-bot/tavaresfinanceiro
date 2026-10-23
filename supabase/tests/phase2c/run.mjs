@@ -366,5 +366,33 @@ try {
     assert.equal(await ok(ownerApi.rpc('beta_has_access')),true);
     assert.equal(await ok(otherApi.rpc('beta_has_access')),true);
   });
+  await test('beta request intake: a non-subscriber may ask but cannot approve or self-grant',async()=>{
+    await sql`update public.beta_entitlements set expires_at=now()+interval '90 days'
+      where user_id=${own}`;
+    await sql`update public.beta_access_switch set enabled=true where singleton=true`;
+    assert.equal(await ok(otherApi.rpc('beta_has_access')),false);
+    const request=await ok(otherApi.from('beta_access_requests')
+      .insert({user_id:other}).select('id,user_id,status').single());
+    assert.equal(request.user_id,other);
+    assert.equal(request.status,'pending');
+    assert.equal((await ok(ownerApi.from('beta_access_requests')
+      .select('id').eq('id',request.id))).length,0);
+    const duplicate=await otherApi.from('beta_access_requests').insert({user_id:other});
+    assert.equal(duplicate.error?.code,'23505','Only one pending request per customer');
+    const forged=await otherApi.from('beta_access_requests').insert({user_id:own});
+    assert.ok(forged.error,'A user cannot file as another account');
+    const selfApproval=await otherApi.from('beta_access_requests')
+      .update({status:'approved'}).eq('id',request.id).select('id');
+    assert.ok(selfApproval.error,'Only the trusted backend/admin can change request status');
+    const selfGrant=await otherApi.from('beta_entitlements')
+      .insert({user_id:other,status:'active',expires_at:'2035-01-01T00:00:00Z'});
+    assert.ok(selfGrant.error,'Request creates no entitlement');
+    assert.equal(await ok(otherApi.rpc('beta_has_access')),false);
+    await sql`update public.beta_access_requests
+      set status='approved',updated_at=now() where id=${request.id}`;
+    assert.equal(await ok(otherApi.rpc('beta_has_access')),false,
+      'Even approved request does NOT activate without verified payment grant');
+    await sql`update public.beta_access_switch set enabled=false where singleton=true`;
+  });
   console.log(`${checks} checks passed on full disposable Supabase: PostgreSQL, Auth, PostgREST, RLS and frontend intent recovery.`);
 } finally { await sql.end({ timeout: 2 }); }
