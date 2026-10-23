@@ -316,5 +316,55 @@ try {
     await ok(ownerApi.from('transactions').delete().eq('id',ownTx.id).select('id'));
     await ok(otherApi.from('transactions').delete().eq('id',foreignTx.id).select('id'));
   });
+  await test('closed beta entitlements: disabled by default, server-only grants, RLS and privileged RPC enforcement',async()=>{
+    // No payment processor integration or service_role secret is ever given to clients.
+    const initialOwner = await ok(ownerApi.rpc('beta_has_access'));
+    const initialOther = await ok(otherApi.rpc('beta_has_access'));
+    assert.equal(initialOwner,true); assert.equal(initialOther,true);
+    const unauthorizedGrant=await otherApi.from('beta_entitlements').insert({
+      user_id:other,status:'active',expires_at:'2035-01-01T00:00:00Z',
+    });
+    assert.ok(unauthorizedGrant.error,'Clients must not be able to self-activate');
+    const anonymousRpc=await anonApi.rpc('beta_has_access');
+    assert.ok(anonymousRpc.error,'Anonymous access checks must not be callable');
+
+    // Try to turn on billing gate before granting the owner: database must reject.
+    await assert.rejects(()=>sql`update public.beta_access_switch set enabled=true`);
+    await sql`insert into public.beta_entitlements(user_id,status,expires_at,payment_provider)
+      values(${own},'active',now()+interval '90 days','manual')`;
+    await sql`update public.beta_access_switch set enabled=true where singleton=true`;
+    assert.equal(await ok(ownerApi.rpc('beta_has_access')),true);
+    assert.equal(await ok(otherApi.rpc('beta_has_access')),false);
+
+    // A signed-in non-subscriber cannot read even their own records or financial bytes.
+    assert.deepEqual(await ok(otherApi.from('accounts').select('id')),[]);
+    assert.deepEqual(await ok(otherApi.from('transactions').select('id')),[]);
+    const blocked=await otherApi.from('accounts').insert({
+      user_id:other,name:'Unpaid',bank:'Test',type:'checking',
+    });
+    assert.ok(blocked.error,'RLS must block a non-subscriber from inserting their own account');
+    const blockedRpc=await otherApi.rpc('mark_forecast_payment',{
+      p_operation_id:randomUUID(),p_bill_id:foreignBill,p_reference_month:'2030-01',
+    });
+    assert.ok(blockedRpc.error,'Definer financial RPC must also deny unpaid accounts');
+    assert.equal((await sql`select count(*)::int n from public.bill_payments
+      where recurring_bill_id=${foreignBill} and reference_month='2030-01'`)[0].n,0);
+
+    // A granted account can still perform an ordinary operation (and only its own).
+    const ownRows=await ok(ownerApi.from('accounts').select('id').eq('id',account));
+    assert.equal(ownRows.length,1);
+    const created=await ok(ownerApi.rpc('mark_forecast_payment',{
+      p_operation_id:randomUUID(),p_bill_id:bill,p_reference_month:'2030-01',
+    }));
+    assert.ok(created.payment_id);
+    assert.equal((await ok(otherApi.from('bill_payments').select('id').eq('id',created.payment_id))).length,0);
+
+    // Expiration takes effect without a frontend toggle and can be reversed safely.
+    await sql`update public.beta_entitlements set expires_at=now()-interval '1 hour' where user_id=${own}`;
+    assert.equal(await ok(ownerApi.rpc('beta_has_access')),false);
+    await sql`update public.beta_access_switch set enabled=false where singleton=true`;
+    assert.equal(await ok(ownerApi.rpc('beta_has_access')),true);
+    assert.equal(await ok(otherApi.rpc('beta_has_access')),true);
+  });
   console.log(`${checks} checks passed on full disposable Supabase: PostgreSQL, Auth, PostgREST, RLS and frontend intent recovery.`);
 } finally { await sql.end({ timeout: 2 }); }
