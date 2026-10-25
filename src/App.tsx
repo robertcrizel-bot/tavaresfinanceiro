@@ -25,6 +25,8 @@ import Beta from "@/pages/Beta";
 import { BetaAccessGate } from "@/components/BetaAccessGate";
 import NotFound from "@/pages/NotFound";
 import Install from "@/pages/Install";
+import Conhecer from "@/pages/Conhecer";
+import Demonstracao from "@/pages/Demonstracao";
 import { Loader2 } from "lucide-react";
 
 const queryClient = new QueryClient();
@@ -91,6 +93,8 @@ const App = () => (
             <Route path="/recuperar-senha" element={<PasswordRecovery />} />
             <Route path="/beta" element={<Beta />} />
             <Route path="/install" element={<Install />} />
+            <Route path="/conhecer" element={<Conhecer />} />
+            <Route path="/demonstracao" element={<Demonstracao />} />
             <Route path="/*" element={<ProtectedRoutes />} />
           </Routes>
         </BrowserRouter>

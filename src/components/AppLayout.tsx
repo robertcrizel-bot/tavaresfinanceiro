@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
 import { BottomNav } from "@/components/BottomNav";
+import { OnboardingTour } from "@/components/OnboardingTour";
 import { AppUpdateBanner } from "@/components/AppUpdateBanner";
 import { startAppUpdateWatcher } from "@/lib/app-update";
 import { Outlet } from "react-router-dom";
@@ -59,6 +60,7 @@ export default function AppLayout() {
           </main>
         </div>
         <BottomNav />
+        {pathname === "/" && <OnboardingTour />}
         <AppUpdateBanner />
       </div>
     </SidebarProvider>
