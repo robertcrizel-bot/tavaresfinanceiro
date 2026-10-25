@@ -7,7 +7,6 @@ import { Label } from "@/components/ui/label";
 import { LogOut, Mail, User, Pencil, Download, Compass } from "lucide-react";
 import { downloadOwnFinancialExport } from "@/lib/export-own-financial-data";
 import { toast } from "@/hooks/use-toast";
-import { useNavigate } from "react-router-dom";
 import { requestOnboardingReopen } from "@/lib/onboarding";
 import { BUILD_COMMIT, BUILD_TIME } from "@/lib/build-info";
 
@@ -20,7 +19,6 @@ function formatBuildTime(iso: string): string {
 
 export default function Profile() {
   const { user, signOut } = useAuth();
-  const navigate = useNavigate();
   const [displayName, setDisplayName] = useState("");
   const [editing, setEditing] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -120,7 +118,7 @@ export default function Profile() {
         </Button>
       </div>
 
-      <Button variant="outline" className="gap-2" disabled={!user} onClick={() => { if (user) { requestOnboardingReopen(user.id); navigate("/"); } }}>
+      <Button variant="outline" className="gap-2" disabled={!user} onClick={() => { if (user) { requestOnboardingReopen(user.id); window.location.assign("/"); } }}>
         <Compass className="h-4 w-4" /> Rever guia de primeiros passos
       </Button>
 
