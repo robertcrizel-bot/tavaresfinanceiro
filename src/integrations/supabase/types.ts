@@ -14,12 +14,6 @@ export type Database = {
   }
   public: {
     Tables: {
-      beta_access_requests: {
-        Row: { id: string; user_id: string; status: string; created_at: string; updated_at: string }
-        Insert: { id?: string; user_id: string; status?: string; created_at?: string; updated_at?: string }
-        Update: { id?: string; user_id?: string; status?: string; created_at?: string; updated_at?: string }
-        Relationships: []
-      }
       accounts: {
         Row: {
           bank: string
@@ -51,6 +45,78 @@ export type Database = {
           initial_balance?: number
           name?: string
           type?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      beta_access_requests: {
+        Row: {
+          created_at: string
+          id: string
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      beta_access_switch: {
+        Row: {
+          enabled: boolean
+          singleton: boolean
+          updated_at: string
+        }
+        Insert: {
+          enabled?: boolean
+          singleton?: boolean
+          updated_at?: string
+        }
+        Update: {
+          enabled?: boolean
+          singleton?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      beta_entitlements: {
+        Row: {
+          created_at: string
+          expires_at: string
+          payment_provider: string
+          reference: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          payment_provider?: string
+          reference?: string | null
+          status: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          payment_provider?: string
+          reference?: string | null
+          status?: string
           updated_at?: string
           user_id?: string
         }
@@ -133,7 +199,6 @@ export type Database = {
       }
       credit_card_invoices: {
         Row: {
-          operation_version: number
           actual_closed_at: string | null
           closed_at: string | null
           closed_total: number | null
@@ -145,6 +210,7 @@ export type Database = {
           due_date: string
           id: string
           obligation_transaction_id: string | null
+          operation_version: number
           paid_at: string | null
           payment_account_id: string | null
           payment_transaction_id: string | null
@@ -153,7 +219,6 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          operation_version?: number
           actual_closed_at?: string | null
           closed_at?: string | null
           closed_total?: number | null
@@ -165,6 +230,7 @@ export type Database = {
           due_date: string
           id?: string
           obligation_transaction_id?: string | null
+          operation_version?: number
           paid_at?: string | null
           payment_account_id?: string | null
           payment_transaction_id?: string | null
@@ -173,7 +239,6 @@ export type Database = {
           user_id: string
         }
         Update: {
-          operation_version?: number
           actual_closed_at?: string | null
           closed_at?: string | null
           closed_total?: number | null
@@ -185,6 +250,7 @@ export type Database = {
           due_date?: string
           id?: string
           obligation_transaction_id?: string | null
+          operation_version?: number
           paid_at?: string | null
           payment_account_id?: string | null
           payment_transaction_id?: string | null
@@ -513,10 +579,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      beta_has_access: { Args: Record<PropertyKey, never>; Returns: boolean }
-      mark_forecast_payment: { Args: { p_operation_id: string; p_bill_id: string; p_reference_month: string; p_overrides?: Json }; Returns: Json }
-      unmark_forecast_payment: { Args: { p_operation_id: string; p_bill_id: string; p_payment_id: string; p_reference_month: string }; Returns: Json }
-      close_credit_card_invoice_atomic: { Args: { p_operation_id: string; p_invoice_id: string; p_expected_version: number; p_actual_closed_date?: string; p_exclude_transaction_ids?: string[]; p_due_date?: string; p_restore_transaction_ids?: string[] }; Returns: Json }
+      beta_has_access: { Args: never; Returns: boolean }
       close_credit_card_invoice:
         | { Args: { p_invoice_id: string }; Returns: string }
         | {
@@ -532,6 +595,18 @@ export type Database = {
             }
             Returns: string
           }
+      close_credit_card_invoice_atomic: {
+        Args: {
+          p_actual_closed_date?: string
+          p_due_date?: string
+          p_exclude_transaction_ids?: string[]
+          p_expected_version: number
+          p_invoice_id: string
+          p_operation_id: string
+          p_restore_transaction_ids?: string[]
+        }
+        Returns: Json
+      }
       credit_card_cycle_dates: {
         Args: {
           p_closing_day: number
@@ -549,6 +624,15 @@ export type Database = {
         Args: { p_credit_card_id: string; p_reference_date?: string }
         Returns: string
       }
+      mark_forecast_payment: {
+        Args: {
+          p_bill_id: string
+          p_operation_id: string
+          p_overrides?: Json
+          p_reference_month: string
+        }
+        Returns: Json
+      }
       pay_credit_card_invoice: {
         Args: {
           p_account_id: string
@@ -565,6 +649,15 @@ export type Database = {
       reverse_credit_card_invoice_payment: {
         Args: { p_invoice_id: string }
         Returns: string
+      }
+      unmark_forecast_payment: {
+        Args: {
+          p_bill_id: string
+          p_operation_id: string
+          p_payment_id: string
+          p_reference_month: string
+        }
+        Returns: Json
       }
     }
     Enums: {
