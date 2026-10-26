@@ -171,7 +171,17 @@ describe("receipt-friendly per-kilo description", () => {
         { name: "TOMATE KG", quantity: 0.800, unit_price: 8.90, total: 7.12 },
       ],
       item_values_are_final: false,
-    })).toBe("Itens:\nCOMBUSTIVEL L\nTOMATE — 0,800 kg");
+    })).toBe("Itens:\nCOMBUSTIVEL — 0,750 L\nTOMATE — 0,800 kg");
+  });
+
+  it("shows an extracted price per kilo without pretending an uncertain total is final", () => {
+    const output = formatReceiptDescription({
+      purchased_items: [
+        { name: "BANANA PRATA KG", quantity: 0.8, unit_price: 7.99, total: 6.39 },
+      ],
+      item_values_are_final: false,
+    }, true);
+    expect(output).toBe("Itens:\nBANANA PRATA — 0,800 kg · R$ 7,99/kg · Valor informado R$ 6,39");
   });
 
   it("keeps receipt identifiers for Pix without purchased items", () => {
