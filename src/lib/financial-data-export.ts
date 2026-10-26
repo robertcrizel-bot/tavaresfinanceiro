@@ -187,7 +187,11 @@ export async function exportFinancialReportPdf(report: FinancialReport): Promise
     head: [report.columns.map(c => c)],
     body: report.rows.map(row => report.columns.map(col => {
       const value = row[col] ?? "";
-      if (typeof value === "number") return fmt(value);
+      if (typeof value === "number") {
+        return col === report.amountColumn || report.currencyColumns?.includes(col)
+          ? fmt(value)
+          : String(value).replace(".", ",");
+      }
       return String(value);
     })),
     theme: "striped",
