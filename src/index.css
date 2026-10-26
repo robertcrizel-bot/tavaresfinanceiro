@@ -255,3 +255,38 @@
 #lovable-badge {
   display: none !important;
 }
+
+/* Dashboard premium: scoped to the dark theme and overview only.
+   Financial figures, charts and other pages are unaffected. */
+:root:not(.light) .premium-dashboard .dashboard-card,
+:root:not(.light) .premium-dashboard .workspace-panel {
+  border-color: hsl(205 24% 24% / .85);
+  box-shadow: 0 14px 30px -24px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.035);
+}
+:root:not(.light) .premium-dashboard .premium-kpi,
+:root:not(.light) .premium-dashboard .premium-summary {
+  background: linear-gradient(135deg, hsl(210 29% 15%), hsl(211 32% 11%));
+}
+:root:not(.light) .premium-dashboard .premium-balance {
+  background: linear-gradient(115deg, hsl(171 70% 14%), hsl(184 48% 12%) 56%, hsl(211 40% 10%));
+  border-color: hsl(169 57% 30% / .65);
+}
+:root:not(.light) .premium-dashboard .premium-balance-glow {
+  background: radial-gradient(ellipse at 82% 100%, hsl(169 66% 47% / .15), transparent 42%),
+              linear-gradient(100deg, transparent 62%, hsl(169 66% 47% / .045));
+}
+:root:not(.light) .premium-dashboard .premium-account {
+  background: linear-gradient(145deg, hsl(168 35% 16%), hsl(209 31% 13%) 68%, hsl(212 32% 11%));
+}
+:root:not(.light) .premium-dashboard .premium-kpi:hover,
+:root:not(.light) .premium-dashboard .premium-account:hover {
+  border-color: hsl(169 66% 47% / .38);
+}
+:root:not(.light) .premium-dashboard .premium-kpi,
+:root:not(.light) .premium-dashboard .premium-account {
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  :root:not(.light) .premium-dashboard .premium-kpi,
+  :root:not(.light) .premium-dashboard .premium-account { transition: none; }
+}
