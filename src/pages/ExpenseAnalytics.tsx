@@ -361,13 +361,29 @@ export default function ExpenseAnalytics() {
   })();
 
 
-  // Exact filtered data used by on-screen charts: no extra transactions.
+  // Export the ANALYSIS, never an item-by-item transaction list.
+  // Aggregate data, comparison periods and budgets come from the exact
+  // datasets shown on this page, including all active filters.
+  const exportCategoryRows = visibleSummary.categories.map(c => {
+    const configuredBudget = budgetRows.find(b => b.category === c.category);
+    const previous = totalByCategory(previousVisibleExpenses)[c.category] ?? 0;
+    return {
+      Categoria: c.category,
+      "Gasto atual": c.total,
+      "Participação": c.percentage / 100,
+      "Período anterior": previous,
+      "Variação": roundCents(c.total - previous),
+      "Orçamento": configuredBudget?.budget ?? "",
+      "Disponível": configuredBudget?.available ?? "",
+    };
+  });
+
   const exportReport: FinancialReport = {
-    worksheetName: "Analise",
+    worksheetName: "Resumo",
     fileName: "FinanceControl_Analise_" + (effectiveRange?.start ?? "sem-periodo") + "_" + (effectiveRange?.end ?? "sem-periodo") + ".xlsx",
     title: "Análise de Despesas",
     subtitle: effectiveRange
-      ? "Despesas de " + shortDate(effectiveRange.start) + " a " + shortDate(effectiveRange.end) + " · " + visibleExpenses.length + " registros"
+      ? "Despesas de " + shortDate(effectiveRange.start) + " a " + shortDate(effectiveRange.end) + " · " + visibleExpenses.length + " registros analisados"
       : "Sem período selecionado",
     filterDescription: [
       selectedCategory && "Categoria: " + selectedCategory,
@@ -377,25 +393,17 @@ export default function ExpenseAnalytics() {
     ].filter((x): x is string => Boolean(x)).join(" · ") || "Sem filtros adicionais",
     metrics: [
       { label: "Gastos do período", value: money(visibleSummary.total) },
-      { label: "Período anterior", value: money(previousTotal) },
+      { label: "Média por dia", value: money(computeDailyAverage(visibleSummary.total, visibleDays)) },
+      { label: "Maior categoria", value: topCategory?.category ?? "—" },
       { label: "Variação", value: variationValue },
-      { label: "Média diária", value: money(visibleDays > 0 ? visibleSummary.total / visibleDays : 0) },
     ],
     categories: visibleSummary.categories.map(c => ({ category: c.category, total: c.total, share: c.percentage })),
-    columns: ["Data", "Estabelecimento", "Categoria", "Pagamento", "Conta/cartão", "Valor", "Descrição"],
-    columnWidths: [16, 38, 24, 22, 30, 19, 59],
-    amountColumn: "Valor",
-    currencyColumns: ["Valor"],
-    descriptionColumn: "Descrição",
-    rows: sortedTransactions.map(t => ({
-      Data: shortDate(t.date),
-      Estabelecimento: t.title,
-      Categoria: t.category,
-      Pagamento: t.paymentMethod ?? "—",
-      "Conta/cartão": accountLabel(t),
-      Valor: t.amount,
-      Descrição: t.description ?? "",
-    })),
+    columns: ["Categoria", "Gasto atual", "Participação", "Período anterior", "Variação", "Orçamento", "Disponível"],
+    columnWidths: [35, 22, 21, 24, 21, 21, 22],
+    amountColumn: "Gasto atual",
+    currencyColumns: ["Gasto atual", "Período anterior", "Variação", "Orçamento", "Disponível"],
+    percentageColumns: ["Participação"],
+    rows: exportCategoryRows,
     graphs: [
       {
         kind: "category",
@@ -408,6 +416,80 @@ export default function ExpenseAnalytics() {
         kind: "evolution",
         title: "Evolução das Despesas",
         points: evolutionPoints.map(point => ({ name: point.label, value: point.value })),
+      },
+    ],
+    analysis: {
+      payments: paymentBreakdown.map(p => ({
+        method: p.method, total: p.total, count: p.count, percentage: p.percentage,
+      })),
+      changes: changes.map(c => ({
+        category: c.category, current: c.current, previous: c.previous,
+        delta: c.delta, pct: c.pct,
+      })),
+      budget: budget ? {
+        totalBudget: budgetSummary.totalBudget,
+        totalSpent: budgetSummary.totalSpent,
+        available: budgetSummary.available,
+        percentage: budgetSummary.usage.percentage,
+        rows: budgetRows.map(b => ({
+          category: b.category, budget: b.budget, spent: b.spent,
+          available: b.available, percentage: b.percentage,
+        })),
+      } : null,
+      insights,
+      previousEvolution,
+      comparisonLabel: previousComparisonLabel,
+    },
+    extraSheets: [
+      {
+        name: "Evolucao",
+        columns: ["Período", "Atual", "Anterior"],
+        columnWidths: [22, 26, 26],
+        currencyColumns: ["Atual", "Anterior"],
+        rows: evolutionPoints.map((p, i) => ({
+          "Período": p.label, Atual: p.value,
+          Anterior: previousEvolution?.[i] ?? "",
+        })),
+      },
+      {
+        name: "Pagamentos",
+        columns: ["Forma de pagamento", "Valor", "Participação", "Registros"],
+        columnWidths: [38, 26, 22, 18],
+        currencyColumns: ["Valor"],
+        percentageColumns: ["Participação"],
+        rows: paymentBreakdown.map(p => ({
+          "Forma de pagamento": p.method, Valor: p.total,
+          "Participação": p.percentage / 100, Registros: p.count,
+        })),
+      },
+      {
+        name: "Variacoes",
+        columns: ["Categoria", "Anterior", "Atual", "Diferença", "Variação"],
+        columnWidths: [38, 25, 25, 25, 22],
+        currencyColumns: ["Anterior", "Atual", "Diferença"],
+        percentageColumns: ["Variação"],
+        rows: changes.map(c => ({
+          Categoria: c.category, Anterior: c.previous, Atual: c.current,
+          "Diferença": c.delta, "Variação": c.pct === null ? "Novo período" : c.pct / 100,
+        })),
+      },
+      {
+        name: "Orcamentos",
+        columns: ["Categoria", "Orçamento", "Realizado", "Disponível", "Utilizado"],
+        columnWidths: [38, 25, 25, 25, 22],
+        currencyColumns: ["Orçamento", "Realizado", "Disponível"],
+        percentageColumns: ["Utilizado"],
+        rows: budgetRows.map(b => ({
+          Categoria: b.category, "Orçamento": b.budget,
+          Realizado: b.spent, "Disponível": b.available,
+          Utilizado: b.percentage / 100,
+        })),
+      },
+      {
+        name: "Destaques",
+        columns: ["Sinais do período"],
+        columnWidths: [110],
+        rows: insights.map(text => ({ "Sinais do período": text })),
       },
     ],
   };
