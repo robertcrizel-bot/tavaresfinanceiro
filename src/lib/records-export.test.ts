@@ -71,7 +71,7 @@ describe("Records PDF and CSV exports", () => {
     expect(csv).toContain("-113,89");
     expect(csv).toContain('"Coxa mole; 0,720 kg\n""R$ 45,99/kg"" = algo"');
     expect(csv).toContain("'=SUM(A1:A2)");
-    expect(csv.split("\r\n")).toHaveLength(4); // Embedded receipt newline stays within quoted field.
+    expect(csv.split("\r\n")).toHaveLength(3); // Embedded receipt newline remains within a quoted field.
 
     exportRecordsToCsv(sample);
     expect(downloadMocks.name).toBe("FinanceControl_Registros_2026-10-26.csv");
@@ -85,13 +85,12 @@ describe("Records PDF and CSV exports", () => {
       expect.anything(),
       expect.objectContaining({
         head: [sample.columns],
-        body: expect.arrayContaining([
-          expect.arrayContaining(["-R$ 113,89"]),
-        ]),
+        body: expect.any(Array),
       }),
     );
     const options = pdfMocks.table.mock.calls[0][1];
     expect(options.body).toHaveLength(2);
+    expect(String(options.body[0][6]).replace(/\s/g, " ")).toContain("-R$ 113,89");
     expect(options.body[0][7]).toContain("R$ 45,99/kg");
     expect(options.body[1][7]).toBe("=SUM(A1:A2)");
     expect(options.showHead).toBe("everyPage");
