@@ -729,7 +729,7 @@ describe("Lovable AI receipt flow", () => {
         type: "expense",
         date: "2026-10-03",
         paymentMethod: "Pix",
-        description: expect.stringContaining("2x Café — R$ 20,00"),
+        description: expect.stringContaining("Café — 2 un · R$ 10,00/un · Total R$ 20,00"),
       }),
       expect.objectContaining({ receiptRef: "AI-123", attachments: [file] }),
     );
@@ -866,9 +866,9 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
 
     const transaction = mocks.addTransaction.mock.calls[0][0];
     expect(transaction.amount).toBe(88.38);
-    expect(transaction.description).toContain("1.246x BANANA NANICA Kg — R$ 8,70");
-    expect(transaction.description).toContain("0.464x CEBOLA Kg");
-    expect(transaction.description).not.toContain("0.464x CEBOLA Kg —");
+    expect(transaction.description).toContain("BANANA NANICA — 1,246 kg · R$ 6,98/kg · Valor informado R$ 8,70");
+    expect(transaction.description).toContain("CEBOLA — 0,464 kg");
+    expect(transaction.description).not.toContain("CEBOLA — 0,464 kg · Valor informado");
     expect(transaction.description).not.toContain("R$ 3,15");
   });
 
