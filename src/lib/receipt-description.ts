@@ -6,16 +6,37 @@ const brl = (value: number) =>
 const isValidAmount = (value: number | null | undefined): value is number =>
   typeof value === "number" && Number.isFinite(value) && value >= 0;
 
+/**
+ * The fiscal printer may prefix a purchased-item name with a line number, an
+ * EAN/GTIN and/or an internal SKU. The free AI sometimes joins all of those
+ * digits together (e.g. "0017896022207854 ROSQUINHA...").
+ * Strip only identifiers at the *start* of the line. Keep package sizes
+ * ("ARROZ 5 KG", "VITAMINA B12 1000 MCG") and numbers inside actual names.
+ */
+export function cleanPurchasedItemName(raw: string): string {
+  let name = raw.trim().replace(/\s+/g, " ");
+
+  // Receipt line number immediately followed by an EAN-8/EAN-13/GTIN-14,
+  // with optional whitespace. Examples: 0017896022207854, "001 789...".
+  name = name.replace(/^\d{3}\s*\d{8,14}\s+(?=[A-Za-zÀ-ÿ])/, "");
+
+  // A standalone barcode, without an item number.
+  name = name.replace(/^\d{8,14}\s+(?=[A-Za-zÀ-ÿ])/, "");
+
+  // Printed item number ("004 3006 COXA MOLE", "004 COXA MOLE").
+  // Three digits with a leading zero distinguish it from named products
+  // that legitimately start with a weight or numeric model identifier.
+  name = name.replace(/^0\d{2}\s+(?=\d{4,7}\s+|[A-Za-zÀ-ÿ]{3,})/, "");
+
+  // Supermarket-internal SKU ("3006 COXA MOLE KG"), not package digits.
+  name = name.replace(/^\d{4,7}\s+(?=[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s-]{3,})/, "");
+
+  return name.trim();
+}
+
 function displayProduct(item: PurchasedItem): { name: string; quantityLabel: string; weighed: boolean } {
   const quantity = item.quantity;
-  let name = (item.name ?? "").trim().replace(/\s+/g, " ");
-
-  // GTIN/EAN at the start of a product line is an identifier, not part of its name.
-  name = name.replace(/^(?:\d{8,14})\s+(?=\S)/, "");
-
-  // Supermarket internal codes (e.g. "3006 COXA MOLE KG") are also not names.
-  // Only remove these when the remainder looks like a description, not a number-led product.
-  name = name.replace(/^\d{4,7}\s+(?=[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ\s-]{3,})/, "");
+  let name = cleanPurchasedItemName(item.name ?? "");
 
   const quantityKnown = typeof quantity === "number" && Number.isFinite(quantity) && quantity > 0;
   const fractionalQuantity = quantityKnown && Math.abs(quantity - Math.round(quantity)) > 0.00001;
@@ -79,6 +100,18 @@ export function formatPurchasedItem(
   return isValidAmount(total) ? `${prefix} — ${brl(total)}` : prefix;
 }
 
+/** Keep handwritten/merchant notes while removing fiscal metadata already
+ *  stored elsewhere. Applied only to itemized purchase receipts, never Pix.
+ */
+function cleanPurchaseNotes(raw: string | null | undefined): string | null {
+  const lines = (raw ?? "").split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+  const meaningful = lines.filter(line => !(
+    /^(?:forma|meio|m[eé]todo)\s+de\s+pagamento\s*[:\-–]\s*\S/i.test(line) ||
+    /^(?:cnpj|cpf|chave\s+de\s+acesso|(?:nf-?c?e|nota|cupom|documento)\s+(?:fiscal|n[º°o.])|protocolo\s+de\s+autoriza[çc][aã]o)\s*[:\-–]\s*\S/i.test(line)
+  ));
+  return meaningful.length ? meaningful.join("\n") : null;
+}
+
 /** Minimal shape shared by both ParsedReceipt (AI) and LocalParsedReceipt (local OCR). */
 interface DescriptionSource {
   purchased_items?: PurchasedItem[];
@@ -98,7 +131,7 @@ export function formatReceiptDescription(
   return (
     [
       items.length > 0 ? `Itens:\n${items.join("\n")}` : null,
-      parsed.notes?.trim() || null,
+      items.length > 0 ? cleanPurchaseNotes(parsed.notes) : parsed.notes?.trim() || null,
       // For purchases, receipt references are already stored separately. Retain the
       // reference in descriptions of non-item receipts (Pix, bank transfers).
       items.length === 0 && parsed.receipt_id ? `ID do comprovante: ${parsed.receipt_id}` : null,
