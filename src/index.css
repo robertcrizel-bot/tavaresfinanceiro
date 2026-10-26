@@ -60,6 +60,51 @@
     --chart-3: 218 62% 64%;
     --chart-4: 34 74% 55%;
     --chart-5: 14 62% 58%;
+    --tooltip-shadow: 0 16px 40px hsl(216 28% 3% / 0.25);
+  }
+
+  :root.light {
+    --background: 210 20% 97%;
+    --foreground: 216 28% 14%;
+    --card: 0 0% 100%;
+    --card-foreground: 216 28% 14%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 216 28% 14%;
+    --primary: 169 76% 26%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 210 18% 92%;
+    --secondary-foreground: 216 24% 22%;
+    --muted: 210 18% 94%;
+    --muted-foreground: 215 16% 40%;
+    --accent: 166 25% 90%;
+    --accent-foreground: 216 28% 14%;
+    --destructive: 8 73% 40%;
+    --destructive-foreground: 0 0% 100%;
+    --success: 155 67% 28%;
+    --success-foreground: 0 0% 100%;
+    --warning: 34 88% 30%;
+    --warning-foreground: 0 0% 100%;
+    --income: 155 67% 28%;
+    --expense: 8 73% 40%;
+    --info: 192 82% 30%;
+    --border: 214 16% 78%;
+    --input: 214 16% 72%;
+    --ring: 169 76% 26%;
+    --sidebar-background: 210 20% 94%;
+    --sidebar-foreground: 215 18% 34%;
+    --sidebar-primary: 169 76% 26%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 166 25% 88%;
+    --sidebar-accent-foreground: 216 28% 14%;
+    --sidebar-border: 214 16% 78%;
+    --sidebar-ring: 169 76% 26%;
+    --chart-1: 169 76% 30%;
+    --chart-2: 192 82% 34%;
+    --chart-3: 218 62% 48%;
+    --chart-4: 34 88% 36%;
+    --chart-5: 8 73% 44%;
+    --tooltip-shadow: 0 16px 40px hsl(216 28% 14% / 0.12);
+    color-scheme: light;
   }
 }
 
@@ -174,27 +219,37 @@
 
 /* Recharts tooltip */
 .recharts-default-tooltip {
-  background-color: hsl(216 28% 9%) !important;
-  border: 1px solid hsl(214 18% 25%) !important;
+  background-color: hsl(var(--popover)) !important;
+  border: 1px solid hsl(var(--border)) !important;
   border-radius: 12px !important;
-  box-shadow: 0 16px 40px rgba(20, 46, 35, 0.25) !important;
-  color: #f8f7f2 !important;
+  box-shadow: var(--tooltip-shadow) !important;
+  color: hsl(var(--popover-foreground)) !important;
 }
 
 .recharts-tooltip-label {
-  color: #f8fafc !important;
+  color: hsl(var(--popover-foreground)) !important;
   font-weight: 600 !important;
 }
 
 .recharts-tooltip-item {
-  color: #f1f5f9 !important;
+  color: hsl(var(--popover-foreground)) !important;
 }
 
 .recharts-tooltip-item-name,
 .recharts-tooltip-item-separator,
 .recharts-tooltip-item-value,
 .recharts-tooltip-item-unit {
-  color: #f1f5f9 !important;
+  color: hsl(var(--popover-foreground)) !important;
+}
+
+/* Legacy dark chart tracks and account surfaces inherit light tokens without
+   changing page markup, chart data or the existing dark appearance. */
+.light .recharts-background-rectangle {
+  fill: hsl(var(--muted));
+}
+
+.light .workspace-panel {
+  background-image: none;
 }
 
 #lovable-badge {
