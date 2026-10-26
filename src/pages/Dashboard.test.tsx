@@ -109,8 +109,8 @@ describe("Dashboard default period", () => {
     expect(kpiValue("Total de Entradas")).toBe(fmt(707));
     expect(kpiValue("Gasto Médio Diário")).toBe(fmt(monthExpense / daysElapsedThisMonth));
     expect(kpiValue("Maior Categoria")).toBe("Alimentação");
-    expect(screen.getByText("Dias no período").parentElement).toHaveTextContent(String(daysElapsedThisMonth));
-    expect(screen.getByText("Maior saída").parentElement).toHaveTextContent(fmt(404));
+    expect(screen.getByText("Dias no período").parentElement?.parentElement).toHaveTextContent(String(daysElapsedThisMonth));
+    expect(screen.getByText("Maior saída").parentElement).toHaveTextContent(/R\$\s*404,00/);
     expect(screen.queryByText("Contas/cartões")).not.toBeInTheDocument();
   });
 
@@ -128,7 +128,7 @@ describe("Dashboard default period", () => {
       { ...expense("settlement", todayStr, 9999), financialKind: "card_invoice_payment" },
     ];
     renderDashboard();
-    expect(screen.getByText("Maior saída").parentElement).toHaveTextContent(fmt(420.30));
+    expect(screen.getByText("Maior saída").parentElement).toHaveTextContent(/R\$\s*420,30/);
   });
 
   it("covers the whole month, including transactions after today and excluding the previous month", () => {
