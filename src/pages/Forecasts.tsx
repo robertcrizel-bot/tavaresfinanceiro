@@ -1,4 +1,6 @@
 import { categoryColor, entityColor, colorAccent } from "@/lib/chart-theme";
+import { FinanceExportMenu } from "@/components/FinanceExportMenu";
+import type { FinancialReport } from "@/lib/financial-data-export";
 import { useState, useMemo, useRef } from "react";
 import { useForecast, BillPayment, RecurringBill } from "@/contexts/ForecastContext";
 import { useAccounts } from "@/contexts/AccountContext";
@@ -86,6 +88,47 @@ export default function Forecasts() {
     .filter((bill) => bill.type === "income")
     .reduce((sum, bill) => sum + bill.amount, 0);
   const saldoProjetado = totalReceber - totalPagar;
+
+
+  // Export uses the same resolved recurring bills and payments currently
+  // displayed for the chosen competence month. No recalculation of obligations.
+  const exportReport: FinancialReport = {
+    worksheetName: "Previsoes",
+    fileName: "FinanceControl_Previsoes_" + referenceMonth + ".xlsx",
+    title: "Previsões",
+    subtitle: "Competência: " + format(currentMonth, "MMMM yyyy", { locale: ptBR }),
+    filterDescription: "Somente previsões vigentes para a competência selecionada",
+    metrics: [
+      { label: "Previsto a pagar", value: totalPagar.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
+      { label: "Previsto a receber", value: totalReceber.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
+      { label: "Saldo projetado", value: saldoProjetado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
+      { label: "Quitadas", value: String(activeBills.filter(bill => Boolean(getPayment(bill.id))).length) + " de " + activeBills.length },
+    ],
+    columns: ["Vencimento", "Previsão", "Categoria", "Tipo", "Previsto", "Efetivo", "Situação", "Descrição"],
+    columnWidths: [17, 36, 25, 18, 19, 19, 23, 60],
+    amountColumn: "Previsto",
+    currencyColumns: ["Previsto", "Efetivo"],
+    descriptionColumn: "Descrição",
+    rows: activeBills.map(bill => {
+      const payment = getPayment(bill.id);
+      const status = getForecastTemporalStatus({
+        referenceMonth,
+        dueDay: bill.dueDay,
+        isPaid: Boolean(payment),
+        type: bill.type,
+      });
+      return {
+        Vencimento: format(new Date(status.dueDate + "T12:00:00"), "dd/MM/yyyy"),
+        "Previsão": bill.name,
+        Categoria: bill.category,
+        Tipo: bill.type === "income" ? "Entrada" : "Saída",
+        Previsto: bill.amount,
+        Efetivo: payment ? getEffectiveAmount(bill, payment) : "",
+        "Situação": status.label,
+        Descrição: bill.description ?? "",
+      };
+    }),
+  };
 
   const formBudgetProjection = useMemo(() => {
     if (formType !== "expense" || !formCategory) return null;
@@ -255,9 +298,12 @@ export default function Forecasts() {
           <h1 className="mt-1 flex items-center gap-2 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl"><CalendarClock className="h-5 w-5 text-primary" />Previsões</h1>
           <p className="mt-1 text-xs text-muted-foreground sm:text-sm">Gerencie suas entradas e saídas previstas</p>
         </div>
-        <Button onClick={openNew} size="sm" className="gap-1.5 self-start sm:self-auto whitespace-nowrap">
-          <Plus className="h-4 w-4" /> Nova Previsão
-        </Button>
+        <div className="flex flex-wrap items-center gap-2 self-start sm:self-auto">
+          <FinanceExportMenu report={exportReport} />
+          <Button onClick={openNew} size="sm" className="gap-1.5 whitespace-nowrap">
+            <Plus className="h-4 w-4" /> Nova Previsão
+          </Button>
+        </div>
       </div>
 
       {/* KPI Cards */}

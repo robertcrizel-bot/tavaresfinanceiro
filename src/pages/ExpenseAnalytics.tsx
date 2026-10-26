@@ -1,4 +1,6 @@
 import { useMemo, useState } from "react";
+import { FinanceExportMenu } from "@/components/FinanceExportMenu";
+import type { FinancialReport } from "@/lib/financial-data-export";
 import { Link } from "react-router-dom";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
@@ -358,6 +360,58 @@ export default function ExpenseAnalytics() {
     return `${arrow} 0%`;
   })();
 
+
+  // Exact filtered data used by on-screen charts: no extra transactions.
+  const exportReport: FinancialReport = {
+    worksheetName: "Analise",
+    fileName: "FinanceControl_Analise_" + (effectiveRange?.start ?? "sem-periodo") + "_" + (effectiveRange?.end ?? "sem-periodo") + ".xlsx",
+    title: "Análise de Despesas",
+    subtitle: effectiveRange
+      ? "Despesas de " + shortDate(effectiveRange.start) + " a " + shortDate(effectiveRange.end) + " · " + visibleExpenses.length + " registros"
+      : "Sem período selecionado",
+    filterDescription: [
+      selectedCategory && "Categoria: " + selectedCategory,
+      originLabel && "Conta/cartão: " + originLabel,
+      selectedPayment && "Pagamento: " + selectedPayment,
+      searchText.trim() && "Busca: " + searchText.trim(),
+    ].filter((x): x is string => Boolean(x)).join(" · ") || "Sem filtros adicionais",
+    metrics: [
+      { label: "Gastos do período", value: money(visibleSummary.total) },
+      { label: "Período anterior", value: money(previousTotal) },
+      { label: "Variação", value: variationValue },
+      { label: "Média diária", value: money(visibleDays > 0 ? visibleSummary.total / visibleDays : 0) },
+    ],
+    categories: visibleSummary.categories.map(c => ({ category: c.category, total: c.total, share: c.percentage })),
+    columns: ["Data", "Estabelecimento", "Categoria", "Pagamento", "Conta/cartão", "Valor", "Descrição"],
+    columnWidths: [16, 38, 24, 22, 30, 19, 59],
+    amountColumn: "Valor",
+    currencyColumns: ["Valor"],
+    descriptionColumn: "Descrição",
+    rows: sortedTransactions.map(t => ({
+      Data: shortDate(t.date),
+      Estabelecimento: t.title,
+      Categoria: t.category,
+      Pagamento: t.paymentMethod ?? "—",
+      "Conta/cartão": accountLabel(t),
+      Valor: t.amount,
+      Descrição: t.description ?? "",
+    })),
+    graphs: [
+      {
+        kind: "category",
+        title: "Gastos por Categoria",
+        points: visibleSummary.categories.map(c => ({
+          name: c.category, value: c.total, color: categoryColor(c.category),
+        })),
+      },
+      {
+        kind: "evolution",
+        title: "Evolução das Despesas",
+        points: evolutionPoints.map(point => ({ name: point.label, value: point.value })),
+      },
+    ],
+  };
+
   const rankingMax = donutData[0]?.value ?? 0;
   const centerValue = selectedCategory
     ? donutData.find((entry) => entry.category === selectedCategory)?.value ?? 0
@@ -430,6 +484,7 @@ export default function ExpenseAnalytics() {
             )}
           </div>
 
+          <FinanceExportMenu report={exportReport} />
           {!invalidCustom && period !== "custom" && range && (
             <div className="flex items-center gap-1 self-start rounded-2xl border border-border bg-card p-1 shadow-sm lg:self-auto">
               <Button

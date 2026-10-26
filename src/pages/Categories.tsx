@@ -1,5 +1,7 @@
 import { categoryColor, colorAccent } from "@/lib/chart-theme";
 import { useRef, useState } from "react";
+import { FinanceExportMenu } from "@/components/FinanceExportMenu";
+import type { FinancialReport } from "@/lib/financial-data-export";
 import { useCategories, UserCategory } from "@/contexts/CategoryContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -42,6 +44,7 @@ const groupCategories = (list: UserCategory[]): UserCategory[][] => {
 export default function Categories() {
   const { categories, addCategory, updateCategory, deleteCategory } = useCategories();
   const { transactions } = useFinance();
+  const [activeTab, setActiveTab] = useState<"expense" | "income">("expense");
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<UserCategory | undefined>();
   const [deleting, setDeleting] = useState<string | null>(null);
@@ -106,6 +109,44 @@ export default function Categories() {
   const duplicateGroups = groupCategories(categories).filter((group) => group.length > 1).length;
   const monthlySpending = calculateCurrentMonthCategorySpending(transactions);
   const formatCurrency = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+
+  const exportGroups = groupCategories(activeTab === "expense" ? expenseCategories : incomeCategories);
+  const visibleCategories = exportGroups.map(group => group.find(item => item.monthlyBudget != null) ?? group[0]!);
+  const budgetSum = visibleCategories.reduce((sum, cat) => sum + (cat.monthlyBudget ?? 0), 0);
+  const spentSum = activeTab === "expense"
+    ? visibleCategories.reduce((sum, cat) => sum + (monthlySpending[cat.name] ?? 0), 0)
+    : 0;
+  const exportReport: FinancialReport = {
+    worksheetName: "Categorias",
+    fileName: "FinanceControl_Categorias_" + activeTab + "_" + new Date().toISOString().slice(0, 10) + ".xlsx",
+    title: "Categorias de " + (activeTab === "expense" ? "Saída" : "Entrada"),
+    subtitle: "Cadastro de categorias · " + new Date().toLocaleDateString("pt-BR"),
+    filterDescription: "Aba ativa: " + (activeTab === "expense" ? "Saída" : "Entrada") +
+      (activeTab === "expense" ? " · Orçamentos e gastos do mês atual" : " · Sem impacto de despesas"),
+    metrics: [
+      { label: "Categorias", value: String(exportGroups.length) },
+      { label: "Orçamentos mensais", value: formatCurrency(budgetSum) },
+      { label: "Gastos do mês", value: activeTab === "expense" ? formatCurrency(spentSum) : "—" },
+      { label: "Cadastros repetidos", value: String(exportGroups.filter(group => group.length > 1).length) },
+    ],
+    columns: ["Categoria", "Tipo", "Orçamento mensal", "Gasto no mês", "Disponível", "Cadastros"],
+    columnWidths: [42, 21, 25, 24, 25, 18],
+    amountColumn: "Gasto no mês",
+    currencyColumns: ["Orçamento mensal", "Gasto no mês", "Disponível"],
+    rows: exportGroups.map(group => {
+      const cat = group.find(item => item.monthlyBudget != null) ?? group[0]!;
+      const spent = activeTab === "expense" ? (monthlySpending[cat.name] || 0) : null;
+      return {
+        Categoria: cat.name,
+        Tipo: typeLabels[cat.type],
+        "Orçamento mensal": cat.monthlyBudget ?? "",
+        "Gasto no mês": spent ?? "",
+        Disponível: cat.monthlyBudget != null && spent != null ? cat.monthlyBudget - spent : "",
+        Cadastros: group.length,
+      };
+    }),
+  };
 
   const renderList = (list: UserCategory[]) => (
     list.length === 0 ? (
@@ -193,9 +234,12 @@ export default function Categories() {
     <div className="data-subtle mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
       <div className="flex items-center justify-between">
         <div><p className="eyebrow">Organização</p><h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl">Categorias</h1></div>
-        <Button onClick={openNew} className="gap-2">
-          <Plus className="h-4 w-4" /> Nova Categoria
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <FinanceExportMenu report={exportReport} />
+          <Button onClick={openNew} className="gap-2">
+            <Plus className="h-4 w-4" /> Nova Categoria
+          </Button>
+        </div>
       </div>
 
       {duplicateGroups > 0 && (
@@ -204,7 +248,7 @@ export default function Categories() {
         </p>
       )}
 
-      <Tabs defaultValue="expense">
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "expense" | "income")}>
         <TabsList>
           <TabsTrigger value="expense">Saída</TabsTrigger>
           <TabsTrigger value="income">Entrada</TabsTrigger>

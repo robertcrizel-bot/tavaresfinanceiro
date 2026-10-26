@@ -130,6 +130,9 @@ vi.mock("@/lib/forecast-status", () => ({
 }));
 
 vi.mock("lucide-react", () => ({
+  Download: (p: any) => <svg {...p} />,
+  FileSpreadsheet: (p: any) => <svg {...p} />,
+  FileText: (p: any) => <svg {...p} />,
   CalendarClock: (p: any) => <svg {...p} />,
   Plus: (p: any) => <svg {...p} />,
   ChevronLeft: (p: any) => <svg {...p} />,

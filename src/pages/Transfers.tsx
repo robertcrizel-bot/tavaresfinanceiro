@@ -1,4 +1,6 @@
 import { useState, useMemo } from "react";
+import { FinanceExportMenu } from "@/components/FinanceExportMenu";
+import type { FinancialReport } from "@/lib/financial-data-export";
 import { useTransfers, Transfer } from "@/contexts/TransferContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { Button } from "@/components/ui/button";
@@ -31,6 +33,35 @@ export default function Transfers() {
     [transfers]
   );
 
+
+  const totalMoved = sorted.reduce((sum, transfer) => sum + transfer.amount, 0);
+  // Transfers never count as revenues or expenses, even in PDF summaries.
+  const exportReport: FinancialReport = {
+    worksheetName: "Transferencias",
+    fileName: "FinanceControl_Transferencias_" + new Date().toISOString().slice(0, 10) + ".xlsx",
+    title: "Transferências",
+    subtitle: sorted.length + " movimentações internas entre contas",
+    filterDescription: "Histórico completo · Transferências não são receitas nem despesas",
+    metrics: [
+      { label: "Transferências", value: String(sorted.length) },
+      { label: "Volume transferido", value: fmt(totalMoved) },
+      { label: "Receita gerada", value: fmt(0) },
+      { label: "Despesa gerada", value: fmt(0) },
+    ],
+    columns: ["Data", "Conta de Origem", "Conta de Destino", "Valor", "Descrição"],
+    columnWidths: [17, 37, 37, 22, 67],
+    amountColumn: "Valor",
+    currencyColumns: ["Valor"],
+    descriptionColumn: "Descrição",
+    rows: sorted.map(t => ({
+      Data: new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR"),
+      "Conta de Origem": accMap[t.fromAccountId] || "—",
+      "Conta de Destino": accMap[t.toAccountId] || "—",
+      Valor: t.amount,
+      Descrição: t.description || "",
+    })),
+  };
+
   return (
     <div className="space-y-4 sm:space-y-6 max-w-7xl">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -42,9 +73,12 @@ export default function Transfers() {
             Movimentações entre suas contas (não contam como receita ou despesa).
           </p>
         </div>
-        <Button onClick={() => { setEditing(undefined); setOpen(true); }} className="gap-2" disabled={accounts.length < 2}>
-          <Plus className="h-4 w-4" /> Nova Transferência
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <FinanceExportMenu report={exportReport} />
+          <Button onClick={() => { setEditing(undefined); setOpen(true); }} className="gap-2" disabled={accounts.length < 2}>
+            <Plus className="h-4 w-4" /> Nova Transferência
+          </Button>
+        </div>
       </div>
 
       {sorted.length === 0 ? (

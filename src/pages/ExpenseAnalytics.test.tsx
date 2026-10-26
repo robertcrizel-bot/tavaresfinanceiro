@@ -83,6 +83,9 @@ vi.mock("@/components/ui/popover", () => {
 vi.mock("lucide-react", () => {
   const Icon = () => <span aria-hidden="true" />;
   return {
+    Download: Icon,
+    FileSpreadsheet: Icon,
+    FileText: Icon,
     CalendarDays: Icon,
     CalendarIcon: Icon,
     Check: Icon,

@@ -27,6 +27,7 @@ export interface FinanceExcelReport {
   columns: readonly string[];
   columnWidths: number[];
   amountColumn: string;
+  currencyColumns?: string[];
   descriptionColumn?: string;
   rows: Record<string, string | number>[];
 }
@@ -172,7 +173,7 @@ export async function exportFinanceExcel(report: FinanceExcelReport): Promise<vo
 
     // Two balanced sets of category/value/percentage instead of a very long
     // block at the far left with empty columns to the right.
-    const categories = report.categories.slice(0, 10);
+    const categories = report.categories; // Export every filtered category, not only the top ten.
     const half = Math.ceil(categories.length / 2);
     for (let i = 0; i < half; i++) {
       const pairs: { item: FinanceExcelCategory; left: number; right: number; valueCol: number; percentCol: number }[] = [];
@@ -223,8 +224,12 @@ export async function exportFinanceExcel(report: FinanceExcelReport): Promise<vo
       cell.font = font(10, key === report.amountColumn, C.ink);
       cell.alignment = { vertical: "middle", wrapText: key === report.descriptionColumn };
       cell.border = { bottom: { style: "hair", color: { argb: C.border } } };
-      if (key === report.amountColumn && typeof value === "number") {
-        cell.numFmt = '+R$ #,##0.00;-R$ #,##0.00;"R$ 0,00"';
+      if ((key === report.amountColumn || report.currencyColumns?.includes(key)) && typeof value === "number") {
+        // New reporting pages express expenses/forecasts as unsigned magnitudes;
+        // original statement/record exports keep their signed ledger display.
+        cell.numFmt = report.currencyColumns?.includes(key)
+          ? '"R$ " #,##0.00;-"R$ " #,##0.00;"R$ 0,00"'
+          : '+R$ #,##0.00;-R$ #,##0.00;"R$ 0,00"';
         cell.font = font(10, true, value < 0 ? C.red : C.green);
         cell.alignment = { vertical: "middle", horizontal: "right" };
       } else if (key === report.descriptionColumn && typeof value === "string") {
