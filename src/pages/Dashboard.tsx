@@ -58,12 +58,19 @@ const KPI_CARD =
 
 /** Mini charts use real transactions in the selected period; no sample values. */
 function MiniBars({ values, tone = "mint" }: { values: number[]; tone?: "mint" | "coral" | "blue" }) {
-  if (values.length < 2) return null;
+  // Sparse income periods get an abstract, purely decorative rhythm instead
+  // of two isolated columns. It is aria-hidden and does not claim to plot data.
+  const decorative = tone === "mint" && values.length > 0 && values.length < 4;
+  const decorativeHeights = [32, 57, 43, 78, 50, 65, 39, 86];
+  if (!decorative && values.length < 2) return null;
   const max = Math.max(1, ...values);
+  const heights = decorative
+    ? decorativeHeights
+    : values.map((value) => Math.max(8, Math.round(value / max * 100)));
   return (
-    <div aria-hidden="true" className={"premium-mini-bars premium-mini-bars--" + tone}>
-      {values.map((value, index) => (
-        <span key={index} style={{ height: String(Math.max(8, Math.round(value / max * 100))) + "%" }} />
+    <div aria-hidden="true" className={"premium-mini-bars premium-mini-bars--" + tone + (decorative ? " premium-mini-bars--decorative" : "")}>
+      {heights.map((height, index) => (
+        <span key={index} style={{ height: height + "%" }} />
       ))}
     </div>
   );
