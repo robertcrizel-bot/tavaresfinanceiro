@@ -247,10 +247,10 @@ describe("mobile OCR values reach the TransactionForm", () => {
 
     const description = formatReceiptDescription(parsed, true) ?? "";
     for (const cream of CREAMS) {
-      expect(description).toContain(`${cream.replace(/^7898080640222 /, "")} — R$ 2,75`);
+      expect(description).toContain(`${cream.replace(/^7898080640222 /, "")} · Valor informado R$ 2,75`);
     }
-    expect(description).toContain("BISC WAFER MINUETO 81GR MORANGO 1UN — R$ 1,99");
-    expect(description).toContain("BISC WAFER MINUETO 81GR CHOCOLATE 1UN — R$ 1,99");
+    expect(description).toContain("BISC WAFER MINUETO 81GR MORANGO 1UN · Valor informado R$ 1,99");
+    expect(description).toContain("BISC WAFER MINUETO 81GR CHOCOLATE 1UN · Valor informado R$ 1,99");
   });
 
   it("shows every item value in the form opened by 'Ler gratuitamente'", async () => {
@@ -270,10 +270,10 @@ describe("mobile OCR values reach the TransactionForm", () => {
 
     for (const cream of CREAMS) {
       const name = cream.replace(/^7898080640222 /, "");
-      expect(textarea.value).toContain(`${name} — R$ 2,75`);
+      expect(textarea.value).toContain(`${name} · Valor informado R$ 2,75`);
     }
-    expect(textarea.value).toContain("BISC WAFER MINUETO 81GR MORANGO 1UN — R$ 1,99");
-    expect(textarea.value).toContain("BISC WAFER MINUETO 81GR CHOCOLATE 1UN — R$ 1,99");
+    expect(textarea.value).toContain("BISC WAFER MINUETO 81GR MORANGO 1UN · Valor informado R$ 1,99");
+    expect(textarea.value).toContain("BISC WAFER MINUETO 81GR CHOCOLATE 1UN · Valor informado R$ 1,99");
 
     fireEvent.click(screen.getByRole("button", { name: "Salvar registro" }));
 
@@ -282,10 +282,10 @@ describe("mobile OCR values reach the TransactionForm", () => {
     const description = String(data.description ?? "");
     for (const cream of CREAMS) {
       const name = cream.replace(/^7898080640222 /, "");
-      expect(description).toContain(`${name} — R$ 2,75`);
+      expect(description).toContain(`${name} · Valor informado R$ 2,75`);
     }
-    expect(description).toContain("BISC WAFER MINUETO 81GR MORANGO 1UN — R$ 1,99");
-    expect(description).toContain("BISC WAFER MINUETO 81GR CHOCOLATE 1UN — R$ 1,99");
+    expect(description).toContain("BISC WAFER MINUETO 81GR MORANGO 1UN · Valor informado R$ 1,99");
+    expect(description).toContain("BISC WAFER MINUETO 81GR CHOCOLATE 1UN · Valor informado R$ 1,99");
   });
 });
 

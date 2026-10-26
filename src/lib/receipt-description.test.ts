@@ -38,7 +38,7 @@ describe("formatReceiptDescription", () => {
         }),
       ),
     ).toBe(
-      "Itens:\n2x Leite integral 1L — R$ 9,80\nArroz 5kg — R$ 24,99\nCompra no débito\nID do comprovante: ABC123",
+      "Itens:\nLeite integral 1L — 2 un · R$ 4,90/un · Total R$ 9,80\nArroz 5kg — R$ 24,99\nCompra no débito",
     );
   });
 
@@ -47,7 +47,7 @@ describe("formatReceiptDescription", () => {
       formatReceiptDescription(
         receipt({ purchased_items: [{ name: "Refrigerante 2L", quantity: 3, unit_price: 8.99, total: null }] }),
       ),
-    ).toBe("Itens:\n3x Refrigerante 2L — R$ 26,97");
+    ).toBe("Itens:\nRefrigerante 2L — 3 un · R$ 8,99/un · Total R$ 26,97");
   });
 
   it("keeps the item without a value when no price is readable", () => {
@@ -90,8 +90,8 @@ describe("formatReceiptDescription", () => {
       });
       expect(result).toContain("R$ 16,98");
       expect(result).toContain("R$ 8,58");
-      expect(result).toContain("2x FEIJAO CARIOCA 1KG — R$ 16,98");
-      expect(result).toContain("2x MACARRAO ESPAGUETE 500G — R$ 8,58");
+      expect(result).toContain("FEIJAO CARIOCA 1KG — 2 un · R$ 8,49/un · Total R$ 16,98");
+      expect(result).toContain("MACARRAO ESPAGUETE 500G — 2 un · R$ 4,29/un · Total R$ 8,58");
     });
 
     it("false → NÃO mostra valores individuais", () => {
@@ -99,8 +99,8 @@ describe("formatReceiptDescription", () => {
         purchased_items: items,
         item_values_are_final: false,
       });
-      expect(result).toContain("2x FEIJAO CARIOCA 1KG");
-      expect(result).toContain("2x MACARRAO ESPAGUETE 500G");
+      expect(result).toContain("FEIJAO CARIOCA 1KG — 2 un");
+      expect(result).toContain("MACARRAO ESPAGUETE 500G — 2 un");
       expect(result).not.toContain("R$");
       expect(result).not.toContain("16,98");
       expect(result).not.toContain("8,58");
@@ -113,5 +113,80 @@ describe("formatReceiptDescription", () => {
       expect(result).toContain("R$ 16,98");
       expect(result).toContain("R$ 8,58");
     });
+  });
+});
+
+
+describe("receipt-friendly per-kilo description", () => {
+  it("removes GTIN and internal codes, keeping unit prices for meat bought by weight", () => {
+    const output = formatReceiptDescription({
+      purchased_items: [
+        { name: "3006 COXA MOLE KG", quantity: 0.720, unit_price: 45.99, total: 33.11 },
+        { name: "3276 COXINHA DA ASA KG", quantity: 0.775, unit_price: 15.99, total: 12.39 },
+        { name: "3000 ACEM BOVINO KG", quantity: 0.566, unit_price: 37.99, total: 21.5 },
+        { name: "3275 FILE DE PEITO DE FRANG", quantity: 1.010, unit_price: 23.99, total: 24.23 },
+        { name: "3028 PERNIL SUINO SEM OSSO", quantity: 0.522, unit_price: 16.99, total: 8.87 },
+        { name: "3277 LINGUICA TOSCANA SADIA", quantity: 0.510, unit_price: 12.99, total: 6.62 },
+      ],
+      receipt_id: "58841",
+    });
+    expect(output).toContain("COXA MOLE — 0,720 kg · R$ 45,99/kg · Total R$ 33,11");
+    expect(output).toContain("COXINHA DA ASA — 0,775 kg · R$ 15,99/kg · Total R$ 12,39");
+    expect(output).toContain("FILE DE PEITO DE FRANG — 1,010 kg · R$ 23,99/kg · Total R$ 24,23");
+    expect(output).toContain("LINGUICA TOSCANA SADIA — 0,510 kg · R$ 12,99/kg · Total R$ 6,62");
+    expect(output).not.toMatch(/3006|3275|3277|ID do comprovante/);
+  });
+
+  it("removes long product barcodes without dropping package sizes", () => {
+    const output = formatReceiptDescription({
+      purchased_items: [
+        { name: "7896022207854 ROSQUINHA GALAO LEITE 3", quantity: 1, unit_price: 3.99, total: 3.99 },
+        { name: "7891048050637 GELATINA DR OETKER FRA", quantity: 1, unit_price: 1.59, total: 1.59 },
+        { name: "ARROZ BRANCO 5 KG", quantity: 1, unit_price: 21.50, total: 21.50 },
+        { name: "FEIJAO CARIOCA 1KG", quantity: 2, unit_price: 8.49, total: 16.98 },
+      ],
+    });
+    expect(output).toContain("ROSQUINHA GALAO LEITE 3 — R$ 3,99");
+    expect(output).toContain("GELATINA DR OETKER FRA — R$ 1,59");
+    expect(output).toContain("ARROZ BRANCO 5 KG — R$ 21,50");
+    expect(output).toContain("FEIJAO CARIOCA 1KG — 2 un · R$ 8,49/un · Total R$ 16,98");
+    expect(output).not.toContain("789");
+    expect(output).not.toContain("ARROZ BRANCO 5 KG — 1,000 kg");
+  });
+
+  it("does not invent a kilogram price when unit price is missing", () => {
+    const output = formatReceiptDescription({
+      purchased_items: [
+        { name: "BANANA PRATA KG", quantity: 0.750, unit_price: null, total: 4.5 },
+      ],
+    });
+    expect(output).toBe("Itens:\nBANANA PRATA — 0,750 kg — R$ 4,50");
+    expect(output).not.toContain("/kg");
+  });
+
+  it("does not assert uncertain item totals or fabricate weight units for measured liquids", () => {
+    expect(formatReceiptDescription({
+      purchased_items: [
+        { name: "COMBUSTIVEL L", quantity: 0.75, unit_price: 6, total: 4.5 },
+        { name: "TOMATE KG", quantity: 0.800, unit_price: 8.90, total: 7.12 },
+      ],
+      item_values_are_final: false,
+    })).toBe("Itens:\nCOMBUSTIVEL — 0,750 L\nTOMATE — 0,800 kg");
+  });
+
+  it("shows an extracted price per kilo without pretending an uncertain total is final", () => {
+    const output = formatReceiptDescription({
+      purchased_items: [
+        { name: "BANANA PRATA KG", quantity: 0.8, unit_price: 7.99, total: 6.39 },
+      ],
+      item_values_are_final: false,
+    }, true);
+    expect(output).toBe("Itens:\nBANANA PRATA — 0,800 kg · R$ 7,99/kg · Valor informado R$ 6,39");
+  });
+
+  it("keeps receipt identifiers for Pix without purchased items", () => {
+    expect(formatReceiptDescription({
+      purchased_items: [], notes: "Pix enviado", receipt_id: "E123",
+    })).toBe("Pix enviado\nID do comprovante: E123");
   });
 });
