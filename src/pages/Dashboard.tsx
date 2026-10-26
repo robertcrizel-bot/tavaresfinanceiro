@@ -51,7 +51,7 @@ const KPI_VALUE_BASE =
 const KPI_VALUE = `${KPI_VALUE_BASE} text-[clamp(1.5rem,1.9vw,2rem)]`;
 const KPI_NOTE = "text-[12px] leading-tight text-muted-foreground";
 const KPI_CARD =
-  "dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:min-h-[132px] lg:p-5";
+  "dashboard-card premium-kpi flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:min-h-[132px] lg:p-5";
 
 export default function Dashboard() {
   const { transactions, creditCardInvoices, addTransaction } = useFinance();
@@ -177,7 +177,7 @@ export default function Dashboard() {
   const holdings = accounts.length + creditCards.length;
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-4">
+    <div className="premium-dashboard mx-auto max-w-[1440px] space-y-4">
       <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="eyebrow">Visão financeira</p>
@@ -216,8 +216,8 @@ export default function Dashboard() {
       </div>
 
       <section aria-label="Indicadores do período" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(170_56%_22%),hsl(214_32%_10%))] p-4 text-white lg:p-5">
-          <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-primary/25" />
+        <article className="dashboard-card premium-balance relative col-span-2 flex flex-col justify-center gap-3 overflow-hidden rounded-xl p-5 text-white lg:p-6">
+          <div aria-hidden="true" className="premium-balance-glow absolute inset-0 pointer-events-none" />
           <div className="relative flex items-center justify-between gap-3">
             <span className="text-[13px] font-bold uppercase tracking-[0.18em] text-white/75">
               Saldo do Período
@@ -279,7 +279,7 @@ export default function Dashboard() {
           </p>
         </article>
 
-        <article className="dashboard-card col-span-2 grid grid-cols-3 items-center divide-x divide-border/80 px-2 py-3 sm:px-4 lg:py-5" aria-label="Resumo do período">
+        <article className="dashboard-card premium-summary col-span-2 grid grid-cols-3 items-center divide-x divide-border/80 px-2 py-3 sm:px-4 lg:py-5" aria-label="Resumo do período">
           <div className="flex min-w-0 items-center justify-center gap-1 px-1">
             <span className="whitespace-nowrap text-[11px] sm:text-xs font-medium text-muted-foreground">Lançamentos</span>
             <strong className="shrink-0 text-[14px] font-bold tabular-nums text-foreground sm:text-base">{filtered.length}</strong>
@@ -313,7 +313,7 @@ export default function Dashboard() {
                 <article
                   key={acc.id}
                   data-carousel-item
-                  className="workspace-panel h-[134px] w-[240px] shrink-0 snap-start bg-[linear-gradient(155deg,hsl(169_34%_15%),hsl(215_26%_12%))] p-4 lg:h-[144px] lg:w-[268px]"
+                  className="workspace-panel premium-account h-[134px] w-[240px] shrink-0 snap-start p-4 lg:h-[144px] lg:w-[268px]"
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
