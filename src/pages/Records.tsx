@@ -18,7 +18,7 @@ import { Link } from "react-router-dom";
 import { isAdjustmentTransaction, isBillPaymentTransaction, isFinancialNeutralTransaction, isSystemInvoiceTransaction } from "@/lib/transaction-classification";
 import { getInvoiceRecordTitle, getInvoiceRecordTypeLabel, shouldHideSettledInvoiceObligation } from "@/lib/invoice-record-presentation";
 import { cn } from "@/lib/utils";
-import * as XLSX from "xlsx";
+import { exportFinanceExcel } from "@/lib/finance-excel-report";
 
 type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "source" | "amount";
 type SortDir = "asc" | "desc";
@@ -241,8 +241,8 @@ export default function Records() {
 
   const recordsSummary = useMemo(() => summarizeFilteredRecords(filtered), [filtered]);
 
-  const exportToXlsx = useCallback(() => {
-    const data = filtered.map((t) => ({
+  const exportToXlsx = useCallback(async () => {
+    const rows = filtered.map((t) => ({
       "Data": new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR"),
       "Título": getDisplayTitle(t),
       "Categoria": t.category,
@@ -252,15 +252,32 @@ export default function Records() {
       "Valor (R$)": getSignedAmount(t),
       "Descrição": t.description || "",
     }));
-    const ws = XLSX.utils.json_to_sheet(data);
-    ws["!cols"] = [{ wch: 12 }, { wch: 30 }, { wch: 16 }, { wch: 10 }, { wch: 18 }, { wch: 22 }, { wch: 15 }, { wch: 30 }];
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Registros");
-    const range = XLSX.utils.decode_range(ws["!ref"] || "A1");
-    ws["!autofilter"] = { ref: XLSX.utils.encode_range(range) };
-    XLSX.writeFile(wb, `registros_${new Date().toISOString().split("T")[0]}.xlsx`);
-  }, [filtered, today, sourceMap]);
+    const activeFilters = [
+      search.trim() && `Busca: ${search.trim()}`,
+      typeFilter !== "all" && `Tipo: ${typeFilter === "income" ? "Entradas" : "Saídas"}`,
+      catFilter !== "all" && `Categoria: ${catFilter}`,
+      sourceFilter !== "all" && `Conta/cartão: ${sourceMap[sourceFilter] || "Selecionada"}`,
+    ].filter((filter): filter is string => typeof filter === "string" && filter.length > 0);
 
+    await exportFinanceExcel({
+      worksheetName: "Registros",
+      fileName: `FinanceControl_Registros_${today}.xlsx`,
+      title: "Meus registros",
+      subtitle: `${filtered.length} registros selecionados     |     Exportado em ${new Date().toLocaleDateString("pt-BR")}`,
+      filterDescription: activeFilters.join(" · ") || "Sem filtros adicionais",
+      metrics: [
+        { label: "Entradas", value: fmt(recordsSummary.income) },
+        { label: "Saídas", value: fmt(recordsSummary.expense) },
+        { label: "Saldo do recorte", value: fmt(recordsSummary.balance) },
+        { label: "Registros", value: String(recordsSummary.count) },
+      ],
+      columns: ["Data", "Título", "Categoria", "Tipo", "Pagamento", "Conta/Cartão", "Valor (R$)", "Descrição"],
+      columnWidths: [16, 38, 24, 22, 22, 29, 18, 66],
+      amountColumn: "Valor (R$)",
+      descriptionColumn: "Descrição",
+      rows,
+    });
+  }, [filtered, today, sourceMap, recordsSummary, search, typeFilter, catFilter, sourceFilter, creditCardInvoices, creditCards]);
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (e.key === "n" || e.key === "N") { e.preventDefault(); setEditing(undefined); setFormOpen(true); }
