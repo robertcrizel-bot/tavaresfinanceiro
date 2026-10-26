@@ -164,7 +164,7 @@ function drawEvolution(doc: jsPDF, graph: ExportGraph | undefined, previous: num
   doc.text(entries[entries.length - 1].name, right, y + h - 5, { align: "right" });
 }
 
-function renderInsights(doc: jsPDF, insights: string[]) {
+function renderInsights(doc: jsPDF, insights: string[], report: FinancialReport, filters: string) {
   heading(doc, "Destaques do período", 12, 171);
   if (!insights.length) {
     doc.setFont("helvetica", "normal");
@@ -179,7 +179,11 @@ function renderInsights(doc: jsPDF, insights: string[]) {
   let y = 179;
   for(const insight of insights.slice(0, 4)) {
     const lines: string[] = doc.splitTextToSize("- " + insight, 266);
-    if (y + lines.length * 3.5 > 199) break;
+    if (y + lines.length * 3.5 > 198) {
+      doc.addPage();
+      reportHeader(doc, "Destaques do período", report.subtitle, filters, doc.getNumberOfPages());
+      y = 52;
+    }
     doc.text(lines, 16, y);
     y += 3.8 * lines.length + 1.2;
   }
@@ -202,7 +206,7 @@ export async function exportCompleteExpenseAnalysisPdf(report: FinancialReport):
   drawKpis(doc, report);
   drawCategories(doc, report.graphs?.find(g => g.kind === "category"));
   drawEvolution(doc, report.graphs?.find(g => g.kind === "evolution"), analysis.previousEvolution);
-  renderInsights(doc, analysis.insights);
+  renderInsights(doc, analysis.insights, report, filters);
 
   const tableOpts = {
     margin: { top: 15, left: 11, right: 11, bottom: 14 },
