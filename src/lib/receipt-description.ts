@@ -48,14 +48,16 @@ export function formatPurchasedItem(
       ? item.quantity * item.unit_price
       : item.unit_price;
 
-  // A non-final value must not be advertised as the definitive cost of the item.
-  if (valuesAreFinal === false) {
-    return showKnownItemValues && isValidAmount(item.total)
-      ? `${prefix} · ${brl(item.total)}`
-      : prefix;
-  }
-
   const unitPrice = isValidAmount(item.unit_price) ? item.unit_price : null;
+  // Keep confidently read unit prices visible, even if some item totals are uncertain.
+  // Never label a non-final item value as the definitive total.
+  if (valuesAreFinal === false) {
+    if (!showKnownItemValues) return prefix;
+    const details = [prefix];
+    if (weighed && unitPrice !== null && quantityLabel) details.push(`${brl(unitPrice)}/kg`);
+    if (isValidAmount(item.total)) details.push(`Valor informado ${brl(item.total)}`);
+    return details.join(" · ");
+  }
   if (weighed && unitPrice !== null && quantityLabel) {
     return isValidAmount(total)
       ? `${prefix} · ${brl(unitPrice)}/kg · Total ${brl(total)}`
