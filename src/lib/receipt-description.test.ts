@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { ParsedReceipt } from "@/lib/receipt";
-import { formatReceiptDescription } from "@/lib/receipt-description";
+import { cleanPurchasedItemName, formatReceiptDescription } from "@/lib/receipt-description";
 
 const receipt = (overrides: Partial<ParsedReceipt> = {}): ParsedReceipt => ({
   is_receipt: true,
@@ -188,5 +188,74 @@ describe("receipt-friendly per-kilo description", () => {
     expect(formatReceiptDescription({
       purchased_items: [], notes: "Pix enviado", receipt_id: "E123",
     })).toBe("Pix enviado\nID do comprovante: E123");
+  });
+});
+
+
+describe("fiscal receipt line numbers and clutter", () => {
+  it("formats all nine products from the photographed R$ 113,89 receipt, preserving price/kg", () => {
+    // Exact type of names returned by free AI in the user's phone screenshot:
+    // 001 and 789... got concatenated, while weighted items have 004 3006.
+    const result = formatReceiptDescription({
+      purchased_items: [
+        { name: "0017896022207854 ROSQUINHA GALAO LEITE 3", quantity: 1, unit_price: 3.99, total: 3.99 },
+        { name: "0027891048050637 GELATINA DR OETKER FRA", quantity: 1, unit_price: 1.59, total: 1.59 },
+        { name: "0037891048050682 GELATINA DR OETKER UVA", quantity: 1, unit_price: 1.59, total: 1.59 },
+        { name: "004 3006 COXA MOLE KG", quantity: 0.720, unit_price: 45.99, total: 33.11 },
+        { name: "005 3276 COXINHA DA ASA KG", quantity: 0.775, unit_price: 15.99, total: 12.39 },
+        { name: "006 3000 ACEM BOVINO KG", quantity: 0.566, unit_price: 37.99, total: 21.50 },
+        { name: "007 3275 FILE DE PEITO DE FRANG", quantity: 1.010, unit_price: 23.99, total: 24.23 },
+        { name: "008 3028 PERNIL SUINO SEM OSSO", quantity: 0.522, unit_price: 16.99, total: 8.87 },
+        { name: "009 3277 LINGUICA TOSCANA SADIA", quantity: 0.510, unit_price: 12.99, total: 6.62 },
+      ],
+      notes: "Forma de pagamento: TEF",
+      receipt_id: "58841",
+    });
+    expect(result).toContain("ROSQUINHA GALAO LEITE 3 — R$ 3,99");
+    expect(result).toContain("GELATINA DR OETKER FRA — R$ 1,59");
+    expect(result).toContain("GELATINA DR OETKER UVA — R$ 1,59");
+    expect(result).toContain("COXA MOLE — 0,720 kg · R$ 45,99/kg · Total R$ 33,11");
+    expect(result).toContain("COXINHA DA ASA — 0,775 kg · R$ 15,99/kg · Total R$ 12,39");
+    expect(result).toContain("ACEM BOVINO — 0,566 kg · R$ 37,99/kg · Total R$ 21,50");
+    expect(result).toContain("FILE DE PEITO DE FRANG — 1,010 kg · R$ 23,99/kg · Total R$ 24,23");
+    expect(result).toContain("PERNIL SUINO SEM OSSO — 0,522 kg · R$ 16,99/kg · Total R$ 8,87");
+    expect(result).toContain("LINGUICA TOSCANA SADIA — 0,510 kg · R$ 12,99/kg · Total R$ 6,62");
+    expect(result).not.toMatch(/(?:001789|002789|003789|004 3006|005 3276|006 3000|007 3275|008 3028|009 3277|Forma de pagamento|TEF|ID do comprovante)/);
+    expect(result?.split("\n").filter(line => line !== "Itens:")).toHaveLength(9);
+  });
+
+  it("drops fiscal and payment-only note lines without losing real purchase notes", () => {
+    expect(formatReceiptDescription({
+      purchased_items: [{ name: "002 3006 BANANA PRATA KG", quantity: 0.750, unit_price: 8.99, total: 6.74 }],
+      notes: "Observação: produto com desconto\nForma de pagamento: TEF\nCNPJ: 07.633.295/0003-44\nAtenção: consumir até amanhã",
+    })).toBe(
+      "Itens:\nBANANA PRATA — 0,750 kg · R$ 8,99/kg · Total R$ 6,74\nObservação: produto com desconto\nAtenção: consumir até amanhã",
+    );
+  });
+
+  it("keeps product package size, numeric product names and non-item transfer notes", () => {
+    expect(cleanPurchasedItemName("ARROZ 5 KG")).toBe("ARROZ 5 KG");
+    expect(cleanPurchasedItemName("VITAMINA B12 1000 MCG")).toBe("VITAMINA B12 1000 MCG");
+    expect(cleanPurchasedItemName("365 DIAS DE CAFÉ")).toBe("365 DIAS DE CAFÉ");
+    expect(cleanPurchasedItemName("7891048050637 GELATINA UVA")).toBe("GELATINA UVA");
+    expect(cleanPurchasedItemName("001 7891048050637 GELATINA UVA")).toBe("GELATINA UVA");
+    expect(cleanPurchasedItemName("009 3277 LINGUICA TOSCANA")).toBe("LINGUICA TOSCANA");
+    expect(formatReceiptDescription({
+      purchased_items: [],
+      notes: "Forma de pagamento: Pix\nPix enviado para fornecedor",
+      receipt_id: "E456",
+    })).toBe("Forma de pagamento: Pix\nPix enviado para fornecedor\nID do comprovante: E456");
+  });
+
+  it("does not alter declared receipt values or invent an unknown price/kg", () => {
+    const result = formatReceiptDescription({
+      purchased_items: [
+        { name: "009 3277 LINGUICA TOSCANA KG", quantity: 0.510, unit_price: null, total: 6.62 },
+      ],
+      item_values_are_final: false,
+      notes: "Forma de pagamento: TEF",
+    }, true);
+    expect(result).toBe("Itens:\nLINGUICA TOSCANA — 0,510 kg · Valor informado R$ 6,62");
+    expect(result).not.toContain("/kg");
   });
 });
