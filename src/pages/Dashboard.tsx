@@ -142,8 +142,9 @@ export default function Dashboard() {
 
   const days = useMemo(() => {
     if (period === "month") {
-      const now = new Date();
-      return new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+      // The current-month card counts days already elapsed, not future days.
+      // Use the same divisor for the daily average so both indicators agree.
+      return new Date().getDate();
     }
     if (period === "all") return 30;
     if (period === "custom" && dateRange?.from) {
@@ -160,6 +161,14 @@ export default function Dashboard() {
   );
   const expenseCount = useMemo(
     () => filtered.filter((t) => t.type === "expense" && !isNeutral(t)).length,
+    [filtered],
+  );
+
+  // Biggest individual actual expense in the selected window; invoice
+  // payments and accounting adjustments cannot become the "largest expense".
+  const largestExpense = useMemo(
+    () => filtered.reduce((largest, t) =>
+      t.type === "expense" && !isNeutral(t) ? Math.max(largest, t.amount) : largest, 0),
     [filtered],
   );
 
@@ -383,9 +392,9 @@ export default function Dashboard() {
             <strong className="text-[22px] font-extrabold leading-tight tabular-nums text-foreground sm:text-[26px]">{days}</strong>
           </div>
           <div className="flex min-w-0 flex-col items-center justify-center gap-1.5 px-1 text-center">
-            <span className="premium-icon premium-icon--neutral"><CreditCard className="h-4 w-4" aria-hidden="true" /></span>
-            <span className="text-[12px] font-medium leading-tight text-muted-foreground sm:text-[13px]"><span className="sm:hidden">Contas/cartões</span><span className="hidden sm:inline">Contas & cartões</span></span>
-            <strong className="text-[22px] font-extrabold leading-tight tabular-nums text-foreground sm:text-[26px]">{holdings}</strong>
+            <span className="premium-icon premium-icon--coral"><ArrowDownRight className="h-4 w-4" aria-hidden="true" /></span>
+            <span className="text-[12px] font-medium leading-tight text-muted-foreground sm:text-[13px]">Maior saída</span>
+            <strong className="min-w-0 max-w-full break-words text-[clamp(0.875rem,1.9vw,1.625rem)] font-extrabold leading-tight tabular-nums text-foreground">{fmt(largestExpense)}</strong>
           </div>
         </article>
       </section>
