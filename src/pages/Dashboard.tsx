@@ -58,9 +58,10 @@ const KPI_CARD =
 
 /** Mini charts use real transactions in the selected period; no sample values. */
 function MiniBars({ values, tone = "mint" }: { values: number[]; tone?: "mint" | "coral" | "blue" }) {
-  // Sparse income periods get an abstract, purely decorative rhythm instead
-  // of two isolated columns. It is aria-hidden and does not claim to plot data.
-  const decorative = tone === "mint" && values.length > 0 && values.length < 4;
+  // Income mini-bars are always ornamental, never data-driven; a sparse
+  // month should look as polished as a busy month. The actual total stays real.
+  // Other mini-bars (expenses and daily average) still plot real-day amounts.
+  const decorative = tone === "mint";
   const decorativeHeights = [32, 57, 43, 78, 50, 65, 39, 86];
   if (!decorative && values.length < 2) return null;
   const max = Math.max(1, ...values);

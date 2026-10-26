@@ -188,6 +188,17 @@ describe("Statements page", () => {
     expect(table().getByText("Aluguel")).toBeInTheDocument();
   });
 
+  it("stretches the evolution graph to the height of its neighboring card", () => {
+    mocks.transactions = [salary, rent];
+    const { container } = render(<Statements />);
+    setPeriod(container, "2026-09-01", "2026-09-30");
+
+    const graphArea = screen.getByTestId("statements-evolution-chart-area");
+    expect(graphArea).toHaveClass("flex-1", "min-h-[200px]");
+    expect(graphArea.parentElement).toHaveClass("flex", "h-full", "flex-col");
+    expect(graphArea.closest("section")).toHaveTextContent("Evolução no tempo");
+  });
+
   it("keeps the origin chart informative without trapping users in drilldown", () => {
     mocks.transactions = [purchaseA, purchaseB, obligation, payment];
     const { container } = render(<Statements />);

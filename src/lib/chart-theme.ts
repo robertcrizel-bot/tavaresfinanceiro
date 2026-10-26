@@ -5,25 +5,49 @@ import type { CSSProperties } from "react";
  * Dashboard, ExpenseAnalytics and Statements. Visual only — never
  * changes aggregation or financial logic.
  */
+/** Soft but clearly differentiated categorical hues, shared throughout the app.
+ * A category's name, not the chart position or filter order, determines its color.
+ * Saturation is tuned so marks remain distinguishable against dark and light cards.
+ */
 export const CHART_CATEGORICAL = [
-  "hsl(169 66% 47%)",
-  "hsl(192 68% 52%)",
-  "hsl(218 62% 64%)",
-  "hsl(34 74% 55%)",
-  "hsl(14 62% 58%)",
-  "hsl(155 56% 46%)",
-  "hsl(206 68% 60%)",
-  "hsl(266 52% 66%)",
-  "hsl(22 72% 56%)",
-  "hsl(180 52% 48%)",
+  "hsl(159 55% 56%)",  // 0 · mint / food
+  "hsl(196 72% 65%)",  // 1 · sky / transport
+  "hsl(222 67% 71%)",  // 2 · blue / housing
+  "hsl(276 56% 72%)",  // 3 · lilac / leisure
+  "hsl(13 74% 68%)",   // 4 · coral / health
+  "hsl(108 50% 62%)",  // 5 · leaf / education
+  "hsl(251 57% 75%)",  // 6 · periwinkle / invoices
+  "hsl(178 51% 58%)",  // 7 · teal / income
+  "hsl(29 77% 69%)",   // 8 · apricot / freelance
+  "hsl(208 20% 72%)",  // 9 · muted slate / other
+  "hsl(44 78% 66%)",   // 10 · golden / financing
+  "hsl(310 56% 72%)",  // 11 · orchid / extras
+  "hsl(345 69% 74%)",  // 12 · dusty pink / baby products
+  "hsl(239 60% 76%)",  // 13 · soft indigo / internet
+  "hsl(78 53% 65%)",   // 14 · lime / pets
 ] as const;
 
 const colorKey = (value: string) => value.normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim().replace(/\s+/g, " ").toLowerCase();
-// Transactions use category names as identity, including historical categories.
-const CATEGORY_COLORS: Record<string, string> = Object.fromEntries(
-  ["alimentacao", "transporte", "moradia", "lazer", "saude", "educacao", "fatura cartao", "salario", "freelance", "outros"]
-    .map((key, index) => [key, CHART_CATEGORICAL[index]]),
-);
+
+// Explicit assignments keep these familiar categories distinct and consistent
+// across Dashboard, Análises, Extratos, Registros, Previsões and Categorias.
+const CATEGORY_COLORS: Record<string, string> = {
+  alimentacao: CHART_CATEGORICAL[0],
+  transporte: CHART_CATEGORICAL[1],
+  moradia: CHART_CATEGORICAL[2],
+  lazer: CHART_CATEGORICAL[3],
+  saude: CHART_CATEGORICAL[4],
+  educacao: CHART_CATEGORICAL[5],
+  "fatura cartao": CHART_CATEGORICAL[6],
+  salario: CHART_CATEGORICAL[7],
+  freelance: CHART_CATEGORICAL[8],
+  outros: CHART_CATEGORICAL[9],
+  financiamento: CHART_CATEGORICAL[10],
+  superfluos: CHART_CATEGORICAL[11],
+  "leite/fralda": CHART_CATEGORICAL[12],
+  "internet/telefone": CHART_CATEGORICAL[13],
+  bichos: CHART_CATEGORICAL[14],
+};
 const PAYMENT_COLORS: Record<string, string> = {
   pix: CHART_CATEGORICAL[0],
   "cartao de credito": CHART_CATEGORICAL[7], credito: CHART_CATEGORICAL[7],

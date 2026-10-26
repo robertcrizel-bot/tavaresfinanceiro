@@ -480,8 +480,9 @@ export default function Statements() {
               )}
             </ChartCard>
 
-            <ChartCard title="Evolução no tempo" color={CHART_ACCENTS.time}>
-              <ResponsiveContainer width="100%" height={200}>
+            <ChartCard title="Evolução no tempo" color={CHART_ACCENTS.time} className="flex h-full min-w-0 flex-col">
+              <div className="min-h-[200px] flex-1" data-testid="statements-evolution-chart-area">
+              <ResponsiveContainer width="100%" height="100%" minHeight={200}>
                 <AreaChart data={daily} margin={{ left: 4, right: 12, top: 8 }}>
                   <defs>
                     <linearGradient id="statementIncomeFill" x1="0" y1="0" x2="0" y2="1">
@@ -523,6 +524,8 @@ export default function Statements() {
                   />
                 </AreaChart>
               </ResponsiveContainer>
+              </div>
+            
             </ChartCard>
 
             <ChartCard title="Maiores movimentações" color={CHART_ACCENTS.budget}>
