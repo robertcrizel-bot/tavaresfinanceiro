@@ -225,7 +225,11 @@ export async function exportFinanceExcel(report: FinanceExcelReport): Promise<vo
       cell.alignment = { vertical: "middle", wrapText: key === report.descriptionColumn };
       cell.border = { bottom: { style: "hair", color: { argb: C.border } } };
       if ((key === report.amountColumn || report.currencyColumns?.includes(key)) && typeof value === "number") {
-        cell.numFmt = '+R$ #,##0.00;-R$ #,##0.00;"R$ 0,00"';
+        // New reporting pages express expenses/forecasts as unsigned magnitudes;
+        // original statement/record exports keep their signed ledger display.
+        cell.numFmt = report.currencyColumns?.includes(key)
+          ? '"R$ " #,##0.00;-"R$ " #,##0.00;"R$ 0,00"'
+          : '+R$ #,##0.00;-R$ #,##0.00;"R$ 0,00"';
         cell.font = font(10, true, value < 0 ? C.red : C.green);
         cell.alignment = { vertical: "middle", horizontal: "right" };
       } else if (key === report.descriptionColumn && typeof value === "string") {
