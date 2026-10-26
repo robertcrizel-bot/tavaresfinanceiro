@@ -1,0 +1,207 @@
+/** Export bridge for the four reporting pages: PDF, Excel and CSV.
+ *  All rows and aggregates are prepared by their source pages; this module
+ *  never recomputes balances or changes persistent financial records.
+ */
+import type { FinanceExcelReport } from "@/lib/finance-excel-report";
+import { exportFinanceExcel } from "@/lib/finance-excel-report";
+
+export type ExportGraph = {
+  title: string;
+  kind: "category" | "evolution";
+  points: { name: string; value: number; color?: string }[];
+};
+
+export interface FinancialReport extends FinanceExcelReport {
+  graphs?: ExportGraph[];
+}
+
+const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
+
+export const csvSafe = (value: string | number): string => {
+  if (typeof value === "number") return String(value).replace(".", ",");
+  // Protect spreadsheet consumers from formula injection when descriptions
+  // start with user-supplied = + - @, while preserving ordinary narrative.
+  const safe = /^[\s]*[=+@-]/.test(value) ? "'" + value : value;
+  return /[;"\r\n]/.test(safe) ? '"' + safe.replace(/"/g, '""') + '"' : safe;
+};
+
+export function buildFinancialReportCsv(report: FinancialReport): string {
+  const lines = [
+    report.columns.map(csvSafe).join(";"),
+    ...report.rows.map(row => report.columns.map(c => csvSafe(row[c] ?? "")).join(";")),
+  ];
+  return "\uFEFF" + lines.join("\r\n");
+}
+
+function download(content: Blob, filename: string) {
+  const url = URL.createObjectURL(content);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
+export function exportFinancialReportCsv(report: FinancialReport): void {
+  download(
+    new Blob([buildFinancialReportCsv(report)], { type: "text/csv;charset=utf-8" }),
+    report.fileName.replace(/\.xlsx$/i, ".csv"),
+  );
+}
+
+export async function exportFinancialReportExcel(report: FinancialReport): Promise<void> {
+  await exportFinanceExcel(report);
+}
+
+function pdfColorFromHsl(hsl: string | undefined, fallback: [number, number, number]): [number, number, number] {
+  if (!hsl) return fallback;
+  const match = hsl.match(/hsl\(\s*(\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%/);
+  if (!match) return fallback;
+  const h = (Number(match[1]) % 360) / 60;
+  const s = Number(match[2]) / 100;
+  const l = Number(match[3]) / 100;
+  const chroma = (1 - Math.abs(2 * l - 1)) * s;
+  const x = chroma * (1 - Math.abs((h % 2) - 1));
+  const m = l - chroma / 2;
+  const rgb: [number, number, number] =
+    h < 1 ? [chroma, x, 0] : h < 2 ? [x, chroma, 0] :
+    h < 3 ? [0, chroma, x] : h < 4 ? [0, x, chroma] :
+    h < 5 ? [x, 0, chroma] : [chroma, 0, x];
+  return rgb.map(v => Math.round((v + m) * 255)) as [number, number, number];
+}
+
+function graphColors(color: string | undefined): [number, number, number] {
+  return pdfColorFromHsl(color, [45, 183, 169]);
+}
+
+/**
+ * Export actual category spending and actual period evolution as vector marks.
+ * These charts are not screenshots: they draw using the same filtered numbers
+ * as the accompanying export rows.
+ */
+export async function exportFinancialReportPdf(report: FinancialReport): Promise<void> {
+  const { default: JsPdf } = await import("jspdf");
+  const { default: autoTable } = await import("jspdf-autotable");
+  const doc = new JsPdf({ orientation: "landscape", format: "a4", unit: "mm" });
+  const pageWidth = doc.internal.pageSize.getWidth();
+  const pageHeight = doc.internal.pageSize.getHeight();
+  const margin = 11;
+  const printableWidth = pageWidth - 2 * margin;
+
+  doc.setFillColor(20, 39, 54);
+  doc.rect(0, 0, pageWidth, 23, "F");
+  doc.setTextColor(255, 255, 255);
+  doc.setFont("helvetica", "bold");
+  doc.setFontSize(16);
+  doc.text("FINANCECONTROL  /  " + report.title.toUpperCase(), margin, 14);
+
+  doc.setFont("helvetica", "normal");
+  doc.setTextColor(69, 89, 105);
+  doc.setFontSize(9);
+  const intro = doc.splitTextToSize(report.subtitle, printableWidth);
+  doc.text(intro, margin, 29);
+  const filterText = doc.splitTextToSize("Filtros: " + (report.filterDescription || "Sem filtros adicionais"), printableWidth);
+  const filtersY = 29 + intro.length * 4.5;
+  doc.text(filterText, margin, filtersY);
+
+  const summaryY = filtersY + filterText.length * 4.5 + 2;
+  const metricWidth = (printableWidth - 3 * 3) / 4;
+  report.metrics.slice(0, 4).forEach((metric, i) => {
+    const x = margin + i * (metricWidth + 3);
+    doc.setFillColor(i % 2 === 0 ? 231 : 224, i % 2 === 0 ? 241 : 243, 245);
+    doc.roundedRect(x, summaryY, metricWidth, 17, 2, 2, "F");
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.setTextColor(75, 95, 111);
+    doc.text(metric.label.substring(0, 32), x + 3, summaryY + 5);
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(12);
+    doc.setTextColor(22, 47, 64);
+    doc.text(metric.value.substring(0, 34), x + 3, summaryY + 12.5);
+  });
+
+  let tableStartY = summaryY + 22;
+  const graphs = (report.graphs || []).filter(g => g.points.length > 0).slice(0, 2);
+  if (graphs.length > 0) {
+    const gap = 5;
+    const width = (printableWidth - gap) / 2;
+    const top = tableStartY;
+    const chartHeight = 61;
+    for (const [index, graph] of graphs.entries()) {
+      const x = margin + index * (width + gap);
+      doc.setDrawColor(212, 226, 232);
+      doc.setFillColor(243, 247, 249);
+      doc.roundedRect(x, top, width, chartHeight, 2, 2, "FD");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(10);
+      doc.setTextColor(28, 50, 67);
+      doc.text(graph.title.substring(0, 48), x + 3, top + 7);
+
+      const series = graph.points.slice(0, graph.kind === "category" ? 7 : 24);
+      const max = Math.max(1, ...series.map(p => Math.max(0, p.value)));
+      if (graph.kind === "category") {
+        series.forEach((p, i) => {
+          const y = top + 13 + i * 6.5;
+          const [r, g, b] = graphColors(p.color);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7);
+          doc.setTextColor(52, 68, 84);
+          doc.text(p.name.slice(0, 24), x + 3, y + 2);
+          doc.setFillColor(215, 226, 232);
+          doc.roundedRect(x + 45, y - 1, width - 76, 3.4, 1, 1, "F");
+          doc.setFillColor(r, g, b);
+          doc.roundedRect(x + 45, y - 1, (width - 76) * Math.max(0, p.value) / max, 3.4, 1, 1, "F");
+          doc.text(fmt(p.value), x + width - 3, y + 2, { align: "right" });
+        });
+      } else {
+        const xMin = x + 8;
+        const plotWidth = width - 16;
+        const yBottom = top + 48;
+        const plotHeight = 31;
+        doc.setDrawColor(207, 223, 232);
+        doc.line(xMin, yBottom, xMin + plotWidth, yBottom);
+        doc.setDrawColor(36, 178, 163);
+        doc.setLineWidth(0.55);
+        series.forEach((p, i) => {
+          const px = xMin + (i / Math.max(1, series.length - 1)) * plotWidth;
+          const py = yBottom - Math.max(0, p.value) / max * plotHeight;
+          if (i > 0) {
+            const prev = series[i - 1];
+            const xPrev = xMin + ((i - 1) / Math.max(1, series.length - 1)) * plotWidth;
+            const yPrev = yBottom - Math.max(0, prev.value) / max * plotHeight;
+            doc.line(xPrev, yPrev, px, py);
+          }
+        });
+        doc.setFontSize(7);
+        doc.setTextColor(78, 99, 114);
+        if (series[0]) doc.text(series[0].name, xMin, top + 56);
+        if (series.at(-1)) doc.text(series[series.length - 1].name, x + width - 5, top + 56, { align: "right" });
+      }
+    }
+    tableStartY = top + 66;
+  }
+
+  autoTable(doc, {
+    startY: tableStartY,
+    margin: { left: margin, right: margin, top: 12, bottom: 12 },
+    head: [report.columns.map(c => c)],
+    body: report.rows.map(row => report.columns.map(col => {
+      const value = row[col] ?? "";
+      if (typeof value === "number") return fmt(value);
+      return String(value);
+    })),
+    theme: "striped",
+    headStyles: { fillColor: [20, 39, 54], textColor: [255, 255, 255], fontSize: 8 },
+    bodyStyles: { fontSize: report.columns.length >= 7 ? 7.5 : 9, overflow: "linebreak" },
+    alternateRowStyles: { fillColor: [241, 246, 249] },
+    styles: { cellPadding: 2, overflow: "linebreak" },
+    showHead: "everyPage",
+    didDrawPage: data => {
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(8);
+      doc.setTextColor(111, 130, 142);
+      doc.text("FinanceControl · Página " + data.pageNumber, pageWidth - margin, pageHeight - 5, { align: "right" });
+    },
+  });
+  doc.save(report.fileName.replace(/\.xlsx$/i, ".pdf"));
+}
