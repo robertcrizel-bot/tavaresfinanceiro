@@ -374,18 +374,18 @@ export default function Dashboard() {
         <article className="dashboard-card premium-summary col-span-2 grid grid-cols-3 items-stretch divide-x divide-border/80 p-3 sm:px-4 sm:py-5" aria-label="Resumo do período">
           <div className="flex min-w-0 flex-col items-center justify-center gap-1.5 px-1 text-center">
             <span className="premium-icon premium-icon--neutral"><ReceiptText className="h-4 w-4" aria-hidden="true" /></span>
-            <span className="text-[10px] font-medium text-muted-foreground sm:text-xs">Lançamentos</span>
-            <strong className="text-base font-bold tabular-nums text-foreground sm:text-xl">{filtered.length}</strong>
+            <span className="text-[12px] font-medium leading-tight text-muted-foreground sm:text-[13px]">Lançamentos</span>
+            <strong className="text-[22px] font-extrabold leading-tight tabular-nums text-foreground sm:text-[26px]">{filtered.length}</strong>
           </div>
           <div className="flex min-w-0 flex-col items-center justify-center gap-1.5 px-1 text-center">
             <span className="premium-icon premium-icon--neutral"><CalendarDays className="h-4 w-4" aria-hidden="true" /></span>
-            <span className="text-[10px] font-medium text-muted-foreground sm:text-xs"><span className="sm:hidden">Dias</span><span className="hidden sm:inline">Dias no período</span></span>
-            <strong className="text-base font-bold tabular-nums text-foreground sm:text-xl">{days}</strong>
+            <span className="text-[12px] font-medium leading-tight text-muted-foreground sm:text-[13px]"><span className="sm:hidden">Dias</span><span className="hidden sm:inline">Dias no período</span></span>
+            <strong className="text-[22px] font-extrabold leading-tight tabular-nums text-foreground sm:text-[26px]">{days}</strong>
           </div>
           <div className="flex min-w-0 flex-col items-center justify-center gap-1.5 px-1 text-center">
             <span className="premium-icon premium-icon--neutral"><CreditCard className="h-4 w-4" aria-hidden="true" /></span>
-            <span className="text-[10px] font-medium text-muted-foreground sm:text-xs"><span className="sm:hidden">Contas/cartões</span><span className="hidden sm:inline">Contas & cartões</span></span>
-            <strong className="text-base font-bold tabular-nums text-foreground sm:text-xl">{holdings}</strong>
+            <span className="text-[12px] font-medium leading-tight text-muted-foreground sm:text-[13px]"><span className="sm:hidden">Contas/cartões</span><span className="hidden sm:inline">Contas & cartões</span></span>
+            <strong className="text-[22px] font-extrabold leading-tight tabular-nums text-foreground sm:text-[26px]">{holdings}</strong>
           </div>
         </article>
       </section>
@@ -529,11 +529,11 @@ export default function Dashboard() {
         <div className="mb-3 flex items-center justify-between">
           <div>
             <p className="eyebrow">Leitura rápida</p>
-            <h2 className="mt-1 text-xl font-bold tracking-tight">Sinais do período</h2>
+            <h2 className="mt-1 text-[22px] font-bold tracking-tight">Sinais do período</h2>
           </div>
           <TrendingUp className="h-5 w-5 text-primary" />
         </div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
+        <div className="dashboard-insights grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3">
           {insights.map((text, i) => (
             <InsightCard key={i} text={text} />
           ))}
