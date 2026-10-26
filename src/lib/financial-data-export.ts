@@ -66,7 +66,9 @@ export function exportFinancialReportCsv(report: FinancialReport): void {
 }
 
 export async function exportFinancialReportExcel(report: FinancialReport): Promise<void> {
-  await exportFinanceExcel(report);
+  // The analysis page already lists categories in its main grid; don't
+  // render an identical second "ranking" above that same grid.
+  await exportFinanceExcel(report.analysis ? { ...report, categories: undefined } : report);
 }
 
 function pdfColorFromHsl(hsl: string | undefined, fallback: [number, number, number]): [number, number, number] {
