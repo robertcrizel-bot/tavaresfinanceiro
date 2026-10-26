@@ -363,6 +363,57 @@ export default function ExpenseAnalytics() {
     ? donutData.find((entry) => entry.category === selectedCategory)?.value ?? 0
     : visibleSummary.total;
 
+  // Shared panel: positioned next to highlights when results exist, or below empty states.
+  const transactionsPanel = (
+          <div className="min-w-0 lg:col-start-2 lg:row-start-2">
+          <ChartCard title="Transações do Período" color={CHART_ACCENTS.categories}>
+            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
+              <span>
+                {sortedTransactions.length} transaç
+                {sortedTransactions.length === 1 ? "ão" : "ões"}
+                {selectedCategory ? ` em ${selectedCategory}` : ""}
+                {searchText.trim() ? ` · “${searchText.trim()}”` : ""}
+                {originLabel ? ` · ${originLabel}` : ""}
+                {selectedPayment ? ` · ${selectedPayment}` : ""}
+              </span>
+              <span className="tabular-nums">
+                {money(sumExpenses(sortedTransactions))}
+              </span>
+            </div>
+            {sortedTransactions.length === 0 ? (
+              <p className="py-8 text-center text-sm text-muted-foreground">
+                Nenhuma transação no período
+                {selectedCategory ? ` para ${selectedCategory}` : ""}.
+              </p>
+            ) : (
+              <div className="-mx-5 max-h-96 divide-y divide-border/60 overflow-y-auto border-t border-border/60">
+                {sortedTransactions.map((transaction) => (
+                  <button
+                    key={transaction.id}
+                    type="button"
+                    onClick={() => setDetailTransaction(transaction)}
+                    className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-accent/40"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium text-foreground">
+                        {transaction.title}
+                      </p>
+                      <p className="truncate text-xs text-muted-foreground">
+                        {shortDate(transaction.date)} · {transaction.category}
+                        {accountLabel(transaction) ? ` · ${accountLabel(transaction)}` : ""}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-semibold tabular-nums text-expense">
+                      − {money(transaction.amount)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            )}
+          </ChartCard>
+          </div>
+  );
+
   return (
     <div className="mx-auto max-w-[1500px] space-y-4 pb-4">
       {/* Header + period */}
@@ -1061,7 +1112,7 @@ export default function ExpenseAnalytics() {
                   )}
                 </ChartCard>
 
-                <div className="min-w-0 lg:col-start-2 lg:row-start-1 lg:row-span-2">
+                <div className="min-w-0 lg:col-start-2 lg:row-start-1">
                 <ChartCard title="Orçamento × Realizado" color={CHART_ACCENTS.budget}>
                   {!budget ? (
                     <div className="py-8 text-center text-sm text-muted-foreground">
@@ -1204,58 +1255,12 @@ export default function ExpenseAnalytics() {
                   </div>
                 </div>
               )}
+                {transactionsPanel}
               </section>
             </>
           )}
 
-          {/* Transactions */}
-          <div className="min-w-0">
-          <ChartCard title="Transações do Período" color={CHART_ACCENTS.categories}>
-            <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-              <span>
-                {sortedTransactions.length} transaç
-                {sortedTransactions.length === 1 ? "ão" : "ões"}
-                {selectedCategory ? ` em ${selectedCategory}` : ""}
-                {searchText.trim() ? ` · “${searchText.trim()}”` : ""}
-                {originLabel ? ` · ${originLabel}` : ""}
-                {selectedPayment ? ` · ${selectedPayment}` : ""}
-              </span>
-              <span className="tabular-nums">
-                {money(sumExpenses(sortedTransactions))}
-              </span>
-            </div>
-            {sortedTransactions.length === 0 ? (
-              <p className="py-8 text-center text-sm text-muted-foreground">
-                Nenhuma transação no período
-                {selectedCategory ? ` para ${selectedCategory}` : ""}.
-              </p>
-            ) : (
-              <div className="-mx-5 max-h-96 divide-y divide-border/60 overflow-y-auto border-t border-border/60">
-                {sortedTransactions.map((transaction) => (
-                  <button
-                    key={transaction.id}
-                    type="button"
-                    onClick={() => setDetailTransaction(transaction)}
-                    className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-accent/40"
-                  >
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-foreground">
-                        {transaction.title}
-                      </p>
-                      <p className="truncate text-xs text-muted-foreground">
-                        {shortDate(transaction.date)} · {transaction.category}
-                        {accountLabel(transaction) ? ` · ${accountLabel(transaction)}` : ""}
-                      </p>
-                    </div>
-                    <span className="shrink-0 text-sm font-semibold tabular-nums text-expense">
-                      − {money(transaction.amount)}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            )}
-          </ChartCard>
-          </div>
+          {(periodExpenses.length === 0 || visibleExpenses.length === 0) && transactionsPanel}
         </>
       )}
 
