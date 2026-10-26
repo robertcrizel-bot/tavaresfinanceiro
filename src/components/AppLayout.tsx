@@ -7,6 +7,7 @@ import { AppUpdateBanner } from "@/components/AppUpdateBanner";
 import { startAppUpdateWatcher } from "@/lib/app-update";
 import { Outlet } from "react-router-dom";
 import { useLocation } from "react-router-dom";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const pageNames: Record<string, string> = {
   "/": "Visão geral",
@@ -41,9 +42,12 @@ export default function AppLayout() {
                 {pageNames[pathname] ?? "FinanceControl"}
               </span>
             </div>
+            <div className="flex items-center gap-3">
             <span className="rounded-full border border-primary/20 bg-primary/5 px-3 py-1 text-[10px] font-extrabold uppercase tracking-[0.18em] text-primary">
               Sua central financeira
             </span>
+            <ThemeToggle />
+            </div>
           </header>
           <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-background/90 px-4 backdrop-blur-xl md:hidden">
             <div className="flex items-center gap-2.5">
@@ -53,7 +57,10 @@ export default function AppLayout() {
                 <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{pageNames[pathname] ?? "Finanças"}</p>
               </div>
             </div>
-            <SidebarTrigger className="h-9 w-9 rounded-xl border border-border bg-card text-foreground" />
+            <div className="flex shrink-0 items-center gap-2">
+              <ThemeToggle />
+              <SidebarTrigger className="h-9 w-9 rounded-xl border border-border bg-card text-foreground" />
+            </div>
           </header>
           <main className="flex-1 overflow-x-hidden px-3 pb-20 pt-3 sm:px-5 md:px-6 md:pb-8 md:pt-5 lg:px-8 lg:pt-6">
             <Outlet />
