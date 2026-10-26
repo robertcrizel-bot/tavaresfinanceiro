@@ -350,6 +350,17 @@ export default function ExpenseAnalytics() {
     setSelectedPayment(null);
   };
 
+  // PDF's built-in Helvetica lacks arrows (↑ ↓ →), so use an explicit
+  // textual direction only in the export. Keep the colored UI KPI unchanged.
+  const reportVariationValue = !variation
+    ? "Sem comparação"
+    : variation.direction === "flat"
+      ? "Estável"
+      : (variation.direction === "up" ? "Aumento de " : "Queda de ") +
+        (variation.pct !== null
+          ? percent(Math.abs(roundCents(variation.pct)))
+          : money(Math.abs(variation.delta)));
+
   const variationValue = (() => {
     if (!variation) return "—";
     const arrow = variation.direction === "up" ? "↑" : variation.direction === "down" ? "↓" : "→";
@@ -395,7 +406,7 @@ export default function ExpenseAnalytics() {
       { label: "Gastos do período", value: money(visibleSummary.total) },
       { label: "Média por dia", value: money(computeDailyAverage(visibleSummary.total, visibleDays)) },
       { label: "Maior categoria", value: topCategory?.category ?? "—" },
-      { label: "Variação", value: variationValue },
+      { label: "Variação", value: reportVariationValue },
     ],
     categories: visibleSummary.categories.map(c => ({ category: c.category, total: c.total, share: c.percentage })),
     columns: ["Categoria", "Gasto atual", "Participação", "Período anterior", "Variação", "Orçamento", "Disponível"],
@@ -566,9 +577,10 @@ export default function ExpenseAnalytics() {
             )}
           </div>
 
+          <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
           <FinanceExportMenu report={exportReport} />
           {!invalidCustom && period !== "custom" && range && (
-            <div className="flex items-center gap-1 self-start rounded-2xl border border-border bg-card p-1 shadow-sm lg:self-auto">
+            <div className="flex items-center gap-1 rounded-2xl border border-border bg-card p-1 shadow-sm">
               <Button
                 size="sm"
                 variant="outline"
@@ -594,6 +606,7 @@ export default function ExpenseAnalytics() {
               </Button>
             </div>
           )}
+          </div>
         </div>
 
         {hasAnyActiveFilter && (
