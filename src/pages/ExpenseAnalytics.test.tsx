@@ -46,6 +46,14 @@ vi.mock("@/components/TransactionDetail", () => ({
   TransactionDetail: ({ transaction }: { transaction: { title: string } | null }) =>
     transaction ? <div data-testid="transaction-detail">{transaction.title}</div> : null,
 }));
+vi.mock("@/components/FinanceExportMenu", () => ({
+  FinanceExportMenu: ({ report }: { report: { metrics: { label: string; value: string }[] } }) => (
+    <button type="button" data-testid="analytics-export" data-variation={report.metrics.find(m => m.label === "Variação")?.value}>
+      Exportar
+    </button>
+  ),
+}));
+
 vi.mock("@/components/ui/calendar", () => ({ Calendar: () => null }));
 vi.mock("@/components/ui/select", async () => {
   const React = await import("react");
@@ -230,6 +238,28 @@ describe("ExpenseAnalytics default period", () => {
 
     expect(kpiValue("Variação")).toBe("↑ 100%");
     expect(screen.getByText("vs mês anterior")).toBeInTheDocument();
+  });
+
+  it("places Exportar next to the date selector and uses readable PDF variation wording", () => {
+    mocks.transactions = [
+      expense("current", day1, 100),
+      expense("previous", prevMonthDay1, 200),
+    ];
+    renderPage();
+    const exportButton = screen.getByTestId("analytics-export");
+    const previousPeriod = screen.getByRole("button", { name: "Período anterior" });
+    expect(exportButton.parentElement).toContainElement(previousPeriod);
+    expect(exportButton).toHaveAttribute("data-variation", "Queda de 50%");
+    expect(kpiValue("Variação")).toBe("↓ 50%");
+  });
+
+  it("keeps the positive variation direction legible in the export too", () => {
+    mocks.transactions = [
+      expense("current", day1, 200),
+      expense("previous", prevMonthDay1, 100),
+    ];
+    renderPage();
+    expect(screen.getByTestId("analytics-export")).toHaveAttribute("data-variation", "Aumento de 100%");
   });
 
   it("renders deterministic insights without AI", () => {

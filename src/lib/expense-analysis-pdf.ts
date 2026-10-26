@@ -51,9 +51,7 @@ function reportHeader(doc: jsPDF, title: string, subtitle: string, filters: stri
   doc.setTextColor(...MUTED);
   doc.text(subtitle, 11, 31, { maxWidth: w - 22 });
   doc.text("Filtros: " + filters, 11, 37, { maxWidth: w - 22 });
-  doc.setTextColor(...MUTED);
-  doc.setFontSize(8);
-  doc.text("Relatório de análise  |  " + page, w - 11, 201, { align: "right" });
+
 }
 
 function box(doc: jsPDF, x: number, y: number, width: number, height: number) {
@@ -189,8 +187,22 @@ function renderInsights(doc: jsPDF, insights: string[], report: FinancialReport,
   }
 }
 
-function tableHeading(doc: jsPDF, name: string, y: number) {
-  heading(doc, name, 11, y);
+/**
+ * A section should only start when there is room for its title, column headings
+ * and useful content. Short sections stay on one page whenever possible.
+ * Long tables are allowed to flow naturally and repeat their own headings.
+ * Exported for tests so report length changes do not silently regress layout.
+ */
+export function shouldStartFreshAnalysisPage(
+  startY: number,
+  estimatedSectionHeight: number,
+  pageBottom = 194,
+  pageTop = 47,
+): boolean {
+  const remaining = pageBottom - startY;
+  const fullPage = pageBottom - pageTop;
+  return remaining < 48 ||
+    (estimatedSectionHeight <= fullPage && estimatedSectionHeight > remaining);
 }
 
 export async function exportCompleteExpenseAnalysisPdf(report: FinancialReport): Promise<void> {
@@ -208,79 +220,133 @@ export async function exportCompleteExpenseAnalysisPdf(report: FinancialReport):
   drawEvolution(doc, report.graphs?.find(g => g.kind === "evolution"), analysis.previousEvolution);
   renderInsights(doc, analysis.insights, report, filters);
 
+  // Keep each analysis as one titled table, rather than drawing an orphan
+  // heading separately and letting AutoTable split it from the data.
+  // Two header rows (section title + columns) are repeated on any overflow
+  // page, and short tables move together to the next page if they don't fit.
   const tableOpts = {
-    margin: { top: 15, left: 11, right: 11, bottom: 14 },
+    margin: { top: 47, left: 11, right: 11, bottom: 16 },
     theme: "striped" as const,
-    headStyles: { fillColor: NAVY as unknown as [number, number, number], textColor: [255, 255, 255] as [number, number, number], fontSize: 9, fontStyle: "bold" as const },
-    bodyStyles: { fontSize: 8.5, cellPadding: 2.4 },
+    headStyles: {
+      fillColor: NAVY as unknown as [number, number, number],
+      textColor: [255, 255, 255] as [number, number, number],
+      fontSize: 8.4,
+      fontStyle: "bold" as const,
+    },
+    bodyStyles: { fontSize: 8.4, cellPadding: 2.25, overflow: "linebreak" as const },
     alternateRowStyles: { fillColor: [241, 246, 249] as [number, number, number] },
-    didDrawPage: () => {},
+    pageBreak: "avoid" as const,
+    rowPageBreak: "avoid" as const,
+    showHead: "everyPage" as const,
+    willDrawPage: () => {
+      // AutoTable may create additional pages by itself; brand those too.
+      reportHeader(
+        doc, "Análise de despesas", report.subtitle, filters,
+        doc.getCurrentPageInfo().pageNumber,
+      );
+    },
   };
 
-  // Page 2: exactly ONE detailed category breakdown plus payment-method view.
-  doc.addPage();
-  reportHeader(doc, "Distribuição de despesas", report.subtitle, filters, 2);
-  tableHeading(doc, "Gastos por categoria: valor e participação", 48);
-  autoTable(doc, {
-    ...tableOpts, startY: 52,
-    head: [["Categoria", "Valor gasto", "% do total"]],
-    body: (report.categories ?? []).map(c => [c.category, money(c.total), percent(c.share)]),
-    styles: { ...tableOpts.bodyStyles, cellPadding: 2.25 },
-  });
-  const afterCategory = (doc as typeof doc & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 58;
-  if (afterCategory > 156) {
-    doc.addPage();
-  }
-  const methodY = afterCategory > 156 ? 47 : afterCategory + 11;
-  tableHeading(doc, "Gastos por forma de pagamento", methodY);
-  autoTable(doc, {
-    ...tableOpts, startY: methodY + 4,
-    head: [["Forma de pagamento", "Valor gasto", "Participação", "Registros"]],
-    body: analysis.payments.map(p => [p.method, money(p.total), percent(p.percentage), String(p.count)]),
-  });
+  const PAGE_TOP = 47;
+  const PAGE_BOTTOM = 194; // 16mm reserved for footer and breathing room.
+  let cursor = PAGE_TOP;
 
-  // Page 3: movement versus the comparable period and budget versus actual.
+  const renderSection = (
+    title: string,
+    headers: string[],
+    rows: string[][],
+    footer?: string[][],
+  ) => {
+    const displayRows = rows.length
+      ? rows
+      : [[ "Sem informações para o recorte atual.", ...headers.slice(1).map(() => "") ]];
+    // 2 table headings + one row (minimum). Enough buffer for multiple
+    // lines/footers and prevents starting a section with only one visible row.
+    const heightEstimate = 18 + displayRows.length * 8.4 + (footer?.length ? 9 : 0);
+    if (shouldStartFreshAnalysisPage(cursor, heightEstimate, PAGE_BOTTOM, PAGE_TOP)) {
+      doc.addPage();
+      cursor = PAGE_TOP;
+    }
+    autoTable(doc, {
+      ...tableOpts,
+      startY: cursor,
+      head: [
+        [{
+          content: title,
+          colSpan: headers.length,
+          styles: {
+            fillColor: [225, 242, 238] as [number, number, number],
+            textColor: [22, 63, 58] as [number, number, number],
+            fontSize: 10,
+            fontStyle: "bold" as const,
+            minCellHeight: 9,
+            cellPadding: 2.6,
+          },
+        }],
+        headers,
+      ],
+      body: displayRows,
+      ...(footer?.length
+        ? {
+            foot: footer,
+            footStyles: {
+              fillColor: NAVY as unknown as [number, number, number],
+              textColor: [255, 255, 255] as [number, number, number],
+              fontStyle: "bold" as const,
+            },
+          }
+        : {}),
+    });
+    const lastY = (doc as typeof doc & { lastAutoTable?: { finalY: number } })
+      .lastAutoTable?.finalY;
+    cursor = (lastY ?? cursor + heightEstimate) + 9;
+  };
+
+  // Page 1 holds the executive summary and charts.
+  // Other sections flow in sequence without fixed "page 3 / page 4" breaks.
   doc.addPage();
-  reportHeader(doc, "Comparativos e orçamento", report.subtitle, filters, 3);
-  tableHeading(doc, "Variações por categoria - " + analysis.comparisonLabel, 48);
-  autoTable(doc, {
-    ...tableOpts, startY: 52,
-    head: [["Categoria", "Período anterior", "Período atual", "Diferença", "Variação"]],
-    body: analysis.changes.map(c => [
+
+  renderSection(
+    "Gastos por categoria · valor e participação",
+    ["Categoria", "Valor gasto", "% do total"],
+    (report.categories ?? []).map(c => [c.category, money(c.total), percent(c.share)]),
+  );
+
+  renderSection(
+    "Gastos por forma de pagamento",
+    ["Forma de pagamento", "Valor gasto", "Participação", "Registros"],
+    analysis.payments.map(p => [p.method, money(p.total), percent(p.percentage), String(p.count)]),
+  );
+
+  // Budget is relatively short and fits beside payment analysis in most
+  // months; place it before category changes to avoid a nearly blank last page.
+  renderSection(
+    "Orçamento x realizado",
+    ["Categoria", "Orçamento", "Realizado", "Disponível", "% utilizado"],
+    analysis.budget?.rows.map(b => [
+      b.category, money(b.budget), money(b.spent),
+      money(b.available), percent(b.percentage),
+    ]) ?? [],
+    analysis.budget
+      ? [[
+          "Total de categorias orçadas",
+          money(analysis.budget.totalBudget),
+          money(analysis.budget.totalSpent),
+          money(analysis.budget.available),
+          percent(analysis.budget.percentage),
+        ]]
+      : undefined,
+  );
+
+  renderSection(
+    "Variações por categoria · " + analysis.comparisonLabel,
+    ["Categoria", "Período anterior", "Período atual", "Diferença", "Variação"],
+    analysis.changes.map(c => [
       c.category, money(c.previous), money(c.current),
       (c.delta > 0 ? "+" : "") + money(c.delta),
-      c.pct == null ? "Novo no período" : (c.pct > 0 ? "+" : "") + percent(c.pct),
+      c.pct === null ? "Novo no período" : (c.pct > 0 ? "+" : "") + percent(c.pct),
     ]),
-  });
-  let cursor = (doc as typeof doc & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? 58;
-  if (cursor > 156) {
-    doc.addPage();
-    cursor = 40;
-  }
-  const budgetY = cursor + 11;
-  tableHeading(doc, "Orçamento x realizado", budgetY);
-  if (analysis.budget) {
-    autoTable(doc, {
-      ...tableOpts, startY: budgetY + 4,
-      head: [["Categoria", "Orçamento", "Realizado", "Disponível", "% utilizado"]],
-      body: analysis.budget.rows.map(b => [
-        b.category, money(b.budget), money(b.spent), money(b.available), percent(b.percentage),
-      ]),
-      foot: [[
-        "Total de categorias orçadas",
-        money(analysis.budget.totalBudget),
-        money(analysis.budget.totalSpent),
-        money(analysis.budget.available),
-        percent(analysis.budget.percentage),
-      ]],
-      footStyles: { fillColor: NAVY as unknown as [number, number, number], textColor: [255, 255, 255], fontStyle: "bold" },
-    });
-  } else {
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(9);
-    doc.setTextColor(...MUTED);
-    doc.text("Nenhum orçamento definido para este período.", 15, budgetY + 8);
-  }
+  );
 
   // AutoTable may add overflow pages; label each page with a stable footer.
   const pageCount = doc.getNumberOfPages();
