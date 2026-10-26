@@ -164,13 +164,20 @@ export default function Dashboard() {
     [filtered],
   );
 
-  // Biggest individual actual expense in the selected window; invoice
-  // payments and accounting adjustments cannot become the "largest expense".
-  const largestExpense = useMemo(
-    () => filtered.reduce((largest, t) =>
-      t.type === "expense" && !isNeutral(t) ? Math.max(largest, t.amount) : largest, 0),
-    [filtered],
-  );
+  // Largest genuine individual entries/exits in the selected window.
+  // Ignore neutral transactions (card-settlement/accounting operations).
+  // On equal amounts, use the most recent transaction, then a stable ID.
+  const largestMovement = (kind: "income" | "expense"): Transaction | null => {
+    const candidates = filtered.filter(t => t.type === kind && !isNeutral(t) && t.amount > 0);
+    return candidates.sort((a, b) =>
+      b.amount - a.amount || b.date.localeCompare(a.date) || a.id.localeCompare(b.id)
+    )[0] ?? null;
+  };
+  const largestIncome = largestMovement("income");
+  const largestExpense = largestMovement("expense");
+  const movementName = (transaction: Transaction | null, kind: "income" | "expense") =>
+    transaction?.title?.trim() || transaction?.description?.trim().split("\n")[0] ||
+    (kind === "income" ? "Nenhuma entrada no período" : "Nenhuma saída no período");
 
   const topCategory = useMemo(() => {
     const map: Record<string, number> = {};
@@ -382,19 +389,21 @@ export default function Dashboard() {
 
         <article className="dashboard-card premium-summary col-span-2 grid grid-cols-3 items-stretch divide-x divide-border/80 p-3 sm:px-4 sm:py-5" aria-label="Resumo do período">
           <div className="flex min-w-0 flex-col items-center justify-center gap-1.5 px-1 text-center">
-            <span className="premium-icon premium-icon--neutral"><ReceiptText className="h-4 w-4" aria-hidden="true" /></span>
-            <span className="text-[12px] font-medium leading-tight text-muted-foreground sm:text-[13px]">Lançamentos</span>
-            <strong className="text-[22px] font-extrabold leading-tight tabular-nums text-foreground sm:text-[26px]">{filtered.length}</strong>
-          </div>
-          <div className="flex min-w-0 flex-col items-center justify-center gap-1.5 px-1 text-center">
             <span className="premium-icon premium-icon--neutral"><CalendarDays className="h-4 w-4" aria-hidden="true" /></span>
             <span className="text-[12px] font-medium leading-tight text-muted-foreground sm:text-[13px]"><span className="sm:hidden">Dias</span><span className="hidden sm:inline">Dias no período</span></span>
             <strong className="text-[22px] font-extrabold leading-tight tabular-nums text-foreground sm:text-[26px]">{days}</strong>
           </div>
-          <div className="flex min-w-0 flex-col items-center justify-center gap-1.5 px-1 text-center">
+          <div className="flex min-w-0 flex-col items-center justify-center gap-1.5 px-1.5 text-center">
+            <span className="premium-icon premium-icon--mint"><ArrowUpRight className="h-4 w-4" aria-hidden="true" /></span>
+            <span className="text-[12px] font-medium leading-tight text-muted-foreground sm:text-[13px]">Maior entrada</span>
+            <strong className="min-w-0 max-w-full break-words text-[clamp(0.875rem,1.9vw,1.625rem)] font-extrabold leading-tight tabular-nums text-foreground">{fmt(largestIncome?.amount ?? 0)}</strong>
+            <span className="max-w-full truncate text-[11px] leading-tight text-muted-foreground sm:text-xs" title={movementName(largestIncome, "income")}>{movementName(largestIncome, "income")}</span>
+          </div>
+          <div className="flex min-w-0 flex-col items-center justify-center gap-1.5 px-1.5 text-center">
             <span className="premium-icon premium-icon--coral"><ArrowDownRight className="h-4 w-4" aria-hidden="true" /></span>
             <span className="text-[12px] font-medium leading-tight text-muted-foreground sm:text-[13px]">Maior saída</span>
-            <strong className="min-w-0 max-w-full break-words text-[clamp(0.875rem,1.9vw,1.625rem)] font-extrabold leading-tight tabular-nums text-foreground">{fmt(largestExpense)}</strong>
+            <strong className="min-w-0 max-w-full break-words text-[clamp(0.875rem,1.9vw,1.625rem)] font-extrabold leading-tight tabular-nums text-foreground">{fmt(largestExpense?.amount ?? 0)}</strong>
+            <span className="max-w-full truncate text-[11px] leading-tight text-muted-foreground sm:text-xs" title={movementName(largestExpense, "expense")}>{movementName(largestExpense, "expense")}</span>
           </div>
         </article>
       </section>

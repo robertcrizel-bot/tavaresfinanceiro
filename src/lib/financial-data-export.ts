@@ -11,8 +11,24 @@ export type ExportGraph = {
   points: { name: string; value: number; color?: string }[];
 };
 
+export interface AnalysisBreakdown {
+  payments: { method: string; total: number; count: number; percentage: number }[];
+  changes: { category: string; current: number; previous: number; delta: number; pct: number | null }[];
+  budget: null | {
+    totalBudget: number;
+    totalSpent: number;
+    available: number;
+    percentage: number;
+    rows: { category: string; budget: number; spent: number; available: number; percentage: number }[];
+  };
+  insights: string[];
+  previousEvolution: number[] | null;
+  comparisonLabel: string;
+}
+
 export interface FinancialReport extends FinanceExcelReport {
   graphs?: ExportGraph[];
+  analysis?: AnalysisBreakdown;
 }
 
 const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -26,10 +42,19 @@ export const csvSafe = (value: string | number): string => {
 };
 
 export function buildFinancialReportCsv(report: FinancialReport): string {
-  const lines = [
-    report.columns.map(csvSafe).join(";"),
-    ...report.rows.map(row => report.columns.map(c => csvSafe(row[c] ?? "")).join(";")),
-  ];
+  const lines = [report.columns.map(csvSafe).join(";")];
+  if (report.sections?.length) {
+    for (const section of report.sections) {
+      lines.push([csvSafe(section.title), ...report.columns.slice(1).map(() => "")].join(";"));
+      for (const row of section.rows) {
+        lines.push(report.columns.map(c => csvSafe(row[c] ?? "")).join(";"));
+      }
+    }
+  } else {
+    for (const row of report.rows) {
+      lines.push(report.columns.map(c => csvSafe(row[c] ?? "")).join(";"));
+    }
+  }
   return "\uFEFF" + lines.join("\r\n");
 }
 
@@ -50,7 +75,9 @@ export function exportFinancialReportCsv(report: FinancialReport): void {
 }
 
 export async function exportFinancialReportExcel(report: FinancialReport): Promise<void> {
-  await exportFinanceExcel(report);
+  // The analysis page already lists categories in its main grid; don't
+  // render an identical second "ranking" above that same grid.
+  await exportFinanceExcel(report.analysis ? { ...report, categories: undefined } : report);
 }
 
 function pdfColorFromHsl(hsl: string | undefined, fallback: [number, number, number]): [number, number, number] {
@@ -80,6 +107,10 @@ function graphColors(color: string | undefined): [number, number, number] {
  * as the accompanying export rows.
  */
 export async function exportFinancialReportPdf(report: FinancialReport): Promise<void> {
+  if (report.analysis) {
+    const { exportCompleteExpenseAnalysisPdf } = await import("@/lib/expense-analysis-pdf");
+    return exportCompleteExpenseAnalysisPdf(report);
+  }
   const { default: JsPdf } = await import("jspdf");
   const { default: autoTable } = await import("jspdf-autotable");
   const doc = new JsPdf({ orientation: "landscape", format: "a4", unit: "mm" });
@@ -188,11 +219,11 @@ export async function exportFinancialReportPdf(report: FinancialReport): Promise
     tableStartY = top + 66;
   }
 
-  autoTable(doc, {
-    startY: tableStartY,
+  const makeTable = (rows: Record<string, string | number>[], startY: number) => autoTable(doc, {
+    startY,
     margin: { left: margin, right: margin, top: 12, bottom: 12 },
     head: [report.columns.map(c => c)],
-    body: report.rows.map(row => report.columns.map(col => {
+    body: rows.map(row => report.columns.map(col => {
       const value = row[col] ?? "";
       if (typeof value === "number") {
         return col === report.amountColumn || report.currencyColumns?.includes(col)
@@ -214,5 +245,33 @@ export async function exportFinancialReportPdf(report: FinancialReport): Promise
       doc.text("FinanceControl · Página " + data.pageNumber, pageWidth - margin, pageHeight - 5, { align: "right" });
     },
   });
+
+  if (report.sections?.length) {
+    let nextY = tableStartY;
+    for (const section of report.sections) {
+      if (nextY > pageHeight - 38) {
+        doc.addPage();
+        nextY = 24;
+      }
+      doc.setFillColor(225, 242, 238);
+      doc.roundedRect(margin, nextY, printableWidth, 9, 2, 2, "F");
+      doc.setTextColor(22, 63, 58);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(section.title, margin + 4, nextY + 6);
+      if (section.rows.length) {
+        makeTable(section.rows, nextY + 12);
+        nextY = ((doc as typeof doc & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? nextY + 20) + 8;
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(90, 105, 121);
+        doc.text("Nenhum item neste grupo.", margin + 4, nextY + 16);
+        nextY += 27;
+      }
+    }
+  } else {
+    makeTable(report.rows, tableStartY);
+  }
   doc.save(report.fileName.replace(/\.xlsx$/i, ".pdf"));
 }

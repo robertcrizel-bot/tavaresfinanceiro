@@ -111,41 +111,55 @@ export default function Categories() {
   const formatCurrency = (value: number) => value.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
 
 
-  const exportGroups = groupCategories(activeTab === "expense" ? expenseCategories : incomeCategories);
-  const visibleCategories = exportGroups.map(group => group.find(item => item.monthlyBudget != null) ?? group[0]!);
-  const budgetSum = visibleCategories.reduce((sum, cat) => sum + (cat.monthlyBudget ?? 0), 0);
-  const spentSum = activeTab === "expense"
-    ? visibleCategories.reduce((sum, cat) => sum + (monthlySpending[cat.name] ?? 0), 0)
-    : 0;
+  // One report includes both groups, independent of the selected screen tab.
+  // Categories configured for "both" are shown in each applicable section,
+  // but only the expense section contains budget/spending.
+  const incomeExportGroups = groupCategories(incomeCategories);
+  const expenseExportGroups = groupCategories(expenseCategories);
+  const exportCategoryRows = (groups: UserCategory[][], kind: "income" | "expense") => groups
+    .map(group => {
+      const cat = group.find(item => item.monthlyBudget != null) ?? group[0]!;
+      const spent = kind === "expense" ? (monthlySpending[cat.name] || 0) : null;
+      return {
+        Categoria: cat.name,
+        Tipo: kind === "income" ? "Entrada" : "Saída",
+        "Orçamento mensal": kind === "expense" ? cat.monthlyBudget ?? "" : "",
+        "Gasto no mês": spent ?? "",
+        Disponível: kind === "expense" && cat.monthlyBudget != null && spent != null ? cat.monthlyBudget - spent : "",
+        Cadastros: group.length,
+      };
+    }).sort((a, b) => a.Categoria.localeCompare(b.Categoria, "pt-BR"));
+  const categoryIncomeRows = exportCategoryRows(incomeExportGroups, "income");
+  const categoryExpenseRows = exportCategoryRows(expenseExportGroups, "expense");
+  const budgetSum = expenseExportGroups.reduce((sum, group) => {
+    const cat = group.find(item => item.monthlyBudget != null) ?? group[0]!;
+    return sum + (cat.monthlyBudget ?? 0);
+  }, 0);
+  const spentSum = expenseExportGroups.reduce((sum, group) => {
+    const cat = group.find(item => item.monthlyBudget != null) ?? group[0]!;
+    return sum + (monthlySpending[cat.name] ?? 0);
+  }, 0);
   const exportReport: FinancialReport = {
     worksheetName: "Categorias",
-    fileName: "FinanceControl_Categorias_" + activeTab + "_" + new Date().toISOString().slice(0, 10) + ".xlsx",
-    title: "Categorias de " + (activeTab === "expense" ? "Saída" : "Entrada"),
-    subtitle: "Cadastro de categorias · " + new Date().toLocaleDateString("pt-BR"),
-    filterDescription: "Aba ativa: " + (activeTab === "expense" ? "Saída" : "Entrada") +
-      (activeTab === "expense" ? " · Orçamentos e gastos do mês atual" : " · Sem impacto de despesas"),
+    fileName: "FinanceControl_Categorias_" + new Date().toISOString().slice(0, 10) + ".xlsx",
+    title: "Categorias de entradas e saídas",
+    subtitle: "Cadastro completo de categorias · " + new Date().toLocaleDateString("pt-BR"),
+    filterDescription: "Entradas primeiro, saídas depois · Orçamentos e despesas do mês atual",
     metrics: [
-      { label: "Categorias", value: String(exportGroups.length) },
+      { label: "Categorias de entrada", value: String(incomeExportGroups.length) },
+      { label: "Categorias de saída", value: String(expenseExportGroups.length) },
       { label: "Orçamentos mensais", value: formatCurrency(budgetSum) },
-      { label: "Gastos do mês", value: activeTab === "expense" ? formatCurrency(spentSum) : "—" },
-      { label: "Cadastros repetidos", value: String(exportGroups.filter(group => group.length > 1).length) },
+      { label: "Gastos do mês", value: formatCurrency(spentSum) },
     ],
     columns: ["Categoria", "Tipo", "Orçamento mensal", "Gasto no mês", "Disponível", "Cadastros"],
     columnWidths: [42, 21, 25, 24, 25, 18],
     amountColumn: "Gasto no mês",
     currencyColumns: ["Orçamento mensal", "Gasto no mês", "Disponível"],
-    rows: exportGroups.map(group => {
-      const cat = group.find(item => item.monthlyBudget != null) ?? group[0]!;
-      const spent = activeTab === "expense" ? (monthlySpending[cat.name] || 0) : null;
-      return {
-        Categoria: cat.name,
-        Tipo: typeLabels[cat.type],
-        "Orçamento mensal": cat.monthlyBudget ?? "",
-        "Gasto no mês": spent ?? "",
-        Disponível: cat.monthlyBudget != null && spent != null ? cat.monthlyBudget - spent : "",
-        Cadastros: group.length,
-      };
-    }),
+    sections: [
+      { title: "CATEGORIAS DE ENTRADA", rows: categoryIncomeRows },
+      { title: "CATEGORIAS DE SAÍDA", rows: categoryExpenseRows },
+    ],
+    rows: [...categoryIncomeRows, ...categoryExpenseRows],
   };
 
   const renderList = (list: UserCategory[]) => (

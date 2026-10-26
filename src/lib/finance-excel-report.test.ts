@@ -133,6 +133,56 @@ describe("shared FinanceControl Excel report", () => {
     expect(sheet.views).toEqual([{ state: "normal", showGridLines: false }]);
   });
 
+  it("exports both types in ONE worksheet with entry and exit section headings", async () => {
+    await exportFinanceExcel({
+      ...report,
+      worksheetName: "Previsoes",
+      columns: ["Previsão", "Tipo", "Previsto"],
+      columnWidths: [40, 20, 25],
+      amountColumn: "Previsto",
+      currencyColumns: ["Previsto"],
+      rows: [
+        { "Previsão": "Salário", Tipo: "Entrada", Previsto: 7000 },
+        { "Previsão": "Aluguel", Tipo: "Saída", Previsto: 2000 },
+      ],
+      sections: [
+        { title: "ENTRADAS PREVISTAS", rows: [{ "Previsão": "Salário", Tipo: "Entrada", Previsto: 7000 }] },
+        { title: "SAÍDAS PREVISTAS", rows: [{ "Previsão": "Aluguel", Tipo: "Saída", Previsto: 2000 }] },
+      ],
+    });
+    expect(mocks.sheets).toHaveLength(1);
+    const sheet = mocks.sheets[0].sheet;
+    expect(sheet.getCell(9, 1).value).toBe("ENTRADAS PREVISTAS");
+    expect(sheet.getCell(10, 1).value).toBe("Previsão");
+    expect(sheet.getCell(11, 1).value).toBe("Salário");
+    expect(sheet.getCell(11, 3).value).toBe(7000);
+    expect(sheet.getCell(13, 1).value).toBe("SAÍDAS PREVISTAS");
+    expect(sheet.getCell(14, 1).value).toBe("Previsão");
+    expect(sheet.getCell(15, 1).value).toBe("Aluguel");
+    expect(sheet.getCell(15, 3).value).toBe(2000);
+    expect(sheet.views).toEqual([{ state: "normal", showGridLines: false }]);
+    expect(sheet.autoFilter).toBeUndefined();
+  });
+
+  it("creates separate analysis worksheets without duplicating itemized transactions", async () => {
+    await exportFinanceExcel({
+      ...report,
+      worksheetName: "Resumo",
+      categories: undefined,
+      rows: [{ Data: "Alimentação", Título: "Categoria", "Valor (R$)": 113.89 }],
+      extraSheets: [
+        { name: "Evolucao", columns: ["Período", "Atual", "Anterior"], columnWidths: [20, 22, 22], currencyColumns: ["Atual", "Anterior"],
+          rows: [{ "Período": "25/10", Atual: 113.89, Anterior: 100 }] },
+        { name: "Destaques", columns: ["Sinais do período"], columnWidths: [95],
+          rows: [{ "Sinais do período": "Alimentação representou a maior parte dos gastos." }] },
+      ],
+    });
+    expect(mocks.sheets.map(x => x.name)).toEqual(["Resumo", "Evolucao", "Destaques"]);
+    expect(mocks.sheets[1].sheet.getCell(4, 2).value).toBe(113.89);
+    expect(mocks.sheets[1].sheet.getCell(4, 2).numFmt).toContain("R$");
+    expect(mocks.sheets[2].sheet.getCell(4, 1).value).toContain("Alimentação");
+  });
+
   it("handles zero rows gracefully without an invalid filter", async () => {
     await exportFinanceExcel({ ...report, rows: [], filterDescription: "" });
     const { sheet } = mocks.sheets[0];

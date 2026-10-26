@@ -92,24 +92,11 @@ export default function Forecasts() {
 
   // Export uses the same resolved recurring bills and payments currently
   // displayed for the chosen competence month. No recalculation of obligations.
-  const exportReport: FinancialReport = {
-    worksheetName: "Previsoes",
-    fileName: "FinanceControl_Previsoes_" + referenceMonth + ".xlsx",
-    title: "Previsões",
-    subtitle: "Competência: " + format(currentMonth, "MMMM yyyy", { locale: ptBR }),
-    filterDescription: "Somente previsões vigentes para a competência selecionada",
-    metrics: [
-      { label: "Previsto a pagar", value: totalPagar.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
-      { label: "Previsto a receber", value: totalReceber.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
-      { label: "Saldo projetado", value: saldoProjetado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
-      { label: "Quitadas", value: String(activeBills.filter(bill => Boolean(getPayment(bill.id))).length) + " de " + activeBills.length },
-    ],
-    columns: ["Vencimento", "Previsão", "Categoria", "Tipo", "Previsto", "Efetivo", "Situação", "Descrição"],
-    columnWidths: [17, 36, 25, 18, 19, 19, 23, 60],
-    amountColumn: "Previsto",
-    currencyColumns: ["Previsto", "Efetivo"],
-    descriptionColumn: "Descrição",
-    rows: activeBills.map(bill => {
+  // A single report containing the whole month, regardless of which group
+  // the user is viewing. Income precedes expenses, with explicit section titles.
+  const exportRowsFor = (type: "income" | "expense") => activeBills
+    .filter(bill => bill.type === type)
+    .map(bill => {
       const payment = getPayment(bill.id);
       const status = getForecastTemporalStatus({
         referenceMonth,
@@ -121,13 +108,43 @@ export default function Forecasts() {
         Vencimento: format(new Date(status.dueDate + "T12:00:00"), "dd/MM/yyyy"),
         "Previsão": bill.name,
         Categoria: bill.category,
-        Tipo: bill.type === "income" ? "Entrada" : "Saída",
+        Tipo: type === "income" ? "Entrada" : "Saída",
         Previsto: bill.amount,
         Efetivo: payment ? getEffectiveAmount(bill, payment) : "",
         "Situação": status.label,
         Descrição: bill.description ?? "",
       };
-    }),
+    })
+    .sort((a, b) => a.Vencimento.slice(6).localeCompare(b.Vencimento.slice(6)) ||
+      a.Vencimento.slice(3, 5).localeCompare(b.Vencimento.slice(3, 5)) ||
+      a.Vencimento.slice(0, 2).localeCompare(b.Vencimento.slice(0, 2)) ||
+      a["Previsão"].localeCompare(b["Previsão"], "pt-BR"));
+
+  const forecastIncomeRows = exportRowsFor("income");
+  const forecastExpenseRows = exportRowsFor("expense");
+  const forecastSections = [
+    { title: "ENTRADAS PREVISTAS", rows: forecastIncomeRows },
+    { title: "SAÍDAS PREVISTAS", rows: forecastExpenseRows },
+  ];
+  const exportReport: FinancialReport = {
+    worksheetName: "Previsoes",
+    fileName: "FinanceControl_Previsoes_" + referenceMonth + ".xlsx",
+    title: "Previsões de entradas e saídas",
+    subtitle: "Competência: " + format(currentMonth, "MMMM yyyy", { locale: ptBR }),
+    filterDescription: "Todas as entradas e saídas vigentes nesta competência · Entradas primeiro",
+    metrics: [
+      { label: "Entradas previstas", value: totalReceber.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
+      { label: "Saídas previstas", value: totalPagar.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
+      { label: "Saldo projetado", value: saldoProjetado.toLocaleString("pt-BR", { style: "currency", currency: "BRL" }) },
+      { label: "Quitadas", value: String(activeBills.filter(bill => Boolean(getPayment(bill.id))).length) + " de " + activeBills.length },
+    ],
+    columns: ["Vencimento", "Previsão", "Categoria", "Tipo", "Previsto", "Efetivo", "Situação", "Descrição"],
+    columnWidths: [17, 36, 25, 18, 19, 19, 23, 60],
+    amountColumn: "Previsto",
+    currencyColumns: ["Previsto", "Efetivo"],
+    descriptionColumn: "Descrição",
+    sections: forecastSections,
+    rows: [...forecastIncomeRows, ...forecastExpenseRows],
   };
 
   const formBudgetProjection = useMemo(() => {

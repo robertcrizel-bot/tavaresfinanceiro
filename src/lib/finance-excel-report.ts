@@ -16,6 +16,20 @@ export interface FinanceExcelCategory {
   share: number;
 }
 
+export interface FinanceExcelSection {
+  title: string;
+  rows: Record<string, string | number>[];
+}
+
+export interface FinanceExcelExtraSheet {
+  name: string;
+  columns: string[];
+  columnWidths: number[];
+  rows: Record<string, string | number>[];
+  currencyColumns?: string[];
+  percentageColumns?: string[];
+}
+
 export interface FinanceExcelReport {
   worksheetName: string;
   fileName: string;
@@ -28,6 +42,9 @@ export interface FinanceExcelReport {
   columnWidths: number[];
   amountColumn: string;
   currencyColumns?: string[];
+  percentageColumns?: string[];
+  extraSheets?: FinanceExcelExtraSheet[];
+  sections?: FinanceExcelSection[];
   descriptionColumn?: string;
   rows: Record<string, string | number>[];
 }
@@ -203,52 +220,134 @@ export async function exportFinanceExcel(report: FinanceExcelReport): Promise<vo
     row++;
   }
 
-  const headerRow = row;
-  paintBand(ws, headerRow, cols, C.navyDeep);
-  report.columns.forEach((key, i) => {
-    const cell = ws.getCell(headerRow, i + 1);
-    cell.value = key;
-    cell.font = font(10, true, C.white);
-    cell.alignment = { vertical: "middle", wrapText: true, indent: 1 };
-  });
-  ws.getRow(headerRow).height = 29;
+  const writeHeader = (headerRow: number) => {
+    paintBand(ws, headerRow, cols, C.navyDeep);
+    report.columns.forEach((key, i) => {
+      const cell = ws.getCell(headerRow, i + 1);
+      cell.value = key;
+      cell.font = font(10, true, C.white);
+      cell.alignment = { vertical: "middle", wrapText: true, indent: 1 };
+    });
+    ws.getRow(headerRow).height = 29;
+  };
 
-  for (const [index, entry] of report.rows.entries()) {
-    row = headerRow + index + 1;
-    if (index % 2 === 1) paintBand(ws, row, cols, C.alternating);
+  const writeRecord = (rowIndex: number, entry: Record<string, string | number>, index: number) => {
+    if (index % 2 === 1) paintBand(ws, rowIndex, cols, C.alternating);
     let textHeight = 23;
     report.columns.forEach((key, col) => {
-      const cell = ws.getCell(row, col + 1);
+      const cell = ws.getCell(rowIndex, col + 1);
       const value = entry[key] ?? "";
       cell.value = value;
       cell.font = font(10, key === report.amountColumn, C.ink);
       cell.alignment = { vertical: "middle", wrapText: key === report.descriptionColumn };
       cell.border = { bottom: { style: "hair", color: { argb: C.border } } };
       if ((key === report.amountColumn || report.currencyColumns?.includes(key)) && typeof value === "number") {
-        // New reporting pages express expenses/forecasts as unsigned magnitudes;
-        // original statement/record exports keep their signed ledger display.
         cell.numFmt = report.currencyColumns?.includes(key)
           ? '"R$ " #,##0.00;-"R$ " #,##0.00;"R$ 0,00"'
           : '+R$ #,##0.00;-R$ #,##0.00;"R$ 0,00"';
         cell.font = font(10, true, value < 0 ? C.red : C.green);
         cell.alignment = { vertical: "middle", horizontal: "right" };
+      } else if (report.percentageColumns?.includes(key) && typeof value === "number") {
+        cell.numFmt = "0.0%";
+        cell.font = font(10, false, C.subdued);
+        cell.alignment = { vertical: "middle", horizontal: "right" };
       } else if (key === report.descriptionColumn && typeof value === "string") {
         textHeight = Math.max(textHeight, Math.min(48, 21 + Math.floor(value.length / 85) * 14));
       }
     });
-    ws.getRow(row).height = textHeight;
+    ws.getRow(rowIndex).height = textHeight;
+  };
+
+  if (report.sections?.length) {
+    // Single worksheet, with explicit section headings and repeated headers.
+    // Keep the income section first, then expenses, even when one side is empty.
+    for (const section of report.sections) {
+      paintBand(ws, row, cols, C.mintPale);
+      const title = joinedCell(ws, row, 1, cols);
+      title.value = section.title;
+      title.font = font(12, true, C.navy);
+      title.alignment = { vertical: "middle", indent: 1 };
+      ws.getRow(row).height = 29;
+      row++;
+      writeHeader(row);
+      row++;
+      if (section.rows.length === 0) {
+        const empty = joinedCell(ws, row, 1, cols);
+        empty.value = "Nenhum item neste grupo.";
+        empty.font = font(10, false, C.subdued);
+        ws.getRow(row).height = 26;
+        row++;
+      } else {
+        section.rows.forEach((item, index) => writeRecord(row + index, item, index));
+        row += section.rows.length;
+      }
+      ws.getRow(row).height = 11;
+      row++;
+    }
+    // A sheet with multiple table headers must not use one spanning autoFilter.
+    ws.autoFilter = undefined;
+  } else {
+    const headerRow = row;
+    writeHeader(headerRow);
+    for (const [index, entry] of report.rows.entries()) {
+      writeRecord(headerRow + index + 1, entry, index);
+    }
+    if (report.rows.length > 0) {
+      ws.autoFilter = {
+        from: { row: headerRow, column: 1 },
+        to: { row: headerRow + report.rows.length, column: cols },
+      };
+    } else {
+      const empty = joinedCell(ws, headerRow + 1, 1, cols);
+      empty.value = "Nenhuma movimentação encontrada para os filtros selecionados.";
+      empty.font = font(11, false, C.subdued);
+      ws.getRow(headerRow + 1).height = 28;
+    }
   }
 
-  if (report.rows.length > 0) {
-    ws.autoFilter = {
-      from: { row: headerRow, column: 1 },
-      to: { row: headerRow + report.rows.length, column: cols },
+  // Analysis-only detail sheets: charts, payment mix, category comparisons,
+  // budgets and insights. Never include individual records on this report.
+  for (const detail of report.extraSheets ?? []) {
+    const ds = workbook.addWorksheet(detail.name);
+    ds.columns = detail.columnWidths.map(width => ({ width }));
+    ds.views = [{ state: "normal", showGridLines: false }];
+    paintBand(ds, 1, detail.columns.length, C.navyDeep);
+    const h = joinedCell(ds, 1, 1, detail.columns.length);
+    h.value = "FINANCECONTROL  /  " + detail.name.toUpperCase();
+    h.font = font(15, true, C.white);
+    h.alignment = { vertical: "middle", indent: 1 };
+    ds.getRow(1).height = 34;
+    detail.columns.forEach((column, i) => {
+      const cell = ds.getCell(3, i + 1);
+      cell.value = column;
+      cell.fill = fill(C.navy);
+      cell.font = font(10, true, C.white);
+      cell.alignment = { vertical: "middle", wrapText: true };
+    });
+    ds.getRow(3).height = 28;
+    detail.rows.forEach((item, index) => {
+      const rowIndex = index + 4;
+      if (index % 2 === 1) paintBand(ds, rowIndex, detail.columns.length, C.alternating);
+      detail.columns.forEach((column, columnIndex) => {
+        const cell = ds.getCell(rowIndex, columnIndex + 1);
+        const value = item[column] ?? "";
+        cell.value = value;
+        cell.font = font(10, false, C.ink);
+        cell.alignment = { vertical: "middle", wrapText: detail.columns.length === 1 };
+        if (typeof value === "number" && detail.currencyColumns?.includes(column)) {
+          cell.numFmt = '"R$ " #,##0.00;-"R$ " #,##0.00;"R$ 0,00"';
+          cell.alignment = { vertical: "middle", horizontal: "right" };
+        } else if (typeof value === "number" && detail.percentageColumns?.includes(column)) {
+          cell.numFmt = "0.0%";
+          cell.alignment = { vertical: "middle", horizontal: "right" };
+        }
+      });
+      ds.getRow(rowIndex).height = detail.columns.length === 1 ? 35 : 24;
+    });
+    if (detail.rows.length) ds.autoFilter = {
+      from: { row: 3, column: 1 },
+      to: { row: 3 + detail.rows.length, column: detail.columns.length },
     };
-  } else {
-    const empty = joinedCell(ws, headerRow + 1, 1, cols);
-    empty.value = "Nenhuma movimentação encontrada para os filtros selecionados.";
-    empty.font = font(11, false, C.subdued);
-    ws.getRow(headerRow + 1).height = 28;
   }
 
   const buffer = await workbook.xlsx.writeBuffer();

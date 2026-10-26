@@ -43,6 +43,28 @@ describe("exports from analytics and finance pages", () => {
     expect(csv).toContain(";'=SUM(A1:A9)");
   });
 
+  it("keeps both income and expense sections in one CSV, always in that order", () => {
+    const sectioned: FinancialReport = {
+      ...report,
+      title: "Previsões de entradas e saídas",
+      columns: ["Previsão", "Tipo", "Previsto"],
+      rows: [
+        { "Previsão": "Salário", Tipo: "Entrada", Previsto: 4500 },
+        { "Previsão": "Aluguel", Tipo: "Saída", Previsto: 1600 },
+      ],
+      sections: [
+        { title: "ENTRADAS PREVISTAS", rows: [{ "Previsão": "Salário", Tipo: "Entrada", Previsto: 4500 }] },
+        { title: "SAÍDAS PREVISTAS", rows: [{ "Previsão": "Aluguel", Tipo: "Saída", Previsto: 1600 }] },
+      ],
+    };
+    const output = buildFinancialReportCsv(sectioned);
+    expect(output).toContain("ENTRADAS PREVISTAS");
+    expect(output).toContain("SAÍDAS PREVISTAS");
+    expect(output.indexOf("ENTRADAS PREVISTAS")).toBeLessThan(output.indexOf("Salário;Entrada"));
+    expect(output.indexOf("Salário;Entrada")).toBeLessThan(output.indexOf("SAÍDAS PREVISTAS"));
+    expect(output.indexOf("SAÍDAS PREVISTAS")).toBeLessThan(output.indexOf("Aluguel;Saída"));
+  });
+
   it("never combines several transfers into income or expense automatically", () => {
     const transfers: FinancialReport = {
       ...report, title: "Transferências", columns: ["Origem", "Destino", "Valor"],
