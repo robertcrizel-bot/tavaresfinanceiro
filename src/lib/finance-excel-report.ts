@@ -173,7 +173,7 @@ export async function exportFinanceExcel(report: FinanceExcelReport): Promise<vo
 
     // Two balanced sets of category/value/percentage instead of a very long
     // block at the far left with empty columns to the right.
-    const categories = report.categories.slice(0, 10);
+    const categories = report.categories; // Export every filtered category, not only the top ten.
     const half = Math.ceil(categories.length / 2);
     for (let i = 0; i < half; i++) {
       const pairs: { item: FinanceExcelCategory; left: number; right: number; valueCol: number; percentCol: number }[] = [];
