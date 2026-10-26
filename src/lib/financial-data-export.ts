@@ -11,8 +11,24 @@ export type ExportGraph = {
   points: { name: string; value: number; color?: string }[];
 };
 
+export interface AnalysisBreakdown {
+  payments: { method: string; total: number; count: number; percentage: number }[];
+  changes: { category: string; current: number; previous: number; delta: number; pct: number | null }[];
+  budget: null | {
+    totalBudget: number;
+    totalSpent: number;
+    available: number;
+    percentage: number;
+    rows: { category: string; budget: number; spent: number; available: number; percentage: number }[];
+  };
+  insights: string[];
+  previousEvolution: number[] | null;
+  comparisonLabel: string;
+}
+
 export interface FinancialReport extends FinanceExcelReport {
   graphs?: ExportGraph[];
+  analysis?: AnalysisBreakdown;
 }
 
 const fmt = (n: number) => n.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
@@ -80,6 +96,10 @@ function graphColors(color: string | undefined): [number, number, number] {
  * as the accompanying export rows.
  */
 export async function exportFinancialReportPdf(report: FinancialReport): Promise<void> {
+  if (report.analysis) {
+    const { exportCompleteExpenseAnalysisPdf } = await import("@/lib/expense-analysis-pdf");
+    return exportCompleteExpenseAnalysisPdf(report);
+  }
   const { default: JsPdf } = await import("jspdf");
   const { default: autoTable } = await import("jspdf-autotable");
   const doc = new JsPdf({ orientation: "landscape", format: "a4", unit: "mm" });
