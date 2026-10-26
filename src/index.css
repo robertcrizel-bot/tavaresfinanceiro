@@ -256,148 +256,245 @@
   display: none !important;
 }
 
-/* Dashboard premium: scoped to the dark theme and overview only.
-   Financial figures, charts and other pages are unaffected. */
-:root:not(.light) .premium-dashboard .dashboard-card,
-:root:not(.light) .premium-dashboard .workspace-panel {
-  border-color: hsl(205 24% 24% / .85);
-  box-shadow: 0 14px 30px -24px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.035);
-}
-:root:not(.light) .premium-dashboard .premium-kpi,
-:root:not(.light) .premium-dashboard .premium-summary {
-  background: linear-gradient(135deg, hsl(210 29% 15%), hsl(211 32% 11%));
-}
-:root:not(.light) .premium-dashboard .premium-balance {
-  background: linear-gradient(115deg, hsl(171 70% 14%), hsl(184 48% 12%) 56%, hsl(211 40% 10%));
-  border-color: hsl(169 57% 30% / .65);
-}
-:root:not(.light) .premium-dashboard .premium-balance-glow {
-  background: radial-gradient(ellipse at 82% 100%, hsl(169 66% 47% / .15), transparent 42%),
-              linear-gradient(100deg, transparent 62%, hsl(169 66% 47% / .045));
-}
-:root:not(.light) .premium-dashboard .premium-account {
-  background: linear-gradient(145deg, hsl(168 35% 16%), hsl(209 31% 13%) 68%, hsl(212 32% 11%));
-}
-:root:not(.light) .premium-dashboard .premium-kpi:hover,
-:root:not(.light) .premium-dashboard .premium-account:hover {
-  border-color: hsl(169 66% 47% / .38);
-}
-:root:not(.light) .premium-dashboard .premium-kpi,
-:root:not(.light) .premium-dashboard .premium-account {
-  transition: border-color .18s ease, box-shadow .18s ease;
-}
-@media (prefers-reduced-motion: reduce) {
-  :root:not(.light) .premium-dashboard .premium-kpi,
-  :root:not(.light) .premium-dashboard .premium-account { transition: none; }
+/* Premium dashboard — same geometry in dark and light.
+   Only color tokens differ, so charts and cards never resize on theme toggle. */
+:root .premium-dashboard {
+  --premium-card-outline: hsl(205 24% 24% / .85);
+  --premium-card-shadow: 0 14px 30px -24px rgba(0,0,0,.9), inset 0 1px 0 rgba(255,255,255,.035);
+  --premium-filter-surface: linear-gradient(115deg,hsl(209 29% 13%),hsl(209 32% 11%));
+  --premium-action-outline: linear-gradient(145deg,hsl(210 27% 17%),hsl(210 30% 12%));
+  --premium-action-outline-border: hsl(210 25% 29%);
+  --premium-action-solid: linear-gradient(125deg,hsl(169 76% 55%),hsl(169 66% 46%));
+  --premium-action-solid-ink: hsl(216 31% 8%);
+  --premium-mint: hsl(169 66% 55%);
+  --premium-kpi-surface: linear-gradient(145deg,hsl(210 28% 16%),hsl(211 34% 12%));
+  --premium-income-surface: var(--premium-kpi-surface);
+  --premium-expense-surface: var(--premium-kpi-surface);
+  --premium-average-surface: var(--premium-kpi-surface);
+  --premium-category-surface: var(--premium-kpi-surface);
+  --premium-summary-surface: linear-gradient(135deg,hsl(210 29% 16%),hsl(211 33% 12%));
+  --premium-chart-surface: linear-gradient(145deg,hsl(210 28% 16%),hsl(211 34% 12%));
+  --premium-balance-surface: linear-gradient(110deg,hsl(171 74% 14%),hsl(177 56% 12%) 60%,hsl(208 37% 11%));
+  --premium-balance-border: hsl(169 68% 33% / .7);
+  --premium-balance-glow: radial-gradient(ellipse at 85% 85%,hsl(169 76% 40% / .12),transparent 55%);
+  --premium-balance-ink: hsl(210 25% 98%);
+  --premium-balance-muted: hsl(210 24% 87%);
+  --premium-balance-negative: hsl(357 96% 79%);
+  --premium-account-surface: linear-gradient(140deg,hsl(167 34% 17%),hsl(211 32% 13%));
+  --premium-credit-surface: linear-gradient(140deg,hsl(12 31% 18%),hsl(211 32% 13%));
+  --premium-account-badge-surface: hsl(210 28% 24% / .55);
+  --premium-account-badge-ink: hsl(211 22% 80%);
+  --premium-icon-neutral-bg: hsl(209 28% 28% / .45);
+  --premium-icon-neutral-fg: hsl(209 25% 88%);
+  --premium-icon-mint-bg: hsl(169 66% 47% / .15);
+  --premium-icon-mint-fg: hsl(169 66% 55%);
+  --premium-icon-coral-bg: hsl(14 62% 58% / .14);
+  --premium-icon-coral-fg: hsl(14 85% 68%);
+  --premium-icon-blue-bg: hsl(202 75% 52% / .16);
+  --premium-icon-blue-fg: hsl(202 80% 68%);
+  --premium-icon-amber-bg: hsl(40 90% 56% / .13);
+  --premium-icon-amber-fg: hsl(40 95% 62%);
+  --premium-ring-track: hsl(210 25% 24%);
+  --premium-mini-mint: hsl(169 66% 47%);
+  --premium-mini-coral: hsl(14 82% 65%);
+  --premium-mini-blue: hsl(202 78% 67%);
+  --premium-hover-stroke: hsl(169 66% 47% / .38);
+  --premium-chart-spacing: 3px;
 }
 
-
-/* Premium dark dashboard visual language: screenshot-inspired, no fake data. */
-:root:not(.light) .premium-dashboard {
-  --premium-panel: 211 29% 14%;
+/* Light surfaces deliberately have pigment, not pure white. */
+:root.light .premium-dashboard {
+  --premium-card-outline: hsl(204 22% 72%);
+  --premium-card-shadow: 0 13px 28px -21px hsl(208 40% 24% / .32), inset 0 1px 0 hsl(0 0% 100% / .45);
+  --premium-filter-surface: linear-gradient(120deg,hsl(204 27% 85%),hsl(202 28% 89%));
+  --premium-action-outline: linear-gradient(140deg,hsl(203 27% 91%),hsl(205 25% 86%));
+  --premium-action-outline-border: hsl(205 23% 72%);
+  --premium-action-solid: linear-gradient(120deg,hsl(167 60% 39%),hsl(169 63% 31%));
+  --premium-action-solid-ink: hsl(0 0% 100%);
+  --premium-mint: hsl(169 76% 26%);
+  --premium-kpi-surface: linear-gradient(145deg,hsl(207 26% 90%),hsl(207 24% 85%));
+  --premium-income-surface: linear-gradient(145deg,hsl(165 34% 87%),hsl(183 23% 84%));
+  --premium-expense-surface: linear-gradient(145deg,hsl(17 38% 90%),hsl(210 21% 86%));
+  --premium-average-surface: linear-gradient(145deg,hsl(199 38% 88%),hsl(209 27% 84%));
+  --premium-category-surface: linear-gradient(145deg,hsl(42 32% 89%),hsl(209 24% 86%));
+  --premium-summary-surface: linear-gradient(125deg,hsl(204 28% 87%),hsl(206 27% 82%));
+  --premium-chart-surface: linear-gradient(140deg,hsl(207 27% 90%),hsl(207 28% 85%));
+  --premium-balance-surface: linear-gradient(112deg,hsl(168 40% 82%),hsl(174 33% 77%) 58%,hsl(200 26% 82%));
+  --premium-balance-border: hsl(169 39% 57%);
+  --premium-balance-glow: radial-gradient(ellipse at 83% 70%,hsl(169 58% 45% / .11),transparent 56%);
+  --premium-balance-ink: hsl(207 41% 15%);
+  --premium-balance-muted: hsl(203 25% 28%);
+  --premium-balance-negative: hsl(6 69% 36%);
+  --premium-account-surface: linear-gradient(145deg,hsl(168 31% 87%),hsl(195 27% 82%));
+  --premium-credit-surface: linear-gradient(145deg,hsl(16 34% 88%),hsl(206 23% 85%));
+  --premium-account-badge-surface: hsl(170 31% 75%);
+  --premium-account-badge-ink: hsl(171 52% 21%);
+  --premium-icon-neutral-bg: hsl(207 24% 76%);
+  --premium-icon-neutral-fg: hsl(207 40% 29%);
+  --premium-icon-mint-bg: hsl(167 43% 75%);
+  --premium-icon-mint-fg: hsl(171 72% 24%);
+  --premium-icon-coral-bg: hsl(12 62% 79%);
+  --premium-icon-coral-fg: hsl(10 63% 35%);
+  --premium-icon-blue-bg: hsl(201 53% 77%);
+  --premium-icon-blue-fg: hsl(204 67% 29%);
+  --premium-icon-amber-bg: hsl(42 69% 75%);
+  --premium-icon-amber-fg: hsl(36 82% 30%);
+  --premium-ring-track: hsl(208 23% 70%);
+  --premium-mini-mint: hsl(168 66% 29%);
+  --premium-mini-coral: hsl(11 65% 42%);
+  --premium-mini-blue: hsl(201 65% 35%);
+  --premium-hover-stroke: hsl(169 62% 31% / .45);
 }
-:root:not(.light) .premium-dashboard .premium-dashboard-heading { padding-top: .25rem; padding-bottom: .15rem; }
-:root:not(.light) .premium-dashboard .premium-mint-text { color: hsl(169 66% 55%); }
-:root:not(.light) .premium-dashboard .premium-filter-bar {
-  background: linear-gradient(115deg,hsl(209 29% 13%),hsl(209 32% 11%));
+
+/* Geometry belongs to neither theme: matching by construction. */
+:root .premium-dashboard .premium-dashboard-heading { padding-top: .25rem; padding-bottom: .15rem; }
+:root .premium-dashboard .premium-mint-text { color: var(--premium-mint); }
+:root .premium-dashboard .dashboard-card,
+:root .premium-dashboard .workspace-panel {
+  border-color: var(--premium-card-outline);
+  box-shadow: var(--premium-card-shadow);
+}
+:root .premium-dashboard .premium-filter-bar {
+  background: var(--premium-filter-surface);
   border-radius: 1.25rem;
 }
-:root:not(.light) .premium-dashboard .premium-action-outline {
-  background: linear-gradient(145deg,hsl(210 27% 17%),hsl(210 30% 12%));
-  border-color: hsl(210 25% 29%);
+:root .premium-dashboard .premium-action-outline {
+  background: var(--premium-action-outline);
+  border-color: var(--premium-action-outline-border);
 }
-:root:not(.light) .premium-dashboard .premium-action-primary {
-  background: linear-gradient(125deg,hsl(169 76% 55%),hsl(169 66% 46%));
-  color: hsl(216 31% 8%);
+:root .premium-dashboard .premium-action-primary {
+  background: var(--premium-action-solid);
+  color: var(--premium-action-solid-ink);
   font-weight: 800;
 }
-:root:not(.light) .premium-dashboard .premium-stats-grid > article { min-height: 166px; }
-:root:not(.light) .premium-dashboard .premium-balance {
-  background: linear-gradient(110deg, hsl(171 74% 14%), hsl(177 56% 12%) 60%, hsl(208 37% 11%));
-  border-color: hsl(169 68% 33% / .7);
-  box-shadow: 0 20px 35px -25px hsl(169 80% 8% / .9), inset 0 1px hsl(169 66% 47% / .12);
+:root .premium-dashboard .premium-stats-grid > article { min-height: 166px; }
+:root .premium-dashboard .premium-balance {
+  background: var(--premium-balance-surface);
+  border-color: var(--premium-balance-border);
+  color: var(--premium-balance-ink);
+  isolation: isolate;
 }
-:root:not(.light) .premium-dashboard .premium-balance-glow {
-  background: radial-gradient(ellipse at 80% 80%,hsl(169 76% 40% / .13),transparent 58%);
+:root .premium-dashboard .premium-balance-glow {
+  background: var(--premium-balance-glow);
 }
-:root:not(.light) .premium-dashboard .premium-balance-trend {
-  position: absolute; right: 0; bottom: 0; width: 50%; height: 63%; opacity: .95;
-  pointer-events: none;
-}
-:root:not(.light) .premium-dashboard .premium-kpi {
-  position: relative; align-items: flex-start; gap: .55rem;
-  background: linear-gradient(145deg,hsl(210 28% 16%),hsl(211 34% 12%));
+:root .premium-dashboard .premium-balance-label,
+:root .premium-dashboard .premium-balance-footnote { color: var(--premium-balance-muted); }
+:root .premium-dashboard .premium-balance-positive { color: var(--premium-balance-ink); }
+:root .premium-dashboard .premium-balance-negative { color: var(--premium-balance-negative); }
+:root .premium-dashboard .premium-kpi {
+  position: relative;
+  align-items: flex-start;
+  gap: .55rem;
+  background: var(--premium-kpi-surface);
   padding: 1.1rem 1.25rem;
 }
-:root:not(.light) .premium-dashboard .premium-kpi-value { position: relative; z-index: 1; }
-:root:not(.light) .premium-dashboard .premium-kpi .premium-mini-bars {
-  position: absolute; right: 1rem; bottom: 1.15rem; width: 28%; height: 43px;
-  display: flex; align-items: end; justify-content: flex-end; gap: 3px;
-  opacity: .35; pointer-events: none;
+:root .premium-dashboard .premium-kpi--income { background: var(--premium-income-surface); }
+:root .premium-dashboard .premium-kpi--expense { background: var(--premium-expense-surface); }
+:root .premium-dashboard .premium-kpi--average { background: var(--premium-average-surface); }
+:root .premium-dashboard .premium-kpi--category { background: var(--premium-category-surface); }
+:root .premium-dashboard .premium-kpi-value { position: relative; z-index: 1; }
+:root .premium-dashboard .premium-summary { background: var(--premium-summary-surface); }
+:root .premium-dashboard .dashboard-card:not(.premium-balance):not(.premium-kpi):not(.premium-summary) {
+  background: var(--premium-chart-surface);
 }
-:root:not(.light) .premium-dashboard .premium-mini-bars span {
-  flex: 1; max-width: 8px; min-width: 2px; border-radius: 2px 2px 0 0;
-  background: hsl(169 66% 47%);
+:root .premium-dashboard .premium-account,
+:root .premium-dashboard .premium-credit { border-radius: 13px; }
+:root .premium-dashboard .premium-account { background: var(--premium-account-surface); }
+:root .premium-dashboard .premium-credit { background: var(--premium-credit-surface); }
+:root .premium-dashboard .premium-account-badge {
+  border-radius: 999px;
+  padding: .3rem .55rem;
+  background: var(--premium-account-badge-surface);
+  color: var(--premium-account-badge-ink);
 }
-:root:not(.light) .premium-dashboard .premium-mini-bars--coral span { background: hsl(14 82% 65%); }
-:root:not(.light) .premium-dashboard .premium-mini-bars--blue span { background: hsl(202 78% 67%); }
-:root:not(.light) .premium-dashboard .premium-icon {
-  display: inline-flex; width: 38px; height: 38px; flex-shrink: 0;
-  align-items: center; justify-content: center; border-radius: 11px;
-  border: 1px solid hsl(210 20% 40% / .13);
-  background: hsl(209 28% 28% / .45);
-  color: hsl(209 25% 88%);
+:root .premium-dashboard .premium-see-all { color: var(--premium-mint); }
+
+/* Fixed miniature chart dimensions in every theme.
+   All bar heights still come only from real transactions. */
+:root .premium-dashboard .premium-kpi .premium-mini-bars {
+  position: absolute;
+  right: 1rem;
+  bottom: 1.15rem;
+  width: 28%;
+  height: 43px;
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: var(--premium-chart-spacing);
+  opacity: .35;
+  pointer-events: none;
 }
-:root:not(.light) .premium-dashboard .premium-icon--mint {
-  background: hsl(169 66% 47% / .15); color: hsl(169 66% 55%);
-  border-color: hsl(169 66% 47% / .18);
+:root .premium-dashboard .premium-mini-bars span {
+  flex: 1 1 0;
+  max-width: 8px;
+  min-width: 2px;
+  border-radius: 2px 2px 0 0;
+  background: var(--premium-mini-mint);
 }
-:root:not(.light) .premium-dashboard .premium-icon--coral {
-  background: hsl(14 62% 58% / .14); color: hsl(14 85% 68%);
-  border-color: hsl(14 62% 58% / .16);
+:root .premium-dashboard .premium-mini-bars--coral span { background: var(--premium-mini-coral); }
+:root .premium-dashboard .premium-mini-bars--blue span { background: var(--premium-mini-blue); }
+:root .premium-dashboard .premium-category-ring { width: 68px; height: 68px; }
+:root .premium-dashboard .premium-category-ring svg { width: 100%; height: 100%; }
+
+/* Identical icon boxes regardless of selected palette. */
+:root .premium-dashboard .premium-icon {
+  display: inline-flex;
+  width: 38px;
+  height: 38px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 11px;
+  border: 1px solid var(--premium-card-outline);
+  background: var(--premium-icon-neutral-bg);
+  color: var(--premium-icon-neutral-fg);
 }
-:root:not(.light) .premium-dashboard .premium-icon--blue {
-  background: hsl(202 75% 52% / .16); color: hsl(202 80% 68%);
+:root .premium-dashboard .premium-icon--mint {
+  background: var(--premium-icon-mint-bg);
+  color: var(--premium-icon-mint-fg);
 }
-:root:not(.light) .premium-dashboard .premium-icon--amber {
-  background: hsl(40 90% 56% / .13); color: hsl(40 95% 62%);
+:root .premium-dashboard .premium-icon--coral {
+  background: var(--premium-icon-coral-bg);
+  color: var(--premium-icon-coral-fg);
 }
-:root:not(.light) .premium-dashboard .premium-category-ring { width: 68px; height: 68px; }
-:root:not(.light) .premium-dashboard .premium-summary {
-  background: linear-gradient(135deg,hsl(210 29% 16%),hsl(211 33% 12%));
+:root .premium-dashboard .premium-icon--blue {
+  background: var(--premium-icon-blue-bg);
+  color: var(--premium-icon-blue-fg);
 }
-:root:not(.light) .premium-dashboard .premium-account {
-  background: linear-gradient(140deg,hsl(167 34% 17%),hsl(211 32% 13%));
-  border-radius: 13px;
+:root .premium-dashboard .premium-icon--amber {
+  background: var(--premium-icon-amber-bg);
+  color: var(--premium-icon-amber-fg);
 }
-:root:not(.light) .premium-dashboard .premium-credit {
-  background: linear-gradient(140deg,hsl(12 31% 18%),hsl(211 32% 13%));
-  border-radius: 13px;
+:root .premium-dashboard .premium-kpi:hover,
+:root .premium-dashboard .premium-account:hover {
+  border-color: var(--premium-hover-stroke);
 }
-:root:not(.light) .premium-dashboard .premium-account-badge {
-  border-radius: 999px; padding: .3rem .55rem;
-  background: hsl(210 28% 24% / .55); color: hsl(211 22% 80%);
+:root .premium-dashboard .premium-kpi,
+:root .premium-dashboard .premium-account {
+  transition: border-color .18s ease, box-shadow .18s ease;
 }
-:root:not(.light) .premium-dashboard .premium-see-all { color: hsl(169 66% 55%); }
 @media (max-width: 639px) {
-  :root:not(.light) .premium-dashboard .premium-stats-grid > article { min-height: 145px; }
-  :root:not(.light) .premium-dashboard .premium-kpi { padding: .9rem; gap: .4rem; }
-  :root:not(.light) .premium-dashboard .premium-icon { width: 32px; height: 32px; }
-  :root:not(.light) .premium-dashboard .premium-kpi .premium-mini-bars { opacity: .2; }
+  :root .premium-dashboard .premium-stats-grid > article { min-height: 145px; }
+  :root .premium-dashboard .premium-kpi { padding: .9rem; gap: .4rem; }
+  :root .premium-dashboard .premium-icon { width: 32px; height: 32px; }
+  :root .premium-dashboard .premium-kpi .premium-mini-bars { opacity: .2; }
+}
+@media (prefers-reduced-motion: reduce) {
+  :root .premium-dashboard .premium-kpi,
+  :root .premium-dashboard .premium-account { transition: none; }
 }
 
-
-/* Premium chrome across the authenticated dark layout; light theme untouched. */
+/* Apply page-wide tint only while the dashboard is visible.
+   Other pages keep their existing theme and behavior. */
 :root:not(.light) body:has(.premium-dashboard) {
   --background: 210 38% 8%;
   --card: 210 29% 14%;
   --sidebar-background: 211 38% 9%;
   --sidebar-accent: 211 34% 16%;
   --sidebar-border: 210 25% 22%;
-}
-:root:not(.light) body:has(.premium-dashboard) {
-  background-image: radial-gradient(ellipse at 45% 0%,hsl(169 58% 20% / .11),transparent 50rem),
-                    linear-gradient(180deg,hsl(211 37% 9%),hsl(211 35% 8%));
+  background-image:
+    radial-gradient(ellipse at 45% 0%,hsl(169 58% 20% / .11),transparent 50rem),
+    linear-gradient(180deg,hsl(211 37% 9%),hsl(211 35% 8%));
 }
 :root:not(.light) body:has(.premium-dashboard) [data-sidebar="sidebar"] {
   background-image: linear-gradient(165deg,hsl(211 37% 11%),hsl(211 39% 8%));
@@ -407,4 +504,28 @@
   border: 1px solid hsl(169 66% 47% / .5);
   background: linear-gradient(110deg,hsl(169 66% 47% / .16),hsl(169 66% 47% / .055));
   color: hsl(169 66% 60%);
+}
+:root.light body:has(.premium-dashboard) {
+  --background: 205 27% 92%;
+  --card: 205 28% 88%;
+  --border: 204 22% 74%;
+  --muted: 204 24% 88%;
+  --secondary: 207 23% 86%;
+  --sidebar-background: 206 27% 86%;
+  --sidebar-accent: 167 23% 77%;
+  --sidebar-border: 205 23% 74%;
+  --sidebar-foreground: 208 27% 27%;
+  background-image:
+    radial-gradient(ellipse at 76% 2%,hsl(169 36% 59% / .14),transparent 42rem),
+    linear-gradient(160deg,hsl(206 29% 93%),hsl(204 27% 88%));
+  background-attachment: fixed;
+}
+:root.light body:has(.premium-dashboard) [data-sidebar="sidebar"] {
+  background: linear-gradient(180deg,hsl(206 29% 87%),hsl(206 29% 83%));
+}
+:root.light body:has(.premium-dashboard) [data-sidebar="sidebar"] a[aria-current="page"],
+:root.light body:has(.premium-dashboard) [data-sidebar="sidebar"] a[data-active="true"] {
+  border: 1px solid hsl(169 45% 55% / .7);
+  background: hsl(170 38% 78% / .74);
+  color: hsl(170 67% 22%);
 }
