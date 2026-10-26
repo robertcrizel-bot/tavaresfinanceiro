@@ -51,6 +51,7 @@ export default function Transfers() {
     columns: ["Data", "Conta de Origem", "Conta de Destino", "Valor", "Descrição"],
     columnWidths: [17, 37, 37, 22, 67],
     amountColumn: "Valor",
+    currencyColumns: ["Valor"],
     descriptionColumn: "Descrição",
     rows: sorted.map(t => ({
       Data: new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR"),
