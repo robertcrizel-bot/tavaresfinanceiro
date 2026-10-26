@@ -44,7 +44,7 @@ function toDescription(regions: PaddleOcrRegion[]) {
 function creamPriceLineCount(description: string): number {
   return description
     .split("\n")
-    .filter((line) => line.includes("CREME LEITE") && line.includes("— R$ 2,75"))
+    .filter((line) => line.includes("CREME LEITE") && line.includes("Valor informado R$ 2,75"))
     .length;
 }
 
