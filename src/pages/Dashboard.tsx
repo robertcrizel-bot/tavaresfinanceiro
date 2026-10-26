@@ -69,29 +69,6 @@ function MiniBars({ values, tone = "mint" }: { values: number[]; tone?: "mint" |
   );
 }
 
-function BalanceTrend({ values }: { values: number[] }) {
-  if (values.length < 2) return null;
-  const min = Math.min(...values);
-  const span = Math.max(1, Math.max(...values) - min);
-  const points = values.map((value, i) => [
-    Math.round(i / (values.length - 1) * 260),
-    Math.round(87 - (value - min) / span * 67),
-  ] as const);
-  const polyline = points.map(([x, y]) => String(x) + "," + String(y)).join(" ");
-  const polygon = "0,100 " + polyline + " 260,100";
-  return (
-    <svg aria-hidden="true" className="premium-balance-trend" viewBox="0 0 260 100" preserveAspectRatio="none">
-      <defs>
-        <linearGradient id="finance-balance-trend-fill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0%" stopColor="hsl(169 66% 47%)" stopOpacity=".24" />
-          <stop offset="100%" stopColor="hsl(169 66% 47%)" stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      <polygon points={polygon} fill="url(#finance-balance-trend-fill)" />
-      <polyline points={polyline} fill="none" stroke="hsl(169 66% 47%)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
-    </svg>
-  );
-}
 
 export default function Dashboard() {
   const { transactions, creditCardInvoices, addTransaction } = useFinance();
@@ -230,13 +207,6 @@ export default function Dashboard() {
 
   const dailyIncomeBars = dailyBreakdown.filter(day => day.income > 0).slice(-8).map(day => day.income);
   const dailyExpenseBars = dailyBreakdown.filter(day => day.expense > 0).slice(-8).map(day => day.expense);
-  const runningBalanceTrend = useMemo(() => {
-    let running = 0;
-    return dailyBreakdown.map(day => {
-      running += day.income - day.expense;
-      return running;
-    }).slice(-15);
-  }, [dailyBreakdown]);
   const dailySpendingBars = dailyExpenseBars;
 
   const holdings = accounts.length + creditCards.length;
@@ -281,24 +251,23 @@ export default function Dashboard() {
       </div>
 
       <section aria-label="Indicadores do período" className="premium-stats-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <article className="dashboard-card premium-balance relative col-span-2 flex min-w-0 flex-col justify-center overflow-hidden rounded-xl p-5 text-white lg:p-6">
+        <article className="dashboard-card premium-balance relative col-span-2 flex min-w-0 flex-col justify-center overflow-hidden rounded-xl p-5 lg:p-6">
           <div aria-hidden="true" className="premium-balance-glow pointer-events-none absolute inset-0" />
-          <BalanceTrend values={runningBalanceTrend} />
           <div className="relative flex items-center gap-3">
             <span className="premium-icon premium-icon--mint">
               <Wallet className="h-5 w-5" aria-hidden="true" />
             </span>
-            <span className="text-[12px] font-bold uppercase tracking-[0.17em] text-white/80">
+            <span className="premium-balance-label text-[12px] font-bold uppercase tracking-[0.17em]">
               Saldo do Período
             </span>
           </div>
           <p className={cn(
             "relative z-[1] mt-3 font-display font-bold leading-none tracking-[-0.04em] tabular-nums break-words text-[clamp(2rem,3vw,2.75rem)]",
-            balance < 0 ? "text-red-300" : "text-white",
+            balance < 0 ? "premium-balance-negative" : "premium-balance-positive",
           )}>
             {fmt(balance)}
           </p>
-          <p className="relative z-[1] mt-3 text-[12px] leading-snug text-white/75 sm:text-[13px]">
+          <p className="premium-balance-footnote relative z-[1] mt-3 text-[12px] leading-snug sm:text-[13px]">
             Entradas {fmt(totalIncome)} · Saídas {fmt(totalExpense)}
           </p>
         </article>
@@ -352,7 +321,7 @@ export default function Dashboard() {
             {topCategory.val > 0 && (
               <div className="premium-category-ring relative hidden shrink-0 sm:flex" aria-hidden="true">
                 <svg viewBox="0 0 64 64" className="h-full w-full -rotate-90">
-                  <circle cx="32" cy="32" r="26" fill="none" stroke="hsl(210 25% 24%)" strokeWidth="6" />
+                  <circle cx="32" cy="32" r="26" fill="none" stroke="var(--premium-ring-track)" strokeWidth="6" />
                   <circle cx="32" cy="32" r="26" fill="none" stroke="hsl(42 94% 62%)" strokeWidth="6" strokeLinecap="round"
                     pathLength="100" strokeDasharray={String(Math.max(0, Math.min(100, topCategoryShare))) + " 100"} />
                 </svg>
