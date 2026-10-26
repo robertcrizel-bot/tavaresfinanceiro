@@ -50,7 +50,7 @@ type Cell = ExcelJS.Cell;
 type Sheet = ExcelJS.Worksheet;
 
 const fill = (argb: string) => ({ type: "pattern" as const, pattern: "solid" as const, fgColor: { argb } });
-const font = (size: number, bold = false, color = C.ink) => ({
+const font = (size: number, bold = false, color: string = C.ink) => ({
   name: "Aptos", size, bold, color: { argb: color },
 });
 
