@@ -791,10 +791,10 @@ export default function ExpenseAnalytics() {
         <>
           {/* KPIs */}
           <section aria-label="Indicadores do período" className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-5">
-            <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(var(--expense)/.80),hsl(352_44%_26%))] p-3.5 text-white">
+            <article className="dashboard-card expense-hero relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl p-3.5">
               <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-expense/30" />
               <div className="relative flex items-center justify-between gap-3">
-                <span className="text-[13px] font-bold uppercase tracking-[0.18em] text-white/75">
+                <span className="expense-hero-muted text-[13px] font-bold uppercase tracking-[0.18em]">
                   Gasto Total
                 </span>
                 <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5">
@@ -804,7 +804,7 @@ export default function ExpenseAnalytics() {
               <p className="relative break-words font-display font-bold leading-none tracking-[-0.04em] tabular-nums text-[clamp(2rem,2.6vw,2.625rem)]">
                 {money(visibleSummary.total)}
               </p>
-              <p className="relative text-[13px] leading-snug text-white/75">
+              <p className="expense-hero-muted relative text-[13px] leading-snug">
                 {visibleExpenses.length} lançamento{visibleExpenses.length === 1 ? "" : "s"} no recorte
                 atual
               </p>
