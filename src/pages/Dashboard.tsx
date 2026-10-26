@@ -14,6 +14,8 @@ import {
   ArrowUpRight,
   CalendarDays,
   CreditCard,
+  ChevronRight,
+  ReceiptText,
   Landmark,
   Plus,
   ScanLine,
@@ -51,7 +53,45 @@ const KPI_VALUE_BASE =
 const KPI_VALUE = `${KPI_VALUE_BASE} text-[clamp(1.5rem,1.9vw,2rem)]`;
 const KPI_NOTE = "text-[12px] leading-tight text-muted-foreground";
 const KPI_CARD =
-  "dashboard-card flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:min-h-[132px] lg:p-5";
+  "dashboard-card premium-kpi flex min-h-[116px] flex-col justify-center gap-2 p-4 lg:min-h-[132px] lg:p-5";
+
+
+/** Mini charts use real transactions in the selected period; no sample values. */
+function MiniBars({ values, tone = "mint" }: { values: number[]; tone?: "mint" | "coral" | "blue" }) {
+  if (values.length < 2) return null;
+  const max = Math.max(1, ...values);
+  return (
+    <div aria-hidden="true" className={"premium-mini-bars premium-mini-bars--" + tone}>
+      {values.map((value, index) => (
+        <span key={index} style={{ height: String(Math.max(8, Math.round(value / max * 100))) + "%" }} />
+      ))}
+    </div>
+  );
+}
+
+function BalanceTrend({ values }: { values: number[] }) {
+  if (values.length < 2) return null;
+  const min = Math.min(...values);
+  const span = Math.max(1, Math.max(...values) - min);
+  const points = values.map((value, i) => [
+    Math.round(i / (values.length - 1) * 260),
+    Math.round(87 - (value - min) / span * 67),
+  ] as const);
+  const polyline = points.map(([x, y]) => String(x) + "," + String(y)).join(" ");
+  const polygon = "0,100 " + polyline + " 260,100";
+  return (
+    <svg aria-hidden="true" className="premium-balance-trend" viewBox="0 0 260 100" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="finance-balance-trend-fill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="hsl(169 66% 47%)" stopOpacity=".24" />
+          <stop offset="100%" stopColor="hsl(169 66% 47%)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={polygon} fill="url(#finance-balance-trend-fill)" />
+      <polyline points={polyline} fill="none" stroke="hsl(169 66% 47%)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
 
 export default function Dashboard() {
   const { transactions, creditCardInvoices, addTransaction } = useFinance();
@@ -174,36 +214,61 @@ export default function Dashboard() {
     return list;
   }, [topCategory, topCategoryShare, totalExpense, totalIncome, avgDaily]);
 
+
+  // Visual-only trends: daily totals from actual non-neutral transactions.
+  const dailyBreakdown = useMemo(() => {
+    const daysByDate = new Map<string, { income: number; expense: number }>();
+    filtered.forEach((transaction) => {
+      if (isFinancialNeutralTransaction(transaction)) return;
+      if (transaction.type !== "income" && transaction.type !== "expense") return;
+      const day = daysByDate.get(transaction.date) ?? { income: 0, expense: 0 };
+      day[transaction.type] += transaction.amount;
+      daysByDate.set(transaction.date, day);
+    });
+    return [...daysByDate.entries()].sort(([a], [b]) => a.localeCompare(b)).map(([date, totals]) => ({ date, ...totals }));
+  }, [filtered]);
+
+  const dailyIncomeBars = dailyBreakdown.filter(day => day.income > 0).slice(-8).map(day => day.income);
+  const dailyExpenseBars = dailyBreakdown.filter(day => day.expense > 0).slice(-8).map(day => day.expense);
+  const runningBalanceTrend = useMemo(() => {
+    let running = 0;
+    return dailyBreakdown.map(day => {
+      running += day.income - day.expense;
+      return running;
+    }).slice(-15);
+  }, [dailyBreakdown]);
+  const dailySpendingBars = dailyExpenseBars;
+
   const holdings = accounts.length + creditCards.length;
 
   return (
-    <div className="mx-auto max-w-[1440px] space-y-4">
-      <header className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+    <div className="premium-dashboard mx-auto max-w-[1440px] space-y-4 sm:space-y-5">
+      <header className="premium-dashboard-heading flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
         <div>
           <p className="eyebrow">Visão financeira</p>
-          <h1 className="mt-1 font-display text-[26px] font-bold leading-tight tracking-[-0.035em] text-foreground sm:text-3xl">
-            Seu dinheiro, com clareza.
+          <h1 className="premium-hero-title mt-1 font-display text-[26px] font-bold leading-tight tracking-[-0.035em] text-foreground sm:text-[32px]">
+            Seu dinheiro, com <span className="premium-mint-text">clareza.</span>
           </h1>
           <p className="mt-1 max-w-xl text-sm text-muted-foreground">
             Acompanhe o que entrou, o que saiu e onde agir agora.
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" asChild className="h-10 gap-2 rounded-lg bg-card">
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" asChild className="premium-action-outline h-11 gap-2 rounded-xl bg-card px-4">
             <Link to="/receipt">
               <ScanLine className="h-4 w-4" />
               <span className="hidden sm:inline">Ler comprovante</span>
               <span className="sm:hidden">Comprovante</span>
             </Link>
           </Button>
-          <Button onClick={() => setFormOpen(true)} className="h-10 gap-2 rounded-lg">
+          <Button onClick={() => setFormOpen(true)} className="premium-action-primary h-11 gap-2 rounded-xl px-4">
             <Plus className="h-4 w-4" />
             <span>Novo registro</span>
           </Button>
         </div>
       </header>
 
-      <div className="workspace-panel flex flex-wrap items-center justify-between gap-x-4 gap-y-2 p-2 sm:p-2.5">
+      <div className="workspace-panel premium-filter-bar flex flex-wrap items-center justify-between gap-x-4 gap-y-2 p-2.5 sm:p-3">
         <DashboardPeriodFilter
           period={period}
           dateRange={dateRange}
@@ -215,95 +280,116 @@ export default function Dashboard() {
         </p>
       </div>
 
-      <section aria-label="Indicadores do período" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-        <article className="dashboard-card relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl bg-[linear-gradient(135deg,hsl(170_56%_22%),hsl(214_32%_10%))] p-4 text-white lg:p-5">
-          <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-primary/25" />
-          <div className="relative flex items-center justify-between gap-3">
-            <span className="text-[13px] font-bold uppercase tracking-[0.18em] text-white/75">
+      <section aria-label="Indicadores do período" className="premium-stats-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <article className="dashboard-card premium-balance relative col-span-2 flex min-w-0 flex-col justify-center overflow-hidden rounded-xl p-5 text-white lg:p-6">
+          <div aria-hidden="true" className="premium-balance-glow pointer-events-none absolute inset-0" />
+          <BalanceTrend values={runningBalanceTrend} />
+          <div className="relative flex items-center gap-3">
+            <span className="premium-icon premium-icon--mint">
+              <Wallet className="h-5 w-5" aria-hidden="true" />
+            </span>
+            <span className="text-[12px] font-bold uppercase tracking-[0.17em] text-white/80">
               Saldo do Período
             </span>
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5">
-              <Wallet className="h-4 w-4 text-primary" />
-            </span>
           </div>
-          <p
-            className={cn(
-              "relative font-display font-bold leading-none tracking-[-0.04em] tabular-nums break-words text-[clamp(2rem,2.6vw,2.625rem)]",
-              balance < 0 ? "text-red-300" : "text-white",
-            )}
-          >
+          <p className={cn(
+            "relative z-[1] mt-3 font-display font-bold leading-none tracking-[-0.04em] tabular-nums break-words text-[clamp(2rem,3vw,2.75rem)]",
+            balance < 0 ? "text-red-300" : "text-white",
+          )}>
             {fmt(balance)}
           </p>
-          <p className="relative text-[13px] leading-snug text-white/75">
+          <p className="relative z-[1] mt-3 text-[12px] leading-snug text-white/75 sm:text-[13px]">
             Entradas {fmt(totalIncome)} · Saídas {fmt(totalExpense)}
           </p>
         </article>
 
-        <article className={cn(KPI_CARD, "col-span-1")}>
+        <article className={cn(KPI_CARD, "premium-kpi--income relative col-span-1 overflow-hidden")}>
           <div className="flex items-center justify-between gap-2">
-            <span className={KPI_LABEL}>Total de Entradas</span>
-            <ArrowUpRight className="h-4 w-4 shrink-0 text-income" />
+            <span className="premium-icon premium-icon--mint"><ArrowUpRight className="h-5 w-5" aria-hidden="true" /></span>
+            <ArrowUpRight className="h-4 w-4 shrink-0 text-income opacity-75" aria-hidden="true" />
           </div>
-          <p className={cn(KPI_VALUE, "text-income")}>{fmt(totalIncome)}</p>
+          <span className={KPI_LABEL}>Total de Entradas</span>
+          <p className={cn(KPI_VALUE, "premium-kpi-value text-income")}>{fmt(totalIncome)}</p>
           <p className={KPI_NOTE}>{incomeCount} lançamento{incomeCount === 1 ? "" : "s"}</p>
+          <MiniBars values={dailyIncomeBars} tone="mint" />
         </article>
 
-        <article className={cn(KPI_CARD, "col-span-1")}>
+        <article className={cn(KPI_CARD, "premium-kpi--expense relative col-span-1 overflow-hidden")}>
           <div className="flex items-center justify-between gap-2">
-            <span className={KPI_LABEL}>Total de Saídas</span>
-            <ArrowDownRight className="h-4 w-4 shrink-0 text-expense" />
+            <span className="premium-icon premium-icon--coral"><ArrowDownRight className="h-5 w-5" aria-hidden="true" /></span>
+            <ArrowDownRight className="h-4 w-4 shrink-0 text-expense opacity-75" aria-hidden="true" />
           </div>
-          <p className={cn(KPI_VALUE, "text-expense")}>{fmt(totalExpense)}</p>
+          <span className={KPI_LABEL}>Total de Saídas</span>
+          <p className={cn(KPI_VALUE, "premium-kpi-value text-expense")}>{fmt(totalExpense)}</p>
           <p className={KPI_NOTE}>{expenseCount} lançamento{expenseCount === 1 ? "" : "s"}</p>
+          <MiniBars values={dailyExpenseBars} tone="coral" />
         </article>
 
-        <article className={cn(KPI_CARD, "col-span-1")}>
-          <div className="flex items-center justify-between gap-2">
+        <article className={cn(KPI_CARD, "premium-kpi--average relative col-span-1 overflow-hidden")}>
+          <div className="flex items-center gap-2.5">
+            <span className="premium-icon premium-icon--blue"><CalendarDays className="h-5 w-5" aria-hidden="true" /></span>
             <span className={KPI_LABEL}>Gasto Médio Diário</span>
-            <CalendarDays className="h-4 w-4 shrink-0 text-info" />
           </div>
-          <p className={KPI_VALUE}>{fmt(avgDaily)}</p>
+          <p className={cn(KPI_VALUE, "premium-kpi-value")}>{fmt(avgDaily)}</p>
           <p className={KPI_NOTE}>Média de {days} dia{days === 1 ? "" : "s"} no período</p>
+          <MiniBars values={dailySpendingBars} tone="blue" />
         </article>
 
-        <article className={cn(KPI_CARD, "col-span-1")}>
-          <div className="flex items-center justify-between gap-2">
+        <article className={cn(KPI_CARD, "premium-kpi--category relative col-span-1 overflow-hidden")}>
+          <div className="flex items-center gap-2.5">
+            <span className="premium-icon premium-icon--amber"><Tag className="h-5 w-5" aria-hidden="true" /></span>
             <span className={KPI_LABEL}>Maior Categoria</span>
-            <Tag className="h-4 w-4 shrink-0 text-warning" />
           </div>
-          <p className={cn(KPI_VALUE_BASE, "truncate text-[clamp(1.25rem,1.6vw,1.75rem)]")} title={topCategory.cat}>
-            {topCategory.cat}
-          </p>
-          <p className={cn(KPI_NOTE, "truncate")}>
-            {fmt(topCategory.val)} · {topCategoryShare}% do total
-          </p>
+          <div className="flex min-w-0 items-center justify-between gap-2">
+            <div className="min-w-0 flex-1">
+              <p className={cn(KPI_VALUE_BASE, "truncate text-[clamp(1.2rem,1.7vw,1.75rem)]")} title={topCategory.cat}>
+                {topCategory.cat}
+              </p>
+              <p className={cn(KPI_NOTE, "mt-2 truncate")}>
+                {fmt(topCategory.val)} · {topCategoryShare}% do total
+              </p>
+            </div>
+            {topCategory.val > 0 && (
+              <div className="premium-category-ring relative hidden shrink-0 sm:flex" aria-hidden="true">
+                <svg viewBox="0 0 64 64" className="h-full w-full -rotate-90">
+                  <circle cx="32" cy="32" r="26" fill="none" stroke="hsl(210 25% 24%)" strokeWidth="6" />
+                  <circle cx="32" cy="32" r="26" fill="none" stroke="hsl(42 94% 62%)" strokeWidth="6" strokeLinecap="round"
+                    pathLength="100" strokeDasharray={String(Math.max(0, Math.min(100, topCategoryShare))) + " 100"} />
+                </svg>
+                <span className="absolute inset-0 flex items-center justify-center text-xs font-bold tabular-nums">{topCategoryShare}%</span>
+              </div>
+            )}
+          </div>
         </article>
 
-        <article className="dashboard-card col-span-2 grid grid-cols-3 items-center divide-x divide-border/80 px-2 py-3 sm:px-4 lg:py-5" aria-label="Resumo do período">
-          <div className="flex min-w-0 items-center justify-center gap-1 px-1">
-            <span className="whitespace-nowrap text-[11px] sm:text-xs font-medium text-muted-foreground">Lançamentos</span>
-            <strong className="shrink-0 text-[14px] font-bold tabular-nums text-foreground sm:text-base">{filtered.length}</strong>
+        <article className="dashboard-card premium-summary col-span-2 grid grid-cols-3 items-stretch divide-x divide-border/80 p-3 sm:px-4 sm:py-5" aria-label="Resumo do período">
+          <div className="flex min-w-0 flex-col items-center justify-center gap-1.5 px-1 text-center">
+            <span className="premium-icon premium-icon--neutral"><ReceiptText className="h-4 w-4" aria-hidden="true" /></span>
+            <span className="text-[10px] font-medium text-muted-foreground sm:text-xs">Lançamentos</span>
+            <strong className="text-base font-bold tabular-nums text-foreground sm:text-xl">{filtered.length}</strong>
           </div>
-          <div className="flex min-w-0 items-center justify-center gap-1 px-1">
-            <span className="whitespace-nowrap text-[11px] sm:text-xs font-medium text-muted-foreground"><span className="sm:hidden">Dias</span><span className="hidden sm:inline">Dias no período</span></span>
-            <strong className="shrink-0 text-[14px] font-bold tabular-nums text-foreground sm:text-base">{days}</strong>
+          <div className="flex min-w-0 flex-col items-center justify-center gap-1.5 px-1 text-center">
+            <span className="premium-icon premium-icon--neutral"><CalendarDays className="h-4 w-4" aria-hidden="true" /></span>
+            <span className="text-[10px] font-medium text-muted-foreground sm:text-xs"><span className="sm:hidden">Dias</span><span className="hidden sm:inline">Dias no período</span></span>
+            <strong className="text-base font-bold tabular-nums text-foreground sm:text-xl">{days}</strong>
           </div>
-          <div className="flex min-w-0 items-center justify-center gap-1 px-1">
-            <span className="whitespace-nowrap text-[11px] sm:text-xs font-medium text-muted-foreground"><span className="sm:hidden">Contas/cartões</span><span className="hidden sm:inline">Contas & cartões</span></span>
-            <strong className="shrink-0 text-[14px] font-bold tabular-nums text-foreground sm:text-base">{holdings}</strong>
+          <div className="flex min-w-0 flex-col items-center justify-center gap-1.5 px-1 text-center">
+            <span className="premium-icon premium-icon--neutral"><CreditCard className="h-4 w-4" aria-hidden="true" /></span>
+            <span className="text-[10px] font-medium text-muted-foreground sm:text-xs"><span className="sm:hidden">Contas/cartões</span><span className="hidden sm:inline">Contas & cartões</span></span>
+            <strong className="text-base font-bold tabular-nums text-foreground sm:text-xl">{holdings}</strong>
           </div>
         </article>
       </section>
 
       {holdings > 0 && (
         <section>
-          <div className="mb-3 flex items-end justify-between gap-3">
+          <div className="mb-4 flex items-end justify-between gap-3">
             <div>
               <p className="eyebrow">Patrimônio</p>
-              <h2 className="mt-1 text-xl font-bold tracking-tight">Contas & cartões</h2>
+              <h2 className="mt-1 text-xl font-bold tracking-tight sm:text-[22px]">Contas & cartões</h2>
             </div>
-            <Link to="/accounts" className="shrink-0 text-[13px] font-bold text-primary hover:underline">
-              Ver todos
+            <Link to="/accounts" className="premium-see-all flex shrink-0 items-center gap-1 text-[13px] font-bold text-primary hover:underline">
+              Ver todos <ChevronRight className="h-4 w-4" aria-hidden="true" />
             </Link>
           </div>
           <ScrollCarousel>
@@ -313,17 +399,17 @@ export default function Dashboard() {
                 <article
                   key={acc.id}
                   data-carousel-item
-                  className="workspace-panel h-[134px] w-[240px] shrink-0 snap-start bg-[linear-gradient(155deg,hsl(169_34%_15%),hsl(215_26%_12%))] p-4 lg:h-[144px] lg:w-[268px]"
+                  className="workspace-panel premium-account flex h-[134px] w-[240px] shrink-0 snap-start flex-col justify-between p-4 lg:h-[144px] lg:w-[268px]"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/15 text-primary">
+                    <span className="premium-icon premium-icon--mint">
                       <Landmark className="h-4 w-4" />
                     </span>
-                    <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
+                    <span className="premium-account-badge text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                       {acc.type === "checking" ? "Corrente" : "Poupança"}
                     </span>
                   </div>
-                  <p className="mt-3 truncate text-[13px] font-semibold text-foreground">
+                  <p className="mt-2 truncate text-[13px] font-semibold text-foreground">
                     {acc.name} <span className="font-normal text-muted-foreground">· {acc.bank}</span>
                   </p>
                   <p
@@ -345,17 +431,17 @@ export default function Dashboard() {
                 <article
                   key={cc.id}
                   data-carousel-item
-                  className="workspace-panel h-[134px] w-[240px] shrink-0 snap-start bg-[linear-gradient(155deg,hsl(14_32%_15%),hsl(215_26%_12%))] p-4 lg:h-[144px] lg:w-[268px]"
+                  className="workspace-panel premium-credit h-[134px] w-[240px] shrink-0 snap-start p-4 lg:h-[144px] lg:w-[268px]"
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-expense/15 text-expense">
+                    <span className="premium-icon premium-icon--coral">
                       <CreditCard className="h-4 w-4" />
                     </span>
                     <span className="text-[11px] font-bold uppercase tracking-widest text-muted-foreground">
                       Cartão de crédito
                     </span>
                   </div>
-                  <div className="mt-3 flex items-baseline justify-between gap-2">
+                  <div className="mt-2 flex items-baseline justify-between gap-2">
                     <p className="min-w-0 truncate text-[13px] font-semibold text-foreground">{cc.name}</p>
                     <p className="shrink-0 font-display text-lg font-bold tabular-nums tracking-tight">
                       {fmt(used)}
