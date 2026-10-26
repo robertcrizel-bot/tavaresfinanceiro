@@ -184,7 +184,7 @@ export default function Conhecer() {
         {/* CTA final */}
         <section className="mx-auto max-w-3xl px-5 pb-20 text-center">
           <h2 className="font-display text-2xl font-bold sm:text-3xl">Comece hoje a saber para onde vai seu dinheiro.</h2>
-          <div className="flex justify-center"><Cta label="Criar minha conta grátis" /></div>
+          <div className="flex justify-center"><Cta /></div>
         </section>
       </main>
 
