@@ -21,14 +21,20 @@ function displayProduct(item: PurchasedItem): { name: string; quantityLabel: str
   const fractionalQuantity = quantityKnown && Math.abs(quantity - Math.round(quantity)) > 0.00001;
   const explicitlySoldByKg = /(?:^|\s)KGS?\.?$/i.test(name) &&
     !/\b\d+(?:[.,]\d+)?\s+KGS?\.?$/i.test(name);
-  const otherMeasuredUnit = /(?:^|\s)(?:L|LT|LTS|ML|M|MT|METRO|METROS|UN|UND|UNID)\.?$/i.test(name);
-  const weighed = Boolean(explicitlySoldByKg || (fractionalQuantity && !otherMeasuredUnit));
+  const alternateUnit = name.match(/(?:^|\s)(L|LT|LTS|ML|M|MT|METRO|METROS|UN|UND|UNID)\.?$/i);
+  // Pack sizes such as "refrigerante 2 L" are product names, not a loose unit.
+  const packagedSize = /\b\d+(?:[.,]\d+)?\s+(?:L|LT|LTS|ML|M)\.?$/i.test(name);
+  const looseUnit = alternateUnit && !packagedSize ? alternateUnit[1].toUpperCase() : null;
+  const weighed = Boolean(explicitlySoldByKg || (fractionalQuantity && !alternateUnit));
 
   if (explicitlySoldByKg) name = name.replace(/\s+KGS?\.?$/i, "").trim();
+  else if (looseUnit) name = name.replace(/\s+(?:L|LT|LTS|ML|M|MT|METRO|METROS|UN|UND|UNID)\.?$/i, "").trim();
 
   const quantityLabel = !quantityKnown ? "" : weighed
     ? `${quantity.toLocaleString("pt-BR", { minimumFractionDigits: 3, maximumFractionDigits: 3 })} kg`
-    : quantity !== 1 ? `${quantity.toLocaleString("pt-BR")} un` : "";
+    : looseUnit
+      ? `${quantity.toLocaleString("pt-BR", { minimumFractionDigits: fractionalQuantity ? 3 : 0, maximumFractionDigits: 3 })} ${looseUnit === "LT" || looseUnit === "LTS" ? "L" : looseUnit}`
+      : quantity !== 1 && !fractionalQuantity ? `${quantity.toLocaleString("pt-BR")} un` : "";
 
   return { name, quantityLabel, weighed };
 }
