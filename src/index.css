@@ -385,3 +385,26 @@
   :root:not(.light) .premium-dashboard .premium-icon { width: 32px; height: 32px; }
   :root:not(.light) .premium-dashboard .premium-kpi .premium-mini-bars { opacity: .2; }
 }
+
+
+/* Premium chrome across the authenticated dark layout; light theme untouched. */
+:root:not(.light) {
+  --background: 210 38% 8%;
+  --card: 210 29% 14%;
+  --sidebar-background: 211 38% 9%;
+  --sidebar-accent: 211 34% 16%;
+  --sidebar-border: 210 25% 22%;
+}
+:root:not(.light) body {
+  background-image: radial-gradient(ellipse at 45% 0%,hsl(169 58% 20% / .11),transparent 50rem),
+                    linear-gradient(180deg,hsl(211 37% 9%),hsl(211 35% 8%));
+}
+:root:not(.light) [data-sidebar="sidebar"] {
+  background-image: linear-gradient(165deg,hsl(211 37% 11%),hsl(211 39% 8%));
+}
+:root:not(.light) [data-sidebar="sidebar"] a[aria-current="page"],
+:root:not(.light) [data-sidebar="sidebar"] a[data-active="true"] {
+  border: 1px solid hsl(169 66% 47% / .5);
+  background: linear-gradient(110deg,hsl(169 66% 47% / .16),hsl(169 66% 47% / .055));
+  color: hsl(169 66% 60%);
+}
