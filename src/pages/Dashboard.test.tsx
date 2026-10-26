@@ -110,7 +110,7 @@ describe("Dashboard default period", () => {
     expect(kpiValue("Gasto Médio Diário")).toBe(fmt(monthExpense / daysElapsedThisMonth));
     expect(kpiValue("Maior Categoria")).toBe("Alimentação");
     const summary = screen.getByLabelText("Resumo do período");
-    expect(within(summary).getByText("Dias no período").parentElement).toHaveTextContent(String(daysElapsedThisMonth));
+    expect(within(summary).getByText("Dias no período").closest("div")).toHaveTextContent(String(daysElapsedThisMonth));
     expect(within(summary).getByText("Maior entrada").parentElement).toHaveTextContent(/R\$\s*707,00/);
     expect(within(summary).getByText("Maior entrada").parentElement).toHaveTextContent("Salário");
     expect(within(summary).getByText("Maior saída").parentElement).toHaveTextContent(/R\$\s*404,00/);
