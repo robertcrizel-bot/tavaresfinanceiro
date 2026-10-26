@@ -107,6 +107,7 @@ export default function Forecasts() {
     columns: ["Vencimento", "Previsão", "Categoria", "Tipo", "Previsto", "Efetivo", "Situação", "Descrição"],
     columnWidths: [17, 36, 25, 18, 19, 19, 23, 60],
     amountColumn: "Previsto",
+    currencyColumns: ["Previsto", "Efetivo"],
     descriptionColumn: "Descrição",
     rows: activeBills.map(bill => {
       const payment = getPayment(bill.id);
