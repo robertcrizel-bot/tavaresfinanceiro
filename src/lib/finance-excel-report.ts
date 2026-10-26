@@ -27,6 +27,7 @@ export interface FinanceExcelReport {
   columns: readonly string[];
   columnWidths: number[];
   amountColumn: string;
+  currencyColumns?: string[];
   descriptionColumn?: string;
   rows: Record<string, string | number>[];
 }
@@ -223,7 +224,7 @@ export async function exportFinanceExcel(report: FinanceExcelReport): Promise<vo
       cell.font = font(10, key === report.amountColumn, C.ink);
       cell.alignment = { vertical: "middle", wrapText: key === report.descriptionColumn };
       cell.border = { bottom: { style: "hair", color: { argb: C.border } } };
-      if (key === report.amountColumn && typeof value === "number") {
+      if ((key === report.amountColumn || report.currencyColumns?.includes(key)) && typeof value === "number") {
         cell.numFmt = '+R$ #,##0.00;-R$ #,##0.00;"R$ 0,00"';
         cell.font = font(10, true, value < 0 ? C.red : C.green);
         cell.alignment = { vertical: "middle", horizontal: "right" };
