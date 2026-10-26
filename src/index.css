@@ -272,7 +272,7 @@
   --premium-expense-surface: var(--premium-kpi-surface);
   --premium-average-surface: var(--premium-kpi-surface);
   --premium-category-surface: var(--premium-kpi-surface);
-  --premium-summary-surface: linear-gradient(135deg,hsl(210 29% 16%),hsl(211 33% 12%));
+  --premium-summary-surface: linear-gradient(125deg,hsl(211 26% 14%),hsl(211 28% 12%));
   --premium-chart-surface: linear-gradient(145deg,hsl(210 28% 16%),hsl(211 34% 12%));
   --premium-balance-surface: linear-gradient(110deg,hsl(171 74% 14%),hsl(177 56% 12%) 60%,hsl(208 37% 11%));
   --premium-balance-border: hsl(169 68% 33% / .7);
@@ -317,7 +317,7 @@
   --premium-expense-surface: linear-gradient(145deg,hsl(17 38% 90%),hsl(210 21% 86%));
   --premium-average-surface: linear-gradient(145deg,hsl(199 38% 88%),hsl(209 27% 84%));
   --premium-category-surface: linear-gradient(145deg,hsl(42 32% 89%),hsl(209 24% 86%));
-  --premium-summary-surface: linear-gradient(125deg,hsl(204 28% 87%),hsl(206 27% 82%));
+  --premium-summary-surface: linear-gradient(125deg,hsl(205 26% 89%),hsl(207 24% 85%));
   --premium-chart-surface: linear-gradient(140deg,hsl(207 27% 90%),hsl(207 28% 85%));
   --premium-balance-surface: linear-gradient(112deg,hsl(168 40% 82%),hsl(174 33% 77%) 58%,hsl(200 26% 82%));
   --premium-balance-border: hsl(169 39% 57%);
@@ -582,3 +582,33 @@
   border-color: hsl(13 34% 69%);
 }
 :root.light .expense-hero .expense-hero-muted { color: hsl(204 25% 28%); }
+
+
+/* The secondary KPI trio is useful context, not a featured financial result. */
+:root .premium-dashboard .premium-summary {
+  box-shadow: 0 8px 22px -20px hsl(210 38% 18% / .55);
+}
+:root .premium-dashboard .premium-summary .premium-icon--neutral {
+  width: 30px;
+  height: 30px;
+  border-radius: 9px;
+  opacity: .85;
+}
+:root .premium-dashboard .dashboard-insights p {
+  font-size: 16px;
+  line-height: 1.55;
+  font-weight: 600;
+  color: hsl(var(--foreground) / .92);
+}
+:root .premium-dashboard .dashboard-insights > div {
+  min-width: 0;
+  padding-top: .75rem;
+  padding-bottom: .75rem;
+}
+@media (max-width: 639px) {
+  :root .premium-dashboard .dashboard-insights p { font-size: 15px; }
+  :root .premium-dashboard .premium-summary .premium-icon--neutral {
+    width: 27px;
+    height: 27px;
+  }
+}

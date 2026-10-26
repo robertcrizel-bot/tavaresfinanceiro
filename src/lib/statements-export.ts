@@ -79,117 +79,23 @@ export function exportStatementsToCsv(payload: StatementsExportPayload): void {
   downloadBlob(blob, statementExportFileName(payload.originLabel, payload.start, payload.end, "csv"));
 }
 
-const EXCEL_COLORS = {
-  darkTitle: "FF0F172A",
-  neutral: "FF374151",
-  headerBg: "FF1E293B",
-  headerText: "FFFFFFFF",
-  altRow: "FFF1F5F9",
-  border: "FFE2E8F0",
-} as const;
+import { exportFinanceExcel } from "@/lib/finance-excel-report";
 
 export async function exportStatementsToExcel(payload: StatementsExportPayload): Promise<void> {
-  const { default: ExcelJS } = await import("exceljs");
-  const wb = new ExcelJS.Workbook();
-  wb.creator = "FinanceControl";
-  wb.created = new Date();
-  const ws = wb.addWorksheet("Extrato", {
-    pageSetup: { paperSize: 9, orientation: "landscape", fitToPage: true, fitToWidth: 1 },
+  return exportFinanceExcel({
+    worksheetName: "Extrato",
+    fileName: statementExportFileName(payload.originLabel, payload.start, payload.end, "xlsx"),
+    title: "Extrato financeiro",
+    subtitle: `Origem: ${payload.originLabel}     |     Período: ${formatDateBR(payload.start)} a ${formatDateBR(payload.end)}`,
+    filterDescription: payload.appliedFilters.join(" · ") || "Sem filtros adicionais",
+    metrics: payload.summary,
+    categories: payload.categories,
+    columns: STATEMENT_EXPORT_COLUMNS,
+    columnWidths: [15, 37, 20, 19, 22, 20, 18],
+    amountColumn: "Valor",
+    descriptionColumn: "Descrição",
+    rows: payload.rows,
   });
-  ws.columns = [{ width: 14 }, { width: 36 }, { width: 20 }, { width: 24 }, { width: 16 }, { width: 20 }, { width: 16 }];
-
-  let row = 1;
-  ws.mergeCells(row, 1, row, 7);
-  const title = ws.getCell(row, 1);
-  title.value = "EXTRATO";
-  title.font = { name: "Calibri", size: 18, bold: true, color: { argb: EXCEL_COLORS.darkTitle } };
-  title.alignment = { horizontal: "center", vertical: "middle" };
-  ws.getRow(row).height = 34;
-  row += 1;
-
-  const meta: [string, string][] = [
-    ["Origem", payload.originLabel],
-    ["Período", `${formatDateBR(payload.start)} a ${formatDateBR(payload.end)}`],
-    ["Filtros", payload.appliedFilters.length > 0 ? payload.appliedFilters.join(" · ") : "Sem filtros adicionais"],
-    ["Exportado em", formatDateTimeBR(new Date())],
-  ];
-  for (const [label, value] of meta) {
-    ws.getCell(row, 1).value = label;
-    ws.getCell(row, 1).font = { name: "Calibri", size: 11, bold: true, color: { argb: EXCEL_COLORS.neutral } };
-    ws.mergeCells(row, 2, row, 7);
-    ws.getCell(row, 2).value = value;
-    ws.getCell(row, 2).font = { name: "Calibri", size: 11, color: { argb: EXCEL_COLORS.neutral } };
-    ws.getRow(row).height = 20;
-    row += 1;
-  }
-  row += 1;
-
-  ws.mergeCells(row, 1, row, 7);
-  ws.getCell(row, 1).value = "RESUMO";
-  ws.getCell(row, 1).font = { name: "Calibri", size: 12, bold: true, color: { argb: EXCEL_COLORS.darkTitle } };
-  row += 1;
-  for (const card of payload.summary) {
-    ws.getCell(row, 1).value = card.label;
-    ws.getCell(row, 1).font = { name: "Calibri", size: 11, bold: true, color: { argb: EXCEL_COLORS.neutral } };
-    ws.mergeCells(row, 2, row, 7);
-    ws.getCell(row, 2).value = card.value;
-    ws.getCell(row, 2).font = { name: "Calibri", size: 11, bold: true, color: { argb: EXCEL_COLORS.darkTitle } };
-    row += 1;
-  }
-  row += 1;
-
-  if (payload.categories.length > 0) {
-    ws.mergeCells(row, 1, row, 7);
-    ws.getCell(row, 1).value = "POR CATEGORIA";
-    ws.getCell(row, 1).font = { name: "Calibri", size: 12, bold: true, color: { argb: EXCEL_COLORS.darkTitle } };
-    row += 1;
-    for (const slice of payload.categories.slice(0, 10)) {
-      ws.getCell(row, 1).value = slice.category;
-      ws.getCell(row, 2).value = slice.total;
-      ws.getCell(row, 2).numFmt = 'R$ #,##0.00';
-      ws.getCell(row, 3).value = slice.share / 100;
-      ws.getCell(row, 3).numFmt = "0.0%";
-      row += 1;
-    }
-    row += 1;
-  }
-
-  const headerRow = row;
-  STATEMENT_EXPORT_COLUMNS.forEach((column, index) => {
-    const cell = ws.getCell(row, index + 1);
-    cell.value = column;
-    cell.font = { name: "Calibri", size: 11, bold: true, color: { argb: EXCEL_COLORS.headerText } };
-    cell.fill = { type: "pattern", pattern: "solid", fgColor: { argb: EXCEL_COLORS.headerBg } };
-    cell.alignment = { vertical: "middle" };
-  });
-  ws.getRow(row).height = 22;
-  row += 1;
-
-  for (const entry of payload.rows) {
-    STATEMENT_EXPORT_COLUMNS.forEach((column, index) => {
-      const cell = ws.getCell(row, index + 1);
-      const value = entry[column] ?? "";
-      cell.value = value;
-      if (column === "Valor" && typeof value === "number") {
-        cell.numFmt = '+R$ #,##0.00;-R$ #,##0.00;"R$ 0,00"';
-      }
-    });
-    if (row % 2 === 0) {
-      for (let col = 1; col <= STATEMENT_EXPORT_COLUMNS.length; col += 1) {
-        ws.getCell(row, col).fill = { type: "pattern", pattern: "solid", fgColor: { argb: EXCEL_COLORS.altRow } };
-      }
-    }
-    row += 1;
-  }
-
-  ws.autoFilter = { from: { row: headerRow, column: 1 }, to: { row: row - 1, column: STATEMENT_EXPORT_COLUMNS.length } };
-  ws.views = [{ state: "frozen", xSplit: 0, ySplit: headerRow }];
-
-  const buffer = await wb.xlsx.writeBuffer();
-  downloadBlob(
-    new Blob([buffer], { type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" }),
-    statementExportFileName(payload.originLabel, payload.start, payload.end, "xlsx"),
-  );
 }
 
 export async function exportStatementsToPdf(payload: StatementsExportPayload): Promise<void> {
