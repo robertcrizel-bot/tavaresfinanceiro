@@ -568,3 +568,17 @@
   opacity: .95;
   pointer-events: none;
 }
+
+
+/* Analytics hero follows the same muted, theme-aware card treatment. */
+.expense-hero {
+  background: linear-gradient(135deg,hsl(var(--expense) / .80),hsl(352 44% 26%));
+  color: hsl(0 0% 100%);
+}
+.expense-hero .expense-hero-muted { color: hsl(0 0% 100% / .78); }
+:root.light .expense-hero {
+  background: linear-gradient(115deg,hsl(14 48% 85%),hsl(202 27% 83%));
+  color: hsl(207 41% 15%);
+  border-color: hsl(13 34% 69%);
+}
+:root.light .expense-hero .expense-hero-muted { color: hsl(204 25% 28%); }
