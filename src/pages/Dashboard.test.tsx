@@ -46,7 +46,7 @@ const lastOfMonthStr = toLocalDateStr(new Date(now.getFullYear(), now.getMonth()
 const previousMonthEndStr = toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), 0));
 const daysAgoStr = (days: number) =>
   toLocalDateStr(new Date(now.getFullYear(), now.getMonth(), now.getDate() - days));
-const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+const daysElapsedThisMonth = now.getDate();
 
 const expense = (id: string, date: string, amount: number): Transaction => ({
   id,
@@ -107,8 +107,28 @@ describe("Dashboard default period", () => {
     const monthExpense = sumExpenses(firstOfMonthStr, lastOfMonthStr);
     expect(kpiValue("Total de Saídas")).toBe(fmt(monthExpense));
     expect(kpiValue("Total de Entradas")).toBe(fmt(707));
-    expect(kpiValue("Gasto Médio Diário")).toBe(fmt(monthExpense / daysInMonth));
+    expect(kpiValue("Gasto Médio Diário")).toBe(fmt(monthExpense / daysElapsedThisMonth));
     expect(kpiValue("Maior Categoria")).toBe("Alimentação");
+    expect(screen.getByText("Dias no período").parentElement).toHaveTextContent(String(daysElapsedThisMonth));
+    expect(screen.getByText("Maior saída").parentElement).toHaveTextContent(fmt(404));
+    expect(screen.queryByText("Contas/cartões")).not.toBeInTheDocument();
+  });
+
+  it("keeps the selected month totals while dividing daily averages by elapsed days", () => {
+    renderDashboard();
+    const monthExpense = sumExpenses(firstOfMonthStr, lastOfMonthStr);
+    expect(kpiValue("Total de Saídas")).toBe(fmt(monthExpense));
+    expect(kpiValue("Gasto Médio Diário")).toBe(fmt(monthExpense / new Date().getDate()));
+  });
+
+  it("uses the largest genuine expense, excluding neutral card settlements", () => {
+    mocks.transactions = [
+      expense("small", todayStr, 35),
+      expense("large", todayStr, 420.30),
+      { ...expense("settlement", todayStr, 9999), financialKind: "card_invoice_payment" },
+    ];
+    renderDashboard();
+    expect(screen.getByText("Maior saída").parentElement).toHaveTextContent(fmt(420.30));
   });
 
   it("covers the whole month, including transactions after today and excluding the previous month", () => {
@@ -150,6 +170,6 @@ describe("Dashboard default period", () => {
 
     expect(periodButton("Mês").className).toContain("bg-primary");
     expect(kpiValue("Total de Saídas")).toBe(fmt(sumExpenses(firstOfMonthStr, lastOfMonthStr)));
-    expect(kpiValue("Gasto Médio Diário")).toBe(fmt(sumExpenses(firstOfMonthStr, lastOfMonthStr) / daysInMonth));
+    expect(kpiValue("Gasto Médio Diário")).toBe(fmt(sumExpenses(firstOfMonthStr, lastOfMonthStr) / daysElapsedThisMonth));
   });
 });
