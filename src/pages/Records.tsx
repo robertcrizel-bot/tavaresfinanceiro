@@ -19,6 +19,9 @@ import { isAdjustmentTransaction, isBillPaymentTransaction, isFinancialNeutralTr
 import { getInvoiceRecordTitle, getInvoiceRecordTypeLabel, shouldHideSettledInvoiceObligation } from "@/lib/invoice-record-presentation";
 import { cn } from "@/lib/utils";
 import { exportFinanceExcel } from "@/lib/finance-excel-report";
+import { exportRecordsToCsv, exportRecordsToPdf } from "@/lib/records-export";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import { FileText, FileSpreadsheet } from "lucide-react";
 
 type SortKey = "date" | "title" | "category" | "type" | "paymentMethod" | "source" | "amount";
 type SortDir = "asc" | "desc";
@@ -241,7 +244,7 @@ export default function Records() {
 
   const recordsSummary = useMemo(() => summarizeFilteredRecords(filtered), [filtered]);
 
-  const exportToXlsx = useCallback(async () => {
+  const exportData = useMemo(() => {
     const rows = filtered.map((t) => ({
       "Data": new Date(t.date + "T12:00:00").toLocaleDateString("pt-BR"),
       "Título": getDisplayTitle(t),
@@ -259,7 +262,7 @@ export default function Records() {
       sourceFilter !== "all" && `Conta/cartão: ${sourceMap[sourceFilter] || "Selecionada"}`,
     ].filter((filter): filter is string => typeof filter === "string" && filter.length > 0);
 
-    await exportFinanceExcel({
+    return {
       worksheetName: "Registros",
       fileName: `FinanceControl_Registros_${today}.xlsx`,
       title: "Meus registros",
@@ -276,8 +279,18 @@ export default function Records() {
       amountColumn: "Valor (R$)",
       descriptionColumn: "Descrição",
       rows,
-    });
+    };
   }, [filtered, today, sourceMap, recordsSummary, search, typeFilter, catFilter, sourceFilter, creditCardInvoices, creditCards]);
+  const exportToXlsx = useCallback(() => {
+    void exportFinanceExcel(exportData);
+  }, [exportData]);
+  const exportToPdf = useCallback(() => {
+    void exportRecordsToPdf(exportData);
+  }, [exportData]);
+  const exportToCsv = useCallback(() => {
+    exportRecordsToCsv(exportData);
+  }, [exportData]);
+
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
     if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
     if (e.key === "n" || e.key === "N") { e.preventDefault(); setEditing(undefined); setFormOpen(true); }
@@ -306,15 +319,25 @@ export default function Records() {
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <div><p className="eyebrow">Histórico completo</p><h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl">Meus Registros</h1></div>
         <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
-          <Button
-            variant="outline"
-            onClick={exportToXlsx}
-            disabled={filtered.length === 0}
-            className="gap-2 flex-1 sm:flex-none justify-center"
-          >
-            <Download className="h-4 w-4 shrink-0" />
-            <span>Exportar</span>
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={filtered.length === 0} className="gap-2 flex-1 sm:flex-none justify-center">
+                <Download className="h-4 w-4 shrink-0" />
+                <span>Exportar</span>
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportToPdf}>
+                <FileText className="mr-2 h-4 w-4" /> Exportar PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToXlsx}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Exportar Excel (.xlsx)
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportToCsv}>
+                <FileText className="mr-2 h-4 w-4" /> Exportar CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <Button variant="outline" asChild className="gap-2 flex-1 sm:flex-none justify-center">
             <Link to="/receipt">
               <ScanLine className="h-4 w-4 shrink-0" />
