@@ -200,8 +200,7 @@ describe("ExpenseAnalytics default period", () => {
     const transactions = screen.getByRole("heading", { name: "Transações do Período" }).closest("section");
     expect(sidebar).not.toContainElement(transactions);
     expect(lowerSummary).toContainElement(transactions);
-    expect(transactions).toHaveClass("min-w-0");
-    expect(transactions).toHaveClass("lg:col-start-2", "lg:row-start-2");
+    expect(transactions?.parentElement).toHaveClass("min-w-0", "lg:col-start-2", "lg:row-start-2");
     const highlights = within(lowerSummary).getByRole("heading", { name: "Destaques do Período" });
     expect(highlights.closest(".dashboard-card")).toHaveClass("lg:col-start-1", "lg:row-start-2");
   });
