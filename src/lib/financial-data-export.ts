@@ -42,10 +42,19 @@ export const csvSafe = (value: string | number): string => {
 };
 
 export function buildFinancialReportCsv(report: FinancialReport): string {
-  const lines = [
-    report.columns.map(csvSafe).join(";"),
-    ...report.rows.map(row => report.columns.map(c => csvSafe(row[c] ?? "")).join(";")),
-  ];
+  const lines = [report.columns.map(csvSafe).join(";")];
+  if (report.sections?.length) {
+    for (const section of report.sections) {
+      lines.push([csvSafe(section.title), ...report.columns.slice(1).map(() => "")].join(";"));
+      for (const row of section.rows) {
+        lines.push(report.columns.map(c => csvSafe(row[c] ?? "")).join(";"));
+      }
+    }
+  } else {
+    for (const row of report.rows) {
+      lines.push(report.columns.map(c => csvSafe(row[c] ?? "")).join(";"));
+    }
+  }
   return "\uFEFF" + lines.join("\r\n");
 }
 
@@ -210,11 +219,11 @@ export async function exportFinancialReportPdf(report: FinancialReport): Promise
     tableStartY = top + 66;
   }
 
-  autoTable(doc, {
-    startY: tableStartY,
+  const makeTable = (rows: Record<string, string | number>[], startY: number) => autoTable(doc, {
+    startY,
     margin: { left: margin, right: margin, top: 12, bottom: 12 },
     head: [report.columns.map(c => c)],
-    body: report.rows.map(row => report.columns.map(col => {
+    body: rows.map(row => report.columns.map(col => {
       const value = row[col] ?? "";
       if (typeof value === "number") {
         return col === report.amountColumn || report.currencyColumns?.includes(col)
@@ -236,5 +245,33 @@ export async function exportFinancialReportPdf(report: FinancialReport): Promise
       doc.text("FinanceControl · Página " + data.pageNumber, pageWidth - margin, pageHeight - 5, { align: "right" });
     },
   });
+
+  if (report.sections?.length) {
+    let nextY = tableStartY;
+    for (const section of report.sections) {
+      if (nextY > pageHeight - 38) {
+        doc.addPage();
+        nextY = 24;
+      }
+      doc.setFillColor(225, 242, 238);
+      doc.roundedRect(margin, nextY, printableWidth, 9, 2, 2, "F");
+      doc.setTextColor(22, 63, 58);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(11);
+      doc.text(section.title, margin + 4, nextY + 6);
+      if (section.rows.length) {
+        makeTable(section.rows, nextY + 12);
+        nextY = ((doc as typeof doc & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? nextY + 20) + 8;
+      } else {
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(9);
+        doc.setTextColor(90, 105, 121);
+        doc.text("Nenhum item neste grupo.", margin + 4, nextY + 16);
+        nextY += 27;
+      }
+    }
+  } else {
+    makeTable(report.rows, tableStartY);
+  }
   doc.save(report.fileName.replace(/\.xlsx$/i, ".pdf"));
 }
