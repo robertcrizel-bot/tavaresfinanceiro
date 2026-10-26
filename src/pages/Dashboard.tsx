@@ -70,6 +70,30 @@ function MiniBars({ values, tone = "mint" }: { values: number[]; tone?: "mint" |
 }
 
 
+function BalanceTrend({ values }: { values: number[] }) {
+  if (values.length < 2) return null;
+  const min = Math.min(...values);
+  const span = Math.max(1, Math.max(...values) - min);
+  const points = values.map((value, i) => [
+    Math.round(i / (values.length - 1) * 260),
+    Math.round(87 - (value - min) / span * 67),
+  ] as const);
+  const polyline = points.map(([x, y]) => String(x) + "," + String(y)).join(" ");
+  const polygon = "0,100 " + polyline + " 260,100";
+  return (
+    <svg aria-hidden="true" className="premium-balance-trend" viewBox="0 0 260 100" preserveAspectRatio="none">
+      <defs>
+        <linearGradient id="finance-balance-trend-fill" x1="0" x2="0" y1="0" y2="1">
+          <stop offset="0%" stopColor="hsl(169 66% 47%)" stopOpacity=".24" />
+          <stop offset="100%" stopColor="hsl(169 66% 47%)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <polygon points={polygon} fill="url(#finance-balance-trend-fill)" />
+      <polyline points={polyline} fill="none" stroke="hsl(169 66% 47%)" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
+
 export default function Dashboard() {
   const { transactions, creditCardInvoices, addTransaction } = useFinance();
   const { accounts, creditCards } = useAccounts();
@@ -207,6 +231,13 @@ export default function Dashboard() {
 
   const dailyIncomeBars = dailyBreakdown.filter(day => day.income > 0).slice(-8).map(day => day.income);
   const dailyExpenseBars = dailyBreakdown.filter(day => day.expense > 0).slice(-8).map(day => day.expense);
+  const runningBalanceTrend = useMemo(() => {
+    let running = 0;
+    return dailyBreakdown.map(day => {
+      running += day.income - day.expense;
+      return running;
+    }).slice(-15);
+  }, [dailyBreakdown]);
   const dailySpendingBars = dailyExpenseBars;
 
   const holdings = accounts.length + creditCards.length;
@@ -253,6 +284,7 @@ export default function Dashboard() {
       <section aria-label="Indicadores do período" className="premium-stats-grid grid grid-cols-2 gap-3 lg:grid-cols-4">
         <article className="dashboard-card premium-balance relative col-span-2 flex min-w-0 flex-col justify-center overflow-hidden rounded-xl p-5 lg:p-6">
           <div aria-hidden="true" className="premium-balance-glow pointer-events-none absolute inset-0" />
+          <BalanceTrend values={runningBalanceTrend} />
           <div className="relative flex items-center gap-3">
             <span className="premium-icon premium-icon--mint">
               <Wallet className="h-5 w-5" aria-hidden="true" />
@@ -431,8 +463,9 @@ export default function Dashboard() {
       )}
 
       <div className="grid grid-cols-1 gap-3 lg:grid-cols-[1.35fr_0.9fr]">
-        <ChartCard title="Ritmo de gastos">
-          <ResponsiveContainer width="100%" height={250}>
+        <ChartCard title="Ritmo de gastos" className="flex h-full min-w-0 flex-col">
+          <div className="min-h-[250px] flex-1" data-testid="expense-rhythm-chart-area">
+          <ResponsiveContainer width="100%" height="100%" minHeight={250}>
             <LineChart data={lineData} margin={{ top: 12, right: 8, bottom: 6, left: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
               <XAxis dataKey="date" tick={{ ...CHART_TICK, fontSize: 11 }} interval="preserveStartEnd" minTickGap={32} tickMargin={10} />
@@ -458,6 +491,7 @@ export default function Dashboard() {
               />
             </LineChart>
           </ResponsiveContainer>
+          </div>
         </ChartCard>
 
         <ChartCard title="Categorias que mais pesam">

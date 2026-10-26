@@ -529,3 +529,56 @@
   background: hsl(170 38% 78% / .74);
   color: hsl(170 67% 22%);
 }
+
+
+/* Keep the approved light Dashboard palette on all authenticated screens.
+   Shared tokens style cards, inputs, charts, menus and dialogs without changing geometry. */
+:root.light {
+  --background: 205 27% 92%;
+  --card: 205 28% 88%;
+  --popover: 207 26% 93%;
+  --secondary: 207 23% 86%;
+  --muted: 204 24% 88%;
+  --accent: 168 24% 82%;
+  --border: 204 22% 74%;
+  --input: 205 24% 76%;
+  --sidebar-background: 206 27% 86%;
+  --sidebar-accent: 167 23% 77%;
+  --sidebar-accent-foreground: 208 34% 18%;
+  --sidebar-border: 205 23% 74%;
+  --sidebar-foreground: 208 27% 27%;
+  --tooltip-shadow: 0 16px 36px hsl(206 34% 28% / .15);
+}
+:root.light body {
+  background-image:
+    radial-gradient(ellipse at 76% 2%, hsl(169 36% 59% / .14), transparent 42rem),
+    linear-gradient(160deg, hsl(206 29% 93%), hsl(204 27% 88%));
+  background-attachment: fixed;
+}
+:root.light [data-sidebar="sidebar"] {
+  background: linear-gradient(180deg,hsl(206 29% 87%),hsl(206 29% 83%));
+}
+/* Original compact balance sparkline restored; geometry identical in both themes. */
+:root .premium-dashboard .premium-balance-trend {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  width: 50%;
+  height: 63%;
+  opacity: .95;
+  pointer-events: none;
+}
+
+
+/* Analytics hero follows the same muted, theme-aware card treatment. */
+.expense-hero {
+  background: linear-gradient(135deg,hsl(var(--expense) / .80),hsl(352 44% 26%));
+  color: hsl(0 0% 100%);
+}
+.expense-hero .expense-hero-muted { color: hsl(0 0% 100% / .78); }
+:root.light .expense-hero {
+  background: linear-gradient(115deg,hsl(14 48% 85%),hsl(202 27% 83%));
+  color: hsl(207 41% 15%);
+  border-color: hsl(13 34% 69%);
+}
+:root.light .expense-hero .expense-hero-muted { color: hsl(204 25% 28%); }
