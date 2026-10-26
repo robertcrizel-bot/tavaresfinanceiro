@@ -31,6 +31,22 @@ describe("chart-theme", () => {
     expect(chartColor("stable-id")).toBe(chartColor("stable-id"));
   });
 
+  it("gives familiar spending categories distinct, stable colors across every page", () => {
+    const names = [
+      "Moradia", "Alimentação", "Financiamento", "Transporte",
+      "Supérfluos", "Educação", "Leite/Fralda", "Outros", "Saúde",
+      "Internet/Telefone", "Bichos",
+    ];
+    const palette = names.map(categoryColor);
+    expect(new Set(palette).size).toBe(names.length);
+    expect(categoryColor("SUPERFLUOS")).toBe(categoryColor("Supérfluos"));
+    expect(categoryColor("SAUDE")).toBe(categoryColor("Saúde"));
+    expect(categoryColor("LEITE/FRALDA")).toBe(categoryColor("Leite/Fralda"));
+    expect(categoryColor("Internet/Telefone")).toBe(categoryColor("internet/telefone"));
+    expect(categoryColor("Alimentação")).toBe(CHART_CATEGORICAL[0]);
+    expect(names.slice().reverse().map(categoryColor).reverse()).toEqual(palette);
+  });
+
   it("uses stable payment identities and registered account/card colors", () => {
     expect(paymentColor("Crédito")).toBe(paymentColor("Cartão de Crédito"));
     expect(paymentColor("Pix")).not.toBe(paymentColor("Dinheiro"));
