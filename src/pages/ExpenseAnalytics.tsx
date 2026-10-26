@@ -385,6 +385,7 @@ export default function ExpenseAnalytics() {
     columns: ["Data", "Estabelecimento", "Categoria", "Pagamento", "Conta/cartão", "Valor", "Descrição"],
     columnWidths: [16, 38, 24, 22, 30, 19, 59],
     amountColumn: "Valor",
+    currencyColumns: ["Valor"],
     descriptionColumn: "Descrição",
     rows: sortedTransactions.map(t => ({
       Data: shortDate(t.date),
