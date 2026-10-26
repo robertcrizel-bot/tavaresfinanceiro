@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import Dashboard from "@/pages/Dashboard";
@@ -109,8 +109,13 @@ describe("Dashboard default period", () => {
     expect(kpiValue("Total de Entradas")).toBe(fmt(707));
     expect(kpiValue("Gasto Médio Diário")).toBe(fmt(monthExpense / daysElapsedThisMonth));
     expect(kpiValue("Maior Categoria")).toBe("Alimentação");
-    expect(screen.getByText("Dias no período").parentElement?.parentElement).toHaveTextContent(String(daysElapsedThisMonth));
-    expect(screen.getByText("Maior saída").parentElement).toHaveTextContent(/R\$\s*404,00/);
+    const summary = screen.getByLabelText("Resumo do período");
+    expect(within(summary).getByText("Dias no período").parentElement).toHaveTextContent(String(daysElapsedThisMonth));
+    expect(within(summary).getByText("Maior entrada").parentElement).toHaveTextContent(/R\$\s*707,00/);
+    expect(within(summary).getByText("Maior entrada").parentElement).toHaveTextContent("Salário");
+    expect(within(summary).getByText("Maior saída").parentElement).toHaveTextContent(/R\$\s*404,00/);
+    expect(within(summary).getByText("Maior saída").parentElement).toHaveTextContent("Compra month-end");
+    expect(within(summary).queryByText("Lançamentos")).not.toBeInTheDocument();
     expect(screen.queryByText("Contas/cartões")).not.toBeInTheDocument();
   });
 
@@ -129,6 +134,19 @@ describe("Dashboard default period", () => {
     ];
     renderDashboard();
     expect(screen.getByText("Maior saída").parentElement).toHaveTextContent(/R\$\s*420,30/);
+    expect(screen.getByText("Maior saída").parentElement).toHaveTextContent("Compra large");
+    expect(screen.getByText("Maior entrada").parentElement).toHaveTextContent("Nenhuma entrada no período");
+  });
+
+  it("uses recent transactions to break ties and shows a useful fallback title", () => {
+    mocks.transactions = [
+      { ...expense("old", daysAgoStr(2), 500), title: "Compra antiga" },
+      { ...expense("new", todayStr, 500), title: "Compra mais recente" },
+      { id: "income-a", title: "", description: "Pagamento recebido\\nDetalhes adicionais", amount: 200, type: "income", category: "Outros", date: todayStr, isPaid: true },
+    ];
+    renderDashboard();
+    expect(screen.getByText("Maior saída").parentElement).toHaveTextContent("Compra mais recente");
+    expect(screen.getByText("Maior entrada").parentElement).toHaveTextContent("Pagamento recebido");
   });
 
   it("covers the whole month, including transactions after today and excluding the previous month", () => {
