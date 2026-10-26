@@ -137,7 +137,14 @@ export async function exportFinancialReportPdf(report: FinancialReport): Promise
       doc.setTextColor(28, 50, 67);
       doc.text(graph.title.substring(0, 48), x + 3, top + 7);
 
-      const series = graph.points.slice(0, graph.kind === "category" ? 7 : 24);
+      // Show the first and last day even for a 31-day month. A uniform
+      // sample avoids falsely making the timeline stop on day 24.
+      const series = graph.kind === "category"
+        ? graph.points.slice(0, 7)
+        : graph.points.length <= 24
+          ? graph.points
+          : Array.from({ length: 24 }, (_, i) =>
+              graph.points[Math.round(i * (graph.points.length - 1) / 23)]);
       const max = Math.max(1, ...series.map(p => Math.max(0, p.value)));
       if (graph.kind === "category") {
         series.forEach((p, i) => {
