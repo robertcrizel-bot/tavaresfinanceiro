@@ -199,7 +199,11 @@ describe("ExpenseAnalytics default period", () => {
     expect(sidebar).not.toContainElement(lowerSummary);
     const transactions = screen.getByRole("heading", { name: "Transações do Período" }).closest("section");
     expect(sidebar).not.toContainElement(transactions);
-    expect(lowerSummary).not.toContainElement(transactions);
+    expect(lowerSummary).toContainElement(transactions);
+    expect(transactions).toHaveClass("min-w-0");
+    expect(transactions).toHaveClass("lg:col-start-2", "lg:row-start-2");
+    const highlights = within(lowerSummary).getByRole("heading", { name: "Destaques do Período" });
+    expect(highlights.closest(".dashboard-card")).toHaveClass("lg:col-start-1", "lg:row-start-2");
   });
 
   it("starts on Mês with the current-month totals, average and top category", () => {
