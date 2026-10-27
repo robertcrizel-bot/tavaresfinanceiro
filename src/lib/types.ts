@@ -38,6 +38,11 @@ export interface Account {
   type: "checking" | "savings";
   initialBalance: number;
   color: string; // tailwind color key
+  /** Optional owner-only banking identifiers. Never include in reports or public cards. */
+  agency?: string;
+  accountNumber?: string;
+  holderName?: string;
+  holderCpf?: string;
 }
 
 export interface CreditCard {
@@ -48,6 +53,11 @@ export interface CreditCard {
   closingDay: number;
   dueDay: number;
   color: string;
+  /** Optional owner-only card identifiers. Full card numbers and CVV are never stored. */
+  holderName?: string;
+  holderCpf?: string;
+  brand?: string;
+  lastFour?: string;
 }
 
 export type CreditCardInvoiceStatus = "OPEN" | "CLOSED" | "PAID";

@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { Account, CreditCard } from "@/lib/types";
+import { normalizeCpf, normalizeCardLastFour } from "@/lib/bank-identification";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { toast } from "@/hooks/use-toast";
@@ -45,6 +46,10 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
         type: r.type as Account["type"],
         initialBalance: Number(r.initial_balance),
         color: r.color,
+        agency: r.agency ?? undefined,
+        accountNumber: r.account_number ?? undefined,
+        holderName: r.holder_name ?? undefined,
+        holderCpf: r.holder_cpf ?? undefined,
       })));
     }
     if (ccRes.data) {
@@ -56,6 +61,10 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
         closingDay: r.closing_day,
         dueDay: r.due_day,
         color: r.color,
+        holderName: r.holder_name ?? undefined,
+        holderCpf: r.holder_cpf ?? undefined,
+        brand: r.brand ?? undefined,
+        lastFour: r.last_four ?? undefined,
       })));
     }
     setLoading(false);
@@ -68,6 +77,10 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     const { error } = await supabase.from("accounts").insert({
       user_id: user.id, name: a.name, bank: a.bank, type: a.type,
       initial_balance: a.initialBalance, color: a.color,
+      agency: a.agency?.trim() || null,
+      account_number: a.accountNumber?.trim() || null,
+      holder_name: a.holderName?.trim() || null,
+      holder_cpf: a.holderCpf ? normalizeCpf(a.holderCpf) : null,
     });
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else { toast({ title: "Conta criada", description: a.name }); fetchAccounts(); }
@@ -77,6 +90,10 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     const { error } = await supabase.from("accounts").update({
       name: a.name, bank: a.bank, type: a.type,
       initial_balance: a.initialBalance, color: a.color,
+      agency: a.agency?.trim() || null,
+      account_number: a.accountNumber?.trim() || null,
+      holder_name: a.holderName?.trim() || null,
+      holder_cpf: a.holderCpf ? normalizeCpf(a.holderCpf) : null,
     }).eq("id", a.id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else { toast({ title: "Conta atualizada", description: a.name }); fetchAccounts(); }
@@ -93,6 +110,10 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     const { error } = await supabase.from("credit_cards").insert({
       user_id: user.id, name: c.name, bank: c.bank, credit_limit: c.limit,
       closing_day: c.closingDay, due_day: c.dueDay, color: c.color,
+      holder_name: c.holderName?.trim() || null,
+      holder_cpf: c.holderCpf ? normalizeCpf(c.holderCpf) : null,
+      brand: c.brand?.trim() || null,
+      last_four: c.lastFour ? normalizeCardLastFour(c.lastFour) : null,
     });
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else { toast({ title: "Cartão criado", description: c.name }); fetchAccounts(); }
@@ -102,6 +123,10 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     const { error } = await supabase.from("credit_cards").update({
       name: c.name, bank: c.bank, credit_limit: c.limit,
       closing_day: c.closingDay, due_day: c.dueDay, color: c.color,
+      holder_name: c.holderName?.trim() || null,
+      holder_cpf: c.holderCpf ? normalizeCpf(c.holderCpf) : null,
+      brand: c.brand?.trim() || null,
+      last_four: c.lastFour ? normalizeCardLastFour(c.lastFour) : null,
     }).eq("id", c.id);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
