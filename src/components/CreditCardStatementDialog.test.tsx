@@ -20,8 +20,10 @@ vi.mock("@/components/ui/dialog", () => {
   return {
     Dialog: ({ open, children }: { open: boolean; children?: ReactNode }) => open ? <>{children}</> : null,
     DialogContent: Wrapper,
-    DialogHeader: Wrapper,
-    DialogTitle: Wrapper,
+    DialogHeader: ({ children, className }: { children?: ReactNode; className?: string }) =>
+      <div data-testid="statement-modal-header" className={className}>{children}</div>,
+    DialogTitle: ({ children, className }: { children?: ReactNode; className?: string }) =>
+      <h2 className={className}>{children}</h2>,
   };
 });
 
@@ -92,6 +94,14 @@ const defaultProps = {
 describe("CreditCardStatementDialog", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+  });
+
+  it("reserves space for the close button without overlapping Exportar", () => {
+    render(<CreditCardStatementDialog {...defaultProps} />);
+    const header = screen.getByTestId("statement-modal-header");
+    expect(header).toHaveClass("pr-16", "px-6");
+    expect(header.querySelector("h2")).toHaveClass("min-w-0", "truncate");
+    expect(screen.getByText("Exportar").closest("button")).toHaveClass("shrink-0");
   });
 
   it("shows card name in dialog title", () => {
