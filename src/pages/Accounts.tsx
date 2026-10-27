@@ -221,6 +221,8 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                         <div>
                           <p className="font-semibold text-foreground">{cc.name}</p>
                           <p className="text-xs text-muted-foreground">{cc.bank} · Fecha dia {cc.closingDay} · Vence dia {cc.dueDay}</p>
+                           {(cc.brand || cc.lastFour) && <p className="text-xs text-muted-foreground">{cc.brand || "Cartão"}{cc.lastFour ? ` · •••• ${cc.lastFour}` : ""}</p>}
+                           {cc.holderName && <p className="text-xs text-muted-foreground">{cc.holderName}</p>}
                         </div>
                       </div>
                       <div className="flex gap-1">
@@ -997,6 +999,11 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
 }) {
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
+  const [holderName, setHolderName] = useState("");
+  const [holderCpf, setHolderCpf] = useState("");
+  const [brand, setBrand] = useState("");
+  const [lastFour, setLastFour] = useState("");
+  const [cpfError, setCpfError] = useState("");
   const [limit, setLimit] = useState("");
   const [closingDay, setClosingDay] = useState("20");
   const [dueDay, setDueDay] = useState("27");
@@ -1005,11 +1012,11 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
 
   const resetForm = () => {
     if (initial) {
-      setName(initial.name); setBank(initial.bank); setLimit(String(initial.limit));
+      setName(initial.name); setBank(initial.bank); setHolderName(initial.holderName ?? ""); setHolderCpf(formatCpfInput(initial.holderCpf ?? "")); setBrand(initial.brand ?? ""); setLastFour(initial.lastFour ?? ""); setCpfError(""); setLimit(String(initial.limit));
       setClosingDay(String(initial.closingDay)); setDueDay(String(initial.dueDay)); setColor(initial.color);
       setAdjustTo(typeof currentUsed === "number" ? currentUsed.toFixed(2) : "");
     } else {
-      setName(""); setBank(""); setLimit(""); setClosingDay("20"); setDueDay("27"); setColor("purple"); setAdjustTo("");
+      setName(""); setBank(""); setHolderName(""); setHolderCpf(""); setBrand(""); setLastFour(""); setCpfError(""); setLimit(""); setClosingDay("20"); setDueDay("27"); setColor("purple"); setAdjustTo("");
     }
   };
 
@@ -1025,7 +1032,12 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
         </DialogHeader>
         <form onSubmit={async (e) => {
           e.preventDefault();
-          const saved = await onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color });
+          if (holderCpf && !isValidCpf(holderCpf)) {
+            setCpfError("Informe um CPF válido ou deixe o campo em branco.");
+            return;
+          }
+          const saved = await onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color,
+            holderName: holderName.trim(), holderCpf, brand: brand.trim(), lastFour });
           if (saved === false) return;
           if (initial && canAdjustUsed && onAdjustUsed && typeof currentUsed === "number") {
             const target = parseFloat(adjustTo);
@@ -1085,6 +1097,29 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
               </Select>
             </div>
           </div>
+          <fieldset className="space-y-3 rounded-lg border border-border/70 p-3 sm:p-4">
+            <legend className="px-1 text-sm font-semibold text-foreground">Identificação do cartão</legend>
+            <p className="text-xs text-muted-foreground">Opcional. Não armazenamos número completo, validade ou CVV.</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="card-brand">Bandeira</Label>
+                <Input id="card-brand" value={brand} onChange={(e) => setBrand(e.target.value)} placeholder="Ex: Visa, Mastercard ou Elo" maxLength={35} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="card-last-four">Últimos 4 dígitos</Label>
+                <Input id="card-last-four" value={lastFour} onChange={(e) => setLastFour(normalizeCardLastFour(e.target.value))} inputMode="numeric" maxLength={4} placeholder="Ex: 1234" autoComplete="off" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="card-holder-name">Nome completo do titular</Label>
+                <Input id="card-holder-name" value={holderName} onChange={(e) => setHolderName(e.target.value)} maxLength={120} placeholder="Nome impresso no cartão" autoComplete="off" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="card-holder-cpf">CPF do titular</Label>
+                <Input id="card-holder-cpf" value={holderCpf} onChange={(e) => { setHolderCpf(formatCpfInput(e.target.value)); setCpfError(""); }} inputMode="numeric" maxLength={14} autoComplete="off" placeholder="000.000.000-00" aria-invalid={Boolean(cpfError)} aria-describedby={cpfError ? "card-cpf-error" : undefined} />
+                {cpfError && <p id="card-cpf-error" role="alert" className="text-xs text-destructive">{cpfError}</p>}
+              </div>
+            </div>
+          </fieldset>
           {initial && canAdjustUsed && typeof currentUsed === "number" && (
             <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
               <Label className="text-foreground">Ajustar fatura atual</Label>
