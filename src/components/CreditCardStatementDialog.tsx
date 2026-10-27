@@ -165,12 +165,12 @@ export default function CreditCardStatementDialog({
   return (
     <Dialog open={open} onOpenChange={(o) => !o && onClose()}>
       <DialogContent className="max-w-lg max-h-[90vh] flex flex-col overflow-hidden p-0">
-        <DialogHeader className="px-6 pt-6 pb-4 border-b border-border">
-          <div className="flex items-center justify-between">
-            <DialogTitle className="text-base">Compras — {card.name}</DialogTitle>
+        <DialogHeader className="border-b border-border px-6 pb-4 pt-6 pr-16">
+          <div className="flex min-w-0 items-center justify-between gap-3">
+            <DialogTitle className="min-w-0 truncate text-left text-base">Compras — {card.name}</DialogTitle>
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="outline" size="sm" className="gap-1.5 h-8" disabled={!hasEntries}>
+                <Button variant="outline" size="sm" className="h-8 shrink-0 gap-1.5" disabled={!hasEntries}>
                   <Download className="h-3.5 w-3.5" />
                   <span className="text-xs">Exportar</span>
                 </Button>

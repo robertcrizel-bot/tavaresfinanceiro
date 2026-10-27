@@ -72,7 +72,8 @@ vi.mock("@/components/ui/dialog", () => {
   const Wrapper = ({ children }: { children?: ReactNode }) => <>{children}</>;
   return {
     Dialog: ({ open, children }: { open: boolean; children?: ReactNode }) => open ? <>{children}</> : null,
-    DialogContent: Wrapper,
+    DialogContent: ({ children, className }: { children?: ReactNode; className?: string }) =>
+      <div data-testid="dialog-content" className={className}>{children}</div>,
     DialogHeader: Wrapper,
     DialogTitle: Wrapper,
     DialogFooter: Wrapper,
@@ -130,6 +131,34 @@ describe("Accounts page", () => {
     financeMocks.closeCardInvoice.mockResolvedValue(true);
     financeMocks.reopenCardInvoice.mockResolvedValue(true);
     financeMocks.reverseCardInvoicePayment.mockResolvedValue(true);
+  });
+
+  it("keeps the new account form spacious and scrollable on narrow viewports", () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByRole("button", { name: "Nova Conta" }));
+    const dialog = screen.getByTestId("dialog-content");
+    expect(dialog).toHaveClass("max-w-xl", "overflow-hidden", "flex-col");
+    expect(dialog.querySelector("form > div.overflow-y-auto")).toBeTruthy();
+    expect(dialog.querySelector("form > div.border-t")).toBeTruthy();
+    expect(dialog.querySelector("div.grid-cols-1.sm\\:grid-cols-2")).toBeTruthy();
+    expect(screen.getByText("Nome da Conta")).toBeInTheDocument();
+    expect(screen.getByText("Banco")).toBeInTheDocument();
+    expect(screen.getByText("Saldo Inicial (R$)")).toBeInTheDocument();
+  });
+
+  it("keeps card bank, limit, closing and due dates readable with a fixed action footer", () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByText("Cartões"));
+    fireEvent.click(screen.getByRole("button", { name: "Novo Cartão" }));
+    const dialog = screen.getByTestId("dialog-content");
+    expect(dialog).toHaveClass("max-w-xl", "overflow-hidden", "flex-col");
+    expect(dialog.querySelector("form > div.overflow-y-auto")).toBeTruthy();
+    expect(dialog.querySelector("form > div.border-t")).toBeTruthy();
+    expect(dialog.querySelector("div.grid-cols-1.sm\\:grid-cols-3")).toBeTruthy();
+    expect(screen.getByText("Banco")).toBeInTheDocument();
+    expect(screen.getByText("Limite (R$)")).toBeInTheDocument();
+    expect(screen.getByText("Dia Fechamento")).toBeInTheDocument();
+    expect(screen.getByText("Dia Vencimento")).toBeInTheDocument();
   });
 
   it("shows 'Ver extrato' button on account card", () => {
