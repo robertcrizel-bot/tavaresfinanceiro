@@ -2,6 +2,11 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import React, { type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import ReceiptImport from "@/pages/ReceiptImport";
+
+// Legacy OCR/Lovable reader regression tests intentionally opt in to the
+// internal-only UI; the production interface hides those obsolete options.
+beforeEach(() => vi.stubEnv("VITE_ENABLE_LEGACY_RECEIPT_READERS", "true"));
+afterEach(() => vi.unstubAllEnvs());
 import { buildPaddleReceiptResult } from "@/lib/ocr-paddle-test/receiptResult";
 import { paddleToParsedReceipt } from "@/lib/ocr-paddle-test/paddleToParsedReceipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
