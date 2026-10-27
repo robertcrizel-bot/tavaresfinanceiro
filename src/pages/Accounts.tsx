@@ -851,9 +851,9 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{initial ? "Editar Conta" : "Nova Conta"}</DialogTitle>
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[90dvh] sm:w-full">
+        <DialogHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
+          <DialogTitle className="text-left">{initial ? "Editar Conta" : "Nova Conta"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={async (e) => {
           e.preventDefault();
@@ -868,12 +868,13 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
             }
           }
           onClose();
-        }} className="space-y-4">
+        }} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           <div className="space-y-2">
             <Label>Nome da Conta</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ex: Conta Principal" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Banco</Label>
               <Input value={bank} onChange={(e) => setBank(e.target.value)} required placeholder="Ex: Nubank" />
@@ -889,7 +890,7 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
               </Select>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Saldo Inicial (R$)</Label>
               <Input type="number" step="0.01" value={initialBalance} onChange={(e) => setInitialBalance(e.target.value)} placeholder="0,00" />
@@ -932,8 +933,9 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
               />
             </div>
           )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+          </div>
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-background px-4 py-3 sm:px-6">
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit">{initial ? "Salvar" : "Criar"}</Button>
           </div>
         </form>
@@ -976,9 +978,9 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
-          <DialogTitle>{initial ? "Editar Cartão" : "Novo Cartão"}</DialogTitle>
+      <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[90dvh] sm:w-full">
+        <DialogHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
+          <DialogTitle className="text-left">{initial ? "Editar Cartão" : "Novo Cartão"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={async (e) => {
           e.preventDefault();
@@ -995,12 +997,13 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
             }
           }
           onClose();
-        }} className="space-y-4">
+        }} className="flex min-h-0 flex-1 flex-col">
+          <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-4 py-4 sm:px-6 sm:py-5">
           <div className="space-y-2">
             <Label>Nome do Cartão</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} required placeholder="Ex: Nubank Platinum" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Banco</Label>
               <Input value={bank} onChange={(e) => setBank(e.target.value)} required placeholder="Ex: Nubank" />
@@ -1010,7 +1013,7 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
               <Input type="number" step="0.01" min="0" value={limit} onChange={(e) => setLimit(e.target.value)} required placeholder="0,00" />
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>Dia Fechamento</Label>
               <Input type="number" min="1" max="31" value={closingDay} onChange={(e) => setClosingDay(e.target.value)} />
@@ -1058,8 +1061,9 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
               />
             </div>
           )}
-          <div className="flex justify-end gap-2 pt-2">
-            <Button type="button" variant="ghost" onClick={onClose}>Cancelar</Button>
+          </div>
+          <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-background px-4 py-3 sm:px-6">
+            <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
             <Button type="submit">{initial ? "Salvar" : "Criar"}</Button>
           </div>
         </form>
