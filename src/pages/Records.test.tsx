@@ -111,6 +111,16 @@ describe("Records invoice presentation", () => {
     mocks.invoices = [];
   });
 
+  it("matches the dashboard actions, with full names and bold text on narrow screens", () => {
+    renderRecords();
+    const readReceipt = screen.getByRole("link", { name: "Ler Comprovante" });
+    const addRecord = screen.getByRole("button", { name: "Novo Registro" });
+    expect(readReceipt).toHaveAttribute("href", "/receipt");
+    expect(readReceipt).toHaveClass("font-bold", "h-11", "rounded-xl");
+    expect(addRecord).toHaveClass("font-extrabold", "h-11", "rounded-xl");
+    expect(screen.queryByRole("link", { name: "Comprovante" })).not.toBeInTheDocument();
+  });
+
   it("collapses a paid obligation into the payment row with friendly labels", () => {
     mocks.transactions = [obligation, payment];
     mocks.invoices = [invoice];

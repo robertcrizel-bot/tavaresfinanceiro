@@ -163,7 +163,7 @@ export default function ReceiptImport() {
         localImageDims = dims ? `${dims.width}x${dims.height}` : null;
         setReadStatus("Inicializando OCR...");
         const ocr = await paddleRecognizeWorker(localImage.image, (status) => setReadStatus(status));
-        setReadStatus("Extraindo dados...");
+        setReadStatus("Lendo comprovante com IA...");
         const parserStart = performance.now();
         const receiptResult = buildPaddleReceiptResult(ocr.regions);
         const parsed = paddleToParsedReceipt(receiptResult);
@@ -354,7 +354,7 @@ export default function ReceiptImport() {
       setLocalSnapshotAvailable(false);
       setLocalMetrics(null);
       setLocalStatus("");
-      setReadStatus("Lendo com IA grátis...");
+      setReadStatus("Lendo comprovante com IA...");
       try {
         const parsed = await parseReceiptFree(file, {
           categories: allCategoryNames,
@@ -379,7 +379,7 @@ export default function ReceiptImport() {
         setPrefill(buildPrefill(parsed));
         setFormOpen(true);
       } catch (e) {
-        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com IA grátis.");
+        setError(e instanceof Error ? e.message : "Não foi possível ler o comprovante com IA.");
       } finally {
         freeReadInFlight.current = false;
         setLoading(false);
@@ -685,6 +685,9 @@ export default function ReceiptImport() {
   };
   const reportedSwVersion = shareDiag?.sw?.swVersion;
   const shareWorkerOutdated = isShareWorkerOutdated(reportedSwVersion);
+  // Preserve legacy readers for rollback and OCR regression testing, but keep
+  // them out of the customer UI unless deliberately enabled for internal QA.
+  const showLegacyReaders = import.meta.env.VITE_ENABLE_LEGACY_RECEIPT_READERS === "true";
 
   return (
     <div className="mx-auto max-w-4xl space-y-4 pb-4">
@@ -719,8 +722,7 @@ export default function ReceiptImport() {
         {loading ? (
           <div className="flex flex-col items-center gap-3 py-8 text-center">
             <Loader2 className="h-8 w-8 animate-spin text-primary" />
-            <p className="text-sm text-muted-foreground">Lendo o comprovante...</p>
-            {readStatus && <p className="text-xs text-muted-foreground">{readStatus}</p>}
+            <p className="text-sm text-muted-foreground">{readStatus || "Lendo comprovante com IA..."}</p>
           </div>
         ) : (
           <>
@@ -775,12 +777,12 @@ export default function ReceiptImport() {
                   {freeAiState === "available" && (
                       <Button className="min-h-11 w-full gap-2 rounded-lg border border-primary/30 bg-[hsl(169_66%_28%)] px-4 text-sm font-semibold text-white shadow-sm shadow-primary/15 hover:bg-[hsl(169_66%_25%)] hover:text-white active:bg-[hsl(169_66%_22%)] active:text-white active:shadow-none disabled:shadow-none" disabled={loading || capturing || cameraOpen || localLoading} onClick={() => setFreeAiConfirmOpen(true)}>
                       <Sparkles aria-hidden="true" className="h-4 w-4 shrink-0 text-white" />
-                      Ler comprovante grátis
+                      Ler Comprovante com IA
                     </Button>
                   )}
                   {freeAiState === "checking" && (
                     <Button variant="outline" disabled>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verificando IA grátis...
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Verificando leitura com IA...
                     </Button>
                   )}
                   {freeAiState === "error" && (
@@ -791,15 +793,15 @@ export default function ReceiptImport() {
                 </div>
                 {freeAiState === "error" && (
                   <p className="text-xs text-muted-foreground">
-                    Não foi possível confirmar a IA grátis no servidor.
+                    Não foi possível verificar o serviço de IA.
                   </p>
                 )}
                 {freeAiState === "unavailable" && (
                   <p className="text-xs text-muted-foreground">
-                    IA grátis indisponível no servidor no momento.
+                    Leitura com IA indisponível no momento.
                   </p>
                 )}
-                <details className="group border-t border-border pt-2">
+                {showLegacyReaders && <details className="group border-t border-border pt-2">
                   <summary className="flex min-h-10 cursor-pointer list-none items-center justify-between gap-2 text-[13px] font-medium sm:text-sm [&::-webkit-details-marker]:hidden">
                     Outros métodos de leitura
                     <ChevronDown aria-hidden="true" className="h-4 w-4 shrink-0 transition-transform group-open:rotate-180" />
@@ -812,7 +814,7 @@ export default function ReceiptImport() {
                       IA do Lovable
                     </Button>
                   </div>
-                </details>
+                </details>}
               </div>
             )}
             {!pendingFile && <p className="text-xs text-muted-foreground">Confira os dados antes de salvar.</p>}
@@ -848,7 +850,7 @@ export default function ReceiptImport() {
 
       </Card>
 
-      <Dialog open={aiConfirmOpen} onOpenChange={setAiConfirmOpen}>
+      {showLegacyReaders && <Dialog open={aiConfirmOpen} onOpenChange={setAiConfirmOpen}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-md">
           <DialogHeader>
             <DialogTitle>Ler com IA</DialogTitle>
@@ -869,16 +871,15 @@ export default function ReceiptImport() {
             </Button>
           </div>
         </DialogContent>
-      </Dialog>
+      </Dialog>}
 
       <Dialog open={freeAiConfirmOpen} onOpenChange={setFreeAiConfirmOpen}>
         <DialogContent className="w-[calc(100%-2rem)] max-w-md">
           <DialogHeader>
-            <DialogTitle>Ler com IA grátis (teste)</DialogTitle>
+            <DialogTitle>Ler Comprovante com IA</DialogTitle>
             <DialogDescription>
-              Esta leitura envia a foto do comprovante para a Cloudflare Workers AI,
-              usando o Gemma no plano gratuito (serviço externo, cota diária limitada e sem cobrança).
-              Confira os dados antes de salvar. Deseja continuar?
+              A imagem será enviada à Cloudflare Workers AI para leitura.
+              Confira os dados antes de salvar.
             </DialogDescription>
           </DialogHeader>
           <div className="flex justify-end gap-2">
@@ -890,7 +891,7 @@ export default function ReceiptImport() {
                 if (pendingFile) void processFileWithFreeAi(pendingFile);
               }}
             >
-              Continuar grátis
+              Continuar leitura
             </Button>
           </div>
         </DialogContent>

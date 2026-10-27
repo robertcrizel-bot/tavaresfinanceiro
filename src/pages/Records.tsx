@@ -318,7 +318,7 @@ export default function Records() {
     <div className="data-subtle mx-auto max-w-[1500px] space-y-4 sm:space-y-5">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
         <div><p className="eyebrow">Histórico completo</p><h1 className="mt-1 text-2xl font-bold tracking-[-0.035em] text-foreground sm:text-3xl">Meus Registros</h1></div>
-        <div className="flex flex-wrap sm:flex-nowrap items-center gap-2 w-full sm:w-auto">
+        <div className="flex flex-wrap items-center gap-2 w-full sm:w-auto">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <Button variant="outline" disabled={filtered.length === 0} className="gap-2 flex-1 sm:flex-none justify-center">
@@ -338,20 +338,18 @@ export default function Records() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" asChild className="gap-2 flex-1 sm:flex-none justify-center">
+          <Button variant="outline" asChild className="h-11 gap-2 flex-1 basis-[9rem] rounded-xl px-4 font-bold sm:flex-none justify-center">
             <Link to="/receipt">
               <ScanLine className="h-4 w-4 shrink-0" />
-              <span className="sm:hidden">Comprovante</span>
-              <span className="hidden sm:inline">Ler comprovante</span>
+              <span className="whitespace-nowrap">Ler Comprovante</span>
             </Link>
           </Button>
           <Button
             onClick={() => { setEditing(undefined); setFormOpen(true); }}
-            className="gap-2 flex-1 sm:flex-none justify-center"
+            className="h-11 gap-2 flex-1 basis-[9rem] rounded-xl px-4 font-extrabold sm:flex-none justify-center"
           >
             <Plus className="h-4 w-4 shrink-0" />
-            <span className="sm:hidden">Novo</span>
-            <span className="hidden sm:inline">Novo Registro</span>
+            <span className="whitespace-nowrap">Novo Registro</span>
           </Button>
         </div>
       </div>

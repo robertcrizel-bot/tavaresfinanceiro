@@ -279,16 +279,15 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild className="premium-action-outline h-11 gap-2 rounded-xl bg-card px-4">
+          <Button variant="outline" asChild className="premium-action-outline h-11 gap-2 rounded-xl bg-card px-4 font-bold">
             <Link to="/receipt">
-              <ScanLine className="h-4 w-4" />
-              <span className="hidden sm:inline">Ler comprovante</span>
-              <span className="sm:hidden">Comprovante</span>
+              <ScanLine className="h-4 w-4 shrink-0" />
+              <span className="whitespace-nowrap">Ler Comprovante</span>
             </Link>
           </Button>
-          <Button onClick={() => setFormOpen(true)} className="premium-action-primary h-11 gap-2 rounded-xl px-4">
-            <Plus className="h-4 w-4" />
-            <span>Novo registro</span>
+          <Button onClick={() => setFormOpen(true)} className="premium-action-primary h-11 gap-2 rounded-xl px-4 font-extrabold">
+            <Plus className="h-4 w-4 shrink-0" />
+            <span className="whitespace-nowrap">Novo Registro</span>
           </Button>
         </div>
       </header>
