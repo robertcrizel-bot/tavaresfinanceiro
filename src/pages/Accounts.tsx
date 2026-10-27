@@ -402,7 +402,7 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
       {/* Close Invoice Confirmation */}
       <Dialog open={!!closingInvoice} onOpenChange={(open) => { if (!open) { setClosingInvoice(null); setClosingInvoiceActualDate(""); setClosingInvoiceDueDate(""); setClosingInvoiceExcludedIds([]); } }}>
         <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-md flex-col gap-0 overflow-hidden p-0 sm:max-h-[calc(100dvh-2rem)] sm:w-full">
-          <DialogHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
+          <DialogHeader className="shrink-0 border-b border-border px-4 py-4 pr-12 sm:px-6 sm:pr-12">
             <DialogTitle>Fechar fatura?</DialogTitle>
           </DialogHeader>
           <div className="flex min-h-0 flex-1 flex-col px-4 sm:px-6">
@@ -770,7 +770,7 @@ export function CreditCardInvoiceHistoryDialog({
   return (
     <Dialog open={open} onOpenChange={(nextOpen) => { if (!nextOpen) onClose(); }}>
       <DialogContent className="flex max-h-[calc(100dvh-2rem)] w-[calc(100%-1rem)] max-w-lg flex-col overflow-hidden p-0 sm:w-full">
-        <DialogHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
+        <DialogHeader className="shrink-0 border-b border-border px-4 py-4 pr-12 sm:px-6 sm:pr-12">
           <DialogTitle>Histórico de faturas · {card.name}</DialogTitle>
         </DialogHeader>
         <div className="min-h-0 flex-1 space-y-2 overflow-y-auto p-4 sm:p-6">
@@ -852,7 +852,7 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[90dvh] sm:w-full">
-        <DialogHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
+        <DialogHeader className="shrink-0 border-b border-border px-4 py-4 pr-12 sm:px-6 sm:pr-12">
           <DialogTitle className="text-left">{initial ? "Editar Conta" : "Nova Conta"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={async (e) => {
@@ -979,7 +979,7 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
       <DialogContent className="flex max-h-[calc(100dvh-1rem)] w-[calc(100%-1rem)] max-w-xl flex-col gap-0 overflow-hidden p-0 sm:max-h-[90dvh] sm:w-full">
-        <DialogHeader className="shrink-0 border-b border-border px-4 py-4 sm:px-6">
+        <DialogHeader className="shrink-0 border-b border-border px-4 py-4 pr-12 sm:px-6 sm:pr-12">
           <DialogTitle className="text-left">{initial ? "Editar Cartão" : "Novo Cartão"}</DialogTitle>
         </DialogHeader>
         <form onSubmit={async (e) => {
