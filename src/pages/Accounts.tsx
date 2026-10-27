@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { formatInvoiceCompetence, getCardCommittedAmount, getCreditCardCycle, getInvoiceAmount, getInvoiceClosingCandidates, getInvoiceClosingPreviewAmount, selectCardInvoice } from "@/lib/credit-card-billing";
 import { calculateAccountBalances } from "@/lib/financial-calculations";
 import AccountStatementDialog from "@/components/AccountStatementDialog";
+import { formatCpfInput, isValidCpf, maskAccountNumber, normalizeCardLastFour } from "@/lib/bank-identification";
 import CreditCardStatementDialog from "@/components/CreditCardStatementDialog";
 
 const COLORS = [
@@ -145,6 +146,8 @@ const getOpenInvoice = (cardId: string) => creditCardInvoices
                         <div>
                           <p className="font-semibold text-foreground">{acc.name}</p>
                           <p className="text-xs text-muted-foreground">{acc.bank} · {acc.type === "checking" ? "Corrente" : "Poupança"}</p>
+                           {acc.accountNumber && <p className="text-xs text-muted-foreground">Ag. {acc.agency || "—"} · Conta {maskAccountNumber(acc.accountNumber)}</p>}
+                           {acc.holderName && <p className="text-xs text-muted-foreground">{acc.holderName}</p>}
                         </div>
                       </div>
                       <div className="flex gap-1">
@@ -819,6 +822,11 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
 }) {
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
+  const [agency, setAgency] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [holderName, setHolderName] = useState("");
+  const [holderCpf, setHolderCpf] = useState("");
+  const [cpfError, setCpfError] = useState("");
   const [type, setType] = useState<"checking" | "savings">("checking");
   const [initialBalance, setInitialBalance] = useState("");
   const [color, setColor] = useState("blue");
@@ -829,12 +837,17 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
       if (initial) {
         setName(initial.name);
         setBank(initial.bank);
+        setAgency(initial.agency ?? "");
+        setAccountNumber(initial.accountNumber ?? "");
+        setHolderName(initial.holderName ?? "");
+        setHolderCpf(formatCpfInput(initial.holderCpf ?? ""));
+        setCpfError("");
         setType(initial.type);
         setInitialBalance(String(initial.initialBalance));
         setColor(initial.color);
         setAdjustTo(typeof currentBalance === "number" ? currentBalance.toFixed(2) : "");
       } else {
-        setName(""); setBank(""); setType("checking"); setInitialBalance(""); setColor("blue"); setAdjustTo("");
+        setName(""); setBank(""); setAgency(""); setAccountNumber(""); setHolderName(""); setHolderCpf(""); setCpfError(""); setType("checking"); setInitialBalance(""); setColor("blue"); setAdjustTo("");
       }
     }
   }, [open, initial, currentBalance]);
@@ -842,10 +855,10 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
   // Reset on open
   const resetForm = () => {
     if (initial) {
-      setName(initial.name); setBank(initial.bank); setType(initial.type);
+      setName(initial.name); setBank(initial.bank); setAgency(initial.agency ?? ""); setAccountNumber(initial.accountNumber ?? ""); setHolderName(initial.holderName ?? ""); setHolderCpf(formatCpfInput(initial.holderCpf ?? "")); setCpfError(""); setType(initial.type);
       setInitialBalance(String(initial.initialBalance)); setColor(initial.color);
     } else {
-      setName(""); setBank(""); setType("checking"); setInitialBalance(""); setColor("blue");
+      setName(""); setBank(""); setAgency(""); setAccountNumber(""); setHolderName(""); setHolderCpf(""); setCpfError(""); setType("checking"); setInitialBalance(""); setColor("blue");
     }
   };
 
@@ -857,7 +870,12 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
         </DialogHeader>
         <form onSubmit={async (e) => {
           e.preventDefault();
-          await onSubmit({ name, bank, type, initialBalance: parseFloat(initialBalance) || 0, color });
+          if (holderCpf && !isValidCpf(holderCpf)) {
+            setCpfError("Informe um CPF válido ou deixe o campo em branco.");
+            return;
+          }
+          await onSubmit({ name, bank, type, initialBalance: parseFloat(initialBalance) || 0, color,
+            agency: agency.trim(), accountNumber: accountNumber.trim(), holderName: holderName.trim(), holderCpf });
           if (initial && onAdjustBalance && typeof currentBalance === "number") {
             const target = parseFloat(adjustTo);
             if (!isNaN(target)) {
@@ -917,6 +935,29 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
               </Select>
             </div>
           </div>
+          <fieldset className="space-y-3 rounded-lg border border-border/70 p-3 sm:p-4">
+            <legend className="px-1 text-sm font-semibold text-foreground">Dados bancários e do titular</legend>
+            <p className="text-xs text-muted-foreground">Campos opcionais para identificar a conta.</p>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="bank-agency">Agência</Label>
+                <Input id="bank-agency" value={agency} onChange={(e) => setAgency(e.target.value)} placeholder="Ex: 0001" maxLength={25} autoComplete="off" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bank-account-number">Número da conta (com dígito)</Label>
+                <Input id="bank-account-number" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} placeholder="Ex: 12345-6" maxLength={40} autoComplete="off" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="account-holder-name">Nome completo do titular</Label>
+                <Input id="account-holder-name" value={holderName} onChange={(e) => setHolderName(e.target.value)} placeholder="Nome do titular" maxLength={120} autoComplete="off" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="account-holder-cpf">CPF do titular</Label>
+                <Input id="account-holder-cpf" value={holderCpf} onChange={(e) => { setHolderCpf(formatCpfInput(e.target.value)); setCpfError(""); }} placeholder="000.000.000-00" inputMode="numeric" maxLength={14} autoComplete="off" aria-invalid={Boolean(cpfError)} aria-describedby={cpfError ? "account-cpf-error" : undefined} />
+                {cpfError && <p id="account-cpf-error" role="alert" className="text-xs text-destructive">{cpfError}</p>}
+              </div>
+            </div>
+          </fieldset>
           {initial && typeof currentBalance === "number" && (
             <div className="space-y-2 rounded-lg border border-dashed border-border p-3">
               <Label className="text-foreground">Ajustar saldo atual</Label>
