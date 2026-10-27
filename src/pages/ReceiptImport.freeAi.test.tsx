@@ -63,7 +63,7 @@ vi.mock("@/components/TransactionForm", () => ({
   ) : null,
 }));
 
-const FREE_BUTTON = /Ler comprovante gr\u00e1tis/;
+const FREE_BUTTON = /Ler Comprovante com IA/;
 const PAID_BUTTON = /IA do Lovable/;
 
 
@@ -115,9 +115,10 @@ describe("ReceiptImport free external AI reader (test)", () => {
   afterEach(() => {
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    vi.unstubAllEnvs();
   });
 
-  it.each(["image/jpeg", "application/pdf"])("keeps %s selection compact and alternatives collapsed without starting a reader", async (type) => {
+  it.each(["image/jpeg", "application/pdf"])("keeps %s selection compact with only the IA reader visible", async (type) => {
     mocks.getFreeAiStatus.mockResolvedValue({ state: "available" });
     const file = new File(["receipt"], type === "application/pdf" ? "comprovante.pdf" : "foto.jpg", { type });
     selectFile(file);
@@ -125,10 +126,9 @@ describe("ReceiptImport free external AI reader (test)", () => {
     expect(screen.getByText(file.name)).toBeInTheDocument();
     expect(await screen.findByRole("button", { name: FREE_BUTTON })).toBeEnabled();
     expect(screen.getByRole("button", { name: "Tirar nova foto" })).toBeEnabled();
-    const summary = screen.getByText("Outros métodos de leitura");
-    expect(summary.closest("details")).not.toHaveAttribute("open");
-    expect(screen.getByRole("button", { name: "OCR local" })).not.toBeVisible();
-    expect(screen.getByRole("button", { name: PAID_BUTTON })).not.toBeVisible();
+    expect(screen.queryByText("Outros métodos de leitura")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "OCR local" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: PAID_BUTTON })).not.toBeInTheDocument();
     expect(screen.queryByText(/créditos|custo R\$/)).not.toBeInTheDocument();
     expect(document.querySelector("img, iframe, embed, object, canvas")).toBeNull();
     const picker = document.querySelector<HTMLInputElement>('input[type="file"]')!;
@@ -137,11 +137,7 @@ describe("ReceiptImport free external AI reader (test)", () => {
     expect(click).toHaveBeenCalledOnce();
     fireEvent(picker, new Event("cancel"));
     expect(screen.getByText(file.name)).toBeInTheDocument();
-    fireEvent.click(summary);
-    expect(screen.getByRole("button", { name: "OCR local" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: PAID_BUTTON })).toBeEnabled();
-    fireEvent.click(summary);
-    expect(summary.closest("details")).not.toHaveAttribute("open");
+    expect(screen.queryByText("Outros métodos de leitura")).not.toBeInTheDocument();
     expect(mocks.parseReceiptFree).not.toHaveBeenCalled();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
     expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
@@ -153,14 +149,15 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     const parse = provider === "free" ? mocks.parseReceiptFree : mocks.parseReceipt;
     let reject!: (error: Error) => void;
     parse.mockReturnValueOnce(new Promise((_, fail) => { reject = fail; }));
+    if (provider === "paid") vi.stubEnv("VITE_ENABLE_LEGACY_RECEIPT_READERS", "true");
     selectFile();
     if (provider === "paid") alternativeButton("IA do Lovable");
     fireEvent.click(await screen.findByRole("button", { name: provider === "free" ? FREE_BUTTON : PAID_BUTTON }));
-    const confirmationName = provider === "free" ? "Continuar gr\u00e1tis" : "Continuar com IA";
+    const confirmationName = provider === "free" ? "Continuar leitura" : "Continuar com IA";
     const confirmation = await screen.findByRole("button", { name: confirmationName });
     act(() => { for (let i = 0; i < 10; i++) fireEvent.click(confirmation); });
     expect(parse).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Lendo o comprovante...")).toBeInTheDocument();
+    expect(screen.getByText("Lendo comprovante com IA...")).toBeInTheDocument();
     await act(async () => { reject(new Error("Synthetic read failure")); });
     expect(await screen.findByText("Synthetic read failure")).toBeInTheDocument();
     expect(provider === "free" ? mocks.parseReceipt : mocks.parseReceiptFree).not.toHaveBeenCalled();
@@ -177,9 +174,9 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
   it("shows an explicit unavailable status while the integration is not configured", async () => {
     mocks.getFreeAiStatus.mockResolvedValue({ state: "unavailable" });
     selectFile();
-    await waitFor(() => expect(alternativeButton("OCR local")).toBeInTheDocument());
+    expect(await screen.findByText("Leitura com IA indisponível no momento.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: FREE_BUTTON })).not.toBeInTheDocument();
-    expect(await screen.findByText("IA grátis indisponível no servidor no momento.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "OCR local" })).not.toBeInTheDocument();
     expect(mocks.parseReceiptFree).not.toHaveBeenCalled();
   });
 
@@ -197,9 +194,10 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     selectFile();
     fireEvent.click(await screen.findByRole("button", { name: FREE_BUTTON }));
     expect(
-      await screen.findByText(/envia a foto do comprovante para a Cloudflare Workers AI/),
+      await screen.findByText(/A imagem será enviada à Cloudflare Workers AI/),
     ).toBeInTheDocument();
-    expect(screen.getByText(/cota diária limitada/)).toBeInTheDocument();
+    expect(screen.getByText(/Confira os dados antes de salvar/)).toBeInTheDocument();
+    expect(screen.queryByText(/plano gratuito|sem cobrança|cota diária limitada/)).not.toBeInTheDocument();
     expect(mocks.parseReceiptFree).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: "Cancelar" }));
@@ -211,7 +209,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     mocks.getFreeAiStatus.mockResolvedValue({ state: "available" });
     const file = selectFile();
     fireEvent.click(await screen.findByRole("button", { name: FREE_BUTTON }));
-    fireEvent.click(await screen.findByRole("button", { name: "Continuar grátis" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Continuar leitura" }));
 
     await waitFor(() => expect(mocks.parseReceiptFree).toHaveBeenCalledTimes(1));
     expect(mocks.parseReceiptFree).toHaveBeenCalledWith(file, {
@@ -225,15 +223,14 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     expect(await screen.findByTestId("prefill-title")).toHaveTextContent("Mercado Tradição");
   });
 
-  it("keeps the paid Lovable flow untouched when the free reader is enabled", async () => {
+  it("never exposes the paid Lovable or old OCR options in the customer interface", async () => {
     mocks.getFreeAiStatus.mockResolvedValue({ state: "available" });
     selectFile();
-    fireEvent.click(await findAlternativeButton("IA do Lovable"));
-    expect(
-      await screen.findByText("Esta leitura utiliza a IA do Lovable e pode consumir seus créditos. Deseja continuar?"),
-    ).toBeInTheDocument();
+    expect(await screen.findByRole("button", { name: FREE_BUTTON })).toBeEnabled();
+    expect(screen.queryByText("Outros métodos de leitura")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: PAID_BUTTON })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "OCR local" })).not.toBeInTheDocument();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
-    expect(mocks.parseReceiptFree).not.toHaveBeenCalled();
   });
 
   it("warns about possible duplicates coming from the free reader", async () => {
@@ -242,7 +239,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     mocks.duplicateLimit.mockResolvedValue({ data: [{ id: "existing-transaction" }], error: null });
     selectFile();
     fireEvent.click(await screen.findByRole("button", { name: FREE_BUTTON }));
-    fireEvent.click(await screen.findByRole("button", { name: "Continuar grátis" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Continuar leitura" }));
 
     expect(
       await screen.findByText("Esse comprovante já parece ter sido lançado antes. Confira antes de salvar de novo."),
@@ -255,7 +252,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     mocks.parseReceiptFree.mockRejectedValue(new Error("A cota gratuita de IA foi atingida no momento."));
     selectFile();
     fireEvent.click(await screen.findByRole("button", { name: FREE_BUTTON }));
-    fireEvent.click(await screen.findByRole("button", { name: "Continuar grátis" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Continuar leitura" }));
 
     expect(await screen.findByText("A cota gratuita de IA foi atingida no momento.")).toBeInTheDocument();
     expect(screen.queryByTestId("review-form")).not.toBeInTheDocument();
@@ -268,7 +265,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     mocks.parseReceiptFree.mockResolvedValue(freeParsedReceipt({ is_receipt: false }));
     selectFile();
     fireEvent.click(await screen.findByRole("button", { name: FREE_BUTTON }));
-    fireEvent.click(await screen.findByRole("button", { name: "Continuar grátis" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Continuar leitura" }));
 
     expect(
       await screen.findByText("Essa imagem não parece ser um comprovante. Tente outra foto mais nítida."),
@@ -283,7 +280,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     }));
     selectFile();
 
-    const checkingButton = await screen.findByRole("button", { name: /Verificando IA grátis/ });
+    const checkingButton = await screen.findByRole("button", { name: /Verificando leitura com IA/ });
     expect(checkingButton).toBeDisabled();
     expect(screen.queryByRole("button", { name: FREE_BUTTON })).not.toBeInTheDocument();
 
@@ -296,7 +293,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     selectFile();
 
     expect(
-      await screen.findByText("Não foi possível confirmar a IA grátis no servidor."),
+      await screen.findByText("Não foi possível verificar o serviço de IA."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: FREE_BUTTON })).not.toBeInTheDocument();
     expect(mocks.parseReceiptFree).not.toHaveBeenCalled();
@@ -305,7 +302,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     fireEvent.click(screen.getByRole("button", { name: "Verificar novamente" }));
 
     expect(await screen.findByRole("button", { name: FREE_BUTTON })).toBeEnabled();
-    expect(screen.queryByText("Não foi possível confirmar a IA grátis no servidor.")).not.toBeInTheDocument();
+    expect(screen.queryByText("Não foi possível verificar o serviço de IA.")).not.toBeInTheDocument();
   });
 
   it("does not claim the free reader is ready when the session is not authorized yet", async () => {
@@ -313,7 +310,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     selectFile();
 
     expect(
-      await screen.findByText("Não foi possível confirmar a IA grátis no servidor."),
+      await screen.findByText("Não foi possível verificar o serviço de IA."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: FREE_BUTTON })).not.toBeInTheDocument();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
@@ -324,7 +321,7 @@ describe.each(["free", "paid"] as const)("single-flight %s receipt reading", (pr
     selectFile();
 
     expect(
-      await screen.findByText("Não foi possível confirmar a IA grátis no servidor."),
+      await screen.findByText("Não foi possível verificar o serviço de IA."),
     ).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: FREE_BUTTON })).not.toBeInTheDocument();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
