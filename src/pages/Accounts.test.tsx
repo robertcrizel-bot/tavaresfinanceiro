@@ -194,7 +194,7 @@ describe("Accounts page", () => {
     fireEvent.click(screen.getByText("Cartões"));
     fireEvent.click(screen.getByRole("button", { name: "Novo Cartão" }));
     expect(screen.getByText("Identificação do cartão")).toBeInTheDocument();
-    expect(screen.getByText(/não armazenamos número completo/)).toBeInTheDocument();
+    expect(screen.getByText(/não armazenamos número completo/i)).toBeInTheDocument();
     fireEvent.change(screen.getByPlaceholderText("Ex: Nubank Platinum"), { target: { value: "Cartão Casa" } });
     fireEvent.change(screen.getByPlaceholderText("Ex: Nubank"), { target: { value: "Banco Casa" } });
     fireEvent.change(screen.getByPlaceholderText("0,00"), { target: { value: "4000" } });
