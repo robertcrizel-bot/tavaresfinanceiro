@@ -3,6 +3,11 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import Accounts, { CreditCardInvoiceHistoryDialog } from "@/pages/Accounts";
 
+const bankWriteMocks = vi.hoisted(() => ({
+  addAccount: vi.fn(),
+  addCreditCard: vi.fn(),
+}));
+
 const financeMocks = vi.hoisted(() => ({
   transactions: [] as Record<string, unknown>[],
   creditCardInvoices: [] as Record<string, unknown>[],
@@ -20,10 +25,10 @@ vi.mock("@/contexts/AccountContext", () => ({
       { id: "cc-1", name: "Nubank Platinum", bank: "Nubank", limit: 5000, closingDay: 20, dueDay: 27, color: "purple" },
     ],
     loading: false,
-    addAccount: vi.fn(),
+    addAccount: bankWriteMocks.addAccount,
     updateAccount: vi.fn(),
     deleteAccount: vi.fn(),
-    addCreditCard: vi.fn(),
+    addCreditCard: bankWriteMocks.addCreditCard,
     updateCreditCard: vi.fn(),
     deleteCreditCard: vi.fn(),
   }),
@@ -128,6 +133,8 @@ describe("Accounts page", () => {
     vi.clearAllMocks();
     financeMocks.transactions = [];
     financeMocks.creditCardInvoices = [];
+    bankWriteMocks.addAccount.mockResolvedValue(undefined);
+    bankWriteMocks.addCreditCard.mockResolvedValue(true);
     financeMocks.closeCardInvoice.mockResolvedValue(true);
     financeMocks.reopenCardInvoice.mockResolvedValue(true);
     financeMocks.reverseCardInvoicePayment.mockResolvedValue(true);
@@ -159,6 +166,45 @@ describe("Accounts page", () => {
     expect(screen.getByText("Limite (R$)")).toBeInTheDocument();
     expect(screen.getByText("Dia Fechamento")).toBeInTheDocument();
     expect(screen.getByText("Dia Vencimento")).toBeInTheDocument();
+  });
+
+  it("collects agency, account number and owner details, validates CPF and saves optional fields", async () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByRole("button", { name: "Nova Conta" }));
+    expect(screen.getByText("Dados bancários e do titular")).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Ex: Conta Principal"), { target: { value: "Conta Casa" } });
+    fireEvent.change(screen.getByPlaceholderText("Ex: Nubank"), { target: { value: "Banco Casa" } });
+    fireEvent.change(screen.getByLabelText("Agência"), { target: { value: "0012" } });
+    fireEvent.change(screen.getByLabelText("Número da conta (com dígito)"), { target: { value: "123456-7" } });
+    fireEvent.change(screen.getByLabelText("Nome completo do titular"), { target: { value: "Maria" } });
+    fireEvent.change(screen.getByLabelText("CPF do titular"), { target: { value: "00000000000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("CPF válido");
+    expect(bankWriteMocks.addAccount).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByLabelText("CPF do titular"), { target: { value: "52998224725" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar" }));
+    await waitFor(() => expect(bankWriteMocks.addAccount).toHaveBeenCalledWith(expect.objectContaining({
+      name: "Conta Casa", bank: "Banco Casa", agency: "0012", accountNumber: "123456-7",
+      holderName: "Maria", holderCpf: "529.982.247-25",
+    })));
+  });
+
+  it("saves only safe card identity information, without full card number or CVV", async () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByText("Cartões"));
+    fireEvent.click(screen.getByRole("button", { name: "Novo Cartão" }));
+    expect(screen.getByText("Identificação do cartão")).toBeInTheDocument();
+    expect(screen.getByText(/não armazenamos número completo/)).toBeInTheDocument();
+    fireEvent.change(screen.getByPlaceholderText("Ex: Nubank Platinum"), { target: { value: "Cartão Casa" } });
+    fireEvent.change(screen.getByPlaceholderText("Ex: Nubank"), { target: { value: "Banco Casa" } });
+    fireEvent.change(screen.getByPlaceholderText("0,00"), { target: { value: "4000" } });
+    fireEvent.change(screen.getByLabelText("Bandeira"), { target: { value: "Visa" } });
+    fireEvent.change(screen.getByLabelText("Últimos 4 dígitos"), { target: { value: "4321" } });
+    fireEvent.change(screen.getByLabelText("Nome completo do titular"), { target: { value: "Maria" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar" }));
+    await waitFor(() => expect(bankWriteMocks.addCreditCard).toHaveBeenCalledWith(expect.objectContaining({
+      name: "Cartão Casa", brand: "Visa", lastFour: "4321", holderName: "Maria",
+    })));
   });
 
   it("shows 'Ver extrato' button on account card", () => {
