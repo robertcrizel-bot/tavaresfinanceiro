@@ -504,7 +504,7 @@ export default function Forecasts() {
       {/* Add/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={(open) => { if (!savingForecastRef.current) setDialogOpen(open); }}>
         <DialogContent className="max-w-md max-h-[90vh] flex flex-col overflow-hidden p-0">
-          <DialogHeader className="px-6 pt-6 pb-0 shrink-0">
+          <DialogHeader className="px-6 pt-6 pb-0 pr-12 shrink-0">
             <DialogTitle>{editingBill ? "Editar Previsão" : "Nova Previsão"}</DialogTitle>
             <DialogDescription>
               {editingBill ? "Atualize os dados da previsão recorrente" : "Cadastre uma nova previsão recorrente"}
