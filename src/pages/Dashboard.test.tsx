@@ -98,6 +98,18 @@ describe("Dashboard default period", () => {
     mocks.transactions = transactions;
   });
 
+  it("shows descriptive mobile-safe receipt action and bold standardized registration buttons", () => {
+    renderDashboard();
+    const readReceipt = screen.getByRole("link", { name: "Ler Comprovante" });
+    const addRecord = screen.getByRole("button", { name: "Novo Registro" });
+    expect(readReceipt).toHaveAttribute("href", "/receipt");
+    expect(readReceipt).toHaveClass("font-bold");
+    expect(addRecord).toHaveClass("font-extrabold");
+    expect(readReceipt).toHaveClass("h-11", "rounded-xl");
+    expect(addRecord).toHaveClass("h-11", "rounded-xl");
+    expect(screen.queryByRole("link", { name: "Comprovante" })).not.toBeInTheDocument();
+  });
+
   it("starts on Mês with the full current calendar month", () => {
     renderDashboard();
 
