@@ -161,6 +161,26 @@ describe("Accounts page", () => {
     expect(screen.getByText("Dia Vencimento")).toBeInTheDocument();
   });
 
+  it("offers persisted banking details in the account form without requiring them", () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByRole("button", { name: "Nova Conta" }));
+    expect(screen.getByLabelText("Agência")).toHaveAttribute("maxLength", "20");
+    expect(screen.getByLabelText("Número da conta (com dígito)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nome do titular")).toBeInTheDocument();
+    expect(screen.getByLabelText("CPF do titular")).toHaveAttribute("pattern", "[0-9]{11}");
+    expect(screen.getByText("Dados bancários (opcionais)")).toBeInTheDocument();
+  });
+
+  it("offers safe card details without asking for full PAN or CVV", () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByText("Cartões"));
+    fireEvent.click(screen.getByRole("button", { name: "Novo Cartão" }));
+    expect(screen.getByLabelText("Nome do titular")).toBeInTheDocument();
+    expect(screen.getByLabelText("Bandeira")).toBeInTheDocument();
+    expect(screen.getByLabelText("Últimos 4 dígitos")).toHaveAttribute("pattern", "[0-9]{4}");
+    expect(screen.getByText("Dados do cartão (opcionais)")).toBeInTheDocument();
+  });
+
   it("shows 'Ver extrato' button on account card", () => {
     render(<Accounts />);
     expect(screen.getByText("Ver extrato")).toBeTruthy();

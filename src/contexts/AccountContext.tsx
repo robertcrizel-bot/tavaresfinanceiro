@@ -42,6 +42,10 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
         id: r.id,
         name: r.name,
         bank: r.bank,
+        agency: r.agency,
+        accountNumber: r.account_number,
+        holderName: r.holder_name,
+        holderCpf: r.holder_cpf,
         type: r.type as Account["type"],
         initialBalance: Number(r.initial_balance),
         color: r.color,
@@ -52,6 +56,9 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
         id: r.id,
         name: r.name,
         bank: r.bank,
+        holderName: r.holder_name,
+        brand: r.brand,
+        lastFour: r.last_four,
         limit: Number(r.credit_limit),
         closingDay: r.closing_day,
         dueDay: r.due_day,
@@ -68,6 +75,8 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     const { error } = await supabase.from("accounts").insert({
       user_id: user.id, name: a.name, bank: a.bank, type: a.type,
       initial_balance: a.initialBalance, color: a.color,
+      agency: a.agency || null, account_number: a.accountNumber || null,
+      holder_name: a.holderName || null, holder_cpf: a.holderCpf || null,
     });
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else { toast({ title: "Conta criada", description: a.name }); fetchAccounts(); }
@@ -77,6 +86,8 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     const { error } = await supabase.from("accounts").update({
       name: a.name, bank: a.bank, type: a.type,
       initial_balance: a.initialBalance, color: a.color,
+      agency: a.agency || null, account_number: a.accountNumber || null,
+      holder_name: a.holderName || null, holder_cpf: a.holderCpf || null,
     }).eq("id", a.id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else { toast({ title: "Conta atualizada", description: a.name }); fetchAccounts(); }
@@ -93,6 +104,8 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     const { error } = await supabase.from("credit_cards").insert({
       user_id: user.id, name: c.name, bank: c.bank, credit_limit: c.limit,
       closing_day: c.closingDay, due_day: c.dueDay, color: c.color,
+      holder_name: c.holderName || null, brand: c.brand || null,
+      last_four: c.lastFour || null,
     });
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else { toast({ title: "Cartão criado", description: c.name }); fetchAccounts(); }
@@ -102,6 +115,8 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     const { error } = await supabase.from("credit_cards").update({
       name: c.name, bank: c.bank, credit_limit: c.limit,
       closing_day: c.closingDay, due_day: c.dueDay, color: c.color,
+      holder_name: c.holderName || null, brand: c.brand || null,
+      last_four: c.lastFour || null,
     }).eq("id", c.id);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
