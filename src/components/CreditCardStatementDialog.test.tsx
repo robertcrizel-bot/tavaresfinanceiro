@@ -156,6 +156,17 @@ describe("CreditCardStatementDialog", () => {
     expect(matches.length).toBeGreaterThanOrEqual(1);
   });
 
+  it("never doubles the BRL symbol in purchase and reversal rows", () => {
+    const transactions = [
+      makeTx({ id: "tx-buy", title: "Compra formatada", amount: 32 }),
+      makeTx({ id: "tx-refund", title: "Estorno formatado", type: "income", amount: 12 }),
+    ];
+    const { container } = render(<CreditCardStatementDialog {...defaultProps} transactions={transactions} />);
+    expect(container.textContent).not.toMatch(/R\\$\\s*R\\$/);
+    expect(screen.getAllByText("R$ 32,00").length).toBeGreaterThanOrEqual(1);
+    expect(screen.getByText("-R$ 12,00")).toBeTruthy();
+  });
+
   it("shows installment info when present", () => {
     const transactions = [makeTx({ id: "tx-inst", title: "TV 4K (2/5)", amount: 300 })];
     render(<CreditCardStatementDialog {...defaultProps} transactions={transactions} />);
@@ -212,7 +223,7 @@ describe("CreditCardStatementDialog", () => {
     })];
     render(<CreditCardStatementDialog {...defaultProps} transactions={transactions} />);
     expect(screen.getByText("Estorno")).toBeTruthy();
-    expect(screen.getByText("-R$ 30,00")).toBeTruthy();
+    expect(screen.getAllByText("-R$ 30,00").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows Export button", () => {
