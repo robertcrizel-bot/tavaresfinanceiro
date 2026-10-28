@@ -95,6 +95,9 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
           accountId: r.account_id || undefined,
           creditCardId: r.credit_card_id || undefined,
           creditCardInvoiceId: r.credit_card_invoice_id || undefined,
+          installments: r.installments ?? undefined,
+          installmentNumber: r.installment_number ?? undefined,
+          parentTransactionId: r.parent_transaction_id || undefined,
           financialKind: r.financial_kind as Transaction["financialKind"],
           isPaid: r.is_paid ?? false,
           hasAttachment: attSet.has(r.id),
@@ -242,7 +245,27 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
     return true;
   }, [user, fetchTransactions]);
 
-  const updateTransaction = useCallback(async (t: Transaction, options?: { attachments?: File[] }) => {
+  const updateTransaction = useCallback(async (t: Transaction, options?: { attachments?: File[]; installments?: number }) => {
+    if (options?.installments && options.installments > 1) {
+      const { error } = await supabase.rpc("convert_existing_card_purchase_to_installments", {
+        p_transaction_id: t.id,
+        p_title: t.title,
+        p_amount: t.amount,
+        p_category: t.category,
+        p_date: t.date,
+        p_description: t.description || "",
+        p_credit_card_id: t.creditCardId!,
+        p_installments: options.installments,
+      });
+      if (error) {
+        toast({ title: "Não foi possível parcelar", description: error.message, variant: "destructive" });
+        return false;
+      }
+      if (user && options.attachments?.length) await uploadAttachments(user.id, t.id, options.attachments);
+      toast({ title: "Compra parcelada", description: `${options.installments} parcelas criadas sem duplicar a compra original.` });
+      await fetchTransactions();
+      return true;
+    }
     const { error } = await supabase.from("transactions").update({
       title: t.title,
       amount: t.amount,
