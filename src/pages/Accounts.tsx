@@ -812,7 +812,7 @@ export function CreditCardInvoiceHistoryDialog({
 function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, onAdjustBalance }: {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: Omit<Account, "id">) => void;
+  onSubmit: (data: Omit<Account, "id">) => Promise<boolean>;
   initial?: Account;
   currentBalance?: number;
   onAdjustBalance?: (accountId: string, diff: number) => Promise<void>;
@@ -821,6 +821,12 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
   const [bank, setBank] = useState("");
   const [type, setType] = useState<"checking" | "savings">("checking");
   const [initialBalance, setInitialBalance] = useState("");
+  const [agency, setAgency] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountDigit, setAccountDigit] = useState("");
+  const [holderName, setHolderName] = useState("");
+  const [holderCpf, setHolderCpf] = useState("");
+  const [identificationError, setIdentificationError] = useState("");
   const [color, setColor] = useState("blue");
   const [adjustTo, setAdjustTo] = useState("");
 
@@ -831,23 +837,21 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
         setBank(initial.bank);
         setType(initial.type);
         setInitialBalance(String(initial.initialBalance));
+        setAgency(initial.agency ?? "");
+        setAccountNumber(initial.accountNumber ?? "");
+        setAccountDigit(initial.accountDigit ?? "");
+        setHolderName(initial.holderName ?? "");
+        setHolderCpf(initial.holderCpf ?? "");
+        setIdentificationError("");
         setColor(initial.color);
         setAdjustTo(typeof currentBalance === "number" ? currentBalance.toFixed(2) : "");
       } else {
         setName(""); setBank(""); setType("checking"); setInitialBalance(""); setColor("blue"); setAdjustTo("");
+        setAgency(""); setAccountNumber(""); setAccountDigit(""); setHolderName(""); setHolderCpf(""); setIdentificationError("");
       }
     }
   }, [open, initial, currentBalance]);
 
-  // Reset on open
-  const resetForm = () => {
-    if (initial) {
-      setName(initial.name); setBank(initial.bank); setType(initial.type);
-      setInitialBalance(String(initial.initialBalance)); setColor(initial.color);
-    } else {
-      setName(""); setBank(""); setType("checking"); setInitialBalance(""); setColor("blue");
-    }
-  };
 
   return (
     <Dialog open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
@@ -857,7 +861,19 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
         </DialogHeader>
         <form onSubmit={async (e) => {
           e.preventDefault();
-          await onSubmit({ name, bank, type, initialBalance: parseFloat(initialBalance) || 0, color });
+          const cpf = holderCpf.replace(/\\D/g, "");
+          if (cpf && cpf.length !== 11) {
+            setIdentificationError("Informe os 11 dígitos do CPF ou deixe o campo em branco.");
+            return;
+          }
+          setIdentificationError("");
+          const saved = await onSubmit({
+            name, bank, type, initialBalance: parseFloat(initialBalance) || 0, color,
+            agency: agency.trim() || null, accountNumber: accountNumber.trim() || null,
+            accountDigit: accountDigit.trim() || null, holderName: holderName.trim() || null,
+            holderCpf: cpf || null,
+          });
+          if (saved === false) return;
           if (initial && onAdjustBalance && typeof currentBalance === "number") {
             const target = parseFloat(adjustTo);
             if (!isNaN(target)) {
@@ -890,6 +906,35 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
               </Select>
             </div>
           </div>
+          <fieldset className="space-y-3 rounded-xl border border-border p-3 sm:p-4">
+            <legend className="px-2 text-sm font-semibold">Dados bancários (opcionais)</legend>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="bank-agency">Agência</Label>
+                <Input id="bank-agency" autoComplete="off" value={agency} onChange={(e) => setAgency(e.target.value)} maxLength={15} placeholder="Ex: 0001" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bank-number">Número da conta</Label>
+                <Input id="bank-number" autoComplete="off" value={accountNumber} onChange={(e) => setAccountNumber(e.target.value)} maxLength={32} placeholder="Ex: 12345678" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bank-digit">Dígito</Label>
+                <Input id="bank-digit" autoComplete="off" value={accountDigit} onChange={(e) => setAccountDigit(e.target.value)} maxLength={3} placeholder="Ex: 9" />
+              </div>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="bank-holder-name">Nome do titular</Label>
+                <Input id="bank-holder-name" autoComplete="off" value={holderName} onChange={(e) => setHolderName(e.target.value)} maxLength={160} placeholder="Nome completo" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="bank-holder-cpf">CPF do titular</Label>
+                <Input id="bank-holder-cpf" autoComplete="off" inputMode="numeric" value={holderCpf} onChange={(e) => setHolderCpf(e.target.value.replace(/[^\\d.\\-]/g, "").slice(0, 14))} maxLength={14} placeholder="000.000.000-00" />
+              </div>
+            </div>
+            {identificationError && <p role="alert" className="text-xs text-destructive">{identificationError}</p>}
+            <p className="text-xs text-muted-foreground">Dados de identificação privados. Não informe senhas ou códigos de acesso.</p>
+          </fieldset>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Saldo Inicial (R$)</Label>
@@ -957,6 +1002,10 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
   const [limit, setLimit] = useState("");
+  const [cardHolderName, setCardHolderName] = useState("");
+  const [cardBrand, setCardBrand] = useState("");
+  const [cardLastFour, setCardLastFour] = useState("");
+  const [cardDetailsError, setCardDetailsError] = useState("");
   const [closingDay, setClosingDay] = useState("20");
   const [dueDay, setDueDay] = useState("27");
   const [color, setColor] = useState("purple");
@@ -965,10 +1014,13 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
   const resetForm = () => {
     if (initial) {
       setName(initial.name); setBank(initial.bank); setLimit(String(initial.limit));
+      setCardHolderName(initial.holderName ?? ""); setCardBrand(initial.cardBrand ?? "");
+      setCardLastFour(initial.cardLastFour ?? ""); setCardDetailsError("");
       setClosingDay(String(initial.closingDay)); setDueDay(String(initial.dueDay)); setColor(initial.color);
       setAdjustTo(typeof currentUsed === "number" ? currentUsed.toFixed(2) : "");
     } else {
       setName(""); setBank(""); setLimit(""); setClosingDay("20"); setDueDay("27"); setColor("purple"); setAdjustTo("");
+      setCardHolderName(""); setCardBrand(""); setCardLastFour(""); setCardDetailsError("");
     }
   };
 
@@ -984,7 +1036,17 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
         </DialogHeader>
         <form onSubmit={async (e) => {
           e.preventDefault();
-          const saved = await onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color });
+          if (cardLastFour && !/^\\d{4}$/.test(cardLastFour)) {
+            setCardDetailsError("Informe apenas os quatro últimos dígitos do cartão.");
+            return;
+          }
+          setCardDetailsError("");
+          const saved = await onSubmit({
+            name, bank, limit: parseFloat(limit) || 0,
+            closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color,
+            holderName: cardHolderName.trim() || null, cardBrand: cardBrand.trim() || null,
+            cardLastFour: cardLastFour || null,
+          });
           if (saved === false) return;
           if (initial && canAdjustUsed && onAdjustUsed && typeof currentUsed === "number") {
             const target = parseFloat(adjustTo);
@@ -1013,6 +1075,25 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
               <Input type="number" step="0.01" min="0" value={limit} onChange={(e) => setLimit(e.target.value)} required placeholder="0,00" />
             </div>
           </div>
+          <fieldset className="space-y-3 rounded-xl border border-border p-3 sm:p-4">
+            <legend className="px-2 text-sm font-semibold">Identificação do cartão (opcional)</legend>
+            <div className="space-y-2">
+              <Label htmlFor="card-holder-name">Nome do titular</Label>
+              <Input id="card-holder-name" autoComplete="off" maxLength={160} value={cardHolderName} onChange={(e) => setCardHolderName(e.target.value)} placeholder="Nome impresso no cartão" />
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="card-brand">Bandeira</Label>
+                <Input id="card-brand" autoComplete="off" maxLength={40} value={cardBrand} onChange={(e) => setCardBrand(e.target.value)} placeholder="Ex: Visa, Mastercard" />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="card-last-four">Últimos 4 dígitos</Label>
+                <Input id="card-last-four" autoComplete="off" inputMode="numeric" maxLength={4} value={cardLastFour} onChange={(e) => setCardLastFour(e.target.value.replace(/\\D/g, "").slice(0, 4))} placeholder="Ex: 1234" />
+              </div>
+            </div>
+            {cardDetailsError && <p role="alert" className="text-xs text-destructive">{cardDetailsError}</p>}
+            <p className="text-xs text-muted-foreground">Não informe o número completo, validade ou CVV do cartão.</p>
+          </fieldset>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>Dia Fechamento</Label>
