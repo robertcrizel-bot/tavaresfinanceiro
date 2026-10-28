@@ -3,6 +3,12 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import Accounts, { CreditCardInvoiceHistoryDialog } from "@/pages/Accounts";
 
+const accountActions = vi.hoisted(() => ({
+  addAccount: vi.fn(),
+  updateAccount: vi.fn(),
+  addCreditCard: vi.fn(),
+  updateCreditCard: vi.fn(),
+}));
 const financeMocks = vi.hoisted(() => ({
   transactions: [] as Record<string, unknown>[],
   creditCardInvoices: [] as Record<string, unknown>[],
@@ -20,11 +26,11 @@ vi.mock("@/contexts/AccountContext", () => ({
       { id: "cc-1", name: "Nubank Platinum", bank: "Nubank", limit: 5000, closingDay: 20, dueDay: 27, color: "purple" },
     ],
     loading: false,
-    addAccount: vi.fn(),
-    updateAccount: vi.fn(),
+    addAccount: accountActions.addAccount,
+    updateAccount: accountActions.updateAccount,
     deleteAccount: vi.fn(),
-    addCreditCard: vi.fn(),
-    updateCreditCard: vi.fn(),
+    addCreditCard: accountActions.addCreditCard,
+    updateCreditCard: accountActions.updateCreditCard,
     deleteCreditCard: vi.fn(),
   }),
 }));
@@ -126,11 +132,61 @@ vi.mock("lucide-react", () => ({
 describe("Accounts page", () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    accountActions.addAccount.mockResolvedValue(true);
+    accountActions.updateAccount.mockResolvedValue(true);
+    accountActions.addCreditCard.mockResolvedValue(true);
+    accountActions.updateCreditCard.mockResolvedValue(true);
     financeMocks.transactions = [];
     financeMocks.creditCardInvoices = [];
     financeMocks.closeCardInvoice.mockResolvedValue(true);
     financeMocks.reopenCardInvoice.mockResolvedValue(true);
     financeMocks.reverseCardInvoicePayment.mockResolvedValue(true);
+  });
+
+  it("saves optional bank identifiers and CPF as normalized digits", async () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByRole("button", { name: "Nova Conta" }));
+    fireEvent.change(screen.getByPlaceholderText("Ex: Conta Principal"), { target: { value: "Conta teste" } });
+    fireEvent.change(screen.getByPlaceholderText("Ex: Nubank"), { target: { value: "Inter" } });
+    fireEvent.change(screen.getByLabelText("Agência"), { target: { value: "0001" } });
+    fireEvent.change(screen.getByLabelText("Número da conta"), { target: { value: "00123456" } });
+    fireEvent.change(screen.getByLabelText("Dígito"), { target: { value: "9" } });
+    fireEvent.change(screen.getByLabelText("Nome do titular"), { target: { value: "Titular Exemplo" } });
+    fireEvent.change(screen.getByLabelText("CPF do titular"), { target: { value: "123.456.789-09" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar" }));
+    await waitFor(() => expect(accountActions.addAccount).toHaveBeenCalledWith(
+      expect.objectContaining({
+        agency: "0001", accountNumber: "00123456", accountDigit: "9",
+        holderName: "Titular Exemplo", holderCpf: "12345678909",
+      }),
+    ));
+  });
+
+  it("rejects an incomplete CPF rather than saving incorrect identification", async () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByRole("button", { name: "Nova Conta" }));
+    fireEvent.change(screen.getByPlaceholderText("Ex: Conta Principal"), { target: { value: "Conta teste" } });
+    fireEvent.change(screen.getByPlaceholderText("Ex: Nubank"), { target: { value: "Inter" } });
+    fireEvent.change(screen.getByLabelText("CPF do titular"), { target: { value: "12345" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("11 dígitos");
+    expect(accountActions.addAccount).not.toHaveBeenCalled();
+  });
+
+  it("saves only safe credit-card identifiers, never full card number or CVV", async () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByText("Cartões"));
+    fireEvent.click(screen.getByRole("button", { name: "Novo Cartão" }));
+    fireEvent.change(screen.getByPlaceholderText("Ex: Nubank Platinum"), { target: { value: "Cartão teste" } });
+    fireEvent.change(screen.getByPlaceholderText("Ex: Nubank"), { target: { value: "Banco teste" } });
+    fireEvent.change(screen.getByPlaceholderText("0,00"), { target: { value: "1500" } });
+    fireEvent.change(screen.getByLabelText("Nome do titular"), { target: { value: "Titular Exemplo" } });
+    fireEvent.change(screen.getByLabelText("Bandeira"), { target: { value: "Visa" } });
+    fireEvent.change(screen.getByLabelText("Últimos 4 dígitos"), { target: { value: "9876" } });
+    fireEvent.click(screen.getByRole("button", { name: "Criar" }));
+    await waitFor(() => expect(accountActions.addCreditCard).toHaveBeenCalledWith(
+      expect.objectContaining({ holderName: "Titular Exemplo", cardBrand: "Visa", cardLastFour: "9876" }),
+    ));
   });
 
   it("keeps the new account form spacious and scrollable on narrow viewports", () => {
