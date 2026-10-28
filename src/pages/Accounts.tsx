@@ -861,7 +861,7 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
         </DialogHeader>
         <form onSubmit={async (e) => {
           e.preventDefault();
-          const cpf = holderCpf.replace(/\\D/g, "");
+          const cpf = holderCpf.replace(/\D/g, "");
           if (cpf && cpf.length !== 11) {
             setIdentificationError("Informe os 11 dígitos do CPF ou deixe o campo em branco.");
             return;
@@ -929,7 +929,7 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
               </div>
               <div className="space-y-2">
                 <Label htmlFor="bank-holder-cpf">CPF do titular</Label>
-                <Input id="bank-holder-cpf" autoComplete="off" inputMode="numeric" value={holderCpf} onChange={(e) => setHolderCpf(e.target.value.replace(/[^\\d.\\-]/g, "").slice(0, 14))} maxLength={14} placeholder="000.000.000-00" />
+                <Input id="bank-holder-cpf" autoComplete="off" inputMode="numeric" value={holderCpf} onChange={(e) => setHolderCpf(e.target.value.replace(/[^\d.\-]/g, "").slice(0, 14))} maxLength={14} placeholder="000.000.000-00" />
               </div>
             </div>
             {identificationError && <p role="alert" className="text-xs text-destructive">{identificationError}</p>}
@@ -1036,7 +1036,7 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
         </DialogHeader>
         <form onSubmit={async (e) => {
           e.preventDefault();
-          if (cardLastFour && !/^\\d{4}$/.test(cardLastFour)) {
+          if (cardLastFour && !/^\d{4}$/.test(cardLastFour)) {
             setCardDetailsError("Informe apenas os quatro últimos dígitos do cartão.");
             return;
           }
@@ -1088,7 +1088,7 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
               </div>
               <div className="space-y-2">
                 <Label htmlFor="card-last-four">Últimos 4 dígitos</Label>
-                <Input id="card-last-four" autoComplete="off" inputMode="numeric" maxLength={4} value={cardLastFour} onChange={(e) => setCardLastFour(e.target.value.replace(/\\D/g, "").slice(0, 4))} placeholder="Ex: 1234" />
+                <Input id="card-last-four" autoComplete="off" inputMode="numeric" maxLength={4} value={cardLastFour} onChange={(e) => setCardLastFour(e.target.value.replace(/\D/g, "").slice(0, 4))} placeholder="Ex: 1234" />
               </div>
             </div>
             {cardDetailsError && <p role="alert" className="text-xs text-destructive">{cardDetailsError}</p>}
