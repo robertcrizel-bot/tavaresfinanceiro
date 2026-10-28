@@ -17,6 +17,11 @@ export type Database = {
       accounts: {
         Row: {
           bank: string
+          agency: string | null
+          account_number: string | null
+          account_digit: string | null
+          holder_name: string | null
+          holder_cpf: string | null
           color: string
           created_at: string
           id: string
@@ -28,6 +33,11 @@ export type Database = {
         }
         Insert: {
           bank: string
+          agency?: string | null
+          account_number?: string | null
+          account_digit?: string | null
+          holder_name?: string | null
+          holder_cpf?: string | null
           color?: string
           created_at?: string
           id?: string
@@ -39,6 +49,11 @@ export type Database = {
         }
         Update: {
           bank?: string
+          agency?: string | null
+          account_number?: string | null
+          account_digit?: string | null
+          holder_name?: string | null
+          holder_cpf?: string | null
           color?: string
           created_at?: string
           id?: string
@@ -292,6 +307,9 @@ export type Database = {
       credit_cards: {
         Row: {
           bank: string
+          holder_name: string | null
+          card_last_four: string | null
+          card_brand: string | null
           closing_day: number
           color: string
           created_at: string
@@ -304,6 +322,9 @@ export type Database = {
         }
         Insert: {
           bank: string
+          holder_name?: string | null
+          card_last_four?: string | null
+          card_brand?: string | null
           closing_day?: number
           color?: string
           created_at?: string
@@ -316,6 +337,9 @@ export type Database = {
         }
         Update: {
           bank?: string
+          holder_name?: string | null
+          card_last_four?: string | null
+          card_brand?: string | null
           closing_day?: number
           color?: string
           created_at?: string

@@ -133,6 +133,28 @@ describe("Accounts page", () => {
     financeMocks.reverseCardInvoicePayment.mockResolvedValue(true);
   });
 
+  it("offers optional agency, account number, digit and holder identification", () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByRole("button", { name: "Nova Conta" }));
+    expect(screen.getByText("Dados bancários (opcionais)")).toBeInTheDocument();
+    for (const label of ["Agência", "Número da conta", "Dígito", "Nome do titular", "CPF do titular"]) {
+      expect(screen.getByText(label)).toBeInTheDocument();
+    }
+    expect(screen.getByLabelText("CPF do titular")).toHaveAttribute("autocomplete", "off");
+  });
+
+  it("restricts card identification to safe metadata, never full card PAN or CVV", () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByText("Cartões"));
+    fireEvent.click(screen.getByRole("button", { name: "Novo Cartão" }));
+    expect(screen.getByText("Identificação do cartão (opcional)")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nome impresso no cartão")).toBeInTheDocument();
+    expect(screen.getByLabelText("Bandeira")).toBeInTheDocument();
+    const digits = screen.getByLabelText("Últimos 4 dígitos");
+    expect(digits).toHaveAttribute("maxlength", "4");
+    expect(screen.getByText(/Nunca informe o número completo do cartão/)).toBeInTheDocument();
+  });
+
   it("keeps the new account form spacious and scrollable on narrow viewports", () => {
     render(<Accounts />);
     fireEvent.click(screen.getByRole("button", { name: "Nova Conta" }));
