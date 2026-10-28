@@ -45,6 +45,10 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
         type: r.type as Account["type"],
         initialBalance: Number(r.initial_balance),
         color: r.color,
+        branch: r.branch ?? "",
+        accountNumber: r.account_number ?? "",
+        holderName: r.holder_name ?? "",
+        holderCpf: r.holder_cpf ?? "",
       })));
     }
     if (ccRes.data) {
@@ -56,6 +60,9 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
         closingDay: r.closing_day,
         dueDay: r.due_day,
         color: r.color,
+        holderName: r.holder_name ?? "",
+        holderCpf: r.holder_cpf ?? "",
+        cardLastFour: r.card_last_four ?? "",
       })));
     }
     setLoading(false);
@@ -68,6 +75,10 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     const { error } = await supabase.from("accounts").insert({
       user_id: user.id, name: a.name, bank: a.bank, type: a.type,
       initial_balance: a.initialBalance, color: a.color,
+      branch: a.branch?.trim() || null, account_number: a.accountNumber?.trim() || null,
+      holder_name: a.holderName?.trim() || null, holder_cpf: a.holderCpf?.replace(/\D/g, "") || null,
+      branch: a.branch?.trim() || null, account_number: a.accountNumber?.trim() || null,
+      holder_name: a.holderName?.trim() || null, holder_cpf: a.holderCpf?.replace(/\D/g, "") || null,
     });
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else { toast({ title: "Conta criada", description: a.name }); fetchAccounts(); }
@@ -93,6 +104,10 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     const { error } = await supabase.from("credit_cards").insert({
       user_id: user.id, name: c.name, bank: c.bank, credit_limit: c.limit,
       closing_day: c.closingDay, due_day: c.dueDay, color: c.color,
+      holder_name: c.holderName?.trim() || null, holder_cpf: c.holderCpf?.replace(/\D/g, "") || null,
+      card_last_four: c.cardLastFour?.trim() || null,
+      holder_name: c.holderName?.trim() || null, holder_cpf: c.holderCpf?.replace(/\D/g, "") || null,
+      card_last_four: c.cardLastFour?.trim() || null,
     });
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else { toast({ title: "Cartão criado", description: c.name }); fetchAccounts(); }
