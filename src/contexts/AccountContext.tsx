@@ -42,6 +42,11 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
         id: r.id,
         name: r.name,
         bank: r.bank,
+        branchNumber: r.branch_number ?? "",
+        accountNumber: r.account_number ?? "",
+        accountDigit: r.account_digit ?? "",
+        holderName: r.holder_name ?? "",
+        holderCpf: r.holder_cpf ?? "",
         type: r.type as Account["type"],
         initialBalance: Number(r.initial_balance),
         color: r.color,
@@ -52,6 +57,9 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
         id: r.id,
         name: r.name,
         bank: r.bank,
+        holderName: r.holder_name ?? "",
+        cardBrand: r.card_brand ?? "",
+        lastFour: r.last_four ?? "",
         limit: Number(r.credit_limit),
         closingDay: r.closing_day,
         dueDay: r.due_day,
@@ -67,6 +75,11 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     if (!user) return;
     const { error } = await supabase.from("accounts").insert({
       user_id: user.id, name: a.name, bank: a.bank, type: a.type,
+      branch_number: a.branchNumber?.trim() || null,
+      account_number: a.accountNumber?.trim() || null,
+      account_digit: a.accountDigit?.trim() || null,
+      holder_name: a.holderName?.trim() || null,
+      holder_cpf: a.holderCpf?.replace(/\D/g, "") || null,
       initial_balance: a.initialBalance, color: a.color,
     });
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -76,6 +89,11 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
   const updateAccount = useCallback(async (a: Account) => {
     const { error } = await supabase.from("accounts").update({
       name: a.name, bank: a.bank, type: a.type,
+      branch_number: a.branchNumber?.trim() || null,
+      account_number: a.accountNumber?.trim() || null,
+      account_digit: a.accountDigit?.trim() || null,
+      holder_name: a.holderName?.trim() || null,
+      holder_cpf: a.holderCpf?.replace(/\D/g, "") || null,
       initial_balance: a.initialBalance, color: a.color,
     }).eq("id", a.id);
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -92,6 +110,9 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     if (!user) return;
     const { error } = await supabase.from("credit_cards").insert({
       user_id: user.id, name: c.name, bank: c.bank, credit_limit: c.limit,
+      holder_name: c.holderName?.trim() || null,
+      card_brand: c.cardBrand?.trim() || null,
+      last_four: c.lastFour?.replace(/\D/g, "") || null,
       closing_day: c.closingDay, due_day: c.dueDay, color: c.color,
     });
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
@@ -101,6 +122,9 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
   const updateCreditCard = useCallback(async (c: CreditCard) => {
     const { error } = await supabase.from("credit_cards").update({
       name: c.name, bank: c.bank, credit_limit: c.limit,
+      holder_name: c.holderName?.trim() || null,
+      card_brand: c.cardBrand?.trim() || null,
+      last_four: c.lastFour?.replace(/\D/g, "") || null,
       closing_day: c.closingDay, due_day: c.dueDay, color: c.color,
     }).eq("id", c.id);
     if (error) {
