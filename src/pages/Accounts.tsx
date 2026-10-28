@@ -819,6 +819,11 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
 }) {
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
+  const [branchNumber, setBranchNumber] = useState("");
+  const [accountNumber, setAccountNumber] = useState("");
+  const [accountDigit, setAccountDigit] = useState("");
+  const [holderName, setHolderName] = useState("");
+  const [holderCpf, setHolderCpf] = useState("");
   const [type, setType] = useState<"checking" | "savings">("checking");
   const [initialBalance, setInitialBalance] = useState("");
   const [color, setColor] = useState("blue");
@@ -829,12 +834,15 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
       if (initial) {
         setName(initial.name);
         setBank(initial.bank);
+        setBranchNumber(initial.branchNumber ?? ""); setAccountNumber(initial.accountNumber ?? "");
+        setAccountDigit(initial.accountDigit ?? ""); setHolderName(initial.holderName ?? ""); setHolderCpf(initial.holderCpf ?? "");
         setType(initial.type);
         setInitialBalance(String(initial.initialBalance));
         setColor(initial.color);
         setAdjustTo(typeof currentBalance === "number" ? currentBalance.toFixed(2) : "");
       } else {
         setName(""); setBank(""); setType("checking"); setInitialBalance(""); setColor("blue"); setAdjustTo("");
+        setBranchNumber(""); setAccountNumber(""); setAccountDigit(""); setHolderName(""); setHolderCpf("");
       }
     }
   }, [open, initial, currentBalance]);
@@ -857,7 +865,10 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
         </DialogHeader>
         <form onSubmit={async (e) => {
           e.preventDefault();
-          await onSubmit({ name, bank, type, initialBalance: parseFloat(initialBalance) || 0, color });
+          if (holderCpf && holderCpf.replace(/\D/g, "").length !== 11) return;
+          await onSubmit({ name, bank, type, initialBalance: parseFloat(initialBalance) || 0, color,
+            branchNumber: branchNumber.trim(), accountNumber: accountNumber.trim(), accountDigit: accountDigit.trim(),
+            holderName: holderName.trim(), holderCpf: holderCpf.replace(/\D/g, "") });
           if (initial && onAdjustBalance && typeof currentBalance === "number") {
             const target = parseFloat(adjustTo);
             if (!isNaN(target)) {
@@ -890,6 +901,21 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
               </Select>
             </div>
           </div>
+          <fieldset className="space-y-3 rounded-xl border border-border bg-muted/15 p-3 sm:p-4">
+            <legend className="px-1 text-sm font-semibold">Dados bancários (opcional)</legend>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-2"><Label htmlFor="bank-branch">Agência</Label><Input id="bank-branch" value={branchNumber} maxLength={20} autoComplete="off" onChange={e => setBranchNumber(e.target.value)} placeholder="Ex: 0001" /></div>
+              <div className="grid grid-cols-[minmax(0,1fr)_5rem] gap-2">
+                <div className="min-w-0 space-y-2"><Label htmlFor="bank-account-number">Número da conta</Label><Input id="bank-account-number" value={accountNumber} maxLength={30} autoComplete="off" onChange={e => setAccountNumber(e.target.value)} placeholder="Ex: 123456" /></div>
+                <div className="min-w-0 space-y-2"><Label htmlFor="bank-account-digit">Dígito</Label><Input id="bank-account-digit" value={accountDigit} maxLength={3} autoComplete="off" onChange={e => setAccountDigit(e.target.value)} placeholder="Ex: 7" /></div>
+              </div>
+              <div className="space-y-2"><Label htmlFor="bank-holder-name">Nome do titular</Label><Input id="bank-holder-name" value={holderName} maxLength={150} autoComplete="off" onChange={e => setHolderName(e.target.value)} placeholder="Nome completo" /></div>
+              <div className="space-y-2"><Label htmlFor="bank-holder-cpf">CPF do titular</Label><Input id="bank-holder-cpf" inputMode="numeric" autoComplete="off" value={holderCpf} maxLength={14} onChange={e => setHolderCpf(e.target.value.replace(/[^0-9.\-]/g, ""))} placeholder="000.000.000-00" />
+                {holderCpf && holderCpf.replace(/\D/g, "").length !== 11 && <p role="alert" className="text-xs text-destructive">Informe 11 dígitos ou deixe em branco.</p>}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">Dados pessoais opcionais. Não informe senha nem chave de acesso.</p>
+          </fieldset>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-2">
               <Label>Saldo Inicial (R$)</Label>
@@ -936,7 +962,7 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
           </div>
           <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-background px-4 py-3 sm:px-6">
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit">{initial ? "Salvar" : "Criar"}</Button>
+            <Button type="submit" disabled={Boolean(holderCpf && holderCpf.replace(/\D/g, "").length !== 11)}>{initial ? "Salvar" : "Criar"}</Button>
           </div>
         </form>
       </DialogContent>
@@ -956,6 +982,9 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
 }) {
   const [name, setName] = useState("");
   const [bank, setBank] = useState("");
+  const [holderName, setHolderName] = useState("");
+  const [cardBrand, setCardBrand] = useState("");
+  const [lastFour, setLastFour] = useState("");
   const [limit, setLimit] = useState("");
   const [closingDay, setClosingDay] = useState("20");
   const [dueDay, setDueDay] = useState("27");
@@ -965,10 +994,12 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
   const resetForm = () => {
     if (initial) {
       setName(initial.name); setBank(initial.bank); setLimit(String(initial.limit));
+      setHolderName(initial.holderName ?? ""); setCardBrand(initial.cardBrand ?? ""); setLastFour(initial.lastFour ?? "");
       setClosingDay(String(initial.closingDay)); setDueDay(String(initial.dueDay)); setColor(initial.color);
       setAdjustTo(typeof currentUsed === "number" ? currentUsed.toFixed(2) : "");
     } else {
       setName(""); setBank(""); setLimit(""); setClosingDay("20"); setDueDay("27"); setColor("purple"); setAdjustTo("");
+      setHolderName(""); setCardBrand(""); setLastFour("");
     }
   };
 
@@ -984,7 +1015,8 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
         </DialogHeader>
         <form onSubmit={async (e) => {
           e.preventDefault();
-          const saved = await onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color });
+          if (lastFour && lastFour.length !== 4) return;
+          const saved = await onSubmit({ name, bank, limit: parseFloat(limit) || 0, closingDay: parseInt(closingDay) || 20, dueDay: parseInt(dueDay) || 27, color, holderName: holderName.trim(), cardBrand: cardBrand.trim(), lastFour });
           if (saved === false) return;
           if (initial && canAdjustUsed && onAdjustUsed && typeof currentUsed === "number") {
             const target = parseFloat(adjustTo);
@@ -1013,6 +1045,17 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
               <Input type="number" step="0.01" min="0" value={limit} onChange={(e) => setLimit(e.target.value)} required placeholder="0,00" />
             </div>
           </div>
+          <fieldset className="space-y-3 rounded-xl border border-border bg-muted/15 p-3 sm:p-4">
+            <legend className="px-1 text-sm font-semibold">Identificação do cartão (opcional)</legend>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <div className="space-y-2"><Label htmlFor="card-holder">Nome do titular</Label><Input id="card-holder" maxLength={150} autoComplete="off" value={holderName} onChange={e => setHolderName(e.target.value)} placeholder="Nome no cartão" /></div>
+              <div className="space-y-2"><Label htmlFor="card-brand">Bandeira</Label><Input id="card-brand" maxLength={40} autoComplete="off" value={cardBrand} onChange={e => setCardBrand(e.target.value)} placeholder="Ex: Visa ou Mastercard" /></div>
+              <div className="space-y-2"><Label htmlFor="card-last-four">Últimos quatro dígitos</Label><Input id="card-last-four" inputMode="numeric" autoComplete="off" maxLength={4} value={lastFour} onChange={e => setLastFour(e.target.value.replace(/\D/g, ""))} placeholder="Ex: 1234" />
+                {lastFour && lastFour.length !== 4 && <p role="alert" className="text-xs text-destructive">Informe quatro dígitos ou deixe em branco.</p>}
+              </div>
+            </div>
+            <p className="text-xs text-muted-foreground">Nunca informe número completo do cartão, validade, senha ou CVV.</p>
+          </fieldset>
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div className="space-y-2">
               <Label>Dia Fechamento</Label>
@@ -1064,7 +1107,7 @@ function CreditCardFormDialog({ open, onClose, onSubmit, initial, currentUsed, c
           </div>
           <div className="flex shrink-0 items-center justify-end gap-2 border-t border-border bg-background px-4 py-3 sm:px-6">
             <Button type="button" variant="outline" onClick={onClose}>Cancelar</Button>
-            <Button type="submit">{initial ? "Salvar" : "Criar"}</Button>
+            <Button type="submit" disabled={Boolean(lastFour && lastFour.length !== 4)}>{initial ? "Salvar" : "Criar"}</Button>
           </div>
         </form>
       </DialogContent>
