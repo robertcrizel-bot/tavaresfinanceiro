@@ -25,6 +25,11 @@ export type Database = {
           type: string
           updated_at: string
           user_id: string
+          branch_number: string | null
+          account_number: string | null
+          account_digit: string | null
+          holder_name: string | null
+          holder_cpf: string | null
         }
         Insert: {
           bank: string
@@ -36,6 +41,11 @@ export type Database = {
           type: string
           updated_at?: string
           user_id: string
+          branch_number?: string | null
+          account_number?: string | null
+          account_digit?: string | null
+          holder_name?: string | null
+          holder_cpf?: string | null
         }
         Update: {
           bank?: string
@@ -47,6 +57,11 @@ export type Database = {
           type?: string
           updated_at?: string
           user_id?: string
+          branch_number?: string | null
+          account_number?: string | null
+          account_digit?: string | null
+          holder_name?: string | null
+          holder_cpf?: string | null
         }
         Relationships: []
       }
@@ -301,6 +316,9 @@ export type Database = {
           name: string
           updated_at: string
           user_id: string
+          holder_name: string | null
+          card_brand: string | null
+          last_four: string | null
         }
         Insert: {
           bank: string
@@ -313,6 +331,9 @@ export type Database = {
           name: string
           updated_at?: string
           user_id: string
+          holder_name?: string | null
+          card_brand?: string | null
+          last_four?: string | null
         }
         Update: {
           bank?: string
@@ -325,6 +346,9 @@ export type Database = {
           name?: string
           updated_at?: string
           user_id?: string
+          holder_name?: string | null
+          card_brand?: string | null
+          last_four?: string | null
         }
         Relationships: []
       }

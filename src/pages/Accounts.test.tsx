@@ -161,6 +161,36 @@ describe("Accounts page", () => {
     expect(screen.getByText("Dia Vencimento")).toBeInTheDocument();
   });
 
+  it("accepts account agency, account number and holder identification in the form", () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByRole("button", { name: "Nova Conta" }));
+    expect(screen.getByLabelText("Agência")).toBeInTheDocument();
+    expect(screen.getByLabelText("Número da conta")).toBeInTheDocument();
+    expect(screen.getByLabelText("Dígito")).toBeInTheDocument();
+    expect(screen.getByLabelText("Nome do titular")).toBeInTheDocument();
+    const cpf = screen.getByLabelText("CPF do titular");
+    fireEvent.change(cpf, { target: { value: "123.456" } });
+    expect(screen.getByRole("alert")).toHaveTextContent("Informe 11 dígitos");
+    expect(screen.getByRole("button", { name: "Criar" })).toBeDisabled();
+    fireEvent.change(cpf, { target: { value: "123.456.789-09" } });
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Criar" })).toBeEnabled();
+  });
+
+  it("collects only safe card identifiers, not a full card number or CVV", () => {
+    render(<Accounts />);
+    fireEvent.click(screen.getByText("Cartões"));
+    fireEvent.click(screen.getByRole("button", { name: "Novo Cartão" }));
+    expect(screen.getByLabelText("Nome do titular")).toBeInTheDocument();
+    expect(screen.getByLabelText("Bandeira")).toBeInTheDocument();
+    const lastFour = screen.getByLabelText("Últimos quatro dígitos");
+    fireEvent.change(lastFour, { target: { value: "123" } });
+    expect(screen.getByRole("button", { name: "Criar" })).toBeDisabled();
+    fireEvent.change(lastFour, { target: { value: "1234" } });
+    expect(screen.getByRole("button", { name: "Criar" })).toBeEnabled();
+    expect(screen.queryByLabelText(/CVV|Número completo|Senha do cartão/i)).not.toBeInTheDocument();
+  });
+
   it("shows 'Ver extrato' button on account card", () => {
     render(<Accounts />);
     expect(screen.getByText("Ver extrato")).toBeTruthy();
