@@ -353,6 +353,34 @@ describe("TransactionForm payment fields", () => {
     vi.clearAllMocks();
   });
 
+  it("allows converting a standalone edited card purchase to installments without duplicate submissions", async () => {
+    const onSubmit = vi.fn().mockResolvedValue(true);
+    render(<TransactionForm open onClose={onClose} onSubmit={onSubmit} initial={{
+      ...initial, paymentMethod: "Cartão de Crédito", creditCardId: "card-1",
+    }} />);
+    expect(screen.getByText("Parcelar em")).toBeInTheDocument();
+    fireEvent.click(screen.getByTestId("select-item-3"));
+    expect(screen.getByText(/A compra existente será convertida/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(onSubmit).toHaveBeenCalledTimes(1));
+    expect(onSubmit).toHaveBeenCalledWith(expect.objectContaining({
+      amount: 120, creditCardId: "card-1",
+    }), { installments: 3 });
+  });
+
+  it.each([
+    { installments: 3 },
+    { parentTransactionId: "parent-1" },
+    { creditCardInvoiceId: "invoice-1" },
+    { isPaid: true },
+    { financialKind: "card_invoice_payment" as const },
+  ])("never offers conversion when the original transaction has protected links (%s)", (extra) => {
+    render(<TransactionForm open onClose={onClose} onSubmit={onSubmit} initial={{
+      ...initial, paymentMethod: "Cartão de Crédito", creditCardId: "card-1", ...extra,
+    }} />);
+    expect(screen.queryByText("Parcelar em")).not.toBeInTheDocument();
+  });
+
   it("updates financial fields when the payment method changes", () => {
     render(<TransactionForm open onClose={onClose} onSubmit={onSubmit} />);
 
