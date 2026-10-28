@@ -61,6 +61,16 @@ BEGIN
     RAISE EXCEPTION 'Este registro já está vinculado a parcelas, pagamento ou fatura e não pode ser convertido automaticamente.'
       USING ERRCODE = 'P0001';
   END IF;
+  IF EXISTS (
+    SELECT 1 FROM public.credit_card_invoices inv
+    WHERE inv.user_id = v_owner
+      AND inv.credit_card_id = v_existing.credit_card_id
+      AND inv.status IN ('CLOSED', 'PAID')
+      AND v_existing.date BETWEEN inv.cycle_start AND inv.cycle_end
+  ) THEN
+    RAISE EXCEPTION 'A compra original pertence a uma fatura fechada ou paga. Nenhuma alteração foi feita.'
+      USING ERRCODE = 'P0001';
+  END IF;
   IF NOT EXISTS (SELECT 1 FROM public.credit_cards c
     WHERE c.id = p_credit_card_id AND c.user_id = v_owner) THEN
     RAISE EXCEPTION 'Cartão não encontrado ou sem permissão.' USING ERRCODE = '42501';
