@@ -11,7 +11,7 @@ def amplify(img, scale=1.45):
 for size in (192,512):
     path=ROOT / f"icon-{size}.png"
     with Image.open(path) as source: enlarged=amplify(source)
-    enlarged.save(path,"PNG",optimize=True)
-with Image.open(ROOT / "icon-512.png") as img:
-    img.save(ROOT / "favicon.ico",format="ICO",sizes=[(16,16),(32,32),(48,48),(64,64)])
+    enlarged.save(ROOT / f"icon-{size}-v2.png","PNG",optimize=True)
+with Image.open(ROOT / "icon-512-v2.png") as img:
+    img.save(ROOT / "favicon-v2.ico",format="ICO",sizes=[(16,16),(32,32),(48,48),(64,64)])
 print("PWA and favicon symbols enlarged")
