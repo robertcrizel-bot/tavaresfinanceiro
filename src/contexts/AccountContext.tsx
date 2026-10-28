@@ -8,8 +8,8 @@ interface AccountContextType {
   accounts: Account[];
   creditCards: CreditCard[];
   loading: boolean;
-  addAccount: (a: Omit<Account, "id">) => Promise<void>;
-  updateAccount: (a: Account) => Promise<void>;
+  addAccount: (a: Omit<Account, "id">) => Promise<boolean>;
+  updateAccount: (a: Account) => Promise<boolean>;
   deleteAccount: (id: string) => Promise<void>;
   addCreditCard: (c: Omit<CreditCard, "id">) => Promise<void>;
   updateCreditCard: (c: CreditCard) => Promise<boolean>;
@@ -45,6 +45,11 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
         type: r.type as Account["type"],
         initialBalance: Number(r.initial_balance),
         color: r.color,
+        agency: r.agency,
+        accountNumber: r.account_number,
+        accountDigit: r.account_digit,
+        holderName: r.holder_name,
+        holderCpf: r.holder_cpf,
       })));
     }
     if (ccRes.data) {
@@ -56,6 +61,9 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
         closingDay: r.closing_day,
         dueDay: r.due_day,
         color: r.color,
+        holderName: r.holder_name,
+        cardBrand: r.card_brand,
+        cardLastFour: r.card_last_four,
       })));
     }
     setLoading(false);
@@ -64,22 +72,32 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
   useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
 
   const addAccount = useCallback(async (a: Omit<Account, "id">) => {
-    if (!user) return;
+    if (!user) return false;
     const { error } = await supabase.from("accounts").insert({
       user_id: user.id, name: a.name, bank: a.bank, type: a.type,
       initial_balance: a.initialBalance, color: a.color,
+      agency: a.agency || null, account_number: a.accountNumber || null,
+      account_digit: a.accountDigit || null, holder_name: a.holderName || null,
+      holder_cpf: a.holderCpf || null,
     });
-    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else { toast({ title: "Conta criada", description: a.name }); fetchAccounts(); }
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return false; }
+    toast({ title: "Conta criada", description: a.name });
+    await fetchAccounts();
+    return true;
   }, [user, fetchAccounts]);
 
   const updateAccount = useCallback(async (a: Account) => {
     const { error } = await supabase.from("accounts").update({
       name: a.name, bank: a.bank, type: a.type,
       initial_balance: a.initialBalance, color: a.color,
+      agency: a.agency || null, account_number: a.accountNumber || null,
+      account_digit: a.accountDigit || null, holder_name: a.holderName || null,
+      holder_cpf: a.holderCpf || null,
     }).eq("id", a.id);
-    if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
-    else { toast({ title: "Conta atualizada", description: a.name }); fetchAccounts(); }
+    if (error) { toast({ title: "Erro", description: error.message, variant: "destructive" }); return false; }
+    toast({ title: "Conta atualizada", description: a.name });
+    await fetchAccounts();
+    return true;
   }, [fetchAccounts]);
 
   const deleteAccount = useCallback(async (id: string) => {
@@ -93,6 +111,8 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     const { error } = await supabase.from("credit_cards").insert({
       user_id: user.id, name: c.name, bank: c.bank, credit_limit: c.limit,
       closing_day: c.closingDay, due_day: c.dueDay, color: c.color,
+      holder_name: c.holderName || null, card_brand: c.cardBrand || null,
+      card_last_four: c.cardLastFour || null,
     });
     if (error) toast({ title: "Erro", description: error.message, variant: "destructive" });
     else { toast({ title: "Cartão criado", description: c.name }); fetchAccounts(); }
