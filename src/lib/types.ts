@@ -38,6 +38,10 @@ export interface Account {
   type: "checking" | "savings";
   initialBalance: number;
   color: string; // tailwind color key
+  branch?: string;
+  accountNumber?: string;
+  holderName?: string;
+  holderCpf?: string;
 }
 
 export interface CreditCard {
@@ -48,6 +52,9 @@ export interface CreditCard {
   closingDay: number;
   dueDay: number;
   color: string;
+  holderName?: string;
+  holderCpf?: string;
+  cardLastFour?: string;
 }
 
 export type CreditCardInvoiceStatus = "OPEN" | "CLOSED" | "PAID";
