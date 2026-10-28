@@ -269,7 +269,7 @@ export default function CreditCardStatementDialog({
                   </div>
                   <div className="text-right shrink-0">
                     <span className={`text-sm font-semibold whitespace-nowrap ${entry.direction === "charge" ? "text-expense" : "text-income"}`}>
-                      {entry.direction === "charge" ? "R$ " : "-R$ "} {fmt(entry.amount)}
+                      {entry.direction === "charge" ? fmt(entry.amount) : `-${fmt(entry.amount)}`}
                     </span>
                   </div>
                 </div>
