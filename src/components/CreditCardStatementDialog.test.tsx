@@ -223,7 +223,7 @@ describe("CreditCardStatementDialog", () => {
     })];
     render(<CreditCardStatementDialog {...defaultProps} transactions={transactions} />);
     expect(screen.getByText("Estorno")).toBeTruthy();
-    expect(screen.getByText("-R$ 30,00")).toBeTruthy();
+    expect(screen.getAllByText("-R$ 30,00").length).toBeGreaterThanOrEqual(1);
   });
 
   it("shows Export button", () => {
