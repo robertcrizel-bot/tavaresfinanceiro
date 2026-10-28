@@ -12,7 +12,7 @@ interface FinanceContextType {
   creditCardInvoices: CreditCardInvoice[];
   loading: boolean;
   addTransaction: (t: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[]; receiptRef?: string }) => Promise<boolean>;
-  updateTransaction: (t: Transaction, options?: { attachments?: File[] }) => Promise<boolean>;
+  updateTransaction: (t: Transaction, options?: { attachments?: File[]; installments?: number }) => Promise<boolean>;
   deleteTransaction: (id: string) => Promise<void>;
   closeCardInvoice: (invoiceId: string, actualClosedDate?: string, excludeTransactionIds?: string[], dueDate?: string, restoreTransactionIds?: string[]) => Promise<boolean>;
   reopenCardInvoice: (invoiceId: string) => Promise<boolean>;
