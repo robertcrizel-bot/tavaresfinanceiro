@@ -869,8 +869,8 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
         <form onSubmit={async (e) => {
           e.preventDefault();
           const cpfDigits = holderCpf.replace(/\D/g, "");
-      if (cpfDigits && cpfDigits.length !== 11) return;
-      await onSubmit({
+          if (cpfDigits && cpfDigits.length !== 11) return;
+          await onSubmit({
         name, bank, type, initialBalance: parseFloat(initialBalance) || 0, color,
         agency: agency.trim() || null, accountNumber: accountNumber.trim() || null,
         accountDigit: accountDigit.trim() || null, holderName: holderName.trim() || null,
@@ -931,7 +931,7 @@ function AccountFormDialog({ open, onClose, onSubmit, initial, currentBalance, o
               </div>
               <div className="min-w-0 space-y-1.5">
                 <Label htmlFor="account-holder-cpf">CPF do titular</Label>
-                <Input id="account-holder-cpf" value={holderCpf} inputMode="numeric" maxLength={14} autoComplete="off" onChange={(e) => setHolderCpf(e.target.value)} placeholder="000.000.000-00" pattern="(?:\\d{11}|\\d{3}\\.\\d{3}\\.\\d{3}-\\d{2})?" title="Informe 11 dígitos, com ou sem pontuação" />
+                <Input id="account-holder-cpf" value={holderCpf} inputMode="numeric" maxLength={14} autoComplete="off" onChange={(e) => setHolderCpf(e.target.value)} placeholder="000.000.000-00" pattern="([0-9]{11}|[0-9]{3}[.][0-9]{3}[.][0-9]{3}-[0-9]{2})?" title="Informe 11 dígitos, com ou sem pontuação" />
               </div>
             </div>
           </fieldset>
