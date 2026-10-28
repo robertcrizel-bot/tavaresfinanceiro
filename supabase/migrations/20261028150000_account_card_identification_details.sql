@@ -18,13 +18,29 @@ ALTER TABLE public.credit_cards
 
 -- Nullable means existing records remain valid. Constraints permit NULL and
 -- reject malformed new data without changing financial columns.
-ALTER TABLE public.accounts
-  ADD CONSTRAINT accounts_holder_cpf_format_check
-  CHECK (holder_cpf IS NULL OR holder_cpf ~ '^[0-9]{11}$');
-
-ALTER TABLE public.credit_cards
-  ADD CONSTRAINT credit_cards_last_four_format_check
-  CHECK (card_last_four IS NULL OR card_last_four ~ '^[0-9]{4}$');
+-- Safe to re-run after a partial deployment: add constraints only when absent.
+DO $migration$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.accounts'::regclass
+      AND conname = 'accounts_holder_cpf_format_check'
+  ) THEN
+    ALTER TABLE public.accounts
+      ADD CONSTRAINT accounts_holder_cpf_format_check
+      CHECK (holder_cpf IS NULL OR holder_cpf ~ '^[0-9]{11}$');
+  END IF;
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.credit_cards'::regclass
+      AND conname = 'credit_cards_last_four_format_check'
+  ) THEN
+    ALTER TABLE public.credit_cards
+      ADD CONSTRAINT credit_cards_last_four_format_check
+      CHECK (card_last_four IS NULL OR card_last_four ~ '^[0-9]{4}$');
+  END IF;
+END
+$migration$;
 
 COMMENT ON COLUMN public.accounts.holder_cpf IS
   'Private CPF of bank account holder; visible only via account owner RLS. Never log or expose in public exports.';
