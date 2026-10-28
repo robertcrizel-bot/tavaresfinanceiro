@@ -122,6 +122,8 @@ export const AccountProvider = ({ children }: { children: React.ReactNode }) => 
     const { error } = await supabase.from("credit_cards").update({
       name: c.name, bank: c.bank, credit_limit: c.limit,
       closing_day: c.closingDay, due_day: c.dueDay, color: c.color,
+      holder_name: c.holderName || null, card_brand: c.cardBrand || null,
+      card_last_four: c.cardLastFour || null,
     }).eq("id", c.id);
     if (error) {
       toast({ title: "Erro", description: error.message, variant: "destructive" });
