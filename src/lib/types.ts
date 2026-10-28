@@ -35,6 +35,10 @@ export interface Account {
   id: string;
   name: string;
   bank: string;
+  agency?: string | null;
+  accountNumber?: string | null;
+  holderName?: string | null;
+  holderCpf?: string | null;
   type: "checking" | "savings";
   initialBalance: number;
   color: string; // tailwind color key
@@ -45,6 +49,9 @@ export interface CreditCard {
   name: string;
   bank: string;
   limit: number;
+  holderName?: string | null;
+  brand?: string | null;
+  lastFour?: string | null;
   closingDay: number;
   dueDay: number;
   color: string;
