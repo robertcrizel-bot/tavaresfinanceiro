@@ -536,7 +536,13 @@ export default function ExpenseAnalytics() {
                 {selectedCategories.length > 0 ? ` para ${categoryLabel}` : ""}.
               </p>
             ) : (
-              <div className="-mx-4 divide-y divide-border/60 border-t border-border/60">
+              <div
+                role="region"
+                aria-label="Lista de transações do período"
+                tabIndex={0}
+                className="-mx-4 max-h-[min(50dvh,360px)] divide-y divide-border/60 overflow-y-auto overscroll-contain border-t border-border/60 [scrollbar-width:thin] xl:max-h-[400px] [&::-webkit-scrollbar]:w-2 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-muted-foreground/50 [&::-webkit-scrollbar-track]:bg-muted/50"
+                style={{ scrollbarColor: "hsl(var(--muted-foreground) / 0.5) hsl(var(--muted) / 0.5)" }}
+              >
                 {sortedTransactions.map((transaction) => (
                   <button
                     key={transaction.id}
@@ -1229,20 +1235,20 @@ export default function ExpenseAnalytics() {
           {!invalidCustom && <div className="order-7 min-w-0">{transactionsPanel}</div>}
         </div>
         {!invalidCustom && (
-          <div role="group" aria-label="Categorias e destaques" className={cn("contents xl:flex xl:min-w-0 xl:flex-col xl:gap-4", !hasVisibleExpenses && "xl:col-span-2")}>
+          <div role="group" aria-label="Categorias e variações" className={cn("contents xl:flex xl:min-w-0 xl:flex-col xl:gap-4", !hasVisibleExpenses && "xl:col-span-2")}>
             {hasVisibleExpenses ? (
               <>
                 <div className="order-2 min-w-0">{categoryPanel}</div>
                 <div className="order-4 min-w-0">{changesPanel}</div>
-                {highlightsPanel && <div className="order-6 min-w-0">{highlightsPanel}</div>}
               </>
             ) : <div className="order-2 min-w-0">{emptyState}</div>}
           </div>
         )}
         {!invalidCustom && hasVisibleExpenses && (
-          <div role="group" aria-label="Evolução e orçamento" className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-4">
+          <div role="group" aria-label="Evolução, orçamento e destaques" className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-4">
             <div className="order-3 min-w-0">{evolutionPanel}</div>
             <div className="order-5 min-w-0">{budgetPanel}</div>
+            {highlightsPanel && <div className="order-6 min-w-0">{highlightsPanel}</div>}
           </div>
         )}
       </div>

@@ -309,18 +309,20 @@ describe("ExpenseAnalytics default period", () => {
     expect(within(sidebar).getByRole("textbox")).toBeInTheDocument();
     expect(sidebar).not.toContainElement(screen.getByText("Gasto Total"));
     const leftColumn = screen.getByRole("group", { name: "Filtros e transações" });
-    const centerColumn = screen.getByRole("group", { name: "Categorias e destaques" });
-    const rightColumn = screen.getByRole("group", { name: "Evolução e orçamento" });
+    const centerColumn = screen.getByRole("group", { name: "Categorias e variações" });
+    const rightColumn = screen.getByRole("group", { name: "Evolução, orçamento e destaques" });
     expect(leftColumn).toContainElement(sidebar);
-    for (const title of ["Gastos por Categoria", "Onde meu dinheiro aumentou?", "Destaques do Período"]) {
+    for (const title of ["Gastos por Categoria", "Onde meu dinheiro aumentou?"]) {
       expect(within(centerColumn).getByRole("heading", { name: title })).toBeInTheDocument();
     }
-    for (const title of ["Evolução dos Gastos", "Orçamento × Realizado"]) {
+    for (const title of ["Evolução dos Gastos", "Orçamento × Realizado", "Destaques do Período"]) {
       expect(within(rightColumn).getByRole("heading", { name: title })).toBeInTheDocument();
     }
     const transactions = screen.getByRole("heading", { name: "Transações do Período" }).closest("section");
     expect(sidebar).not.toContainElement(transactions);
     expect(leftColumn).toContainElement(transactions);
+    const transactionList = within(leftColumn).getByRole("region", { name: "Lista de transações do período" });
+    expect(transactionList).not.toContainElement(within(leftColumn).getByRole("heading", { name: "Transações do Período" }));
   });
 
   it("starts on Mês with the current-month totals, average and top category", () => {
