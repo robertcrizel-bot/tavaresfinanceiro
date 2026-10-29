@@ -259,7 +259,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
       return;
     }
     const installmentsNum = parseInt(installments) || 1;
-    const isInstallment = !initial && type === "expense" && creditCardId && creditCardId !== "none" && installmentsNum > 1;
+    const isInstallment = type === "expense" && creditCardId && creditCardId !== "none" && installmentsNum > 1;
     const opts: { installments?: number; attachments?: File[] } = {};
     if (isInstallment) opts.installments = installmentsNum;
     if (attachments.length > 0) opts.attachments = attachments;
@@ -299,7 +299,15 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
 
   const showAccount = Boolean(paymentMethod && ACCOUNT_PAYMENT_METHODS.has(paymentMethod));
   const showCreditCard = paymentMethod === "Cartão de Crédito";
-  const showInstallments = showCreditCard && !initial && type === "expense";
+  const canConvertExisting = !initial || (
+    initial.type === "expense" &&
+    !initial.isPaid &&
+    !initial.creditCardInvoiceId &&
+    !initial.installments &&
+    !initial.parentTransactionId &&
+    (initial.financialKind === undefined || initial.financialKind === "regular" || initial.financialKind === "card_purchase")
+  );
+  const showInstallments = showCreditCard && type === "expense" && canConvertExisting;
 
   return (
     <Dialog open={open} onOpenChange={(o) => !o && !submitInFlightRef.current && onClose()}>
@@ -399,7 +407,9 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
                   </Select>
                   {parseInt(installments) > 1 && (
                     <p className="text-xs text-muted-foreground">
-                      Será criada uma transação por mês na fatura do cartão, começando na data informada.
+                      {initial
+                        ? "A compra existente será convertida na primeira parcela. As demais serão criadas nos próximos meses. Faturas fechadas ou pagas impedem a conversão."
+                        : "Será criada uma transação por mês na fatura do cartão, começando na data informada."}
                     </p>
                   )}
                 </div>
