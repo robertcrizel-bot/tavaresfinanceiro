@@ -61,7 +61,7 @@ BEGIN
       USING ERRCODE = 'P0001';
   END IF;
   -- Linked purchases are convertible only while their exact invoice is OPEN.
-  -- Lock it so closure cannot race the conversion.
+  -- Read under existing invoice RLS (no UPDATE grant required).
   IF v_existing.credit_card_invoice_id IS NOT NULL THEN
     PERFORM 1 FROM public.credit_card_invoices inv
       WHERE inv.id = v_existing.credit_card_invoice_id
@@ -69,7 +69,7 @@ BEGIN
         AND inv.credit_card_id = v_existing.credit_card_id
         AND inv.status = 'OPEN'
         AND v_existing.date BETWEEN inv.cycle_start AND inv.cycle_end
-      FOR UPDATE;
+      ;
     IF NOT FOUND THEN
       RAISE EXCEPTION 'A fatura vinculada não está aberta. Nenhuma alteração foi feita.'
         USING ERRCODE = 'P0001';
