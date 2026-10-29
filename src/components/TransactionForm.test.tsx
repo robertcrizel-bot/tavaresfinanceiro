@@ -368,10 +368,17 @@ describe("TransactionForm payment fields", () => {
     }), { installments: 3 });
   });
 
+  it("offers installment conversion for a purchase linked to an invoice; backend validates OPEN status", () => {
+    render(<TransactionForm open onClose={onClose} onSubmit={onSubmit} initial={{
+      ...initial, paymentMethod: "Cartão de Crédito", creditCardId: "card-1",
+      creditCardInvoiceId: "invoice-open", isPaid: false,
+    }} />);
+    expect(screen.getByText("Parcelar em")).toBeInTheDocument();
+  });
+
   it.each([
     { installments: 3 },
     { parentTransactionId: "parent-1" },
-    { creditCardInvoiceId: "invoice-1" },
     { isPaid: true },
     { financialKind: "card_invoice_payment" as const },
   ])("never offers conversion when the original transaction has protected links (%s)", (extra) => {
