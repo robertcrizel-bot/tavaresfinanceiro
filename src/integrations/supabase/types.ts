@@ -603,6 +603,19 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      convert_existing_card_purchase_to_installments: {
+        Args: {
+          p_transaction_id: string
+          p_title: string
+          p_amount: number
+          p_category: string
+          p_date: string
+          p_description: string
+          p_credit_card_id: string
+          p_installments: number
+        }
+        Returns: undefined
+      }
       beta_has_access: { Args: never; Returns: boolean }
       close_credit_card_invoice:
         | { Args: { p_invoice_id: string }; Returns: string }
