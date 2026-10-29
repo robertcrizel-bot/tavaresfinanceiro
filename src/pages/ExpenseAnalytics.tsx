@@ -984,7 +984,7 @@ export default function ExpenseAnalytics() {
                       </RechartsPieChart>
                     </ResponsiveContainer>
                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-2xl font-bold tabular-nums text-foreground">
+                      <span className="text-lg font-bold tabular-nums text-foreground">
                         {money(centerValue)}
                       </span>
                       <span className="text-[11px] text-muted-foreground">Total filtrado</span>
