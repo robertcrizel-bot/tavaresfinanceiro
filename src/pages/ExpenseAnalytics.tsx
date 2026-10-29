@@ -74,11 +74,8 @@ import {
 } from "lucide-react";
 import {
   CartesianGrid,
-  Cell,
   Line,
   LineChart,
-  Pie,
-  PieChart as RechartsPieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -571,79 +568,53 @@ export default function ExpenseAnalytics() {
   );
 
   const hasVisibleExpenses = periodExpenses.length > 0 && visibleExpenses.length > 0;
-  const categoryPanel = (<ChartCard title="Gastos por Categoria" color={CHART_ACCENTS.categories}>
-    <div className="relative">
-      <ResponsiveContainer width="100%" height={220}>
-        <RechartsPieChart>
-          <Pie
-            data={donutData}
-            dataKey="value"
-            nameKey="category"
-            innerRadius={58}
-            outerRadius={92}
-            paddingAngle={2}
-            stroke="hsl(var(--card))"
-            strokeWidth={2}
-          >
-            {donutData.map((entry, index) => (
-              <Cell
-                key={entry.category}
-                fill={categoryColor(entry.category)}
-                fillOpacity={
-                  selectedCategories.length === 0 || selectedCategories.includes(entry.category)
-                    ? 1
-                    : 0.25
-                }
-                onClick={() => toggleCategory(entry.category)}
-              />
-            ))}
-          </Pie>
-          <Tooltip
-            contentStyle={CHART_TOOLTIP_STYLE}
-            labelStyle={{ color: "hsl(var(--popover-foreground))", fontWeight: 600, marginBottom: 4 }}
-            formatter={(value: number, name: string) => [
-              money(Number(value)),
-              name,
-            ]}
-          />
-        </RechartsPieChart>
-      </ResponsiveContainer>
-      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-        <span className="text-lg font-bold tabular-nums text-foreground">
-          {money(centerValue)}
-        </span>
-        <span className="text-[11px] text-muted-foreground">Total filtrado</span>
+  const categoryMax = Math.max(1, ...donutData.map((entry) => entry.value));
+  const categoryPanel = (
+    <ChartCard title="Gastos por Categoria" color={CHART_ACCENTS.categories}>
+      <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2 border-b border-border/50 pb-3">
+        <span className="text-xs text-muted-foreground">Total filtrado</span>
+        <span className="text-lg font-bold tabular-nums text-foreground">{money(centerValue)}</span>
       </div>
-    </div>
-
-    <ul className="mt-3 grid grid-cols-1 gap-1">
-      {donutData.map((entry, index) => (
-        <li key={entry.category}>
-          <button
-            type="button"
-            onClick={() => toggleCategory(entry.category)}
-            className={cn(
-              "grid w-full grid-cols-[0.625rem_minmax(9ch,1fr)_auto_2.5rem] items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-accent/50",
-              selectedCategories.includes(entry.category) &&
-              "bg-primary/10 ring-1 ring-primary/40",
-            )}
-          >
-            <span
-              className="h-2.5 w-2.5 shrink-0 rounded-full"
-              style={{ background: categoryColor(entry.category) }}
-            />
-            <span className="min-w-0 break-normal text-foreground" title={entry.category}>{entry.category}</span>
-            <span className="whitespace-nowrap tabular-nums text-muted-foreground">
-              {money(entry.value)}
-            </span>
-            <span className="w-10 shrink-0 text-right tabular-nums text-muted-foreground">
-              {percent(Math.round(entry.percentage))}
-            </span>
-          </button>
-        </li>
-      ))}
-    </ul>
-  </ChartCard>);
+      <div className="space-y-3">
+        {donutData.map((entry) => {
+          const active = selectedCategories.includes(entry.category);
+          const dimmed = selectedCategories.length > 0 && !active;
+          return (
+            <button
+              key={entry.category}
+              type="button"
+              onClick={() => toggleCategory(entry.category)}
+              aria-pressed={active}
+              className={cn(
+                "block w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-accent/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                active && "bg-primary/10 ring-1 ring-primary/40",
+              )}
+            >
+              <span className="mb-1.5 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-0.5 text-xs">
+                <span className={cn("min-w-0 break-words font-medium text-foreground", dimmed && "text-muted-foreground")}>
+                  {entry.category}
+                </span>
+                <span className="flex shrink-0 gap-3 tabular-nums">
+                  <span className="font-semibold text-foreground">{money(entry.value)}</span>
+                  <span className="w-10 text-right text-muted-foreground">{percent(Math.round(entry.percentage))}</span>
+                </span>
+              </span>
+              <span className="block h-2.5 overflow-hidden rounded-full bg-muted" aria-hidden="true">
+                <span
+                  className="block h-full rounded-full transition-[width,opacity] duration-200"
+                  style={{
+                    width: `${Math.max(0, Math.min(100, (entry.value / categoryMax) * 100))}%`,
+                    backgroundColor: categoryColor(entry.category),
+                    opacity: dimmed ? 0.35 : 1,
+                  }}
+                />
+              </span>
+            </button>
+          );
+        })}
+      </div>
+    </ChartCard>
+  );
   const evolutionPanel = (<ChartCard title="Evolução dos Gastos" color={CHART_ACCENTS.time} className="flex flex-col">
     {visibleExpenses.length === 0 ? (
       <p className="py-10 text-center text-sm text-muted-foreground">
