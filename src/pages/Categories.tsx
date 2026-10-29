@@ -48,6 +48,10 @@ export default function Categories() {
   const [formOpen, setFormOpen] = useState(false);
   const [editing, setEditing] = useState<UserCategory | undefined>();
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [replacementId, setReplacementId] = useState("");
+  const [deletingCategory, setDeletingCategory] = useState(false);
+  const deletingRef = useRef(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const [name, setName] = useState("");
   const [type, setType] = useState<UserCategory["type"]>("expense");
   const [monthlyBudget, setMonthlyBudget] = useState("");
@@ -71,6 +75,7 @@ export default function Categories() {
     setType(cat.type);
     setMonthlyBudget(cat.monthlyBudget == null ? "" : String(cat.monthlyBudget));
     setBudgetError(null);
+    setFormError(null);
     setFormOpen(true);
   };
 
@@ -92,8 +97,8 @@ export default function Categories() {
     try {
       setFormError(null);
       if (editing) {
-        await updateCategory(editing.id, name, type, parsedBudget);
-        setFormOpen(false);
+        const saved = await updateCategory(editing.id, name, type, parsedBudget);
+        if (saved) setFormOpen(false);
       } else {
         const saved = await addCategory(name, type, parsedBudget);
         if (saved) setFormOpen(false);
@@ -185,13 +190,13 @@ export default function Categories() {
                 <Button aria-label={`Editar ${cat.name}`} variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(cat)}>
                   <Pencil className="h-3.5 w-3.5" />
                 </Button>
-                <Button aria-label={`Excluir ${cat.name}`} variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleting(cat.id)}>
+                <Button aria-label={`Excluir ${cat.name}`} variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setDeleting(cat.id); setReplacementId(""); setDeleteError(null); }}>
                   <Trash2 className="h-3.5 w-3.5 text-destructive" />
                 </Button>
               </div>
             </div>
             {cat.type === "expense" && cat.monthlyBudget != null && (() => {
-              // Transactions reference category names, so renaming does not relink historical rows.
+              // The category RPC relinks persisted names before refreshing budget usage.
               const spent = monthlySpending[cat.name] || 0;
               const usage = calculateCategoryBudgetUsage(spent, cat.monthlyBudget);
               return (
@@ -228,7 +233,7 @@ export default function Categories() {
                         <Button aria-label={`Editar cadastro ${index + 1} de ${cat.name}`} variant="ghost" size="icon" className="h-8 w-8" onClick={() => openEdit(item)}>
                           <Pencil className="h-3.5 w-3.5" />
                         </Button>
-                        <Button aria-label={`Excluir cadastro ${index + 1} de ${cat.name}`} variant="ghost" size="icon" className="h-8 w-8" onClick={() => setDeleting(item.id)}>
+                        <Button aria-label={`Excluir cadastro ${index + 1} de ${cat.name}`} variant="ghost" size="icon" className="h-8 w-8" onClick={() => { setDeleting(item.id); setReplacementId(""); setDeleteError(null); }}>
                           <Trash2 className="h-3.5 w-3.5 text-destructive" />
                         </Button>
                       </div>
@@ -328,15 +333,35 @@ export default function Categories() {
       </Dialog>
 
       {/* Delete Confirmation */}
-      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && setDeleting(null)}>
+      <AlertDialog open={!!deleting} onOpenChange={(o) => !o && !deletingRef.current && setDeleting(null)}>
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>Excluir categoria?</AlertDialogTitle>
-            <AlertDialogDescription>Registros existentes manterão o nome da categoria, mas ela não aparecerá mais como opção.</AlertDialogDescription>
+            <AlertDialogDescription>Se houver lançamentos ou previsões vinculados, escolha uma substituta. A confirmação altera apenas a categoria desses registros, preservando valores e vínculos.</AlertDialogDescription>
           </AlertDialogHeader>
+          <div className="space-y-2">
+            <Label htmlFor="replacement-category">Categoria substituta</Label>
+            <select id="replacement-category" className="w-full rounded-md border bg-background p-2" value={replacementId} disabled={deletingCategory} onChange={e => setReplacementId(e.target.value)}>
+              <option value="">Sem substituta (somente se não estiver em uso)</option>
+              {categories.filter(c => c.id !== deleting && (c.type === "both" || c.type === categories.find(source => source.id === deleting)?.type))
+                .map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
+            </select>
+            {replacementId && <p className="text-sm text-muted-foreground">Ao confirmar, os registros vinculados passarão para {categories.find(c => c.id === replacementId)?.name}.</p>}
+            {deleteError && <p role="alert" className="text-sm text-destructive">{deleteError}</p>}
+          </div>
           <AlertDialogFooter>
-            <AlertDialogCancel>Cancelar</AlertDialogCancel>
-            <AlertDialogAction onClick={() => { if (deleting) deleteCategory(deleting); setDeleting(null); }}>Excluir</AlertDialogAction>
+            <AlertDialogCancel disabled={deletingCategory}>Cancelar</AlertDialogCancel>
+            <AlertDialogAction disabled={deletingCategory} onClick={async e => {
+              e.preventDefault();
+              if (!deleting || deletingRef.current) return;
+              deletingRef.current = true;
+              setDeletingCategory(true);
+              try {
+                const saved = await deleteCategory(deleting, replacementId || undefined);
+                if (saved) setDeleting(null);
+                else setDeleteError("Não foi possível excluir. Se estiver em uso, selecione uma substituta e confirme novamente.");
+              } finally { deletingRef.current = false; setDeletingCategory(false); }
+            }}>{deletingCategory ? "Excluindo..." : replacementId ? "Substituir e excluir" : "Excluir"}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>

@@ -1,3 +1,4 @@
+import { subscribeCategoryChanges } from "@/lib/category-refresh";
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { CreditCardInvoice, ReceiptDetails, Transaction } from "@/lib/types";
 import { supabase } from "@/integrations/supabase/client";
@@ -134,6 +135,7 @@ export const FinanceProvider = ({ children }: { children: React.ReactNode }) => 
   }, [user]);
 
   useEffect(() => { fetchTransactions(); }, [fetchTransactions]);
+  useEffect(() => subscribeCategoryChanges(fetchTransactions), [fetchTransactions]);
 
   const addTransaction = useCallback(async (t: Omit<Transaction, "id">, options?: { installments?: number; attachments?: File[]; receiptRef?: string }) => {
     if (!user) return false;

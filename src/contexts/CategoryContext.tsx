@@ -1,3 +1,4 @@
+import { refreshCategoryReferences } from "@/lib/category-refresh";
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -15,8 +16,8 @@ interface CategoryContextType {
   categories: UserCategory[];
   loading: boolean;
   addCategory: (name: string, type: UserCategory["type"], monthlyBudget?: number | null) => Promise<boolean>;
-  updateCategory: (id: string, name: string, type: UserCategory["type"], monthlyBudget?: number | null) => Promise<void>;
-  deleteCategory: (id: string) => Promise<void>;
+  updateCategory: (id: string, name: string, type: UserCategory["type"], monthlyBudget?: number | null) => Promise<boolean>;
+  deleteCategory: (id: string, replacementId?: string) => Promise<boolean>;
   getCategoriesByType: (type: "income" | "expense") => string[];
   allCategoryNames: string[];
   refetch: () => void;
@@ -152,28 +153,45 @@ export const CategoryProvider = ({ children }: { children: React.ReactNode }) =>
     type: UserCategory["type"],
     monthlyBudget: number | null = null,
   ) => {
-    const { error } = await supabase.from("categories").update({
-      name,
-      type,
-      monthly_budget: type === "expense" ? monthlyBudget : null,
-    }).eq("id", id);
-    if (error) {
-      toast({ title: "Erro ao atualizar categoria", description: error.message, variant: "destructive" });
-    } else {
+    if (!user || categoryWrites.current.has(id)) return false;
+    categoryWrites.current.add(id);
+    try {
+      const { error } = await supabase.rpc("update_category_with_references", {
+        p_id: id, p_name: name, p_type: type,
+        p_monthly_budget: type === "expense" ? monthlyBudget : null,
+      });
+      if (error) {
+        toast({ title: "Erro ao atualizar categoria", description: error.message, variant: "destructive" });
+        return false;
+      }
+      await Promise.all([fetchCategories(), refreshCategoryReferences()]);
       toast({ title: "Categoria atualizada", description: name });
-      fetchCategories();
-    }
-  }, [fetchCategories]);
+      return true;
+    } catch {
+      toast({ title: "Atualização não confirmada", description: "Atualize os dados antes de tentar novamente.", variant: "destructive" });
+      return false;
+    } finally { categoryWrites.current.delete(id); }
+  }, [user, fetchCategories]);
 
-  const deleteCategory = useCallback(async (id: string) => {
-    const { error } = await supabase.from("categories").delete().eq("id", id);
-    if (error) {
-      toast({ title: "Erro ao excluir categoria", description: error.message, variant: "destructive" });
-    } else {
-      toast({ title: "Categoria excluída", variant: "destructive" });
-      fetchCategories();
-    }
-  }, [fetchCategories]);
+  const deleteCategory = useCallback(async (id: string, replacementId?: string) => {
+    if (!user || categoryWrites.current.has(id)) return false;
+    categoryWrites.current.add(id);
+    try {
+      const { error } = await supabase.rpc("delete_category_with_replacement", {
+        p_id: id, p_replacement_id: replacementId ?? null,
+      });
+      if (error) {
+        toast({ title: "Erro ao excluir categoria", description: error.message, variant: "destructive" });
+        return false;
+      }
+      await Promise.all([fetchCategories(), refreshCategoryReferences()]);
+      toast({ title: "Categoria excluída" });
+      return true;
+    } catch {
+      toast({ title: "Exclusão não confirmada", description: "Atualize os dados antes de tentar novamente.", variant: "destructive" });
+      return false;
+    } finally { categoryWrites.current.delete(id); }
+  }, [user, fetchCategories]);
 
   const getCategoriesByType = useCallback((type: "income" | "expense") => {
     return uniqueCategoryNames(categories

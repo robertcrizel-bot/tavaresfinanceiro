@@ -3,6 +3,7 @@ import { act, render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { FinanceProvider, useFinance } from "@/contexts/FinanceContext";
 import type { ReceiptDetails, Transaction } from "@/lib/types";
+import { refreshCategoryReferences } from "@/lib/category-refresh";
 
 const mocks = vi.hoisted(() => ({
   user: { id: "user-1" },
@@ -94,6 +95,14 @@ describe("FinanceContext receipt details", () => {
     render(<FinanceProvider><Consumer /></FinanceProvider>);
     await waitFor(() => expect(context?.loading).toBe(false));
   };
+
+  it("reloads renamed transaction categories used by reports and budgets", async () => {
+    await renderProvider();
+    mocks.transactionRows = [{ id: "old", title: "Old purchase", amount: 100, type: "expense", category: "Saúde/Farmácia", date: "2020-01-31" }];
+    await act(async () => { await refreshCategoryReferences(); });
+    expect(context?.transactions).toEqual([expect.objectContaining({ id: "old", category: "Saúde/Farmácia", amount: 100 })]);
+    expect(mocks.transactionOrder).toHaveBeenCalledTimes(2);
+  });
 
   it("hydrates existing receipt metadata without losing information", async () => {
     mocks.transactionRows = [{

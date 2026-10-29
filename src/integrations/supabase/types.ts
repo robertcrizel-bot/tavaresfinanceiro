@@ -603,6 +603,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      update_category_with_references: {
+        Args: { p_id: string; p_name: string; p_type: string; p_monthly_budget?: number | null }
+        Returns: undefined
+      }
+      delete_category_with_replacement: {
+        Args: { p_id: string; p_replacement_id?: string | null }
+        Returns: undefined
+      }
       convert_existing_card_purchase_to_installments: {
         Args: {
           p_transaction_id: string
