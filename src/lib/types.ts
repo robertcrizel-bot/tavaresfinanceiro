@@ -106,6 +106,9 @@ export interface Transaction {
   accountId?: string;
   creditCardId?: string;
   creditCardInvoiceId?: string;
+  installments?: number;
+  installmentNumber?: number;
+  parentTransactionId?: string;
   financialKind?: FinancialKind;
   isPaid?: boolean;
   hasAttachment?: boolean;

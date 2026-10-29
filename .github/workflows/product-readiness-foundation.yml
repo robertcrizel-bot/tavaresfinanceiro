@@ -46,3 +46,7 @@ jobs:
         run: psql -h 127.0.0.1 -U postgres -d test_commercial -v ON_ERROR_STOP=1 -f supabase/tests/commercial-invoice-grants.sql
       - name: Account and card owner isolation (disposable database)
         run: psql -h 127.0.0.1 -U postgres -d test_commercial -v ON_ERROR_STOP=1 -f supabase/tests/account-card-identification-rls.sql
+      - name: Existing purchase installment conversion (disposable database)
+        run: |
+          createdb -h 127.0.0.1 -U postgres test_installments
+          psql -h 127.0.0.1 -U postgres -d test_installments -v ON_ERROR_STOP=1 -f supabase/tests/existing-card-purchase-installments.sql
