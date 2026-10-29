@@ -216,12 +216,18 @@ export function filterExpensesInRange(
   );
 }
 
+export type AnalyticsSelection = string | readonly string[] | null;
+
+const selectionValues = (selection: AnalyticsSelection): readonly string[] =>
+  typeof selection === "string" ? (selection ? [selection] : []) : selection ?? [];
+
 export function filterByCategory<T extends { category: string }>(
   transactions: T[],
-  category: string | null,
+  category: AnalyticsSelection,
 ): T[] {
-  if (!category) return transactions;
-  return transactions.filter((transaction) => transaction.category === category);
+  const selected = selectionValues(category);
+  if (selected.length === 0) return transactions;
+  return transactions.filter((transaction) => selected.includes(transaction.category));
 }
 
 /** Case- and accent-insensitive text for establishment/description searches. */
@@ -254,31 +260,30 @@ export function filterByEstablishment<T extends { title: string; description?: s
  */
 export function filterByOrigin<T extends { accountId?: string; creditCardId?: string }>(
   transactions: T[],
-  originId: string | null,
+  originId: AnalyticsSelection,
 ): T[] {
-  if (!originId) return transactions;
-  const separator = originId.indexOf(":");
-  if (separator < 0) return [];
-  const kind = originId.slice(0, separator);
-  const id = originId.slice(separator + 1);
-  return transactions.filter((transaction) =>
-    kind === "a" ? transaction.accountId === id : kind === "c" ? transaction.creditCardId === id : false,
-  );
+  const selected = selectionValues(originId);
+  if (selected.length === 0) return transactions;
+  // Filter each row once, even if both its account and its card are selected.
+  return transactions.filter(transaction =>
+    (transaction.accountId && selected.includes(`a:${transaction.accountId}`)) ||
+    (transaction.creditCardId && selected.includes(`c:${transaction.creditCardId}`)));
 }
 
 export function filterByPaymentMethod<T extends { paymentMethod?: string }>(
   transactions: T[],
-  method: string | null,
+  method: AnalyticsSelection,
 ): T[] {
-  if (!method) return transactions;
-  return transactions.filter((transaction) => transaction.paymentMethod === method);
+  const selected = selectionValues(method);
+  if (selected.length === 0) return transactions;
+  return transactions.filter((transaction) => transaction.paymentMethod != null && selected.includes(transaction.paymentMethod));
 }
 
 /** The non-period scope filters that must also apply to the previous period. */
 export interface AnalyticsScopeFilters {
   search: string;
-  originId: string | null;
-  paymentMethod: string | null;
+  originId: AnalyticsSelection;
+  paymentMethod: AnalyticsSelection;
 }
 
 export const EMPTY_ANALYTICS_SCOPE: AnalyticsScopeFilters = {
@@ -299,7 +304,7 @@ export function applyAnalyticsScope<
 
 /** True when establishment/origin/payment filters narrow the view (subset risk). */
 export function hasActiveAnalyticsScope(scope: AnalyticsScopeFilters): boolean {
-  return Boolean(scope.search.trim() || scope.originId || scope.paymentMethod);
+  return Boolean(scope.search.trim() || selectionValues(scope.originId).length || selectionValues(scope.paymentMethod).length);
 }
 
 export function sumExpenses(transactions: Transaction[]): number {

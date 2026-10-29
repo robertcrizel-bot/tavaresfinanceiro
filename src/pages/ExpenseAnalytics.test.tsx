@@ -4,8 +4,10 @@ import { MemoryRouter } from "react-router-dom";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import ExpenseAnalytics from "@/pages/ExpenseAnalytics";
 import type { Transaction } from "@/lib/types";
+import type { FinancialReport } from "@/lib/financial-data-export";
 
 const mocks = vi.hoisted(() => ({
+  report: null as FinancialReport | null,
   transactions: [] as Transaction[],
   categories: [] as {
     id: string;
@@ -47,11 +49,14 @@ vi.mock("@/components/TransactionDetail", () => ({
     transaction ? <div data-testid="transaction-detail">{transaction.title}</div> : null,
 }));
 vi.mock("@/components/FinanceExportMenu", () => ({
-  FinanceExportMenu: ({ report }: { report: { metrics: { label: string; value: string }[] } }) => (
+  FinanceExportMenu: ({ report }: { report: FinancialReport }) => {
+    mocks.report = report;
+    return (
     <button type="button" data-testid="analytics-export" data-variation={report.metrics.find(m => m.label === "Variação")?.value}>
       Exportar
     </button>
-  ),
+    );
+  },
 }));
 
 vi.mock("@/components/ui/calendar", () => ({ Calendar: () => null }));
@@ -175,6 +180,9 @@ const renderPage = () =>
     </MemoryRouter>,
   );
 
+const checkOption = (name: string) => fireEvent.click(screen.getByRole("checkbox", { name, exact: true }));
+const filterMenu = (label: string) => screen.getByRole("group", { name: `Opções: ${label}` }).parentElement!;
+
 const periodButton = (label: string) =>
   screen.getAllByText(label)[0].closest("button") as HTMLButtonElement;
 const clickPeriod = (label: string) => fireEvent.click(periodButton(label));
@@ -183,10 +191,103 @@ const kpiValue = (title: string) =>
 
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.report = null;
   mocks.transactions = dataset;
   mocks.categories = categories;
   mocks.accounts = [{ id: "acc-1", name: "Nubank" }];
   mocks.creditCards = [];
+});
+
+describe("ExpenseAnalytics multiple filters", () => {
+  const health = "Saúde/Farmácia" as Transaction["category"];
+  const setupMultiple = () => {
+    mocks.categories = [categories[0], { id: "health", name: health, type: "expense", monthlyBudget: 500 }, categories[2]];
+    mocks.accounts = [{ id: "caixa", name: "Caixa" }, { id: "other", name: "Inter" }];
+    mocks.creditCards = [{ id: "nubank", name: "Nubank" }];
+    const rows = (date: string, previous = false) => [
+      expense(`${date}-food`, date, previous ? 50 : 120, { accountId: "caixa", paymentMethod: "Pix" }),
+      expense(`${date}-health`, date, previous ? 50 : 80, { category: health, creditCardId: "nubank", paymentMethod: "Cartão de Crédito", financialKind: "card_purchase" }),
+      ...previous ? [] : [expense("both-origins", date, 30, { category: health, accountId: "caixa", creditCardId: "nubank", paymentMethod: "Cartão de Crédito" })],
+      expense(`${date}-wrong-category`, date, 1000, { category: "Lazer", accountId: "caixa", paymentMethod: "Pix" }),
+      expense(`${date}-wrong-origin`, date, 2000, { category: health, accountId: "other", paymentMethod: "Pix" }),
+      expense(`${date}-wrong-payment`, date, 3000, { accountId: "caixa", paymentMethod: "Dinheiro" }),
+    ];
+    mocks.transactions = [...rows(day1), ...rows(prevMonthDay1, true)];
+    renderPage();
+  };
+  const selectCombination = () => {
+    for (const label of ["Alimentação", "Saúde/Farmácia", "Caixa", "Nubank (Cartão)", "Pix", "Cartão de Crédito"]) checkOption(label);
+  };
+
+  it("combines OR within filters and AND across them for KPIs, comparison, charts, budget and export", () => {
+    setupMultiple();
+    selectCombination();
+    expect(kpiValue("Gasto Total")).toBe(fmt(230));
+    expect(kpiValue("Média por Dia")).toBe(fmt(230 / elapsedDays));
+    expect(kpiValue("Maior Categoria")).toContain("Alimentação");
+    expect(kpiValue("Variação")).toContain("130%");
+    expect(screen.getByRole("button", { name: "Filtrar por categoria" })).toHaveTextContent("2 categorias selecionadas");
+    expect(screen.getByRole("button", { name: "Filtrar por conta ou cartão" })).toHaveTextContent("2 contas/cartões selecionados");
+    expect(screen.getByRole("button", { name: "Filtrar por forma de pagamento" })).toHaveTextContent("2 formas selecionadas");
+    expect(screen.getByText("Compra both-origins")).toBeInTheDocument();
+    for (const suffix of ["wrong-category", "wrong-origin", "wrong-payment"]) expect(screen.queryByText(`Compra ${day1}-${suffix}`)).not.toBeInTheDocument();
+    expect(mocks.report?.categories).toEqual([
+      { category: "Alimentação", total: 120, share: 120 / 230 * 100 },
+      { category: health, total: 110, share: 110 / 230 * 100 },
+    ]);
+    expect(mocks.report?.rows).toEqual([
+      expect.objectContaining({ Categoria: "Alimentação", "Gasto atual": 120, "Período anterior": 50, "Orçamento": 1000 }),
+      expect.objectContaining({ Categoria: health, "Gasto atual": 110, "Período anterior": 50, "Orçamento": 500 }),
+    ]);
+    expect(mocks.report?.filterDescription).toContain("Categorias: Alimentação, Saúde/Farmácia");
+    expect(mocks.report?.filterDescription).toContain("Contas/cartões: Caixa, Nubank (Cartão)");
+    expect(mocks.report?.filterDescription).toContain("Pagamentos: Pix, Cartão de Crédito");
+    for (const graph of mocks.report?.graphs?.filter(graph => graph.kind === "category" || graph.kind === "evolution") ?? []) {
+      expect(graph.points.reduce((sum, point) => sum + point.value, 0)).toBe(230);
+    }
+  });
+
+  it("preserves all selections when changing the period and moving to the previous window", () => {
+    setupMultiple();
+    selectCombination();
+    clickPeriod("3 meses");
+    expect(kpiValue("Gasto Total")).toBe(fmt(330));
+    clickPeriod("Mês");
+    fireEvent.click(screen.getByRole("button", { name: "Período anterior" }));
+    expect(kpiValue("Gasto Total")).toBe(fmt(100));
+    for (const label of ["Alimentação", "Saúde/Farmácia", "Caixa", "Nubank (Cartão)", "Pix", "Cartão de Crédito"]) expect(screen.getByRole("checkbox", { name: label, exact: true })).toBeChecked();
+  });
+
+  it("allows removing selections individually, with an empty category selection meaning all", () => {
+    setupMultiple();
+    checkOption("Alimentação");
+    checkOption("Saúde/Farmácia");
+    expect(kpiValue("Gasto Total")).toBe(fmt(5230));
+    checkOption("Alimentação");
+    expect(kpiValue("Gasto Total")).toBe(fmt(2110));
+    checkOption("Saúde/Farmácia");
+    expect(kpiValue("Gasto Total")).toBe(fmt(6230));
+    expect(screen.queryByText("Filtros ativos:")).not.toBeInTheDocument();
+  });
+
+  it("supports select-all, clearing each group and the general reset including search", () => {
+    setupMultiple();
+    for (const label of ["Filtrar por categoria", "Filtrar por conta ou cartão", "Filtrar por forma de pagamento"]) {
+      const menu = filterMenu(label);
+      fireEvent.click(within(menu).getByRole("button", { name: "Selecionar todas" }));
+      expect(within(menu).getAllByRole("checkbox").every(input => (input as HTMLInputElement).checked)).toBe(true);
+      fireEvent.click(within(menu).getByRole("button", { name: "Limpar seleção" }));
+      expect(within(menu).getAllByRole("checkbox").every(input => !(input as HTMLInputElement).checked)).toBe(true);
+      expect(kpiValue("Gasto Total")).toBe(fmt(6230));
+    }
+    selectCombination();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Compra" } });
+    fireEvent.click(screen.getByRole("button", { name: "Limpar filtros", exact: true }));
+    expect(screen.getByRole("textbox")).toHaveValue("");
+    expect(screen.getAllByRole("checkbox").every(input => !(input as HTMLInputElement).checked)).toBe(true);
+    expect(kpiValue("Gasto Total")).toBe(fmt(6230));
+    expect(mocks.report?.filterDescription).toBe("Sem filtros adicionais");
+  });
 });
 
 describe("ExpenseAnalytics default period", () => {
@@ -197,7 +298,7 @@ describe("ExpenseAnalytics default period", () => {
       expect(within(sidebar).getByRole("button", { name: label })).toBeInTheDocument();
     }
     for (const label of ["Filtrar por categoria", "Filtrar por conta ou cartão", "Filtrar por forma de pagamento"]) {
-      expect(within(sidebar).getByRole("combobox", { name: label })).toBeInTheDocument();
+      expect(within(sidebar).getByRole("button", { name: label })).toBeInTheDocument();
     }
     expect(within(sidebar).getByRole("textbox")).toBeInTheDocument();
     expect(sidebar).not.toContainElement(screen.getByText("Gasto Total"));
@@ -483,7 +584,7 @@ describe("ExpenseAnalytics scope filters (establishment, origin, payment)", () =
 
   const clickSelectItem = (label: string) => {
     fireEvent.click(screen.getByLabelText(label));
-    // The mocked Select renders every option as a plain button.
+    // The mocked Popover keeps options available to these data-pipeline tests.
   };
 
   it("narrows every indicator by the establishment search, ignoring case and accents", () => {
@@ -500,7 +601,7 @@ describe("ExpenseAnalytics scope filters (establishment, origin, payment)", () =
   it("filters by payment method and updates the active chip", () => {
     setupScope();
     clickSelectItem("Filtrar por forma de pagamento");
-    fireEvent.click(screen.getByRole("button", { name: "Pix" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Pix", exact: true }));
 
     expect(kpiValue("Gasto Total")).toBe(fmt(470.5)); // pad1 + pad2 + gas
     const banner = screen.getByText("Filtros ativos:").closest("div") as HTMLElement;
@@ -510,7 +611,7 @@ describe("ExpenseAnalytics scope filters (establishment, origin, payment)", () =
   it("filters by account origin and applies the same scope to the previous period", () => {
     setupScope();
     clickSelectItem("Filtrar por conta ou cartão");
-    fireEvent.click(screen.getByRole("button", { name: "Inter" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Inter", exact: true }));
 
     // pad3 (117) + gas (200); previous month has no Inter movement.
     expect(kpiValue("Gasto Total")).toBe(fmt(317));
@@ -521,7 +622,7 @@ describe("ExpenseAnalytics scope filters (establishment, origin, payment)", () =
     setupScope();
     typeEstablishment("padaria");
     clickSelectItem("Filtrar por conta ou cartão");
-    fireEvent.click(screen.getByRole("button", { name: "Nubank" }));
+    fireEvent.click(screen.getByRole("checkbox", { name: "Nubank", exact: true }));
 
     // Nubank padarias: 120.30 + 150.20 = 270.50 (Inter padaria excluded).
     expect(kpiValue("Gasto Total")).toBe(fmt(270.5));

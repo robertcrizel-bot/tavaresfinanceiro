@@ -14,7 +14,7 @@ import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AnalyticsMultiSelect } from "@/components/AnalyticsMultiSelect";
 import { TransactionDetail } from "@/components/TransactionDetail";
 import { calculateCategoryBudgetUsage } from "@/lib/financial-calculations";
 import {
@@ -112,10 +112,10 @@ export default function ExpenseAnalytics() {
   const [customRange, setCustomRange] = useState<DateRange | undefined>();
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [filtersOpen, setFiltersOpen] = useState(false);
-  const [selectedCategory, setSelectedCategory] = useState<string | null>(null);
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [searchText, setSearchText] = useState("");
-  const [selectedOrigin, setSelectedOrigin] = useState<string | null>(null);
-  const [selectedPayment, setSelectedPayment] = useState<string | null>(null);
+  const [selectedOrigins, setSelectedOrigins] = useState<string[]>([]);
+  const [selectedPayments, setSelectedPayments] = useState<string[]>([]);
   const [detailTransaction, setDetailTransaction] = useState<Transaction | null>(null);
 
   const today = useMemo(() => new Date(), []);
@@ -133,8 +133,8 @@ export default function ExpenseAnalytics() {
   );
 
   const scopeFilters = useMemo<AnalyticsScopeFilters>(
-    () => ({ search: searchText, originId: selectedOrigin, paymentMethod: selectedPayment }),
-    [searchText, selectedOrigin, selectedPayment],
+    () => ({ search: searchText, originId: selectedOrigins, paymentMethod: selectedPayments }),
+    [searchText, selectedOrigins, selectedPayments],
   );
 
   const periodExpenses = useMemo(
@@ -150,8 +150,8 @@ export default function ExpenseAnalytics() {
   );
 
   const visibleExpenses = useMemo(
-    () => filterByCategory(scopedExpenses, selectedCategory),
-    [scopedExpenses, selectedCategory],
+    () => filterByCategory(scopedExpenses, selectedCategories),
+    [scopedExpenses, selectedCategories],
   );
 
   const previousRange = useMemo(
@@ -170,8 +170,8 @@ export default function ExpenseAnalytics() {
   );
 
   const previousVisibleExpenses = useMemo(
-    () => filterByCategory(previousScopedExpenses, selectedCategory),
-    [previousScopedExpenses, selectedCategory],
+    () => filterByCategory(previousScopedExpenses, selectedCategories),
+    [previousScopedExpenses, selectedCategories],
   );
 
   const visibleSummary = useMemo(() => {
@@ -233,10 +233,10 @@ export default function ExpenseAnalytics() {
     () =>
       budget
         ? budget.rows.filter(
-            (row) => !selectedCategory || row.category === selectedCategory,
+            (row) => selectedCategories.length === 0 || selectedCategories.includes(row.category),
           )
         : [],
-    [budget, selectedCategory],
+    [budget, selectedCategories],
   );
 
   const budgetSummary = useMemo(() => {
@@ -310,7 +310,7 @@ export default function ExpenseAnalytics() {
   const previousComparisonLabel = period === "month" ? "vs mês anterior" : "vs período anterior";
 
   const toggleCategory = (category: string) => {
-    setSelectedCategory((current) => (current === category ? null : category));
+    setSelectedCategories(current => current.includes(category) ? current.filter(value => value !== category) : [...current, category]);
   };
 
   const shiftAnchor = (direction: -1 | 1) => {
@@ -331,23 +331,29 @@ export default function ExpenseAnalytics() {
 
   const topCategory = visibleSummary.categories[0] ?? null;
 
-  const originLabel = useMemo(() => {
-    if (!selectedOrigin) return null;
-    if (selectedOrigin.startsWith("a:")) {
-      return accounts.find((item) => item.id === selectedOrigin.slice(2))?.name ?? null;
-    }
-    return creditCards.find((item) => item.id === selectedOrigin.slice(2))?.name ?? null;
-  }, [selectedOrigin, accounts, creditCards]);
+  const categoryOptions = useMemo(() => [...new Set(categories.map(category => category.name))]
+    .map(name => ({ value: name, label: name })), [categories]);
+  const originOptions = useMemo(() => [
+    ...accounts.map(account => ({ value: `a:${account.id}`, label: account.name })),
+    ...creditCards.map(card => ({ value: `c:${card.id}`, label: `${card.name} (Cartão)` })),
+  ], [accounts, creditCards]);
+  const categoryLabel = selectedCategories.length === 1 ? selectedCategories[0]
+    : selectedCategories.length > 1 ? `${selectedCategories.length} categorias selecionadas` : null;
+  const originNames = selectedOrigins.map(value => originOptions.find(option => option.value === value)?.label ?? value);
+  const originLabel = originNames.length === 1 ? originNames[0]
+    : originNames.length > 1 ? `${originNames.length} contas/cartões selecionados` : null;
+  const paymentLabel = selectedPayments.length === 1 ? selectedPayments[0]
+    : selectedPayments.length > 1 ? `${selectedPayments.length} formas selecionadas` : null;
 
   const subsetFiltersActive = hasActiveAnalyticsScope(scopeFilters);
   const hasAnyActiveFilter =
-    subsetFiltersActive || selectedCategory !== null;
+    subsetFiltersActive || selectedCategories.length > 0;
 
   const clearAllFilters = () => {
-    setSelectedCategory(null);
+    setSelectedCategories([]);
     setSearchText("");
-    setSelectedOrigin(null);
-    setSelectedPayment(null);
+    setSelectedOrigins([]);
+    setSelectedPayments([]);
   };
 
   // PDF's built-in Helvetica lacks arrows (↑ ↓ →), so use an explicit
@@ -397,9 +403,9 @@ export default function ExpenseAnalytics() {
       ? "Despesas de " + shortDate(effectiveRange.start) + " a " + shortDate(effectiveRange.end) + " · " + visibleExpenses.length + " registros analisados"
       : "Sem período selecionado",
     filterDescription: [
-      selectedCategory && "Categoria: " + selectedCategory,
-      originLabel && "Conta/cartão: " + originLabel,
-      selectedPayment && "Pagamento: " + selectedPayment,
+      selectedCategories.length > 0 && "Categorias: " + selectedCategories.join(", "),
+      originNames.length > 0 && "Contas/cartões: " + originNames.join(", "),
+      selectedPayments.length > 0 && "Pagamentos: " + selectedPayments.join(", "),
       searchText.trim() && "Busca: " + searchText.trim(),
     ].filter((x): x is string => Boolean(x)).join(" · ") || "Sem filtros adicionais",
     metrics: [
@@ -506,9 +512,7 @@ export default function ExpenseAnalytics() {
   };
 
   const rankingMax = donutData[0]?.value ?? 0;
-  const centerValue = selectedCategory
-    ? donutData.find((entry) => entry.category === selectedCategory)?.value ?? 0
-    : visibleSummary.total;
+  const centerValue = visibleSummary.total;
 
   // Shared panel: positioned next to highlights when results exist, or below empty states.
   const transactionsPanel = (
@@ -518,10 +522,10 @@ export default function ExpenseAnalytics() {
               <span>
                 {sortedTransactions.length} transaç
                 {sortedTransactions.length === 1 ? "ão" : "ões"}
-                {selectedCategory ? ` em ${selectedCategory}` : ""}
+                {selectedCategories.length > 0 ? ` em ${categoryLabel}` : ""}
                 {searchText.trim() ? ` · “${searchText.trim()}”` : ""}
                 {originLabel ? ` · ${originLabel}` : ""}
-                {selectedPayment ? ` · ${selectedPayment}` : ""}
+                {paymentLabel ? ` · ${paymentLabel}` : ""}
               </span>
               <span className="tabular-nums">
                 {money(sumExpenses(sortedTransactions))}
@@ -530,7 +534,7 @@ export default function ExpenseAnalytics() {
             {sortedTransactions.length === 0 ? (
               <p className="py-8 text-center text-sm text-muted-foreground">
                 Nenhuma transação no período
-                {selectedCategory ? ` para ${selectedCategory}` : ""}.
+                {selectedCategories.length > 0 ? ` para ${categoryLabel}` : ""}.
               </p>
             ) : (
               <div className="-mx-5 max-h-96 divide-y divide-border/60 overflow-y-auto border-t border-border/60">
@@ -612,13 +616,13 @@ export default function ExpenseAnalytics() {
         {hasAnyActiveFilter && (
           <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
             <span className="text-muted-foreground">Filtros ativos:</span>
-            {selectedCategory && (
+            {selectedCategories.length > 0 && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
-                {selectedCategory}
+                {categoryLabel}
                 <button
                   type="button"
-                  aria-label={`Remover filtro de categoria ${selectedCategory}`}
-                  onClick={() => setSelectedCategory(null)}
+                  aria-label={`Remover filtro de categoria ${categoryLabel}`}
+                  onClick={() => setSelectedCategories([])}
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -642,19 +646,19 @@ export default function ExpenseAnalytics() {
                 <button
                   type="button"
                   aria-label="Remover filtro de conta ou cartão"
-                  onClick={() => setSelectedOrigin(null)}
+                  onClick={() => setSelectedOrigins([])}
                 >
                   <X className="h-3 w-3" />
                 </button>
               </span>
             )}
-            {selectedPayment && (
+            {paymentLabel && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
-                {selectedPayment}
+                {paymentLabel}
                 <button
                   type="button"
                   aria-label="Remover filtro de pagamento"
-                  onClick={() => setSelectedPayment(null)}
+                  onClick={() => setSelectedPayments([])}
                 >
                   <X className="h-3 w-3" />
                 </button>
@@ -749,22 +753,9 @@ export default function ExpenseAnalytics() {
           <div className="grid min-w-0 grid-cols-1 gap-3 [&>*]:min-w-0">
             <div className="space-y-1">
             <label htmlFor="expense-category" className="block text-xs font-medium text-muted-foreground">Categoria</label>
-            <Select
-              value={selectedCategory ?? "all"}
-              onValueChange={(value) => setSelectedCategory(value === "all" ? null : value)}
-            >
-              <SelectTrigger id="expense-category" className="h-auto min-h-9 w-full gap-2 rounded-xl py-2 text-xs [&>span]:min-w-0 [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:break-words [&>span]:text-left [&>svg]:shrink-0" aria-label="Filtrar por categoria">
-                <SelectValue placeholder="Categoria" />
-              </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)] [&_[role=option]]:whitespace-normal [&_[role=option]]:break-words">
-                <SelectItem value="all">Todas as categorias</SelectItem>
-                {categories.map((category) => (
-                  <SelectItem key={category.name} value={category.name}>
-                    {category.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <AnalyticsMultiSelect id="expense-category" label="Filtrar por categoria" emptyLabel="Todas as categorias"
+              options={categoryOptions} selected={selectedCategories} onChange={setSelectedCategories}
+              countLabel={count => `${count} categorias selecionadas`} />
             </div>
 
             <div className="space-y-1">
@@ -785,47 +776,16 @@ export default function ExpenseAnalytics() {
 
             <div className="space-y-1">
             <label htmlFor="expense-origin" className="block text-xs font-medium text-muted-foreground">Conta ou cartão</label>
-            <Select
-              value={selectedOrigin ?? "all"}
-              onValueChange={(value) => setSelectedOrigin(value === "all" ? null : value)}
-            >
-              <SelectTrigger id="expense-origin" className="h-auto min-h-9 w-full gap-2 rounded-xl py-2 text-xs [&>span]:min-w-0 [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:break-words [&>span]:text-left [&>svg]:shrink-0" aria-label="Filtrar por conta ou cartão">
-                <SelectValue placeholder="Conta ou cartão" />
-              </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)] [&_[role=option]]:whitespace-normal [&_[role=option]]:break-words">
-                <SelectItem value="all">Todas as contas</SelectItem>
-                {accounts.map((account) => (
-                  <SelectItem key={account.id} value={`a:${account.id}`}>
-                    {account.name}
-                  </SelectItem>
-                ))}
-                {creditCards.map((card) => (
-                  <SelectItem key={card.id} value={`c:${card.id}`}>
-                    {card.name} (Cartão)
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <AnalyticsMultiSelect id="expense-origin" label="Filtrar por conta ou cartão" emptyLabel="Todas as contas"
+              options={originOptions} selected={selectedOrigins} onChange={setSelectedOrigins}
+              countLabel={count => `${count} contas/cartões selecionados`} />
             </div>
 
             <div className="space-y-1">
             <label htmlFor="expense-payment" className="block text-xs font-medium text-muted-foreground">Forma de pagamento</label>
-            <Select
-              value={selectedPayment ?? "all"}
-              onValueChange={(value) => setSelectedPayment(value === "all" ? null : value)}
-            >
-              <SelectTrigger id="expense-payment" className="h-auto min-h-9 w-full gap-2 rounded-xl py-2 text-xs [&>span]:min-w-0 [&>span]:line-clamp-none [&>span]:whitespace-normal [&>span]:break-words [&>span]:text-left [&>svg]:shrink-0" aria-label="Filtrar por forma de pagamento">
-                <SelectValue placeholder="Pagamento" />
-              </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)] max-w-[calc(100vw-2rem)] [&_[role=option]]:whitespace-normal [&_[role=option]]:break-words">
-                <SelectItem value="all">Todas as formas</SelectItem>
-                {PAYMENT_METHODS.map((method) => (
-                  <SelectItem key={method} value={method}>
-                    {method}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <AnalyticsMultiSelect id="expense-payment" label="Filtrar por forma de pagamento" emptyLabel="Todas as formas"
+              options={PAYMENT_METHODS.map(method => ({ value: method, label: method }))} selected={selectedPayments} onChange={setSelectedPayments}
+              countLabel={count => `${count} formas selecionadas`} />
             </div>
 
             {hasAnyActiveFilter && (
@@ -882,8 +842,8 @@ export default function ExpenseAnalytics() {
               <ChartCard title="Ranking de Gastos" color={CHART_ACCENTS.categories}>
                 <ol className="space-y-2">
                   {donutData.map((entry, index) => {
-                    const active = selectedCategory === entry.category;
-                    const dimmed = selectedCategory !== null && !active;
+                    const active = selectedCategories.includes(entry.category);
+                    const dimmed = selectedCategories.length > 0 && !active;
                     return (
                       <li key={entry.category}>
                         <button
@@ -1018,15 +978,15 @@ export default function ExpenseAnalytics() {
               <p className="mt-1 max-w-sm text-sm text-muted-foreground">
                 Nenhuma despesa registrada entre {shortDate(range!.start)} e{" "}
                 {shortDate(range!.end)}
-                {selectedCategory ? ` na categoria ${selectedCategory}` : ""}. Ajuste o período
+                {selectedCategories.length > 0 ? ` na categoria ${categoryLabel}` : ""}. Ajuste o período
                 ou o filtro de categoria.
               </p>
-              {selectedCategory && (
+              {selectedCategories.length > 0 && (
                 <Button
                   size="sm"
                   variant="outline"
                   className="mt-4"
-                  onClick={() => setSelectedCategory(null)}
+                  onClick={() => setSelectedCategories([])}
                 >
                   Limpar filtro
                 </Button>
@@ -1067,7 +1027,7 @@ export default function ExpenseAnalytics() {
                               key={entry.category}
                               fill={categoryColor(entry.category)}
                               fillOpacity={
-                                !selectedCategory || selectedCategory === entry.category
+                                selectedCategories.length === 0 || selectedCategories.includes(entry.category)
                                   ? 1
                                   : 0.25
                               }
@@ -1087,7 +1047,7 @@ export default function ExpenseAnalytics() {
                     </ResponsiveContainer>
                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
                       <span className="max-w-[9rem] break-words text-[13px] text-muted-foreground">
-                        {selectedCategory ?? "Total do período"}
+                        {categoryLabel || "Total do período"}
                       </span>
                       <span className="text-2xl font-bold tabular-nums text-foreground">
                         {money(centerValue)}
@@ -1103,7 +1063,7 @@ export default function ExpenseAnalytics() {
                           onClick={() => toggleCategory(entry.category)}
                           className={cn(
                             "grid w-full grid-cols-[0.625rem_minmax(9ch,1fr)_auto_2.5rem] items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-accent/50",
-                            selectedCategory === entry.category &&
+                            selectedCategories.includes(entry.category) &&
                               "bg-primary/10 ring-1 ring-primary/40",
                           )}
                         >
@@ -1215,7 +1175,7 @@ export default function ExpenseAnalytics() {
                           onClick={() => toggleCategory(change.category)}
                           className={cn(
                             "flex w-full items-center justify-between gap-3 rounded-md border border-border/60 px-3 py-2.5 text-left transition-colors hover:bg-accent/40",
-                            selectedCategory === change.category &&
+                            selectedCategories.includes(change.category) &&
                               "border-primary/50 bg-primary/10",
                           )}
                         >
@@ -1274,7 +1234,7 @@ export default function ExpenseAnalytics() {
                   ) : budgetRows.length === 0 ? (
                     <div className="py-8 text-center text-sm text-muted-foreground">
                       <p>
-                        Sem orçamento para {selectedCategory} neste período.
+                        Sem orçamento para {categoryLabel} neste período.
                       </p>
                       <Button asChild size="sm" variant="outline" className="mt-3">
                         <Link to="/categories">Definir orçamento</Link>
@@ -1344,7 +1304,7 @@ export default function ExpenseAnalytics() {
                                   onClick={() => toggleCategory(row.category)}
                                   className={cn(
                                     "min-w-0 break-words text-sm font-medium transition-colors hover:text-primary",
-                                    selectedCategory === row.category
+                                    selectedCategories.includes(row.category)
                                       ? "text-primary"
                                       : "text-foreground",
                                   )}

@@ -640,6 +640,23 @@ describe("buildInsights", () => {
 });
 
 describe("establishment / origin / payment scope filters", () => {
+  it("combines multiple categories, origins and methods without duplicating a matching row", () => {
+    const both = expense("both", "2026-10-01", 33.33, { accountId: "bank", creditCardId: "card", paymentMethod: "Pix" });
+    const card = expense("card", "2026-10-01", 66.67, { category: "Saúde", creditCardId: "card", paymentMethod: "Cartão de Crédito" });
+    const otherCategory = { ...both, id: "other-category", category: "Lazer" as const };
+    const otherOrigin = { ...card, id: "other-origin", creditCardId: "other" };
+    const otherMethod = { ...both, id: "other-method", paymentMethod: "Dinheiro" as const };
+    const list = [both, card, otherCategory, otherOrigin, otherMethod];
+    const scope = { search: "", originId: ["a:bank", "c:card", "a:bank"], paymentMethod: ["Pix", "Cartão de Crédito"] };
+    const result = filterByCategory(applyAnalyticsScope(list, scope), ["Alimentação", "Saúde", "Alimentação"]);
+    expect(result.map(row => row.id)).toEqual(["both", "card"]);
+    expect(sumExpenses(result)).toBe(100);
+    expect(filterByCategory(list, [])).toBe(list);
+    expect(filterByOrigin(list, [])).toBe(list);
+    expect(filterByPaymentMethod(list, [])).toBe(list);
+    expect(hasActiveAnalyticsScope({ search: "", originId: [], paymentMethod: [] })).toBe(false);
+    expect(hasActiveAnalyticsScope(scope)).toBe(true);
+  });
   const padaria = expense("p1", "2026-10-01", 120.3, {
     title: "Padaria Alvorada",
     description: "Pão francês",
