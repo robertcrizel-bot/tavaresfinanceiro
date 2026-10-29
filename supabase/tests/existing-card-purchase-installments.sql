@@ -33,6 +33,7 @@ CREATE TABLE public.transactions (
 );
 CREATE TABLE public.bill_payments (transaction_id uuid);
 CREATE TABLE public.credit_card_invoices (
+  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   credit_card_id uuid,
   user_id uuid,
   cycle_start date,
@@ -56,6 +57,7 @@ GRANT SELECT ON public.credit_card_invoices TO authenticated;
 GRANT SELECT ON public.bill_payments TO authenticated;
 
 \i supabase/migrations/20261028160000_convert_existing_card_purchase_installments.sql
+\i supabase/migrations/20261029120000_allow_open_invoice_purchase_installments.sql
 
 DO $precheck$
 BEGIN
@@ -138,3 +140,57 @@ BEGIN
 END $assert$;
 
 SELECT 'PASS: conversion is atomic, RLS-bound, cents-safe, idempotent and respects closed invoices' AS result;
+
+-- A pre-linked OPEN invoice may be converted; original remains linked, children do not.
+RESET ROLE;
+INSERT INTO public.credit_card_invoices(id,credit_card_id,user_id,cycle_start,cycle_end,status)
+VALUES ('11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+        '11111111-1111-1111-1111-111111111111','2026-06-01','2026-06-30','OPEN');
+SET ROLE authenticated;
+INSERT INTO public.transactions
+(id,user_id,title,amount,type,category,date,credit_card_id,credit_card_invoice_id,financial_kind)
+VALUES ('11111111-bbbb-bbbb-bbbb-bbbbbbbbbbbb',auth.uid(),'Compra aberta',69.99,'expense','Outros',
+'2026-06-10','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+'11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa','card_purchase');
+SELECT public.convert_existing_card_purchase_to_installments(
+'11111111-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Compra aberta',69.99,'Outros','2026-06-10',NULL,
+'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',3);
+DO $assert$
+BEGIN
+ IF (SELECT count(*) FROM public.transactions WHERE id='11111111-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+ AND credit_card_invoice_id='11111111-aaaa-aaaa-aaaa-aaaaaaaaaaaa' AND installment_number=1)<>1
+ OR (SELECT count(*) FROM public.transactions WHERE parent_transaction_id='11111111-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+ AND credit_card_invoice_id IS NULL)<>2
+ OR (SELECT sum(amount) FROM public.transactions WHERE id='11111111-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+ OR parent_transaction_id='11111111-bbbb-bbbb-bbbb-bbbbbbbbbbbb')<>69.99 THEN
+ RAISE EXCEPTION 'OPEN invoice conversion broke links, amounts or installments';
+ END IF;
+END $assert$;
+RESET ROLE;
+INSERT INTO public.credit_card_invoices(id,credit_card_id,user_id,cycle_start,cycle_end,status)
+VALUES ('22222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+'11111111-1111-1111-1111-111111111111','2026-07-01','2026-07-31','CLOSED');
+SET ROLE authenticated;
+INSERT INTO public.transactions
+(id,user_id,title,amount,type,category,date,credit_card_id,credit_card_invoice_id)
+VALUES ('22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb',auth.uid(),'Compra fechada',70,'expense','Outros',
+'2026-07-10','aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+'22222222-aaaa-aaaa-aaaa-aaaaaaaaaaaa');
+DO $assert$
+BEGIN
+ BEGIN
+ PERFORM public.convert_existing_card_purchase_to_installments(
+ '22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb','Compra fechada',70,'Outros','2026-07-10',NULL,
+ 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',3);
+ RAISE EXCEPTION 'Expected CLOSED linked invoice rejection';
+ EXCEPTION WHEN raise_exception THEN
+ IF SQLERRM='Expected CLOSED linked invoice rejection' THEN RAISE; END IF;
+ END;
+ IF (SELECT amount FROM public.transactions WHERE id='22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb')<>70
+ OR EXISTS (SELECT 1 FROM public.transactions WHERE parent_transaction_id='22222222-bbbb-bbbb-bbbb-bbbbbbbbbbbb') THEN
+ RAISE EXCEPTION 'CLOSED linked invoice modified';
+ END IF;
+END $assert$;
+SELECT 'PASS: OPEN linked invoice converts; CLOSED linked invoice protected' AS result;
