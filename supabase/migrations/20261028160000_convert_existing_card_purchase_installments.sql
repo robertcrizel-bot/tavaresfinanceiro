@@ -133,6 +133,6 @@ BEGIN
 END;
 $$;
 
-REVOKE ALL ON FUNCTION public.convert_existing_card_purchase_to_installments(uuid,text,numeric,text,date,text,uuid,integer) FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.convert_existing_card_purchase_to_installments(uuid,text,numeric,text,date,text,uuid,integer) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.convert_existing_card_purchase_to_installments(uuid,text,numeric,text,date,text,uuid,integer) TO authenticated;
 COMMIT;
