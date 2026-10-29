@@ -308,18 +308,19 @@ describe("ExpenseAnalytics default period", () => {
     }
     expect(within(sidebar).getByRole("textbox")).toBeInTheDocument();
     expect(sidebar).not.toContainElement(screen.getByText("Gasto Total"));
-    expect(sidebar.parentElement).toHaveClass("grid-cols-1", "xl:grid-cols-[280px_minmax(0,1fr)]");
-    expect(sidebar.nextElementSibling).toHaveClass("min-w-0");
-    const lowerSummary = screen.getByRole("region", { name: "Resumo detalhado do período" });
-    for (const title of ["Onde meu dinheiro aumentou?", "Orçamento × Realizado", "Destaques do Período"]) {
-      expect(within(lowerSummary).getByRole("heading", { name: title })).toBeInTheDocument();
+    const leftColumn = screen.getByRole("group", { name: "Filtros e transações" });
+    const centerColumn = screen.getByRole("group", { name: "Categorias e destaques" });
+    const rightColumn = screen.getByRole("group", { name: "Evolução e orçamento" });
+    expect(leftColumn).toContainElement(sidebar);
+    for (const title of ["Gastos por Categoria", "Onde meu dinheiro aumentou?", "Destaques do Período"]) {
+      expect(within(centerColumn).getByRole("heading", { name: title })).toBeInTheDocument();
     }
-    expect(sidebar).not.toContainElement(lowerSummary);
+    for (const title of ["Evolução dos Gastos", "Orçamento × Realizado"]) {
+      expect(within(rightColumn).getByRole("heading", { name: title })).toBeInTheDocument();
+    }
     const transactions = screen.getByRole("heading", { name: "Transações do Período" }).closest("section");
     expect(sidebar).not.toContainElement(transactions);
-    expect(lowerSummary).toContainElement(transactions);
-    const highlights = within(lowerSummary).getByRole("heading", { name: "Destaques do Período" });
-    expect(lowerSummary).toContainElement(highlights.closest(".dashboard-card"));
+    expect(leftColumn).toContainElement(transactions);
   });
 
   it("starts on Mês with the current-month totals, average and top category", () => {

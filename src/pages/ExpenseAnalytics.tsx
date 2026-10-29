@@ -513,9 +513,9 @@ export default function ExpenseAnalytics() {
 
   const centerValue = visibleSummary.total;
 
-  // Shared panel: flows with the other summary cards when results exist.
+  // Shared panel: follows the summary cards, or appears below empty states.
   const transactionsPanel = (
-          <div className="order-4 min-w-0 lg:order-none">
+          <div className="min-w-0">
           <ChartCard title="Transações do Período" color={CHART_ACCENTS.categories}>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>
@@ -536,7 +536,7 @@ export default function ExpenseAnalytics() {
                 {selectedCategories.length > 0 ? ` para ${categoryLabel}` : ""}.
               </p>
             ) : (
-              <div className="-mx-5 max-h-96 divide-y divide-border/60 overflow-y-auto border-t border-border/60">
+              <div className="-mx-4 divide-y divide-border/60 border-t border-border/60">
                 {sortedTransactions.map((transaction) => (
                   <button
                     key={transaction.id}
@@ -564,6 +564,387 @@ export default function ExpenseAnalytics() {
           </div>
   );
 
+  const hasVisibleExpenses = periodExpenses.length > 0 && visibleExpenses.length > 0;
+  const categoryPanel = (<ChartCard title="Gastos por Categoria" color={CHART_ACCENTS.categories}>
+    <div className="relative">
+      <ResponsiveContainer width="100%" height={220}>
+        <RechartsPieChart>
+          <Pie
+            data={donutData}
+            dataKey="value"
+            nameKey="category"
+            innerRadius={58}
+            outerRadius={92}
+            paddingAngle={2}
+            stroke="hsl(var(--card))"
+            strokeWidth={2}
+          >
+            {donutData.map((entry, index) => (
+              <Cell
+                key={entry.category}
+                fill={categoryColor(entry.category)}
+                fillOpacity={
+                  selectedCategories.length === 0 || selectedCategories.includes(entry.category)
+                    ? 1
+                    : 0.25
+                }
+                onClick={() => toggleCategory(entry.category)}
+              />
+            ))}
+          </Pie>
+          <Tooltip
+            contentStyle={CHART_TOOLTIP_STYLE}
+            labelStyle={{ color: "hsl(var(--popover-foreground))", fontWeight: 600, marginBottom: 4 }}
+            formatter={(value: number, name: string) => [
+              money(Number(value)),
+              name,
+            ]}
+          />
+        </RechartsPieChart>
+      </ResponsiveContainer>
+      <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
+        <span className="text-lg font-bold tabular-nums text-foreground">
+          {money(centerValue)}
+        </span>
+        <span className="text-[11px] text-muted-foreground">Total filtrado</span>
+      </div>
+    </div>
+
+    <ul className="mt-3 grid grid-cols-1 gap-1">
+      {donutData.map((entry, index) => (
+        <li key={entry.category}>
+          <button
+            type="button"
+            onClick={() => toggleCategory(entry.category)}
+            className={cn(
+              "grid w-full grid-cols-[0.625rem_minmax(9ch,1fr)_auto_2.5rem] items-center gap-2 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-accent/50",
+              selectedCategories.includes(entry.category) &&
+              "bg-primary/10 ring-1 ring-primary/40",
+            )}
+          >
+            <span
+              className="h-2.5 w-2.5 shrink-0 rounded-full"
+              style={{ background: categoryColor(entry.category) }}
+            />
+            <span className="min-w-0 break-normal text-foreground" title={entry.category}>{entry.category}</span>
+            <span className="whitespace-nowrap tabular-nums text-muted-foreground">
+              {money(entry.value)}
+            </span>
+            <span className="w-10 shrink-0 text-right tabular-nums text-muted-foreground">
+              {percent(Math.round(entry.percentage))}
+            </span>
+          </button>
+        </li>
+      ))}
+    </ul>
+  </ChartCard>);
+  const evolutionPanel = (<ChartCard title="Evolução dos Gastos" color={CHART_ACCENTS.time} className="flex flex-col">
+    {visibleExpenses.length === 0 ? (
+      <p className="py-10 text-center text-sm text-muted-foreground">
+        Nenhuma transação nessa categoria no período.
+      </p>
+    ) : (
+      <>
+        {previousEvolution && (
+          <div className="mb-2 flex items-center gap-4 text-[12px] text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+              <span className="h-0.5 w-4 rounded bg-primary" />
+              Período atual
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="h-0.5 w-4 rounded bg-muted-foreground/60" />
+              Período anterior
+            </span>
+          </div>
+        )}
+        <div className="aspect-square min-h-[280px] w-full">
+          <ResponsiveContainer width="100%" height="100%" minHeight={220}>
+            <LineChart data={chartData}>
+              <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={CHART_TICK}
+                interval="preserveStartEnd"
+                minTickGap={16}
+                tickMargin={8}
+              />
+              <YAxis
+                tick={CHART_TICK}
+                width={CHART_MONEY_AXIS_WIDTH}
+                tickFormatter={chartMoneyTick}
+              />
+              <Tooltip
+                contentStyle={CHART_TOOLTIP_STYLE}
+                labelStyle={{ color: "hsl(var(--popover-foreground))", fontWeight: 600, marginBottom: 4 }}
+                formatter={(value: number, name: string) => [
+                  money(Number(value)),
+                  name === "previous" ? "Período anterior" : "Período atual",
+                ]}
+              />
+              {previousEvolution && (
+                <Line
+                  type="monotone"
+                  dataKey="previous"
+                  stroke={CHART_SEMANTIC.previous}
+                  strokeWidth={1.5}
+                  strokeDasharray="4 3"
+                  dot={false}
+                />
+              )}
+              <Line
+                type="monotone"
+                dataKey="total"
+                stroke={CHART_SEMANTIC.trend}
+                strokeWidth={2.5}
+                dot={{ r: 3, fill: CHART_SEMANTIC.trend, strokeWidth: 0 }}
+                activeDot={{ r: 4, fill: CHART_SEMANTIC.trend, strokeWidth: 0 }}
+              />
+            </LineChart>
+          </ResponsiveContainer>
+        </div>
+        <p className="mt-2 text-[11px] text-muted-foreground">
+          {granularity === "day" ? "Evolução diária" : "Agrupado por mês"}
+          {previousEvolution
+            ? " · comparado ao período anterior equivalente"
+            : " · sem dados do período anterior para comparação"}
+        </p>
+      </>
+    )}
+  </ChartCard>);
+  const changesPanel = (<ChartCard title="Onde meu dinheiro aumentou?" color={CHART_SEMANTIC.expense}>
+    {changes.length === 0 ? (
+      <p className="py-8 text-center text-sm text-muted-foreground">
+        Sem dados do período anterior para comparar variações.
+      </p>
+    ) : (
+      <div className="space-y-2">
+        {changes.slice(0, 6).map((change) => (
+          <button
+            key={change.category}
+            type="button"
+            onClick={() => toggleCategory(change.category)}
+            className={cn(
+              "flex w-full items-center justify-between gap-3 rounded-md border border-border/60 px-3 py-2.5 text-left transition-colors hover:bg-accent/40",
+              selectedCategories.includes(change.category) &&
+              "border-primary/50 bg-primary/10",
+            )}
+          >
+            <div className="min-w-0">
+              <p className="truncate text-sm font-semibold text-foreground">
+                {change.category}
+              </p>
+              <p className="text-xs tabular-nums text-muted-foreground">
+                {money(change.previous)} → {money(change.current)}
+              </p>
+            </div>
+            <div className="shrink-0 text-right">
+              <p
+                className={cn(
+                  "text-sm font-bold tabular-nums",
+                  change.direction === "up" && "text-expense",
+                  change.direction === "down" && "text-income",
+                  change.direction === "flat" && "text-muted-foreground",
+                )}
+              >
+                {change.direction === "up" ? "+" : change.direction === "down" ? "−" : ""}
+                {money(Math.abs(change.delta))}
+              </p>
+              <p
+                className={cn(
+                  "text-xs tabular-nums",
+                  change.direction === "up" && "text-expense",
+                  change.direction === "down" && "text-income",
+                  change.direction === "flat" && "text-muted-foreground",
+                )}
+              >
+                {change.direction === "flat"
+                  ? "sem mudança relevante"
+                  : change.pct !== null
+                    ? `${change.direction === "up" ? "+" : "−"}${percent(
+                      Math.abs(roundCents(change.pct)),
+                    )}`
+                    : "novo no período"}
+              </p>
+            </div>
+          </button>
+        ))}
+      </div>
+    )}
+  </ChartCard>);
+  const budgetPanel = (<ChartCard title="Orçamento × Realizado" color={CHART_ACCENTS.budget}>
+    {!budget ? (
+      <div className="py-8 text-center text-sm text-muted-foreground">
+        <p>Nenhum orçamento configurado para este período.</p>
+        <Button asChild size="sm" variant="outline" className="mt-3">
+          <Link to="/categories">Definir orçamento</Link>
+        </Button>
+      </div>
+    ) : budgetRows.length === 0 ? (
+      <div className="py-8 text-center text-sm text-muted-foreground">
+        <p>
+          Sem orçamento para {categoryLabel} neste período.
+        </p>
+        <Button asChild size="sm" variant="outline" className="mt-3">
+          <Link to="/categories">Definir orçamento</Link>
+        </Button>
+      </div>
+    ) : (
+      <>
+        <div className="grid grid-cols-2 gap-2">
+          {[
+            { label: "Orçamento total", value: money(budgetSummary.totalBudget) },
+            { label: "Utilizado", value: money(budgetSummary.totalSpent) },
+            {
+              label: "Disponível",
+              value: money(budgetSummary.available),
+              danger: budgetSummary.available < 0,
+            },
+            {
+              label: "% utilizado",
+              value: percent(Math.round(budgetSummary.usage.percentage)),
+              danger: budgetSummary.usage.percentage >= 100,
+            },
+          ].map((stat) => (
+            <div
+              key={stat.label}
+              className="rounded-md border border-border/60 bg-muted/30 px-2.5 py-2"
+            >
+              <p className="text-[11px] text-muted-foreground">{stat.label}</p>
+              <p
+                className={cn(
+                  "truncate text-sm font-bold tabular-nums",
+                  stat.danger ? "text-expense" : "text-foreground",
+                )}
+              >
+                {stat.value}
+              </p>
+            </div>
+          ))}
+        </div>
+
+        {budget.months > 1 && (
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            Orçamentos multiplicados pelos {budget.months} meses do período.
+          </p>
+        )}
+
+        {subsetFiltersActive && (
+          <p className="mt-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1.5 text-[12px] text-foreground">
+            Os valores de orçamento representam o total mensal de cada categoria;
+            o realizado exibido abaixo considera <strong>apenas os filtros
+              ativos</strong> (estabelecimento, conta/cartão e pagamento), portanto
+            é um subconjunto do gasto total da categoria.
+          </p>
+        )}
+
+        <div className="mt-3 space-y-3">
+          {budgetRows.map((row) => {
+            const width =
+              row.budget > 0
+                ? Math.min((row.spent / row.budget) * 100, 100)
+                : 0;
+            const over = row.exceeded > 0;
+            return (
+              <div key={row.category}>
+                <div className="flex items-baseline justify-between gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleCategory(row.category)}
+                    className={cn(
+                      "min-w-0 break-words text-sm font-medium transition-colors hover:text-primary",
+                      selectedCategories.includes(row.category)
+                        ? "text-primary"
+                        : "text-foreground",
+                    )}
+                  >
+                    {row.category}
+                  </button>
+                  <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
+                    {money(row.spent)} / {money(row.budget)}
+                  </span>
+                </div>
+                <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={cn(
+                      "h-full rounded-full transition-all",
+                      over ? "bg-expense" : "bg-primary",
+                    )}
+                    style={{ width: `${width}%`, backgroundColor: over ? CHART_SEMANTIC.expense : categoryColor(row.category) }}
+                  />
+                </div>
+                <div className="mt-1 flex items-center justify-between text-xs">
+                  <span
+                    className={cn(
+                      "font-semibold tabular-nums",
+                      over ? "text-expense" : "text-muted-foreground",
+                    )}
+                  >
+                    {percent(Math.round(row.percentage))}
+                  </span>
+                  {over ? (
+                    <span className="text-expense">
+                      Excedido em {money(row.exceeded)}
+                    </span>
+                  ) : (
+                    <span className="text-muted-foreground">
+                      Disponível {money(row.available)}
+                    </span>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </>
+    )}
+  </ChartCard>);
+  const highlightsPanel = (insights.length > 0 && (
+    <div className="dashboard-card min-w-0 p-4">
+      <h2 className="relative mb-2 pl-3 text-base font-bold text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-foreground sm:before:hidden">
+        Destaques do Período
+      </h2>
+      <div className="grid min-w-0 grid-cols-1 gap-2 [&>*]:min-w-0 [&>*]:break-words [&>div]:border-l-0 [&>div]:px-0">
+        {insights.map((text, index) => (
+          <InsightCard key={index} text={text} />
+        ))}
+      </div>
+    </div>
+  ));
+  const emptyState = (periodExpenses.length === 0 ? (
+    <div className="dashboard-card flex min-w-0 flex-col items-center justify-center px-6 py-12 text-center">
+      <PieChart className="h-10 w-10 text-muted-foreground mb-3" />
+      <h3 className="text-base font-semibold text-foreground">Sem despesas no período</h3>
+      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+        Nenhuma despesa registrada entre {shortDate(range!.start)} e{" "}
+        {shortDate(range!.end)}
+        {selectedCategories.length > 0 ? ` na categoria ${categoryLabel}` : ""}. Ajuste o período
+        ou o filtro de categoria.
+      </p>
+      {selectedCategories.length > 0 && (
+        <Button
+          size="sm"
+          variant="outline"
+          className="mt-4"
+          onClick={() => setSelectedCategories([])}
+        >
+          Limpar filtro
+        </Button>
+      )}
+    </div>
+  ) : visibleExpenses.length === 0 ? (
+    <div className="dashboard-card flex min-w-0 flex-col items-center justify-center px-6 py-12 text-center">
+      <PieChart className="h-10 w-10 text-muted-foreground mb-3" />
+      <h3 className="text-base font-semibold text-foreground">Nenhum resultado para os filtros</h3>
+      <p className="mt-1 max-w-sm text-sm text-muted-foreground">
+        Há despesas no período, mas nenhuma corresponde aos filtros de categoria,
+        estabelecimento, conta/cartão e forma de pagamento aplicados.
+      </p>
+      <Button size="sm" variant="outline" className="mt-4" onClick={clearAllFilters}>
+        Limpar filtros
+      </Button>
+    </div>
+  ) : null);
+
   return (
     <div className="mx-auto max-w-[1500px] space-y-4 pb-4">
       {/* Header + period */}
@@ -581,34 +962,34 @@ export default function ExpenseAnalytics() {
           </div>
 
           <div className="flex flex-wrap items-center gap-2 self-start lg:self-auto">
-          <FinanceExportMenu report={exportReport} />
-          {!invalidCustom && period !== "custom" && range && (
-            <div className="flex items-center gap-1 rounded-2xl border border-border bg-card p-1 shadow-sm">
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-9 w-9 rounded-xl border-0 p-0 shadow-none"
-                aria-label="Período anterior"
-                onClick={() => shiftAnchor(-1)}
-              >
-                <ChevronLeft className="h-4 w-4" />
-              </Button>
-              <span className="min-w-[8.5rem] px-2 py-1 text-center text-xs font-bold text-foreground">
-                {format(parseLocalDate(range.start), "dd/MM/yy")} –{" "}
-                {format(parseLocalDate(range.end), "dd/MM/yy")}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-9 w-9 rounded-xl border-0 p-0 shadow-none"
-                aria-label="Próximo período"
-                disabled={!canGoNext}
-                onClick={() => shiftAnchor(1)}
-              >
-                <ChevronRight className="h-4 w-4" />
-              </Button>
-            </div>
-          )}
+            <FinanceExportMenu report={exportReport} />
+            {!invalidCustom && period !== "custom" && range && (
+              <div className="flex items-center gap-1 rounded-2xl border border-border bg-card p-1 shadow-sm">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 w-9 rounded-xl border-0 p-0 shadow-none"
+                  aria-label="Período anterior"
+                  onClick={() => shiftAnchor(-1)}
+                >
+                  <ChevronLeft className="h-4 w-4" />
+                </Button>
+                <span className="min-w-[8.5rem] px-2 py-1 text-center text-xs font-bold text-foreground">
+                  {format(parseLocalDate(range.start), "dd/MM/yy")} –{" "}
+                  {format(parseLocalDate(range.end), "dd/MM/yy")}
+                </span>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  className="h-9 w-9 rounded-xl border-0 p-0 shadow-none"
+                  aria-label="Próximo período"
+                  disabled={!canGoNext}
+                  onClick={() => shiftAnchor(1)}
+                >
+                  <ChevronRight className="h-4 w-4" />
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
@@ -620,643 +1001,250 @@ export default function ExpenseAnalytics() {
         )}
       </div>
 
+      {!invalidCustom && (<section aria-label="Indicadores do período" className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-5">
+        <article className="dashboard-card expense-hero relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl p-3.5">
+          <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-expense/30" />
+          <div className="relative flex items-center justify-between gap-3">
+            <span className="expense-hero-muted text-[13px] font-bold uppercase tracking-[0.18em]">
+              Gasto Total
+            </span>
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5">
+              <Wallet className="h-4 w-4" />
+            </span>
+          </div>
+          <p className="relative break-words font-display font-bold leading-none tracking-[-0.04em] tabular-nums text-[clamp(2rem,2.6vw,2.625rem)]">
+            {money(visibleSummary.total)}
+          </p>
+          <p className="expense-hero-muted relative text-[13px] leading-snug">
+            {visibleExpenses.length} lançamento{visibleExpenses.length === 1 ? "" : "s"} no recorte
+            atual
+          </p>
+        </article>
+
+        <article className="dashboard-card data-surface [container-type:inline-size] flex min-h-[104px] flex-col justify-center gap-2 p-3.5 lg:min-h-[112px]" style={colorAccent(CHART_ACCENTS.time)}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[13px] font-semibold text-muted-foreground">Média por Dia</span>
+            <CalendarDays className="h-4 w-4 shrink-0 text-info" />
+          </div>
+          <p className="whitespace-nowrap font-display font-bold leading-none tracking-tight tabular-nums text-[clamp(0.875rem,10cqi,1.75rem)]">
+            {money(computeDailyAverage(visibleSummary.total, visibleDays))}
+          </p>
+          <p className="text-[12px] leading-tight text-muted-foreground">
+            Média de {visibleDays} dia{visibleDays === 1 ? "" : "s"} no período
+          </p>
+        </article>
+
+        <article className="dashboard-card data-surface [container-type:inline-size] flex min-h-[104px] flex-col justify-center gap-2 p-3.5 lg:min-h-[112px]" style={colorAccent(categoryColor(topCategory?.category ?? "Outros"))}>
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[13px] font-semibold text-muted-foreground">Maior Categoria</span>
+            <Tag className="h-4 w-4 shrink-0 text-warning" />
+          </div>
+          <p className="break-normal font-display font-bold leading-none tracking-tight tabular-nums text-[clamp(1rem,10cqi,1.75rem)]">
+            {topCategory ? topCategory.category : "—"}
+          </p>
+          <p className="truncate text-[12px] leading-tight tabular-nums text-muted-foreground">
+            {topCategory
+              ? `${money(topCategory.total)} · ${percent(Math.round(topCategory.percentage))}`
+              : "Sem categorias no período"}
+          </p>
+        </article>
+
+        <article className="dashboard-card [container-type:inline-size] col-span-2 flex min-h-[104px] flex-col justify-center gap-2 p-4 lg:col-span-1 lg:min-h-[112px]">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-[13px] font-semibold text-muted-foreground">Variação</span>
+            <Percent className="h-4 w-4 shrink-0 text-primary" />
+          </div>
+          <p
+            className={cn(
+              "whitespace-nowrap font-display font-bold leading-none tracking-tight tabular-nums text-[clamp(0.875rem,10cqi,1.75rem)]",
+              variation?.direction === "up"
+                ? "text-expense"
+                : variation?.direction === "down"
+                  ? "text-income"
+                  : "text-foreground",
+            )}
+          >
+            {variationValue}
+          </p>
+          <p className="text-[12px] leading-tight text-muted-foreground">
+            {variation ? previousComparisonLabel : "Sem comparação"}
+          </p>
+        </article>
+      </section>)}
       <button type="button" aria-expanded={filtersOpen} aria-controls="expense-filters" onClick={() => setFiltersOpen(open => !open)} className="workspace-panel flex w-full items-center justify-between p-3 text-left xl:hidden">
         <span className="flex items-center gap-2 text-sm font-bold"><SlidersHorizontal className="h-4 w-4" />Filtros e período</span>
         <ChevronDown className={`h-4 w-4 transition-transform ${filtersOpen ? "rotate-180" : ""}`} />
       </button>
-      <div className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[280px_minmax(0,1fr)]">
-        <aside id="expense-filters" aria-label="Filtros de despesas" className={`${filtersOpen ? "block" : "hidden"} workspace-panel min-w-0 space-y-4 p-4 xl:block`}>
-          <h3 className="text-base font-bold text-foreground">Filtros</h3>
-          <div className="space-y-2">
-          <div className="space-y-2">
-            <div className="grid grid-cols-2 gap-1.5">
-              {PERIOD_OPTIONS.map((option) => (
-                <Button
-                  key={option.value}
-                  size="sm"
-                  variant={period === option.value ? "default" : "outline"}
-                  className="h-9 min-w-0 w-full rounded-xl px-2 text-xs shadow-none"
-                  onClick={() => handlePeriodChange(option.value)}
-                >
-                  {option.label}
-                </Button>
-              ))}
-            </div>
-
-            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  size="sm"
-                  variant={period === "custom" ? "default" : "outline"}
-                  className="h-9 w-full gap-1.5 rounded-xl px-4 text-xs shadow-none"
-                  onClick={() => {
-                    if (period !== "custom") {
-                      setPeriod("custom");
-                      setAnchor(new Date());
-                      if (!customRange?.from) {
-                        setCustomRange({
-                          from: new Date(today.getFullYear(), today.getMonth(), 1),
-                          to: today,
-                        });
-                      }
-                    }
-                  }}
-                >
-                  <CalendarIcon className="h-3.5 w-3.5" />
-                  Personalizado
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="range"
-                  selected={customRange}
-                  onSelect={(value) => {
-                    setCustomRange(value);
-                    setPeriod("custom");
-                    if (value?.from && value?.to) setCalendarOpen(false);
-                  }}
-                  numberOfMonths={1}
-                  locale={ptBR}
-                  initialFocus
-                  className="p-3 pointer-events-auto"
-                />
-              </PopoverContent>
-            </Popover>
-          </div>
-
-
-        </div>
-          {/* Filtros laterais: categoria, estabelecimento, conta/cartão e pagamento */}
-          <div className="grid min-w-0 grid-cols-1 gap-3 [&>*]:min-w-0">
-            <div className="space-y-1">
-            <label htmlFor="expense-category" className="block text-xs font-medium text-muted-foreground">Categoria</label>
-            <AnalyticsMultiSelect id="expense-category" label="Filtrar por categoria" emptyLabel="Todas as categorias"
-              options={categoryOptions} selected={selectedCategories} onChange={setSelectedCategories}
-              countLabel={count => `${count} categorias selecionadas`} />
-            </div>
-
-            <div className="space-y-1">
-              <label htmlFor="expense-establishment" className="block text-xs font-medium text-muted-foreground">Estabelecimento ou descrição</label>
-              <div className="relative">
-              <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                id="expense-establishment"
-                value={searchText}
-                title={searchText || undefined}
-                onChange={(event) => setSearchText(event.target.value)}
-                placeholder="Nome ou descrição..."
-                aria-label="Pesquisar por estabelecimento ou descrição"
-                className="h-9 w-full rounded-xl pl-9 text-xs"
-              />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-            <label htmlFor="expense-origin" className="block text-xs font-medium text-muted-foreground">Conta ou cartão</label>
-            <AnalyticsMultiSelect id="expense-origin" label="Filtrar por conta ou cartão" emptyLabel="Todas as contas"
-              options={originOptions} selected={selectedOrigins} onChange={setSelectedOrigins}
-              countLabel={count => `${count} contas/cartões selecionados`} />
-            </div>
-
-            <div className="space-y-1">
-            <label htmlFor="expense-payment" className="block text-xs font-medium text-muted-foreground">Forma de pagamento</label>
-            <AnalyticsMultiSelect id="expense-payment" label="Filtrar por forma de pagamento" emptyLabel="Todas as formas"
-              options={PAYMENT_METHODS.map(method => ({ value: method, label: method }))} selected={selectedPayments} onChange={setSelectedPayments}
-              countLabel={count => `${count} formas selecionadas`} />
-            </div>
-
-            {hasAnyActiveFilter && (
-              <Button
-                size="sm"
-                variant="ghost"
-                className="h-9 gap-1 rounded-xl px-3 text-xs text-muted-foreground"
-                onClick={clearAllFilters}
-              >
-                <X className="h-3.5 w-3.5" />
-                Limpar filtros
-              </Button>
-            )}
-          </div>
-          <section aria-label="Gastos por forma de pagamento" className="mt-4 space-y-3 border-t border-border/70 pt-4">
-            <div>
-              <h3 className="text-sm font-semibold leading-snug text-foreground">Gastos por pagamento</h3>
-              <p className="mt-1 text-xs text-muted-foreground">Valores do filtro atual</p>
-            </div>
-            {paymentBreakdown.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Sem despesas neste recorte.</p>
-            ) : (
-              <>
-                <div className="space-y-3">
-                  {paymentBreakdown.map((entry) => (
-                    <div key={entry.method} className="space-y-1.5">
-                      <div className="flex items-start justify-between gap-2 text-xs">
-                        <span className="data-chip min-w-0 break-words rounded-md border px-2 py-0.5 font-medium" style={colorAccent(paymentColor(entry.method))}>{entry.method}</span>
-                        <span className="shrink-0 font-semibold tabular-nums text-foreground">{money(entry.total)}</span>
-                      </div>
-                      <div className="h-2 overflow-hidden rounded-full bg-muted">
-                        <div
-                          className="h-full rounded-full"
-                          style={{ width: `${Math.max(0, Math.min(entry.percentage, 100))}%`, backgroundColor: paymentColor(entry.method) }}
-                        />
-                      </div>
-                      <div className="flex justify-between text-[11px] text-muted-foreground">
-                        <span>{entry.count} lançamento{entry.count === 1 ? "" : "s"}</span>
-                        <span className="tabular-nums">{percent(entry.percentage)}</span>
-                      </div>
-                    </div>
+      <div className="grid min-w-0 grid-cols-1 items-start gap-4 xl:grid-cols-[minmax(240px,0.7fr)_minmax(0,1fr)_minmax(0,1fr)]">
+        <div role="group" aria-label="Filtros e transações" className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-4">
+          <aside id="expense-filters" aria-label="Filtros de despesas" className={`${filtersOpen ? "block" : "hidden"} workspace-panel order-1 min-w-0 space-y-4 p-4 xl:block`}>
+            <h3 className="text-base font-bold text-foreground">Filtros</h3>
+            <div className="space-y-2">
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-1.5">
+                  {PERIOD_OPTIONS.map((option) => (
+                    <Button
+                      key={option.value}
+                      size="sm"
+                      variant={period === option.value ? "default" : "outline"}
+                      className="h-9 min-w-0 w-full rounded-xl px-2 text-xs shadow-none"
+                      onClick={() => handlePeriodChange(option.value)}
+                    >
+                      {option.label}
+                    </Button>
                   ))}
                 </div>
-                <div className="flex items-center justify-between gap-2 border-t border-border/70 pt-3 text-xs">
-                  <span className="font-medium text-muted-foreground">Total</span>
-                  <span className="font-bold tabular-nums text-foreground">{money(visibleSummary.total)}</span>
+
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button
+                      size="sm"
+                      variant={period === "custom" ? "default" : "outline"}
+                      className="h-9 w-full gap-1.5 rounded-xl px-4 text-xs shadow-none"
+                      onClick={() => {
+                        if (period !== "custom") {
+                          setPeriod("custom");
+                          setAnchor(new Date());
+                          if (!customRange?.from) {
+                            setCustomRange({
+                              from: new Date(today.getFullYear(), today.getMonth(), 1),
+                              to: today,
+                            });
+                          }
+                        }
+                      }}
+                    >
+                      <CalendarIcon className="h-3.5 w-3.5" />
+                      Personalizado
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="range"
+                      selected={customRange}
+                      onSelect={(value) => {
+                        setCustomRange(value);
+                        setPeriod("custom");
+                        if (value?.from && value?.to) setCalendarOpen(false);
+                      }}
+                      numberOfMonths={1}
+                      locale={ptBR}
+                      initialFocus
+                      className="p-3 pointer-events-auto"
+                    />
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+
+            </div>
+            {/* Filtros laterais: categoria, estabelecimento, conta/cartão e pagamento */}
+            <div className="grid min-w-0 grid-cols-1 gap-3 [&>*]:min-w-0">
+              <div className="space-y-1">
+                <label htmlFor="expense-category" className="block text-xs font-medium text-muted-foreground">Categoria</label>
+                <AnalyticsMultiSelect id="expense-category" label="Filtrar por categoria" emptyLabel="Todas as categorias"
+                  options={categoryOptions} selected={selectedCategories} onChange={setSelectedCategories}
+                  countLabel={count => `${count} categorias selecionadas`} />
+              </div>
+
+              <div className="space-y-1">
+                <label htmlFor="expense-establishment" className="block text-xs font-medium text-muted-foreground">Estabelecimento ou descrição</label>
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    id="expense-establishment"
+                    value={searchText}
+                    title={searchText || undefined}
+                    onChange={(event) => setSearchText(event.target.value)}
+                    placeholder="Nome ou descrição..."
+                    aria-label="Pesquisar por estabelecimento ou descrição"
+                    className="h-9 w-full rounded-xl pl-9 text-xs"
+                  />
                 </div>
-              </>
-            )}
-          </section>
-        </aside>
-        <div className="min-w-0 space-y-4">
-      {!invalidCustom && (
-        <>
-          {/* KPIs */}
-          <section aria-label="Indicadores do período" className="grid min-w-0 grid-cols-2 gap-3 lg:grid-cols-5">
-            <article className="dashboard-card expense-hero relative col-span-2 flex flex-col justify-center gap-2 overflow-hidden rounded-xl p-3.5">
-              <div className="absolute -right-12 -top-16 h-44 w-44 rounded-full border-[28px] border-expense/30" />
-              <div className="relative flex items-center justify-between gap-3">
-                <span className="expense-hero-muted text-[13px] font-bold uppercase tracking-[0.18em]">
-                  Gasto Total
-                </span>
-                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg border border-white/10 bg-white/5">
-                  <Wallet className="h-4 w-4" />
-                </span>
               </div>
-              <p className="relative break-words font-display font-bold leading-none tracking-[-0.04em] tabular-nums text-[clamp(2rem,2.6vw,2.625rem)]">
-                {money(visibleSummary.total)}
-              </p>
-              <p className="expense-hero-muted relative text-[13px] leading-snug">
-                {visibleExpenses.length} lançamento{visibleExpenses.length === 1 ? "" : "s"} no recorte
-                atual
-              </p>
-            </article>
 
-            <article className="dashboard-card data-surface [container-type:inline-size] flex min-h-[104px] flex-col justify-center gap-2 p-3.5 lg:min-h-[112px]" style={colorAccent(CHART_ACCENTS.time)}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[13px] font-semibold text-muted-foreground">Média por Dia</span>
-                <CalendarDays className="h-4 w-4 shrink-0 text-info" />
+              <div className="space-y-1">
+                <label htmlFor="expense-origin" className="block text-xs font-medium text-muted-foreground">Conta ou cartão</label>
+                <AnalyticsMultiSelect id="expense-origin" label="Filtrar por conta ou cartão" emptyLabel="Todas as contas"
+                  options={originOptions} selected={selectedOrigins} onChange={setSelectedOrigins}
+                  countLabel={count => `${count} contas/cartões selecionados`} />
               </div>
-              <p className="whitespace-nowrap font-display font-bold leading-none tracking-tight tabular-nums text-[clamp(0.875rem,10cqi,1.75rem)]">
-                {money(computeDailyAverage(visibleSummary.total, visibleDays))}
-              </p>
-              <p className="text-[12px] leading-tight text-muted-foreground">
-                Média de {visibleDays} dia{visibleDays === 1 ? "" : "s"} no período
-              </p>
-            </article>
 
-            <article className="dashboard-card data-surface [container-type:inline-size] flex min-h-[104px] flex-col justify-center gap-2 p-3.5 lg:min-h-[112px]" style={colorAccent(categoryColor(topCategory?.category ?? "Outros"))}>
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[13px] font-semibold text-muted-foreground">Maior Categoria</span>
-                <Tag className="h-4 w-4 shrink-0 text-warning" />
+              <div className="space-y-1">
+                <label htmlFor="expense-payment" className="block text-xs font-medium text-muted-foreground">Forma de pagamento</label>
+                <AnalyticsMultiSelect id="expense-payment" label="Filtrar por forma de pagamento" emptyLabel="Todas as formas"
+                  options={PAYMENT_METHODS.map(method => ({ value: method, label: method }))} selected={selectedPayments} onChange={setSelectedPayments}
+                  countLabel={count => `${count} formas selecionadas`} />
               </div>
-              <p className="break-normal font-display font-bold leading-none tracking-tight tabular-nums text-[clamp(1rem,10cqi,1.75rem)]">
-                {topCategory ? topCategory.category : "—"}
-              </p>
-              <p className="truncate text-[12px] leading-tight tabular-nums text-muted-foreground">
-                {topCategory
-                  ? `${money(topCategory.total)} · ${percent(Math.round(topCategory.percentage))}`
-                  : "Sem categorias no período"}
-              </p>
-            </article>
 
-            <article className="dashboard-card [container-type:inline-size] col-span-2 flex min-h-[104px] flex-col justify-center gap-2 p-4 lg:col-span-1 lg:min-h-[112px]">
-              <div className="flex items-center justify-between gap-2">
-                <span className="text-[13px] font-semibold text-muted-foreground">Variação</span>
-                <Percent className="h-4 w-4 shrink-0 text-primary" />
-              </div>
-              <p
-                className={cn(
-                  "whitespace-nowrap font-display font-bold leading-none tracking-tight tabular-nums text-[clamp(0.875rem,10cqi,1.75rem)]",
-                  variation?.direction === "up"
-                    ? "text-expense"
-                    : variation?.direction === "down"
-                      ? "text-income"
-                      : "text-foreground",
-                )}
-              >
-                {variationValue}
-              </p>
-              <p className="text-[12px] leading-tight text-muted-foreground">
-                {variation ? previousComparisonLabel : "Sem comparação"}
-              </p>
-            </article>
-          </section>
-
-          {periodExpenses.length === 0 ? (
-            <div className="dashboard-card flex min-w-0 flex-col items-center justify-center px-6 py-12 text-center">
-              <PieChart className="h-10 w-10 text-muted-foreground mb-3" />
-              <h3 className="text-base font-semibold text-foreground">Sem despesas no período</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                Nenhuma despesa registrada entre {shortDate(range!.start)} e{" "}
-                {shortDate(range!.end)}
-                {selectedCategories.length > 0 ? ` na categoria ${categoryLabel}` : ""}. Ajuste o período
-                ou o filtro de categoria.
-              </p>
-              {selectedCategories.length > 0 && (
+              {hasAnyActiveFilter && (
                 <Button
                   size="sm"
-                  variant="outline"
-                  className="mt-4"
-                  onClick={() => setSelectedCategories([])}
+                  variant="ghost"
+                  className="h-9 gap-1 rounded-xl px-3 text-xs text-muted-foreground"
+                  onClick={clearAllFilters}
                 >
-                  Limpar filtro
+                  <X className="h-3.5 w-3.5" />
+                  Limpar filtros
                 </Button>
               )}
             </div>
-          ) : visibleExpenses.length === 0 ? (
-            <div className="dashboard-card flex min-w-0 flex-col items-center justify-center px-6 py-12 text-center">
-              <PieChart className="h-10 w-10 text-muted-foreground mb-3" />
-              <h3 className="text-base font-semibold text-foreground">Nenhum resultado para os filtros</h3>
-              <p className="mt-1 max-w-sm text-sm text-muted-foreground">
-                Há despesas no período, mas nenhuma corresponde aos filtros de categoria,
-                estabelecimento, conta/cartão e forma de pagamento aplicados.
-              </p>
-              <Button size="sm" variant="outline" className="mt-4" onClick={clearAllFilters}>
-                Limpar filtros
-              </Button>
-            </div>
-          ) : (
-            <>
-              {/* Distribution + evolution */}
-              <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-2">
-                <ChartCard title="Gastos por Categoria" color={CHART_ACCENTS.categories}>
-                  <div className="grid min-w-0 grid-cols-1 items-center gap-2 lg:grid-cols-[minmax(240px,1fr)_minmax(0,1fr)]">
-                  <div className="relative h-[220px] w-full lg:h-[280px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <RechartsPieChart>
-                        <Pie
-                          data={donutData}
-                          dataKey="value"
-                          nameKey="category"
-                          innerRadius="56%"
-                          outerRadius="86%"
-                          paddingAngle={2}
-                          stroke="hsl(var(--card))"
-                          strokeWidth={2}
-                        >
-                          {donutData.map((entry, index) => (
-                            <Cell
-                              key={entry.category}
-                              fill={categoryColor(entry.category)}
-                              fillOpacity={
-                                selectedCategories.length === 0 || selectedCategories.includes(entry.category)
-                                  ? 1
-                                  : 0.25
-                              }
-                              onClick={() => toggleCategory(entry.category)}
-                            />
-                          ))}
-                        </Pie>
-                        <Tooltip
-                          contentStyle={CHART_TOOLTIP_STYLE}
-                          labelStyle={{ color: "hsl(var(--popover-foreground))", fontWeight: 600, marginBottom: 4 }}
-                          formatter={(value: number, name: string) => [
-                            money(Number(value)),
-                            name,
-                          ]}
-                        />
-                      </RechartsPieChart>
-                    </ResponsiveContainer>
-                    <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-lg font-bold tabular-nums text-foreground">
-                        {money(centerValue)}
-                      </span>
-                      <span className="text-[11px] text-muted-foreground">Total filtrado</span>
-                    </div>
-                  </div>
-
-                  <ul className="mt-2 grid max-h-[220px] grid-cols-1 gap-1 overflow-y-auto overscroll-contain pr-1 lg:mt-0 lg:max-h-[280px]">
-                    {donutData.map((entry) => (
-                      <li key={entry.category}>
-                        <button
-                          type="button"
-                          onClick={() => toggleCategory(entry.category)}
-                          className={cn(
-                            "grid w-full grid-cols-[0.625rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0.5 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-accent/50",
-                            selectedCategories.includes(entry.category) &&
-                              "bg-primary/10 ring-1 ring-primary/40",
-                          )}
-                        >
-                          <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full"
-                            style={{ background: categoryColor(entry.category) }}
-                          />
-                          <span className="col-span-2 min-w-0 break-words text-foreground" title={entry.category}>{entry.category}</span>
-                          <span className="col-start-2 whitespace-nowrap tabular-nums text-muted-foreground">
-                            {money(entry.value)}
-                          </span>
-                          <span className="w-10 shrink-0 text-right tabular-nums text-muted-foreground">
-                            {percent(Math.round(entry.percentage))}
-                          </span>
-                        </button>
-                      </li>
-                    ))}
-                  </ul>
-                  </div>
-                </ChartCard>
-
-                <ChartCard title="Evolução dos Gastos" color={CHART_ACCENTS.time} className="flex flex-col">
-                  {visibleExpenses.length === 0 ? (
-                    <p className="py-10 text-center text-sm text-muted-foreground">
-                      Nenhuma transação nessa categoria no período.
-                    </p>
-                  ) : (
-                    <>
-                      {previousEvolution && (
-                        <div className="mb-2 flex items-center gap-4 text-[12px] text-muted-foreground">
-                          <span className="flex items-center gap-1.5">
-                            <span className="h-0.5 w-4 rounded bg-primary" />
-                            Período atual
-                          </span>
-                          <span className="flex items-center gap-1.5">
-                            <span className="h-0.5 w-4 rounded bg-muted-foreground/60" />
-                            Período anterior
-                          </span>
-                        </div>
-                      )}
-                      <div className="h-[220px] w-full sm:h-[260px] lg:h-[280px]">
-                      <ResponsiveContainer width="100%" height="100%">
-                        <LineChart data={chartData}>
-                          <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
-                          <XAxis
-                            dataKey="label"
-                            tick={CHART_TICK}
-                            interval="preserveStartEnd"
-                            minTickGap={16}
-                            tickMargin={8}
-                          />
-                          <YAxis
-                            tick={CHART_TICK}
-                            width={CHART_MONEY_AXIS_WIDTH}
-                            tickFormatter={chartMoneyTick}
-                          />
-                          <Tooltip
-                            contentStyle={CHART_TOOLTIP_STYLE}
-                            labelStyle={{ color: "hsl(var(--popover-foreground))", fontWeight: 600, marginBottom: 4 }}
-                            formatter={(value: number, name: string) => [
-                              money(Number(value)),
-                              name === "previous" ? "Período anterior" : "Período atual",
-                            ]}
-                          />
-                          {previousEvolution && (
-                            <Line
-                              type="monotone"
-                              dataKey="previous"
-                              stroke={CHART_SEMANTIC.previous}
-                              strokeWidth={1.5}
-                              strokeDasharray="4 3"
-                              dot={false}
-                            />
-                          )}
-                          <Line
-                            type="monotone"
-                            dataKey="total"
-                            stroke={CHART_SEMANTIC.trend}
-                            strokeWidth={2.5}
-                            dot={{ r: 3, fill: CHART_SEMANTIC.trend, strokeWidth: 0 }}
-                            activeDot={{ r: 4, fill: CHART_SEMANTIC.trend, strokeWidth: 0 }}
-                          />
-                        </LineChart>
-                      </ResponsiveContainer>
-                      </div>
-                      <p className="mt-2 text-[11px] text-muted-foreground">
-                        {granularity === "day" ? "Evolução diária" : "Agrupado por mês"}
-                        {previousEvolution
-                          ? " · comparado ao período anterior equivalente"
-                          : " · sem dados do período anterior para comparação"}
-                      </p>
-                    </>
-                  )}
-                </ChartCard>
+            <section aria-label="Gastos por forma de pagamento" className="mt-4 space-y-3 border-t border-border/70 pt-4">
+              <div>
+                <h3 className="text-sm font-semibold leading-snug text-foreground">Gastos por pagamento</h3>
+                <p className="mt-1 text-xs text-muted-foreground">Valores do filtro atual</p>
               </div>
-
-              {/* Variações + Orçamento */}
-              <section aria-label="Resumo detalhado do período" className="flex min-w-0 flex-col gap-4 lg:grid lg:grid-cols-2 lg:items-start">
-                <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
-                <ChartCard title="Onde meu dinheiro aumentou?" color={CHART_SEMANTIC.expense} className="order-1 lg:order-none">
-                  {changes.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-muted-foreground">
-                      Sem dados do período anterior para comparar variações.
-                    </p>
-                  ) : (
-                    <div className="max-h-56 space-y-2 overflow-y-auto overscroll-contain pr-1">
-                      {changes.slice(0, 6).map((change) => (
-                        <button
-                          key={change.category}
-                          type="button"
-                          onClick={() => toggleCategory(change.category)}
-                          className={cn(
-                            "flex w-full items-center justify-between gap-3 rounded-md border border-border/60 px-3 py-2.5 text-left transition-colors hover:bg-accent/40",
-                            selectedCategories.includes(change.category) &&
-                              "border-primary/50 bg-primary/10",
-                          )}
-                        >
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-semibold text-foreground">
-                              {change.category}
-                            </p>
-                            <p className="text-xs tabular-nums text-muted-foreground">
-                              {money(change.previous)} → {money(change.current)}
-                            </p>
-                          </div>
-                          <div className="shrink-0 text-right">
-                            <p
-                              className={cn(
-                                "text-sm font-bold tabular-nums",
-                                change.direction === "up" && "text-expense",
-                                change.direction === "down" && "text-income",
-                                change.direction === "flat" && "text-muted-foreground",
-                              )}
-                            >
-                              {change.direction === "up" ? "+" : change.direction === "down" ? "−" : ""}
-                              {money(Math.abs(change.delta))}
-                            </p>
-                            <p
-                              className={cn(
-                                "text-xs tabular-nums",
-                                change.direction === "up" && "text-expense",
-                                change.direction === "down" && "text-income",
-                                change.direction === "flat" && "text-muted-foreground",
-                              )}
-                            >
-                              {change.direction === "flat"
-                                ? "sem mudança relevante"
-                                : change.pct !== null
-                                  ? `${change.direction === "up" ? "+" : "−"}${percent(
-                                      Math.abs(roundCents(change.pct)),
-                                    )}`
-                                  : "novo no período"}
-                            </p>
-                          </div>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </ChartCard>
-
-              {/* Insights */}
-              {insights.length > 0 && (
-                <div className="dashboard-card order-3 min-w-0 p-4 lg:order-none">
-                  <h2 className="relative mb-2 pl-3 text-base font-bold text-foreground before:absolute before:left-0 before:top-1/2 before:h-4 before:w-1 before:-translate-y-1/2 before:rounded-full before:bg-primary before:content-[''] sm:mb-3 sm:pl-0 sm:text-sm sm:font-medium sm:text-foreground sm:before:hidden">
-                    Destaques do Período
-                  </h2>
-                  <div className="grid min-w-0 grid-cols-1 gap-2 [&>*]:min-w-0 [&>*]:break-words [&>div]:border-l-0 [&>div]:px-0">
-                    {insights.map((text, index) => (
-                      <InsightCard key={index} text={text} />
+              {paymentBreakdown.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Sem despesas neste recorte.</p>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    {paymentBreakdown.map((entry) => (
+                      <div key={entry.method} className="space-y-1.5">
+                        <div className="flex items-start justify-between gap-2 text-xs">
+                          <span className="data-chip min-w-0 break-words rounded-md border px-2 py-0.5 font-medium" style={colorAccent(paymentColor(entry.method))}>{entry.method}</span>
+                          <span className="shrink-0 font-semibold tabular-nums text-foreground">{money(entry.total)}</span>
+                        </div>
+                        <div className="h-2 overflow-hidden rounded-full bg-muted">
+                          <div
+                            className="h-full rounded-full"
+                            style={{ width: `${Math.max(0, Math.min(entry.percentage, 100))}%`, backgroundColor: paymentColor(entry.method) }}
+                          />
+                        </div>
+                        <div className="flex justify-between text-[11px] text-muted-foreground">
+                          <span>{entry.count} lançamento{entry.count === 1 ? "" : "s"}</span>
+                          <span className="tabular-nums">{percent(entry.percentage)}</span>
+                        </div>
+                      </div>
                     ))}
                   </div>
-                </div>
+                  <div className="flex items-center justify-between gap-2 border-t border-border/70 pt-3 text-xs">
+                    <span className="font-medium text-muted-foreground">Total</span>
+                    <span className="font-bold tabular-nums text-foreground">{money(visibleSummary.total)}</span>
+                  </div>
+                </>
               )}
-                </div>
-                <div className="contents lg:flex lg:min-w-0 lg:flex-col lg:gap-4">
-                <div className="order-2 min-w-0 lg:order-none">
-                <ChartCard title="Orçamento × Realizado" color={CHART_ACCENTS.budget}>
-                  {!budget ? (
-                    <div className="py-8 text-center text-sm text-muted-foreground">
-                      <p>Nenhum orçamento configurado para este período.</p>
-                      <Button asChild size="sm" variant="outline" className="mt-3">
-                        <Link to="/categories">Definir orçamento</Link>
-                      </Button>
-                    </div>
-                  ) : budgetRows.length === 0 ? (
-                    <div className="py-8 text-center text-sm text-muted-foreground">
-                      <p>
-                        Sem orçamento para {categoryLabel} neste período.
-                      </p>
-                      <Button asChild size="sm" variant="outline" className="mt-3">
-                        <Link to="/categories">Definir orçamento</Link>
-                      </Button>
-                    </div>
-                  ) : (
-                    <>
-                      <div className="grid grid-cols-2 gap-2">
-                        {[
-                          { label: "Orçamento total", value: money(budgetSummary.totalBudget) },
-                          { label: "Utilizado", value: money(budgetSummary.totalSpent) },
-                          {
-                            label: "Disponível",
-                            value: money(budgetSummary.available),
-                            danger: budgetSummary.available < 0,
-                          },
-                          {
-                            label: "% utilizado",
-                            value: percent(Math.round(budgetSummary.usage.percentage)),
-                            danger: budgetSummary.usage.percentage >= 100,
-                          },
-                        ].map((stat) => (
-                          <div
-                            key={stat.label}
-                            className="rounded-md border border-border/60 bg-muted/30 px-2.5 py-2"
-                          >
-                            <p className="text-[11px] text-muted-foreground">{stat.label}</p>
-                            <p
-                              className={cn(
-                                "truncate text-sm font-bold tabular-nums",
-                                stat.danger ? "text-expense" : "text-foreground",
-                              )}
-                            >
-                              {stat.value}
-                            </p>
-                          </div>
-                        ))}
-                      </div>
-
-                      {budget.months > 1 && (
-                      <p className="mt-2 text-[12px] text-muted-foreground">
-                          Orçamentos multiplicados pelos {budget.months} meses do período.
-                        </p>
-                      )}
-
-                      {subsetFiltersActive && (
-                        <p className="mt-2 rounded-md border border-warning/40 bg-warning/10 px-2.5 py-1.5 text-[12px] text-foreground">
-                          Os valores de orçamento representam o total mensal de cada categoria;
-                          o realizado exibido abaixo considera <strong>apenas os filtros
-                          ativos</strong> (estabelecimento, conta/cartão e pagamento), portanto
-                          é um subconjunto do gasto total da categoria.
-                        </p>
-                      )}
-
-                      <div className="mt-3 max-h-48 space-y-3 overflow-y-auto overscroll-contain pr-1">
-                        {budgetRows.map((row) => {
-                          const width =
-                            row.budget > 0
-                              ? Math.min((row.spent / row.budget) * 100, 100)
-                              : 0;
-                          const over = row.exceeded > 0;
-                          return (
-                            <div key={row.category}>
-                              <div className="flex items-baseline justify-between gap-2">
-                                <button
-                                  type="button"
-                                  onClick={() => toggleCategory(row.category)}
-                                  className={cn(
-                                    "min-w-0 break-words text-sm font-medium transition-colors hover:text-primary",
-                                    selectedCategories.includes(row.category)
-                                      ? "text-primary"
-                                      : "text-foreground",
-                                  )}
-                                >
-                                  {row.category}
-                                </button>
-                                <span className="shrink-0 text-xs tabular-nums text-muted-foreground">
-                                  {money(row.spent)} / {money(row.budget)}
-                                </span>
-                              </div>
-                              <div className="mt-1 h-2.5 overflow-hidden rounded-full bg-muted">
-                                <div
-                                  className={cn(
-                                    "h-full rounded-full transition-all",
-                                    over ? "bg-expense" : "bg-primary",
-                                  )}
-                                  style={{ width: `${width}%`, backgroundColor: over ? CHART_SEMANTIC.expense : categoryColor(row.category) }}
-                                />
-                              </div>
-                              <div className="mt-1 flex items-center justify-between text-xs">
-                                <span
-                                  className={cn(
-                                    "font-semibold tabular-nums",
-                                    over ? "text-expense" : "text-muted-foreground",
-                                  )}
-                                >
-                                  {percent(Math.round(row.percentage))}
-                                </span>
-                                {over ? (
-                                  <span className="text-expense">
-                                    Excedido em {money(row.exceeded)}
-                                  </span>
-                                ) : (
-                                  <span className="text-muted-foreground">
-                                    Disponível {money(row.available)}
-                                  </span>
-                                )}
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </>
-                  )}
-                </ChartCard>
-
-                </div>
-                {transactionsPanel}
-                </div>
-              </section>
-            </>
-          )}
-
-          {(periodExpenses.length === 0 || visibleExpenses.length === 0) && transactionsPanel}
-        </>
-      )}
-
+            </section>
+          </aside>
+          {!invalidCustom && <div className="order-7 min-w-0">{transactionsPanel}</div>}
         </div>
+        {!invalidCustom && (
+          <div role="group" aria-label="Categorias e destaques" className={cn("contents xl:flex xl:min-w-0 xl:flex-col xl:gap-4", !hasVisibleExpenses && "xl:col-span-2")}>
+            {hasVisibleExpenses ? (
+              <>
+                <div className="order-2 min-w-0">{categoryPanel}</div>
+                <div className="order-4 min-w-0">{changesPanel}</div>
+                {highlightsPanel && <div className="order-6 min-w-0">{highlightsPanel}</div>}
+              </>
+            ) : <div className="order-2 min-w-0">{emptyState}</div>}
+          </div>
+        )}
+        {!invalidCustom && hasVisibleExpenses && (
+          <div role="group" aria-label="Evolução e orçamento" className="contents xl:flex xl:min-w-0 xl:flex-col xl:gap-4">
+            <div className="order-3 min-w-0">{evolutionPanel}</div>
+            <div className="order-5 min-w-0">{budgetPanel}</div>
+          </div>
+        )}
       </div>
 
       <TransactionDetail
