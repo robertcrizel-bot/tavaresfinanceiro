@@ -302,7 +302,7 @@ export function TransactionForm({ open, onClose, onSubmit, initial, prefill, pre
   const canConvertExisting = !initial || (
     initial.type === "expense" &&
     !initial.isPaid &&
-    !initial.creditCardInvoiceId &&
+    // The RPC checks whether the linked invoice is OPEN; never trust UI alone.
     !initial.installments &&
     !initial.parentTransactionId &&
     (initial.financialKind === undefined || initial.financialKind === "regular" || initial.financialKind === "card_purchase")
