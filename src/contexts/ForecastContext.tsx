@@ -1,3 +1,4 @@
+import { subscribeCategoryChanges } from "@/lib/category-refresh";
 import React, { createContext, useContext, useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -93,6 +94,7 @@ export const ForecastProvider = ({ children }: { children: React.ReactNode }) =>
   }, [user]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+  useEffect(() => subscribeCategoryChanges(fetchData), [fetchData]);
 
   const addBill = useCallback(async (b: Omit<RecurringBill, "id" | "scopedEdits">, requestId?: string): Promise<boolean> => {
     if (!user) return false;

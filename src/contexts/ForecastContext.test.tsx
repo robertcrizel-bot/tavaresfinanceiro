@@ -2,6 +2,7 @@ import { installIntentEnvironment } from "@/test/financial-intent-environment";
 import { act, render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { ForecastProvider, useForecast, type RecurringBill } from "@/contexts/ForecastContext";
+import { refreshCategoryReferences } from "@/lib/category-refresh";
 
 const mocks = vi.hoisted(() => ({
   user: { id: "user-1" },
@@ -69,6 +70,18 @@ describe("ForecastContext recurring bill deletion", () => {
       }
       throw new Error(`Unexpected table: ${table}`);
     });
+  });
+
+  it("reloads recurring categories and scoped overrides after a category mutation", async () => {
+    let context: ReturnType<typeof useForecast> | null = null;
+    const Consumer = () => { context = useForecast(); return null; };
+    render(<ForecastProvider><Consumer /></ForecastProvider>);
+    await waitFor(() => expect(context?.loading).toBe(false));
+    mocks.recurringOrder.mockResolvedValueOnce({ data: [{ ...recurringBillRow, category: "Casa", scoped_edits: { months: { "2026-10": { category: "Casa" } }, future: [] } }] });
+    await act(async () => { await refreshCategoryReferences(); });
+    expect(context?.bills[0].category).toBe("Casa");
+    expect(context?.bills[0].scopedEdits.months["2026-10"].category).toBe("Casa");
+    expect(context?.payments[0].transactionId).toBe("transaction-1");
   });
 
   it("preserves prior payments and transactions when deleting future occurrences", async () => {

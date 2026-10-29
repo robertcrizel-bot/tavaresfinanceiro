@@ -43,7 +43,8 @@ describe("Categories monthly budget", () => {
     mocks.categories = [];
     mocks.transactions = [];
     mocks.addCategory.mockResolvedValue(undefined);
-    mocks.updateCategory.mockResolvedValue(undefined);
+    mocks.updateCategory.mockResolvedValue(true);
+    mocks.deleteCategory.mockResolvedValue(true);
   });
 
   const openNewCategory = () => {
@@ -120,6 +121,38 @@ describe("Categories monthly budget", () => {
 
     expect(screen.getByText("Alimentação")).toBeInTheDocument();
     expect(screen.queryByText(/utilizado/)).not.toBeInTheDocument();
+  });
+
+  it("keeps the edit dialog open when the atomic rename fails", async () => {
+    mocks.categories = [{ id: "category-1", name: "Saúde", type: "expense", monthlyBudget: 500 }];
+    mocks.updateCategory.mockResolvedValueOnce(false);
+    render(<Categories />);
+    fireEvent.click(screen.getByRole("button", { name: "Editar Saúde" }));
+    fireEvent.change(screen.getByPlaceholderText("Ex: Investimentos"), { target: { value: "Saúde/Farmácia" } });
+    fireEvent.click(screen.getByRole("button", { name: "Salvar" }));
+    await waitFor(() => expect(mocks.updateCategory).toHaveBeenCalledWith("category-1", "Saúde/Farmácia", "expense", 500));
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("keeps deletion open on refusal, then submits only the confirmed replacement", async () => {
+    mocks.categories = [
+      { id: "source", name: "Saúde", type: "expense", monthlyBudget: 500 },
+      { id: "target", name: "Outros", type: "both", monthlyBudget: null },
+      { id: "income", name: "Salário", type: "income", monthlyBudget: null },
+    ];
+    mocks.deleteCategory.mockResolvedValueOnce(false).mockResolvedValueOnce(true);
+    render(<Categories />);
+    fireEvent.click(screen.getByRole("button", { name: "Excluir Saúde" }));
+    expect(mocks.deleteCategory).not.toHaveBeenCalled();
+    expect(screen.queryByRole("option", { name: "Salário" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Excluir", exact: true }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("selecione uma substituta");
+    expect(mocks.deleteCategory).toHaveBeenNthCalledWith(1, "source", undefined);
+    fireEvent.change(screen.getByLabelText("Categoria substituta"), { target: { value: "target" } });
+    expect(mocks.deleteCategory).toHaveBeenCalledTimes(1);
+    fireEvent.click(screen.getByRole("button", { name: "Substituir e excluir" }));
+    await waitFor(() => expect(mocks.deleteCategory).toHaveBeenNthCalledWith(2, "source", "target"));
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
   });
 
   it("shows current spending, percentage and available amount", () => {

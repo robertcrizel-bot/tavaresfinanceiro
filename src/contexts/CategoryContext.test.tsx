@@ -1,6 +1,7 @@
 import { act, render, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { CategoryProvider, useCategories } from "@/contexts/CategoryContext";
+import { subscribeCategoryChanges } from "@/lib/category-refresh";
 
 const mocks = vi.hoisted(() => ({
   user: { id: "user-1" },
@@ -10,11 +11,13 @@ const mocks = vi.hoisted(() => ({
   updateEq: vi.fn(),
   deleteEq: vi.fn(),
   toast: vi.fn(),
+  rpc: vi.fn(),
   rows: [] as Record<string, unknown>[],
 }));
 
 vi.mock("@/integrations/supabase/client", () => ({
   supabase: {
+    rpc: mocks.rpc,
     from: () => ({
       select: () => ({ order: mocks.order }),
       insert: mocks.insert,
@@ -43,6 +46,7 @@ describe("CategoryContext monthly budget", () => {
     mocks.updateEq.mockResolvedValue({ error: null });
     mocks.update.mockReturnValue({ eq: mocks.updateEq });
     mocks.deleteEq.mockResolvedValue({ error: null });
+    mocks.rpc.mockResolvedValue({ error: null });
   });
 
   const renderProvider = async () => {
@@ -91,11 +95,53 @@ describe("CategoryContext monthly budget", () => {
 
     await act(async () => { await context?.updateCategory("category-1", "Alimentação", "income", 1000); });
 
-    expect(mocks.update).toHaveBeenCalledWith({
-      name: "Alimentação",
-      type: "income",
-      monthly_budget: null,
+    expect(mocks.rpc).toHaveBeenCalledWith("update_category_with_references", {
+      p_id: "category-1", p_name: "Alimentação", p_type: "income", p_monthly_budget: null,
     });
+  });
+
+  it("awaits dependent data refresh before confirming a successful rename", async () => {
+    await renderProvider();
+    let finish!: () => void;
+    const refreshed = vi.fn(() => new Promise<void>(resolve => { finish = resolve; }));
+    const unsubscribe = subscribeCategoryChanges(refreshed);
+    try {
+      let pending!: Promise<boolean>;
+      await act(async () => { pending = context!.updateCategory("category-1", "Saúde/Farmácia", "expense", 1000); });
+      expect(refreshed).toHaveBeenCalledOnce();
+      expect(mocks.toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "Categoria atualizada" }));
+      await act(async () => { finish(); expect(await pending).toBe(true); });
+      expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ title: "Categoria atualizada" }));
+      expect(mocks.update).not.toHaveBeenCalled();
+    } finally { unsubscribe(); }
+  });
+
+  it("returns false and never refreshes or reports success after RPC failure", async () => {
+    await renderProvider();
+    mocks.rpc.mockResolvedValueOnce({ error: { message: "Conflict", code: "23505" } });
+    const listener = vi.fn(async () => {});
+    const unsubscribe = subscribeCategoryChanges(listener);
+    try {
+      await act(async () => { expect(await context!.updateCategory("category-1", "Other", "expense")).toBe(false); });
+      expect(listener).not.toHaveBeenCalled();
+      expect(mocks.toast).toHaveBeenCalledWith(expect.objectContaining({ variant: "destructive" }));
+      expect(mocks.toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "Categoria atualizada" }));
+    } finally { unsubscribe(); }
+  });
+
+  it("does not invent a replacement when deleting an in-use category", async () => {
+    await renderProvider();
+    mocks.rpc.mockResolvedValueOnce({ error: { message: "Choose replacement", code: "23503" } });
+    await act(async () => { expect(await context!.deleteCategory("category-1")).toBe(false); });
+    expect(mocks.rpc).toHaveBeenCalledWith("delete_category_with_replacement", { p_id: "category-1", p_replacement_id: null });
+    expect(mocks.deleteEq).not.toHaveBeenCalled();
+    expect(mocks.toast).not.toHaveBeenCalledWith(expect.objectContaining({ title: "Categoria excluída" }));
+  });
+
+  it("only sends the replacement explicitly supplied by the user", async () => {
+    await renderProvider();
+    await act(async () => { expect(await context!.deleteCategory("category-1", "replacement-1")).toBe(true); });
+    expect(mocks.rpc).toHaveBeenCalledWith("delete_category_with_replacement", { p_id: "category-1", p_replacement_id: "replacement-1" });
   });
 });
 

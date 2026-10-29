@@ -50,3 +50,7 @@ jobs:
         run: |
           createdb -h 127.0.0.1 -U postgres test_installments
           psql -h 127.0.0.1 -U postgres -d test_installments -v ON_ERROR_STOP=1 -f supabase/tests/existing-card-purchase-installments.sql
+      - name: Atomic category references (disposable database)
+        run: |
+          createdb -h 127.0.0.1 -U postgres test_categories
+          psql -h 127.0.0.1 -U postgres -d test_categories -v ON_ERROR_STOP=1 -f supabase/tests/category-references.sql
