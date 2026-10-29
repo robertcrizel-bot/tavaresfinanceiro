@@ -515,7 +515,7 @@ export default function ExpenseAnalytics() {
 
   // Shared panel: flows with the other summary cards when results exist.
   const transactionsPanel = (
-          <div className="order-4 min-w-0 lg:order-none">
+          <div className="order-4 min-w-0 lg:col-span-2 lg:order-none">
           <ChartCard title="Transações do Período" color={CHART_ACCENTS.categories}>
             <div className="mb-2 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>
@@ -536,7 +536,7 @@ export default function ExpenseAnalytics() {
                 {selectedCategories.length > 0 ? ` para ${categoryLabel}` : ""}.
               </p>
             ) : (
-              <div className="-mx-5 max-h-96 divide-y divide-border/60 overflow-y-auto border-t border-border/60">
+              <div className="-mx-4 divide-y divide-border/60 border-t border-border/60">
                 {sortedTransactions.map((transaction) => (
                   <button
                     key={transaction.id}
@@ -885,18 +885,18 @@ export default function ExpenseAnalytics() {
           ) : (
             <>
               {/* Distribution + evolution */}
-              <div className="grid min-w-0 grid-cols-1 items-start gap-4 lg:grid-cols-2">
+              <div className="grid min-w-0 grid-cols-1 gap-6">
                 <ChartCard title="Gastos por Categoria" color={CHART_ACCENTS.categories}>
-                  <div className="grid min-w-0 grid-cols-1 items-center gap-2 lg:grid-cols-[minmax(240px,1fr)_minmax(0,1fr)]">
-                  <div className="relative h-[220px] w-full lg:h-[280px]">
+                  <div className="grid min-w-0 grid-cols-1 items-center gap-6 xl:grid-cols-[minmax(300px,0.95fr)_minmax(0,1.05fr)]">
+                  <div className="relative h-[280px] w-full [container-type:inline-size] sm:h-[340px] xl:h-[380px]">
                     <ResponsiveContainer width="100%" height="100%">
                       <RechartsPieChart>
                         <Pie
                           data={donutData}
                           dataKey="value"
                           nameKey="category"
-                          innerRadius="56%"
-                          outerRadius="86%"
+                          innerRadius="64%"
+                          outerRadius="90%"
                           paddingAngle={2}
                           stroke="hsl(var(--card))"
                           strokeWidth={2}
@@ -925,21 +925,21 @@ export default function ExpenseAnalytics() {
                       </RechartsPieChart>
                     </ResponsiveContainer>
                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="text-lg font-bold tabular-nums text-foreground">
+                      <span className="max-w-[62%] text-center text-[clamp(1rem,6cqi,1.75rem)] font-bold tabular-nums text-foreground">
                         {money(centerValue)}
                       </span>
                       <span className="text-[11px] text-muted-foreground">Total filtrado</span>
                     </div>
                   </div>
 
-                  <ul className="mt-2 grid max-h-[220px] grid-cols-1 gap-1 overflow-y-auto overscroll-contain pr-1 lg:mt-0 lg:max-h-[280px]">
+                  <ul className="grid min-w-0 grid-cols-1 gap-2">
                     {donutData.map((entry) => (
                       <li key={entry.category}>
                         <button
                           type="button"
                           onClick={() => toggleCategory(entry.category)}
                           className={cn(
-                            "grid w-full grid-cols-[0.625rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-0.5 rounded-md px-2 py-1.5 text-left text-[13px] transition-colors hover:bg-accent/50",
+                            "grid w-full grid-cols-[0.625rem_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-1 rounded-md px-2 py-2.5 text-left text-sm transition-colors hover:bg-accent/50",
                             selectedCategories.includes(entry.category) &&
                               "bg-primary/10 ring-1 ring-primary/40",
                           )}
@@ -981,7 +981,7 @@ export default function ExpenseAnalytics() {
                           </span>
                         </div>
                       )}
-                      <div className="h-[220px] w-full sm:h-[260px] lg:h-[280px]">
+                      <div className="h-[300px] w-full sm:h-[380px] xl:h-[460px]">
                       <ResponsiveContainer width="100%" height="100%">
                         <LineChart data={chartData}>
                           <CartesianGrid strokeDasharray="3 3" stroke={CHART_GRID} vertical={false} />
@@ -1046,7 +1046,7 @@ export default function ExpenseAnalytics() {
                       Sem dados do período anterior para comparar variações.
                     </p>
                   ) : (
-                    <div className="max-h-56 space-y-2 overflow-y-auto overscroll-contain pr-1">
+                    <div className="space-y-2">
                       {changes.slice(0, 6).map((change) => (
                         <button
                           key={change.category}
@@ -1183,7 +1183,7 @@ export default function ExpenseAnalytics() {
                         </p>
                       )}
 
-                      <div className="mt-3 max-h-48 space-y-3 overflow-y-auto overscroll-contain pr-1">
+                      <div className="mt-3 space-y-3">
                         {budgetRows.map((row) => {
                           const width =
                             row.budget > 0
@@ -1246,8 +1246,8 @@ export default function ExpenseAnalytics() {
                 </ChartCard>
 
                 </div>
-                {transactionsPanel}
                 </div>
+                {transactionsPanel}
               </section>
             </>
           )}
