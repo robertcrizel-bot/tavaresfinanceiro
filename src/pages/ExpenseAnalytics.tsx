@@ -511,7 +511,6 @@ export default function ExpenseAnalytics() {
     ],
   };
 
-  const rankingMax = donutData[0]?.value ?? 0;
   const centerValue = visibleSummary.total;
 
   // Shared panel: positioned next to highlights when results exist, or below empty states.
@@ -774,65 +773,6 @@ export default function ExpenseAnalytics() {
               </>
             )}
           </section>
-          {/* Ranking */}
-          {!invalidCustom && visibleExpenses.length > 0 && (
-              <div className="min-w-0 border-t border-border/70 pt-4 [&>section]:border-0 [&>section]:bg-transparent [&>section]:p-0 [&>section]:shadow-none [&_h3]:text-sm [&_h3]:font-semibold">
-              <ChartCard title="Ranking de Gastos" color={CHART_ACCENTS.categories}>
-                <ol className="space-y-2">
-                  {donutData.map((entry, index) => {
-                    const active = selectedCategories.includes(entry.category);
-                    const dimmed = selectedCategories.length > 0 && !active;
-                    return (
-                      <li key={entry.category}>
-                        <button
-                          type="button"
-                          onClick={() => toggleCategory(entry.category)}
-                          className={cn(
-                            "w-full rounded-md px-1 py-0.5 text-left transition-colors hover:bg-accent/40",
-                            active && "data-surface ring-1 ring-border",
-                          )}
-                          style={colorAccent(categoryColor(entry.category))}
-                        >
-                          <div className="flex items-baseline gap-1.5 text-xs">
-                            <span className="w-4 shrink-0 tabular-nums text-muted-foreground">
-                              {index + 1}.
-                            </span>
-                            <span
-                              className={cn(
-                                "min-w-0 flex-1 break-words font-medium",
-                                dimmed ? "text-muted-foreground" : "text-foreground",
-                              )}
-                            >
-                              {entry.category}
-                            </span>
-                          </div>
-                          <div className="ml-5 mt-0.5 flex items-baseline justify-between gap-2 text-xs">
-                            <span className="shrink-0 tabular-nums text-foreground">
-                              {money(entry.value)}
-                            </span>
-                            <span className="w-10 shrink-0 text-right tabular-nums text-xs text-muted-foreground">
-                              {percent(Math.round(entry.percentage))}
-                            </span>
-                          </div>
-                          <div className="ml-5 mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
-                            <div
-                              className="h-full rounded-full transition-all"
-                              style={{
-                                width: `${rankingMax > 0 ? (entry.value / rankingMax) * 100 : 0}%`,
-                                background: categoryColor(entry.category),
-                                opacity: dimmed ? 0.4 : 1,
-                              }}
-                            />
-                          </div>
-                        </button>
-                      </li>
-                    );
-                  })}
-                </ol>
-              </ChartCard>
-              </div>
-
-          )}
         </aside>
         <div className="min-w-0 space-y-4">
       {!invalidCustom && (

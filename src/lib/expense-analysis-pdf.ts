@@ -21,23 +21,6 @@ const BLUE = [105, 147, 218] as const;
 
 type RGB = readonly [number, number, number];
 
-function rgb(color: string | undefined): RGB {
-  if (!color) return MINT;
-  const match = /^hsl\((\d+(?:\.\d+)?)\s+(\d+(?:\.\d+)?)%\s+(\d+(?:\.\d+)?)%/.exec(color);
-  if (!match) return MINT;
-  const h = Number(match[1]) / 60;
-  const saturation = Number(match[2]) / 100;
-  const lightness = Number(match[3]) / 100;
-  const chroma = (1 - Math.abs(2 * lightness - 1)) * saturation;
-  const secondary = chroma * (1 - Math.abs(h % 2 - 1));
-  const adjustment = lightness - chroma / 2;
-  const channels: number[] =
-    h < 1 ? [chroma, secondary, 0] : h < 2 ? [secondary, chroma, 0] :
-    h < 3 ? [0, chroma, secondary] : h < 4 ? [0, secondary, chroma] :
-    h < 5 ? [secondary, 0, chroma] : [chroma, 0, secondary];
-  return channels.map(n => Math.round((n + adjustment) * 255)) as unknown as RGB;
-}
-
 function reportHeader(doc: jsPDF, title: string, subtitle: string, filters: string, page: number) {
   const w = doc.internal.pageSize.getWidth();
   doc.setFillColor(...NAVY);
@@ -85,36 +68,8 @@ function drawKpis(doc: jsPDF, report: FinancialReport) {
   }
 }
 
-function drawCategories(doc: jsPDF, chart: ExportGraph | undefined) {
-  const x = 11, y = 75, w = 134, h = 85;
-  box(doc, x, y, w, h);
-  heading(doc, "Gastos por categoria", x + 4, y + 9);
-  const points = chart?.points ?? [];
-  if (!points.length) {
-    doc.setTextColor(...MUTED);
-    doc.setFontSize(9);
-    doc.text("Nenhuma despesa neste período.", x + 6, y + 26);
-    return;
-  }
-  const max = Math.max(1, ...points.map(p => p.value));
-  // Categories here are a visual breakdown, not another ranking section.
-  for (const [i, p] of points.slice(0, 11).entries()) {
-    const baseline = y + 17 + i * 5.75;
-    doc.setFont("helvetica", "normal");
-    doc.setFontSize(7.4);
-    doc.setTextColor(...INK);
-    doc.text(p.name.slice(0, 20), x + 4, baseline + 1);
-    doc.setFillColor(216, 227, 233);
-    doc.roundedRect(x + 45, baseline - 1.7, 44, 3, 0.6, 0.6, "F");
-    doc.setFillColor(...rgb(p.color));
-    doc.roundedRect(x + 45, baseline - 1.7, 44 * Math.max(0, p.value) / max, 3, 0.6, 0.6, "F");
-    doc.setTextColor(...MUTED);
-    doc.text(money(p.value), x + w - 4, baseline + 1, { align: "right" });
-  }
-}
-
 function drawEvolution(doc: jsPDF, graph: ExportGraph | undefined, previous: number[] | null | undefined) {
-  const x = 150, y = 75, w = 136, h = 85;
+  const x = 11, y = 75, w = 275, h = 85;
   box(doc, x, y, w, h);
   heading(doc, "Evolução dos gastos", x + 4, y + 9);
   const entries = graph?.points ?? [];
@@ -213,10 +168,9 @@ export async function exportCompleteExpenseAnalysisPdf(report: FinancialReport):
   const doc = new JsPdf({ orientation: "landscape", unit: "mm", format: "a4" });
   const filters = report.filterDescription || "Sem filtros adicionais";
 
-  // Page 1: executive overview, two distinct visualizations, actionable insights.
+  // Page 1: executive overview, one distinct visualization, actionable insights.
   reportHeader(doc, "Análise de despesas", report.subtitle, filters, 1);
   drawKpis(doc, report);
-  drawCategories(doc, report.graphs?.find(g => g.kind === "category"));
   drawEvolution(doc, report.graphs?.find(g => g.kind === "evolution"), analysis.previousEvolution);
   renderInsights(doc, analysis.insights, report, filters);
 
