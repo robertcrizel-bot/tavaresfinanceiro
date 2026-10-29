@@ -613,68 +613,6 @@ export default function ExpenseAnalytics() {
           </div>
         </div>
 
-        {hasAnyActiveFilter && (
-          <div className="flex flex-wrap items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
-            <span className="text-muted-foreground">Filtros ativos:</span>
-            {selectedCategories.length > 0 && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
-                {categoryLabel}
-                <button
-                  type="button"
-                  aria-label={`Remover filtro de categoria ${categoryLabel}`}
-                  onClick={() => setSelectedCategories([])}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            )}
-            {searchText.trim() && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
-                “{searchText.trim()}”
-                <button
-                  type="button"
-                  aria-label="Remover filtro de estabelecimento"
-                  onClick={() => setSearchText("")}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            )}
-            {originLabel && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
-                {originLabel}
-                <button
-                  type="button"
-                  aria-label="Remover filtro de conta ou cartão"
-                  onClick={() => setSelectedOrigins([])}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            )}
-            {paymentLabel && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-xs font-semibold text-primary">
-                {paymentLabel}
-                <button
-                  type="button"
-                  aria-label="Remover filtro de pagamento"
-                  onClick={() => setSelectedPayments([])}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            )}
-            <Button
-              size="sm"
-              variant="ghost"
-              className="ml-auto h-7 gap-1 px-2 text-xs"
-              onClick={clearAllFilters}
-            >
-              Limpar todos
-            </Button>
-          </div>
-        )}
-
         {invalidCustom && (
           <div className="rounded-lg border border-destructive/50 bg-destructive/10 px-3 py-3 text-sm text-destructive">
             Intervalo personalizado inválido. Selecione a data inicial (e a final, quando
@@ -1046,12 +984,10 @@ export default function ExpenseAnalytics() {
                       </RechartsPieChart>
                     </ResponsiveContainer>
                     <div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-                      <span className="max-w-[9rem] break-words text-[13px] text-muted-foreground">
-                        {categoryLabel || "Total do período"}
-                      </span>
-                      <span className="text-2xl font-bold tabular-nums text-foreground">
+                      <span className="text-lg font-bold tabular-nums text-foreground">
                         {money(centerValue)}
                       </span>
+                      <span className="text-[11px] text-muted-foreground">Total filtrado</span>
                     </div>
                   </div>
 

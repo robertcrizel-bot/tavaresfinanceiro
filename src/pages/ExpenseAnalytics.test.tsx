@@ -226,6 +226,12 @@ describe("ExpenseAnalytics multiple filters", () => {
     expect(kpiValue("Média por Dia")).toBe(fmt(230 / elapsedDays));
     expect(kpiValue("Maior Categoria")).toContain("Alimentação");
     expect(kpiValue("Variação")).toContain("130%");
+    expect(screen.queryByText("Filtros ativos:")).not.toBeInTheDocument();
+    const donutCard = screen.getByText("Gastos por Categoria").closest(".dashboard-card") as HTMLElement;
+    const donutCenter = within(donutCard).getByText("Total filtrado").parentElement!;
+    expect(donutCenter).toHaveTextContent(/230,00/);
+    expect(donutCenter).not.toHaveTextContent(/selecionad/);
+    expect(within(donutCard).queryByText("2 categorias selecionadas")).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Filtrar por categoria" })).toHaveTextContent("2 categorias selecionadas");
     expect(screen.getByRole("button", { name: "Filtrar por conta ou cartão" })).toHaveTextContent("2 contas/cartões selecionados");
     expect(screen.getByRole("button", { name: "Filtrar por forma de pagamento" })).toHaveTextContent("2 formas selecionadas");
@@ -431,7 +437,7 @@ describe("ExpenseAnalytics category filter", () => {
       .closest(".dashboard-card") as HTMLElement;
     fireEvent.click(within(donutCard).getByRole("button", { name: /Alimentação/ }));
 
-    expect(screen.getByText("Filtros ativos:")).toBeInTheDocument();
+    expect(screen.queryByText("Filtros ativos:")).not.toBeInTheDocument();
     expect(kpiValue("Gasto Total")).toBe(fmt(820));
     expect(kpiValue("Média por Dia")).toBe(fmt(820 / elapsedDays));
     expect(screen.getByText("Mercado")).toBeInTheDocument();
@@ -595,17 +601,18 @@ describe("ExpenseAnalytics scope filters (establishment, origin, payment)", () =
     expect(screen.getAllByText("Padaria Alvorada").length).toBeGreaterThan(0);
     expect(screen.getByText("Padaria Alvorada Pães")).toBeInTheDocument();
     expect(screen.queryByText("Posto Avenida")).not.toBeInTheDocument();
-    expect(screen.getByText("“padaria alvorada”")).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Pesquisar por estabelecimento ou descrição" })).toHaveValue("padaria alvorada");
   });
 
-  it("filters by payment method and updates the active chip", () => {
+  it("filters by payment method and keeps its summary in the sidebar", () => {
     setupScope();
     clickSelectItem("Filtrar por forma de pagamento");
     fireEvent.click(screen.getByRole("checkbox", { name: "Pix", exact: true }));
 
     expect(kpiValue("Gasto Total")).toBe(fmt(470.5)); // pad1 + pad2 + gas
-    const banner = screen.getByText("Filtros ativos:").closest("div") as HTMLElement;
-    expect(within(banner).getByText("Pix")).toBeInTheDocument();
+    const sidebar = screen.getByRole("complementary", { name: "Filtros de despesas" });
+    expect(within(sidebar).getByRole("button", { name: "Filtrar por forma de pagamento" })).toHaveTextContent("Pix");
+    expect(screen.queryByText("Filtros ativos:")).not.toBeInTheDocument();
   });
 
   it("filters by account origin and applies the same scope to the previous period", () => {
