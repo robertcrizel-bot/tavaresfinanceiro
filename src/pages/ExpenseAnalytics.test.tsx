@@ -207,7 +207,7 @@ describe("ExpenseAnalytics multiple filters", () => {
     const rows = (date: string, previous = false) => [
       expense(`${date}-food`, date, previous ? 50 : 120, { accountId: "caixa", paymentMethod: "Pix" }),
       expense(`${date}-health`, date, previous ? 50 : 80, { category: health, creditCardId: "nubank", paymentMethod: "Cartão de Crédito", financialKind: "card_purchase" }),
-      ...previous ? [] : [expense("both-origins", date, 30, { category: health, accountId: "caixa", creditCardId: "nubank", paymentMethod: "Cartão de Crédito" })],
+      ...previous ? [] : [expense("both-origins", date, 30, { category: health, accountId: "caixa", creditCardId: "nubank", paymentMethod: "Cartão de Crédito", financialKind: "card_purchase" })],
       expense(`${date}-wrong-category`, date, 1000, { category: "Lazer", accountId: "caixa", paymentMethod: "Pix" }),
       expense(`${date}-wrong-origin`, date, 2000, { category: health, accountId: "other", paymentMethod: "Pix" }),
       expense(`${date}-wrong-payment`, date, 3000, { accountId: "caixa", paymentMethod: "Dinheiro" }),
