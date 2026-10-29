@@ -1,166 +1,498 @@
 [
   {
-    "version": "reference",
     "width": 1440,
     "theme": "dark",
-    "pieWidth": 184,
-    "lineHeight": 462,
-    "chartCardHeights": [
-      581,
-      581
+    "columnWidths": [
+      282.0625,
+      402.96875,
+      402.953125
     ],
-    "sideBySide": true,
-    "scrollBoxes": [
-      "max-h-56 space-y-2 overflow-y-auto overscroll-contain pr-1",
-      "mt-3 max-h-48 space-y-3 overflow-y-auto overscroll-contain pr-1",
-      "-mx-5 max-h-96 divide-y divide-border/60 overflow-y-auto border-t border-border/60"
-    ]
-  },
-  {
-    "version": "reference",
-    "width": 1280,
-    "theme": "dark",
-    "pieWidth": 184,
-    "lineHeight": 445,
-    "chartCardHeights": [
-      580.5,
-      580.5
-    ],
-    "sideBySide": true,
-    "scrollBoxes": [
-      "max-h-56 space-y-2 overflow-y-auto overscroll-contain pr-1",
-      "mt-3 max-h-48 space-y-3 overflow-y-auto overscroll-contain pr-1",
-      "-mx-5 max-h-96 divide-y divide-border/60 overflow-y-auto border-t border-border/60"
-    ]
-  },
-  {
-    "version": "candidate",
-    "width": 1440,
-    "theme": "dark",
-    "pieWidth": 184,
-    "lineHeight": 462,
-    "chartCardHeights": [
-      581,
-      581
-    ],
-    "sideBySide": true,
+    "boxes": {
+      "filters": {
+        "x": 288,
+        "y": 324.3125,
+        "width": 282.0625,
+        "height": 726.25
+      },
+      "transactions": {
+        "x": 288,
+        "y": 1066.5625,
+        "width": 282.0625,
+        "height": 1068.5
+      },
+      "category": {
+        "x": 586.0625,
+        "y": 324.3125,
+        "width": 402.96875,
+        "height": 580.5
+      },
+      "changes": {
+        "x": 586.0625,
+        "y": 920.8125,
+        "width": 402.96875,
+        "height": 456.5
+      },
+      "highlights": {
+        "x": 586.0625,
+        "y": 1393.3125,
+        "width": 402.96875,
+        "height": 336
+      },
+      "evolution": {
+        "x": 1005.03125,
+        "y": 324.3125,
+        "width": 402.953125,
+        "height": 487.953125
+      },
+      "budget": {
+        "x": 1005.03125,
+        "y": 828.265625,
+        "width": 402.953125,
+        "height": 713.5
+      }
+    },
+    "evolutionHeight": 369,
     "scrollBoxes": []
   },
   {
-    "version": "candidate",
     "width": 1440,
     "theme": "light",
-    "pieWidth": 184,
-    "lineHeight": 462,
-    "chartCardHeights": [
-      581,
-      581
+    "columnWidths": [
+      282.0625,
+      402.96875,
+      402.953125
     ],
-    "sideBySide": true,
+    "boxes": {
+      "filters": {
+        "x": 288,
+        "y": 324.3125,
+        "width": 282.0625,
+        "height": 726.25
+      },
+      "transactions": {
+        "x": 288,
+        "y": 1066.5625,
+        "width": 282.0625,
+        "height": 1068.5
+      },
+      "category": {
+        "x": 586.0625,
+        "y": 324.3125,
+        "width": 402.96875,
+        "height": 580.5
+      },
+      "changes": {
+        "x": 586.0625,
+        "y": 920.8125,
+        "width": 402.96875,
+        "height": 456.5
+      },
+      "highlights": {
+        "x": 586.0625,
+        "y": 1393.3125,
+        "width": 402.96875,
+        "height": 336
+      },
+      "evolution": {
+        "x": 1005.03125,
+        "y": 324.3125,
+        "width": 402.953125,
+        "height": 487.953125
+      },
+      "budget": {
+        "x": 1005.03125,
+        "y": 828.265625,
+        "width": 402.953125,
+        "height": 713.5
+      }
+    },
+    "evolutionHeight": 369,
     "scrollBoxes": []
   },
   {
-    "version": "candidate",
     "width": 1280,
     "theme": "dark",
-    "pieWidth": 184,
-    "lineHeight": 445,
-    "chartCardHeights": [
-      580.5,
-      580.5
+    "columnWidths": [
+      240.578125,
+      343.703125,
+      343.71875
     ],
-    "sideBySide": true,
+    "boxes": {
+      "filters": {
+        "x": 288,
+        "y": 320.15625,
+        "width": 240.578125,
+        "height": 726.25
+      },
+      "transactions": {
+        "x": 288,
+        "y": 1062.40625,
+        "width": 240.578125,
+        "height": 1068.5
+      },
+      "category": {
+        "x": 544.578125,
+        "y": 320.15625,
+        "width": 343.703125,
+        "height": 580.5
+      },
+      "changes": {
+        "x": 544.578125,
+        "y": 916.65625,
+        "width": 343.703125,
+        "height": 456.5
+      },
+      "highlights": {
+        "x": 544.578125,
+        "y": 1389.15625,
+        "width": 343.703125,
+        "height": 336
+      },
+      "evolution": {
+        "x": 904.28125,
+        "y": 320.15625,
+        "width": 343.71875,
+        "height": 428.71875
+      },
+      "budget": {
+        "x": 904.28125,
+        "y": 764.875,
+        "width": 343.71875,
+        "height": 713.5
+      }
+    },
+    "evolutionHeight": 310,
     "scrollBoxes": []
   },
   {
-    "version": "candidate",
     "width": 1280,
     "theme": "light",
-    "pieWidth": 184,
-    "lineHeight": 445,
-    "chartCardHeights": [
-      580.5,
-      580.5
+    "columnWidths": [
+      240.578125,
+      343.703125,
+      343.71875
     ],
-    "sideBySide": true,
+    "boxes": {
+      "filters": {
+        "x": 288,
+        "y": 320.15625,
+        "width": 240.578125,
+        "height": 726.25
+      },
+      "transactions": {
+        "x": 288,
+        "y": 1062.40625,
+        "width": 240.578125,
+        "height": 1068.5
+      },
+      "category": {
+        "x": 544.578125,
+        "y": 320.15625,
+        "width": 343.703125,
+        "height": 580.5
+      },
+      "changes": {
+        "x": 544.578125,
+        "y": 916.65625,
+        "width": 343.703125,
+        "height": 456.5
+      },
+      "highlights": {
+        "x": 544.578125,
+        "y": 1389.15625,
+        "width": 343.703125,
+        "height": 336
+      },
+      "evolution": {
+        "x": 904.28125,
+        "y": 320.15625,
+        "width": 343.71875,
+        "height": 428.71875
+      },
+      "budget": {
+        "x": 904.28125,
+        "y": 764.875,
+        "width": 343.71875,
+        "height": 713.5
+      }
+    },
+    "evolutionHeight": 310,
     "scrollBoxes": []
   },
   {
-    "version": "candidate",
     "width": 768,
     "theme": "dark",
-    "pieWidth": 184,
-    "lineHeight": 220,
-    "chartCardHeights": [
-      580.5,
-      339
-    ],
-    "sideBySide": false,
+    "columnWidths": null,
+    "boxes": {
+      "filters": null,
+      "transactions": {
+        "x": 280,
+        "y": 3404.875,
+        "width": 464,
+        "height": 1068.5
+      },
+      "category": {
+        "x": 280,
+        "y": 689.375,
+        "width": 464,
+        "height": 580.5
+      },
+      "changes": {
+        "x": 280,
+        "y": 1850.875,
+        "width": 464,
+        "height": 456.5
+      },
+      "highlights": {
+        "x": 280,
+        "y": 3052.875,
+        "width": 464,
+        "height": 336
+      },
+      "evolution": {
+        "x": 280,
+        "y": 1285.875,
+        "width": 464,
+        "height": 549
+      },
+      "budget": {
+        "x": 280,
+        "y": 2323.375,
+        "width": 464,
+        "height": 713.5
+      }
+    },
+    "evolutionHeight": 430,
     "scrollBoxes": []
   },
   {
-    "version": "candidate",
     "width": 768,
     "theme": "light",
-    "pieWidth": 184,
-    "lineHeight": 220,
-    "chartCardHeights": [
-      580.5,
-      339
-    ],
-    "sideBySide": false,
+    "columnWidths": null,
+    "boxes": {
+      "filters": null,
+      "transactions": {
+        "x": 280,
+        "y": 3404.875,
+        "width": 464,
+        "height": 1068.5
+      },
+      "category": {
+        "x": 280,
+        "y": 689.375,
+        "width": 464,
+        "height": 580.5
+      },
+      "changes": {
+        "x": 280,
+        "y": 1850.875,
+        "width": 464,
+        "height": 456.5
+      },
+      "highlights": {
+        "x": 280,
+        "y": 3052.875,
+        "width": 464,
+        "height": 336
+      },
+      "evolution": {
+        "x": 280,
+        "y": 1285.875,
+        "width": 464,
+        "height": 549
+      },
+      "budget": {
+        "x": 280,
+        "y": 2323.375,
+        "width": 464,
+        "height": 713.5
+      }
+    },
+    "evolutionHeight": 430,
     "scrollBoxes": []
   },
   {
-    "version": "candidate",
     "width": 390,
     "theme": "dark",
-    "pieWidth": 184,
-    "lineHeight": 220,
-    "chartCardHeights": [
-      580.5,
-      339
-    ],
-    "sideBySide": false,
+    "columnWidths": null,
+    "boxes": {
+      "filters": null,
+      "transactions": {
+        "x": 12,
+        "y": 3297.078125,
+        "width": 366,
+        "height": 1068.5
+      },
+      "category": {
+        "x": 12,
+        "y": 679.578125,
+        "width": 366,
+        "height": 580.5
+      },
+      "changes": {
+        "x": 12,
+        "y": 1743.078125,
+        "width": 366,
+        "height": 456.5
+      },
+      "highlights": {
+        "x": 12,
+        "y": 2945.078125,
+        "width": 366,
+        "height": 336
+      },
+      "evolution": {
+        "x": 12,
+        "y": 1276.078125,
+        "width": 366,
+        "height": 451
+      },
+      "budget": {
+        "x": 12,
+        "y": 2215.578125,
+        "width": 366,
+        "height": 713.5
+      }
+    },
+    "evolutionHeight": 332,
     "scrollBoxes": []
   },
   {
-    "version": "candidate",
     "width": 390,
     "theme": "light",
-    "pieWidth": 184,
-    "lineHeight": 220,
-    "chartCardHeights": [
-      580.5,
-      339
-    ],
-    "sideBySide": false,
+    "columnWidths": null,
+    "boxes": {
+      "filters": null,
+      "transactions": {
+        "x": 12,
+        "y": 3297.078125,
+        "width": 366,
+        "height": 1068.5
+      },
+      "category": {
+        "x": 12,
+        "y": 679.578125,
+        "width": 366,
+        "height": 580.5
+      },
+      "changes": {
+        "x": 12,
+        "y": 1743.078125,
+        "width": 366,
+        "height": 456.5
+      },
+      "highlights": {
+        "x": 12,
+        "y": 2945.078125,
+        "width": 366,
+        "height": 336
+      },
+      "evolution": {
+        "x": 12,
+        "y": 1276.078125,
+        "width": 366,
+        "height": 451
+      },
+      "budget": {
+        "x": 12,
+        "y": 2215.578125,
+        "width": 366,
+        "height": 713.5
+      }
+    },
+    "evolutionHeight": 332,
     "scrollBoxes": []
   },
   {
-    "version": "candidate",
     "width": 360,
     "theme": "dark",
-    "pieWidth": 184,
-    "lineHeight": 220,
-    "chartCardHeights": [
-      580.5,
-      339
-    ],
-    "sideBySide": false,
+    "columnWidths": null,
+    "boxes": {
+      "filters": null,
+      "transactions": {
+        "x": 12,
+        "y": 3342.375,
+        "width": 336,
+        "height": 1068.5
+      },
+      "category": {
+        "x": 12,
+        "y": 754.875,
+        "width": 336,
+        "height": 580.5
+      },
+      "changes": {
+        "x": 12,
+        "y": 1788.375,
+        "width": 336,
+        "height": 456.5
+      },
+      "highlights": {
+        "x": 12,
+        "y": 2990.375,
+        "width": 336,
+        "height": 336
+      },
+      "evolution": {
+        "x": 12,
+        "y": 1351.375,
+        "width": 336,
+        "height": 421
+      },
+      "budget": {
+        "x": 12,
+        "y": 2260.875,
+        "width": 336,
+        "height": 713.5
+      }
+    },
+    "evolutionHeight": 302,
     "scrollBoxes": []
   },
   {
-    "version": "candidate",
     "width": 360,
     "theme": "light",
-    "pieWidth": 184,
-    "lineHeight": 220,
-    "chartCardHeights": [
-      580.5,
-      339
-    ],
-    "sideBySide": false,
+    "columnWidths": null,
+    "boxes": {
+      "filters": null,
+      "transactions": {
+        "x": 12,
+        "y": 3342.375,
+        "width": 336,
+        "height": 1068.5
+      },
+      "category": {
+        "x": 12,
+        "y": 754.875,
+        "width": 336,
+        "height": 580.5
+      },
+      "changes": {
+        "x": 12,
+        "y": 1788.375,
+        "width": 336,
+        "height": 456.5
+      },
+      "highlights": {
+        "x": 12,
+        "y": 2990.375,
+        "width": 336,
+        "height": 336
+      },
+      "evolution": {
+        "x": 12,
+        "y": 1351.375,
+        "width": 336,
+        "height": 421
+      },
+      "budget": {
+        "x": 12,
+        "y": 2260.875,
+        "width": 336,
+        "height": 713.5
+      }
+    },
+    "evolutionHeight": 302,
     "scrollBoxes": []
   }
 ]
