@@ -207,7 +207,7 @@ describe("ExpenseAnalytics multiple filters", () => {
     const rows = (date: string, previous = false) => [
       expense(`${date}-food`, date, previous ? 50 : 120, { accountId: "caixa", paymentMethod: "Pix" }),
       expense(`${date}-health`, date, previous ? 50 : 80, { category: health, creditCardId: "nubank", paymentMethod: "Cartão de Crédito", financialKind: "card_purchase" }),
-      ...previous ? [] : [expense("both-origins", date, 30, { category: health, accountId: "caixa", creditCardId: "nubank", paymentMethod: "Cartão de Crédito", financialKind: "card_purchase" })],
+      ...previous ? [] : [expense("card-extra", date, 30, { category: health, creditCardId: "nubank", paymentMethod: "Cartão de Crédito", financialKind: "card_purchase" })],
       expense(`${date}-wrong-category`, date, 1000, { category: "Lazer", accountId: "caixa", paymentMethod: "Pix" }),
       expense(`${date}-wrong-origin`, date, 2000, { category: health, accountId: "other", paymentMethod: "Pix" }),
       expense(`${date}-wrong-payment`, date, 3000, { accountId: "caixa", paymentMethod: "Dinheiro" }),
@@ -229,7 +229,7 @@ describe("ExpenseAnalytics multiple filters", () => {
     expect(screen.getByRole("button", { name: "Filtrar por categoria" })).toHaveTextContent("2 categorias selecionadas");
     expect(screen.getByRole("button", { name: "Filtrar por conta ou cartão" })).toHaveTextContent("2 contas/cartões selecionados");
     expect(screen.getByRole("button", { name: "Filtrar por forma de pagamento" })).toHaveTextContent("2 formas selecionadas");
-    expect(screen.getByText("Compra both-origins")).toBeInTheDocument();
+    expect(screen.getByText("Compra card-extra")).toBeInTheDocument();
     for (const suffix of ["wrong-category", "wrong-origin", "wrong-payment"]) expect(screen.queryByText(`Compra ${day1}-${suffix}`)).not.toBeInTheDocument();
     expect(mocks.report?.categories).toEqual([
       { category: "Alimentação", total: 120, share: 120 / 230 * 100 },
