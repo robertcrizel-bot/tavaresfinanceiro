@@ -61,7 +61,7 @@ export function BetaAccessGate({ children }: { children: React.ReactNode }) {
         </h1>
         <p className="text-sm leading-6 text-muted-foreground">
           {state === "denied"
-            ? "Sua conta está cadastrada, mas o acesso ao FinanceControl ainda não foi liberado ou expirou. Confira sua assinatura ou convite."
+            ? "Sua conta está cadastrada, mas o acesso ao FinVision ainda não foi liberado ou expirou. Confira sua assinatura ou convite."
             : "O acesso não foi confirmado. Nenhum registro foi alterado. Verifique a conexão e tente novamente."}
         </p>
         {state === "denied" && (
