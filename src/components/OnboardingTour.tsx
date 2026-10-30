@@ -6,7 +6,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { markOnboardingDone, shouldShowOnboarding } from "@/lib/onboarding";
 
 const steps = [
-  { icon: LayoutDashboard, title: "Boas-vindas ao FinanceControl", text: "Em poucos passos você deixa tudo pronto. Este guia aparece só uma vez e pode ser reaberto no Perfil.", link: null },
+  { icon: LayoutDashboard, title: "Boas-vindas ao FinVision", text: "Em poucos passos você deixa tudo pronto. Este guia aparece só uma vez e pode ser reaberto no Perfil.", link: null },
   { icon: Wallet, title: "1. Cadastre contas e cartões", text: "Adicione suas contas, o caixa Dinheiro e seus cartões de crédito com limite e vencimento.", link: { to: "/accounts", label: "Abrir Contas & cartões" } },
   { icon: PiggyBank, title: "2. Registre entradas e saídas", text: "Use “Novo registro” no painel para lançar salários, compras e despesas. Compras no cartão podem ser parceladas.", link: { to: "/records", label: "Ver meus registros" } },
   { icon: ScanLine, title: "3. Leia um comprovante", text: "Envie a foto de um cupom ou comprovante Pix e revise os dados antes de salvar.", link: { to: "/receipt", label: "Ler comprovante" } },
