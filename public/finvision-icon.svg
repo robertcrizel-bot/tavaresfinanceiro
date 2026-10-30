@@ -1,6 +1,6 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="FinVision">
 <defs><linearGradient id="bg" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#10243e"/><stop offset="1" stop-color="#040a16"/></linearGradient><linearGradient id="green" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#53ffd3"/><stop offset=".55" stop-color="#00d9a4"/><stop offset="1" stop-color="#00ab7f"/></linearGradient></defs>
-<rect width="512" height="512" rx="100" fill="url(#bg)"/>
+<rect width="512" height="512" fill="url(#bg)"/>
 <path d="M105 386V178q0-40 42-40h191l-24 38q-7 10-21 10H166q-12 0-12 13v49h120v45H154v112l-49-39Z" fill="#fff"/>
 <path d="M227 238h39q13 0 21 15l39 88 52-101q5-11 18-11h43L337 414q-11 20-29 0L227 238Z" fill="url(#green)"/>
 <path d="M350 223v-33q0-7 7-11l19-10q7-4 7 4v38l-33 12Zm42-13v-52q0-6 7-10l19-10q7-3 7 4v58l-33 10Zm42-16v-69q0-7 7-11l19-11q7-4 7 4v77l-33 10Z" fill="url(#green)"/>
