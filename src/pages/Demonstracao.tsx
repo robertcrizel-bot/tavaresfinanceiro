@@ -2,12 +2,12 @@ import { Link } from "react-router-dom";
 import { ArrowRight, ImageOff } from "lucide-react";
 
 export const STORYBOARD = [
-  { time: "0–6s", scene: "Abertura", screen: "Painel com o saldo do período", narration: "Quer saber para onde vai seu dinheiro? Conheça o FinanceControl." },
+  { time: "0–6s", scene: "Abertura", screen: "Painel com o saldo do período", narration: "Quer saber para onde vai seu dinheiro? Conheça o FinVision." },
   { time: "6–16s", scene: "Novo registro", screen: "Botão “Novo registro” e formulário", narration: "Registre uma entrada ou uma saída em segundos, com categoria e forma de pagamento." },
   { time: "16–28s", scene: "Leitura de comprovante", screen: "Tela “Ler comprovante” com a revisão dos dados", narration: "Tire foto de um cupom ou comprovante Pix. A IA sugere os dados e você confere antes de salvar." },
   { time: "28–38s", scene: "Cartões e faturas", screen: "Contas & cartões com limite e fatura", narration: "Parcele compras no cartão e acompanhe a fatura de cada mês, sem contar gasto em dobro." },
   { time: "38–48s", scene: "Previsões", screen: "Lista de contas fixas do mês", narration: "Cadastre aluguel, luz e internet e veja o que já foi pago e o que vence." },
-  { time: "48–58s", scene: "Encerramento", screen: "Análises por categoria e chamada final", narration: "Clareza do cupom à fatura. Crie sua conta no FinanceControl." },
+  { time: "48–58s", scene: "Encerramento", screen: "Análises por categoria e chamada final", narration: "Clareza do cupom à fatura. Crie sua conta no FinVision." },
 ];
 
 export default function Demonstracao() {
@@ -19,7 +19,7 @@ export default function Demonstracao() {
       </header>
       <main className="mx-auto max-w-5xl px-5 pb-20">
         <p className="eyebrow">Roteiro do vídeo · 45–60 segundos</p>
-        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Como o FinanceControl funciona</h1>
+        <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Como o FinVision funciona</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
           Este é o roteiro planejado do vídeo explicativo. O vídeo ainda não foi gravado; os espaços abaixo receberão capturas reais do aplicativo.
         </p>
