@@ -12,7 +12,7 @@ const features = [
   { icon: CalendarDays, title: "Contas recorrentes", description: "Antecipe as despesas e receitas que se repetem ao longo dos meses." },
   { icon: ReceiptText, title: "Comprovantes", description: "Guarde comprovantes junto dos seus registros financeiros." },
   { icon: FileDown, title: "Seus dados com você", description: "Exporte seus registros financeiros quando precisar." },
-  { icon: Smartphone, title: "No computador e celular", description: "Use o FinanceControl pelo navegador, sem planilhas espalhadas." },
+  { icon: Smartphone, title: "No computador e celular", description: "Use o FinVision pelo navegador, sem planilhas espalhadas." },
 ];
 
 export default function Beta() {
@@ -33,7 +33,7 @@ export default function Beta() {
         <section className="mx-auto max-w-6xl px-5 pb-14 pt-12 md:pb-20 md:pt-20">
           <div className="max-w-3xl">
             <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-2 text-xs font-bold text-primary">
-              <CheckCircle2 className="h-4 w-4" /> Vagas limitadas · Beta do FinanceControl
+              <CheckCircle2 className="h-4 w-4" /> Vagas limitadas · Beta do FinVision
             </p>
             <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
               Seu dinheiro, suas contas, <span className="text-primary">tudo mais organizado.</span>
@@ -60,7 +60,7 @@ export default function Beta() {
             </div>
             {checkoutUrl && (
               <p className="mt-4 text-xs leading-relaxed text-muted-foreground">
-                Pagamento processado fora do FinanceControl. Durante a beta, o acesso é
+                Pagamento processado fora do FinVision. Durante a beta, o acesso é
                 liberado após confirmação do pagamento; pagar não ativa a conta instantaneamente.
               </p>
             )}
@@ -120,7 +120,7 @@ export default function Beta() {
             <article className="rounded-2xl border border-border bg-card p-5">
               <h3 className="font-semibold">Preciso instalar um aplicativo?</h3>
               <p className="mt-2 text-sm leading-6 text-muted-foreground">
-                Não. O FinanceControl funciona pelo navegador no celular ou no computador.
+                Não. O FinVision funciona pelo navegador no celular ou no computador.
               </p>
             </article>
             <article className="rounded-2xl border border-border bg-card p-5">
@@ -154,7 +154,7 @@ export default function Beta() {
         </section>
       </main>
       <footer className="border-t border-border px-5 py-7 text-center text-xs text-muted-foreground">
-        FinanceControl · Beta de controle financeiro pessoal · Não é instituição financeira
+        FinVision · Beta de controle financeiro pessoal · Não é instituição financeira
       </footer>
     </div>
   );
