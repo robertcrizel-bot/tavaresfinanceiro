@@ -22,6 +22,7 @@ import Profile from "@/pages/Profile";
 import Auth from "@/pages/Auth";
 import PasswordRecovery from "@/pages/PasswordRecovery";
 import Beta from "@/pages/Beta";
+import SandboxSubscription from "@/pages/SandboxSubscription";
 import { BetaAccessGate } from "@/components/BetaAccessGate";
 import NotFound from "@/pages/NotFound";
 import Install from "@/pages/Install";
@@ -92,6 +93,7 @@ const App = () => (
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/recuperar-senha" element={<PasswordRecovery />} />
             <Route path="/beta" element={<Beta />} />
+            {import.meta.env.VITE_ASAAS_SANDBOX_ENABLED === "true" && <Route path="/assinatura-sandbox" element={<SandboxSubscription />} />}
             <Route path="/install" element={<Install />} />
             <Route path="/conhecer" element={<Conhecer />} />
             <Route path="/demonstracao" element={<Demonstracao />} />

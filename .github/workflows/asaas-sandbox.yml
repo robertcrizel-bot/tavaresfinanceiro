@@ -1,0 +1,50 @@
+name: Asaas Sandbox infrastructure
+on:
+  push:
+    branches: [feat/asaas-sandbox-subscriptions-20261030]
+  pull_request:
+    paths: ['supabase/functions/**/asaas-sandbox/**', 'supabase/functions/asaas-sandbox-*/**', 'supabase/migrations/*asaas_sandbox*', 'supabase/tests/asaas-sandbox*', 'src/lib/asaas-sandbox*', 'src/pages/SandboxSubscription*', '.github/workflows/asaas-sandbox.yml']
+permissions:
+  contents: read
+jobs:
+  isolated-validation:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: asaas_sandbox_test
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: ci-only-password
+        ports: ['5432:5432']
+        options: --health-cmd "pg_isready -U postgres -d asaas_sandbox_test" --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGUSER: postgres
+      PGDATABASE: asaas_sandbox_test
+      PGPASSWORD: ci-only-password
+      VITE_SUPABASE_URL: http://127.0.0.1:54321
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-local-placeholder
+      DENO_NO_PACKAGE_JSON: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with: {persist-credentials: false}
+      - uses: actions/setup-node@v4
+        with: {node-version: '22'}
+      - uses: denoland/setup-deno@v2
+        with: {deno-version: '2.9.8'}
+      - run: npm ci --ignore-scripts
+      - name: Mock contracts and interface tests
+        run: npx vitest run src/lib/asaas-sandbox.test.ts src/pages/SandboxSubscription.test.tsx
+      - name: Edge type checking
+        run: deno check --no-config --node-modules-dir=none supabase/functions/asaas-sandbox-checkout/index.ts supabase/functions/asaas-sandbox-webhook/index.ts supabase/functions/asaas-sandbox-worker/index.ts
+      - name: Application types and changed-file lint
+        run: |
+          npx tsc --noEmit -p tsconfig.app.json
+          npx tsc --noEmit -p tsconfig.node.json
+          npx eslint src/pages/SandboxSubscription.tsx src/pages/SandboxSubscription.test.tsx src/lib/asaas-sandbox.test.ts supabase/functions/_shared/asaas-sandbox supabase/functions/asaas-sandbox-*/index.ts
+      - name: Default production-disabled build
+        run: npm run build
+      - name: PostgreSQL sandbox contracts (no Asaas credentials or live calls)
+        run: psql -v ON_ERROR_STOP=1 -f supabase/tests/asaas-sandbox.sql
