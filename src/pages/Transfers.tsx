@@ -38,7 +38,7 @@ export default function Transfers() {
   // Transfers never count as revenues or expenses, even in PDF summaries.
   const exportReport: FinancialReport = {
     worksheetName: "Transferencias",
-    fileName: "FinanceControl_Transferencias_" + new Date().toISOString().slice(0, 10) + ".xlsx",
+    fileName: "FinVision_Transferencias_" + new Date().toISOString().slice(0, 10) + ".xlsx",
     title: "Transferências",
     subtitle: sorted.length + " movimentações internas entre contas",
     filterDescription: "Histórico completo · Transferências não são receitas nem despesas",
