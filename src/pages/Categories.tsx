@@ -146,7 +146,7 @@ export default function Categories() {
   }, 0);
   const exportReport: FinancialReport = {
     worksheetName: "Categorias",
-    fileName: "FinanceControl_Categorias_" + new Date().toISOString().slice(0, 10) + ".xlsx",
+    fileName: "FinVision_Categorias_" + new Date().toISOString().slice(0, 10) + ".xlsx",
     title: "Categorias de entradas e saídas",
     subtitle: "Cadastro completo de categorias · " + new Date().toLocaleDateString("pt-BR"),
     filterDescription: "Entradas primeiro, saídas depois · Orçamentos e despesas do mês atual",
