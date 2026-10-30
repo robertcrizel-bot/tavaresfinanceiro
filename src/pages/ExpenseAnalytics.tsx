@@ -394,7 +394,7 @@ export default function ExpenseAnalytics() {
 
   const exportReport: FinancialReport = {
     worksheetName: "Resumo",
-    fileName: "FinanceControl_Analise_" + (effectiveRange?.start ?? "sem-periodo") + "_" + (effectiveRange?.end ?? "sem-periodo") + ".xlsx",
+    fileName: "FinVision_Analise_" + (effectiveRange?.start ?? "sem-periodo") + "_" + (effectiveRange?.end ?? "sem-periodo") + ".xlsx",
     title: "Análise de Despesas",
     subtitle: effectiveRange
       ? "Despesas de " + shortDate(effectiveRange.start) + " a " + shortDate(effectiveRange.end) + " · " + visibleExpenses.length + " registros analisados"

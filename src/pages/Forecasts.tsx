@@ -128,7 +128,7 @@ export default function Forecasts() {
   ];
   const exportReport: FinancialReport = {
     worksheetName: "Previsoes",
-    fileName: "FinanceControl_Previsoes_" + referenceMonth + ".xlsx",
+    fileName: "FinVision_Previsoes_" + referenceMonth + ".xlsx",
     title: "Previsões de entradas e saídas",
     subtitle: "Competência: " + format(currentMonth, "MMMM yyyy", { locale: ptBR }),
     filterDescription: "Todas as entradas e saídas vigentes nesta competência · Entradas primeiro",

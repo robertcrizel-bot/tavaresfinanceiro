@@ -60,7 +60,7 @@ export default function Install() {
             No app do seu banco, ao abrir o comprovante (PIX, transferência ou pagamento), toque em <strong className="text-foreground">Compartilhar</strong>.
           </li>
           <li>
-            Escolha o <strong className="text-foreground">FinanceControl</strong> na lista de apps. O comprovante será lido automaticamente!
+            Escolha o <strong className="text-foreground">FinVision</strong> na lista de apps. O comprovante será lido automaticamente!
           </li>
         </ol>
       </div>
@@ -69,7 +69,7 @@ export default function Install() {
         <Info className="h-4 w-4 text-muted-foreground shrink-0 mt-0.5" />
         <div>
           <strong className="text-foreground block mb-0.5">Usa iPhone ou iPad (iOS)?</strong>
-          O sistema da Apple ainda não permite que apps web recebam arquivos pelo menu Compartilhar. Para importar, basta abrir o FinanceControl e tocar em <strong className="text-foreground">"Ler comprovante"</strong>.
+          O sistema da Apple ainda não permite que apps web recebam arquivos pelo menu Compartilhar. Para importar, basta abrir o FinVision e tocar em <strong className="text-foreground">"Ler comprovante"</strong>.
         </div>
       </div>
     </div>
@@ -82,7 +82,7 @@ export default function Install() {
           <CheckCircle2 className="h-16 w-16 text-income" />
           <h1 className="text-2xl font-bold text-foreground">App instalado!</h1>
           <p className="text-muted-foreground max-w-sm text-sm">
-            O FinanceControl já está na sua tela inicial.
+            O FinVision já está na sua tela inicial.
           </p>
         </div>
 
@@ -107,11 +107,11 @@ export default function Install() {
   return (
     <div className="min-h-screen flex flex-col items-center justify-center bg-background p-6 text-center gap-6 my-8">
       <div className="rounded-2xl overflow-hidden w-24 h-24 shadow-lg">
-        <img src="/icon-192.png" alt="FinanceControl" width={96} height={96} />
+        <img src="/icon-192.png" alt="FinVision" width={96} height={96} />
       </div>
 
       <div className="space-y-2">
-        <h1 className="text-2xl font-bold text-foreground">Instalar FinanceControl</h1>
+        <h1 className="text-2xl font-bold text-foreground">Instalar FinVision</h1>
         <p className="text-muted-foreground max-w-sm text-sm">
           Adicione o app à tela inicial do seu celular para acesso rápido e para compartilhar comprovantes direto do banco.
         </p>

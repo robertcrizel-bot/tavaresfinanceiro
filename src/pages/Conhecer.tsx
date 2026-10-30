@@ -35,7 +35,7 @@ const differentials = [
 ];
 
 const faq = [
-  { q: "Preciso instalar alguma coisa?", a: "Não. O FinanceControl funciona no navegador do celular ou computador. Se quiser, você pode adicioná-lo à tela inicial." },
+  { q: "Preciso instalar alguma coisa?", a: "Não. O FinVision funciona no navegador do celular ou computador. Se quiser, você pode adicioná-lo à tela inicial." },
   { q: "A leitura de comprovantes é perfeita?", a: "Não. A IA ajuda a preencher os dados, mas fotos ruins podem gerar erros. Por isso você sempre revisa antes de salvar. A leitura tem limites de uso." },
   { q: "Quanto custa?", a: `O plano previsto é de ${LANDING_PRICE_LABEL} por mês. Nenhuma cobrança é feita por esta página.` },
   { q: "O app conecta na minha conta bancária?", a: "Não. Você registra os lançamentos manualmente ou a partir de comprovantes." },
@@ -189,7 +189,7 @@ export default function Conhecer() {
       </main>
 
       <footer className="border-t border-border px-5 py-6 text-center text-xs text-muted-foreground">
-        FinanceControl · <Link to="/demonstracao" className="hover:text-foreground">Demonstração</Link> · <Link to="/auth" className="hover:text-foreground">Entrar</Link>
+        FinVision · <Link to="/demonstracao" className="hover:text-foreground">Demonstração</Link> · <Link to="/auth" className="hover:text-foreground">Entrar</Link>
       </footer>
     </div>
   );

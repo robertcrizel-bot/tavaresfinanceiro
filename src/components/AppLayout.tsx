@@ -39,7 +39,7 @@ export default function AppLayout() {
               <SidebarTrigger className="h-9 w-9 rounded-xl border border-border bg-card" />
               <span className="h-4 w-px bg-border" />
               <span className="text-xs font-bold uppercase tracking-[0.18em] text-muted-foreground">
-                {pageNames[pathname] ?? "FinanceControl"}
+                {pageNames[pathname] ?? "FinVision"}
               </span>
             </div>
             <div className="flex items-center gap-3">
@@ -53,7 +53,7 @@ export default function AppLayout() {
             <div className="flex items-center gap-2.5">
               <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-sidebar text-sm font-extrabold text-sidebar-primary">F</span>
               <div>
-                <p className="font-display text-sm font-bold leading-none text-foreground">FinanceControl</p>
+                <p className="font-display text-sm font-bold leading-none text-foreground"><span className="text-foreground dark:text-white">Fin</span><span className="text-primary">Vision</span></p>
                 <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{pageNames[pathname] ?? "Finanças"}</p>
               </div>
             </div>

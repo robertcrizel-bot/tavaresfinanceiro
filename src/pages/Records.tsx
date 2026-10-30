@@ -264,7 +264,7 @@ export default function Records() {
 
     return {
       worksheetName: "Registros",
-      fileName: `FinanceControl_Registros_${today}.xlsx`,
+      fileName: `FinVision_Registros_${today}.xlsx`,
       title: "Meus registros",
       subtitle: `${filtered.length} registros selecionados     |     Exportado em ${new Date().toLocaleDateString("pt-BR")}`,
       filterDescription: activeFilters.join(" · ") || "Sem filtros adicionais",
