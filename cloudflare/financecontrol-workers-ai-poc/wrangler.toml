@@ -10,7 +10,7 @@ binding = "AI"
 [vars]
 SUPABASE_URL = "https://onhmpgevkttysbfllhjq.supabase.co"
 SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im9uaG1wZ2V2a3R0eXNiZmxsaGpxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUwMzQyOTksImV4cCI6MjA5MDYxMDI5OX0.KxNphDYxDAxFKhNG2YTiIaVDqV0tk7iPWzSq-UEVqD4"
-ALLOWED_ORIGINS = ""
+ALLOWED_ORIGINS = "https://tavares1989finance.lovable.app,https://finvision2026.lovable.app"
 
 [observability]
 enabled = true

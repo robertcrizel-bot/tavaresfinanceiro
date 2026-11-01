@@ -35,6 +35,7 @@ export interface Env {
 /** Published app + the origins the local Vite dev/preview servers actually use. */
 export const DEFAULT_ALLOWED_ORIGINS: readonly string[] = [
   "https://tavares1989finance.lovable.app",
+  "https://finvision2026.lovable.app",
   "http://localhost:8080",
   "http://127.0.0.1:8080",
   "http://[::1]:8080",
