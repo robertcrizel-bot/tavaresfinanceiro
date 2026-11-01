@@ -625,10 +625,22 @@ export default function ReceiptImport() {
     void takeSharedReceiptWithDiagnostics().then(({ file, diag }) => {
       if (openedByShare) setShareDiag(diag);
       if (file) {
-        void processFileFast(file);
+        // Shared files follow the same manual flow as Galeria/arquivo.
+        // Never launch the retired local OCR automatically.
+        setReceiptFile(null);
+        setReceiptRef(null);
+        setPrefill(null);
+        setLowConfidence([]);
+        setDuplicate(false);
+        setError(null);
+        setPendingFile(file);
+        localSnapshotRef.current = null;
+        setLocalSnapshotAvailable(false);
+        setLocalMetrics(null);
+        setLocalStatus("");
       }
     });
-  }, [processFileFast]);
+  }, [openedByShare]);
 
   const checkFreeAi = useCallback(async () => {
     const runId = ++freeAiCheckRunRef.current;
