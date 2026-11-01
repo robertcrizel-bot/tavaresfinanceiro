@@ -4,8 +4,8 @@ import { getBetaCheckoutUrl } from "@/lib/beta-checkout";
 
 describe("approved introductory beta price", () => {
   it("shows the approved price in Brazilian reais", () => {
-    expect(BETA_MONTHLY_PRICE_CENTS).toBe(2490);
-    expect(BETA_MONTHLY_PRICE_LABEL.replace(/\s/g, " ")).toBe("R$ 24,90");
+    expect(BETA_MONTHLY_PRICE_CENTS).toBe(1490);
+    expect(BETA_MONTHLY_PRICE_LABEL.replace(/\s/g, " ")).toBe("R$ 14,90");
   });
 
   it("does not enable payment just because the price is defined", () => {
