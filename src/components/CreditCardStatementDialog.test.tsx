@@ -10,7 +10,7 @@ const makeTx = (overrides: Partial<CardStatementTransaction> = {}): CardStatemen
   amount: 100,
   type: "expense",
   category: "Alimentação",
-  date: "2026-10-15",
+  date: `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-15`,
   creditCardId: "cc-1",
   ...overrides,
 });
