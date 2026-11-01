@@ -906,7 +906,7 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
     expect(mocks.releaseDocumentOrientationSession).toHaveBeenCalledTimes(1);
   });
 
-  it("shared receipt is processed automatically through the PaddleOCR worker", async () => {
+  it("shared receipt stays selected without starting retired local OCR", async () => {
     const sharedFile = new File(["shared"], "shared.jpg", { type: "image/jpeg" });
     const diag = {
       sw: { stored: true },
@@ -927,12 +927,9 @@ describe("PaddleOCR worker main flow (no paid AI)", () => {
 
     await waitFor(() => expect(mocks.takeSharedReceiptWithDiagnostics).toHaveBeenCalledTimes(1));
     expect(await screen.findByText("Diagnóstico do compartilhamento: arquivo recebido")).toBeInTheDocument();
-    await waitFor(() =>
-      expect(mocks.paddleRecognizeWorker).toHaveBeenCalledWith(sharedFile, expect.any(Function)),
-    );
-    await waitFor(() =>
-      expect(screen.getByRole("button", { name: "Confirmar importação" })).toBeInTheDocument(),
-    );
+    expect(await screen.findByText("shared.jpg")).toBeInTheDocument();
+    expect(mocks.paddleRecognizeWorker).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Confirmar importação" })).not.toBeInTheDocument();
     expect(mocks.parseReceipt).not.toHaveBeenCalled();
   });
 
