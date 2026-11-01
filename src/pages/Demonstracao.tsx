@@ -14,14 +14,14 @@ export default function Demonstracao() {
   return (
     <div className="min-h-screen bg-background text-foreground">
       <header className="mx-auto flex max-w-5xl items-center justify-between px-5 py-5">
-        <Link className="font-display text-xl font-bold tracking-tight" to="/conhecer">Finance<span className="text-primary">Control</span></Link>
+        <Link className="font-display text-xl font-bold tracking-tight" to="/conhecer"><span className="text-white">Fin</span><span className="text-primary">Vision</span></Link>
         <Link to="/auth" className="text-sm font-semibold text-muted-foreground hover:text-foreground">Entrar</Link>
       </header>
       <main className="mx-auto max-w-5xl px-5 pb-20">
-        <p className="eyebrow">Roteiro do vídeo · 45–60 segundos</p>
+        <p className="eyebrow">Prévia dos recursos · vídeo em preparação</p>
         <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Como o FinVision funciona</h1>
         <p className="mt-3 max-w-2xl text-sm leading-6 text-muted-foreground">
-          Este é o roteiro planejado do vídeo explicativo. O vídeo ainda não foi gravado; os espaços abaixo receberão capturas reais do aplicativo.
+          Confira o que o FinVision oferece. Estamos preparando uma demonstração visual com imagens reais do aplicativo.
         </p>
 
         <ol className="mt-8 space-y-4">
@@ -42,8 +42,8 @@ export default function Demonstracao() {
         </ol>
 
         <div className="mt-10 flex flex-col gap-3 sm:flex-row">
-          <Link to="/auth" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-primary-foreground hover:bg-primary/90">
-            Criar minha conta <ArrowRight className="h-4 w-4" aria-hidden />
+          <Link to="/beta" className="inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-primary-foreground hover:bg-primary/90">
+            Conhecer acesso Beta <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
           <Link to="/conhecer" className="inline-flex min-h-12 items-center justify-center rounded-xl border border-border px-6 text-sm font-semibold hover:bg-accent">Voltar para a apresentação</Link>
         </div>
