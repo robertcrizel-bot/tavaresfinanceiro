@@ -22,7 +22,7 @@ export default function Beta() {
     <div className="min-h-screen bg-background text-foreground">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-5 py-5">
         <Link className="text-xl font-black tracking-tight" to="/beta">
-          Finance<span className="text-primary">Control</span>
+          <span className="text-white">Fin</span><span className="text-primary">Vision</span>
         </Link>
         <Link to="/auth" className="text-sm font-semibold text-muted-foreground hover:text-foreground">
           Já tenho conta
@@ -33,7 +33,7 @@ export default function Beta() {
         <section className="mx-auto max-w-6xl px-5 pb-14 pt-12 md:pb-20 md:pt-20">
           <div className="max-w-3xl">
             <p className="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/5 px-4 py-2 text-xs font-bold text-primary">
-              <CheckCircle2 className="h-4 w-4" /> Vagas limitadas · Beta do FinVision
+              <CheckCircle2 className="h-4 w-4" /> FinVision · Acesso Beta em preparação
             </p>
             <h1 className="font-display text-4xl font-extrabold tracking-tight sm:text-5xl lg:text-6xl">
               Seu dinheiro, suas contas, <span className="text-primary">tudo mais organizado.</span>
@@ -69,7 +69,7 @@ export default function Beta() {
 
         <section className="border-y border-border bg-card/40 py-16">
           <div className="mx-auto max-w-6xl px-5">
-            <h2 className="text-2xl font-bold sm:text-3xl">O essencial para cuidar das suas finanças</h2>
+            <h2 className="text-2xl font-bold sm:text-3xl">Seu controle financeiro mais claro</h2>
             <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {features.map(({ icon: Icon, title, description }) => (
                 <div key={title} className="rounded-2xl border border-border bg-card p-6">
@@ -87,13 +87,13 @@ export default function Beta() {
             <p className="text-xs font-extrabold uppercase tracking-widest text-primary">Convite para a beta</p>
             <h2 className="mt-3 text-3xl font-bold">Comece com o que realmente precisa.</h2>
             <p className="mt-4 text-sm leading-7 text-muted-foreground">
-              Estamos abrindo uma fase inicial para aprimorar o produto com um grupo pequeno de usuários.
+              Estamos preparando uma fase inicial para aprimorar o produto com um grupo pequeno de usuários.
               O controle manual é o foco desta oferta; a leitura por IA ainda está em avaliação
               e não está incluída como benefício garantido.
             </p>
           </div>
           <div className="rounded-2xl border border-primary/20 bg-card p-7 shadow-sm">
-            <p className="text-sm font-bold text-primary">Plano Beta</p>
+            <p className="text-sm font-bold text-primary">Plano planejado</p>
             <p className="mt-2 text-4xl font-black">{price}<span className="ml-2 text-sm font-normal text-muted-foreground">/ mês</span></p>
             <div className="mt-6 space-y-3 text-sm">
               <p className="flex items-center gap-3"><CheckCircle2 className="h-4 w-4 text-primary" /> Registro de receitas e despesas</p>
@@ -108,7 +108,7 @@ export default function Beta() {
               </a>
             ) : (
               <p className="mt-7 rounded-lg bg-muted px-4 py-3 text-xs leading-5 text-muted-foreground">
-                Inscrições pagas ainda não foram abertas. Nenhum pagamento é solicitado nesta página.
+                Assinaturas em preparação. Nenhum pagamento é solicitado nesta página.
               </p>
             )}
           </div>
