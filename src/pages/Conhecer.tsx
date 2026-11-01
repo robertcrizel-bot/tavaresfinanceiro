@@ -23,8 +23,8 @@ const solutions = [
 
 const steps = [
   { icon: Camera, title: "Fotografe", text: "Tire uma foto do cupom ou envie o comprovante Pix." },
-  { icon: Eye, title: "Revise", text: "A IA (Cloudflare) sugere valor, data, categoria e itens. Você confere e corrige." },
-  { icon: Save, title: "Salve", text: "O lançamento entra no seu controle, com o comprovante anexado." },
+  { icon: Eye, title: "Revise", text: "Quando o serviço estiver disponível, a IA sugere informações. Você confere e corrige antes de salvar." },
+  { icon: Save, title: "Salve", text: "Depois da revisão, você confirma o lançamento e pode manter o comprovante anexado." },
 ];
 
 const differentials = [
@@ -45,11 +45,11 @@ const faq = [
 const primaryBtn = "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl bg-primary px-6 text-sm font-bold text-primary-foreground hover:bg-primary/90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 const secondaryBtn = "inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border px-6 text-sm font-semibold hover:bg-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
-function Cta({ label = "Criar minha conta" }: { label?: string }) {
+function Cta({ label = "Conhecer o aplicativo" }: { label?: string }) {
   return (
     <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-      <Link to="/auth" className={primaryBtn}>{label} <ArrowRight className="h-4 w-4" aria-hidden /></Link>
-      <Link to="/demonstracao" className={secondaryBtn}><PlayCircle className="h-4 w-4" aria-hidden /> Ver como funciona</Link>
+      <Link to="/beta" className={primaryBtn}>{label} <ArrowRight className="h-4 w-4" aria-hidden /></Link>
+      <Link to="/demonstracao" className={secondaryBtn}><PlayCircle className="h-4 w-4" aria-hidden /> Ver recursos</Link>
     </div>
   );
 }
@@ -58,7 +58,7 @@ export default function Conhecer() {
   return (
     <div className="min-h-screen overflow-x-hidden bg-background text-foreground">
       <header className="mx-auto flex max-w-6xl items-center justify-between gap-3 px-5 py-5">
-        <Link className="font-display text-xl font-bold tracking-tight" to="/conhecer">Finance<span className="text-primary">Control</span></Link>
+        <Link className="font-display text-xl font-bold tracking-tight" to="/conhecer"><span className="text-white">Fin</span><span className="text-primary">Vision</span></Link>
         <nav aria-label="Principal" className="flex items-center gap-4 text-sm font-semibold">
           <Link to="/demonstracao" className="hidden text-muted-foreground hover:text-foreground sm:inline">Demonstração</Link>
           <Link to="/auth" className="text-muted-foreground hover:text-foreground">Entrar</Link>
@@ -73,7 +73,7 @@ export default function Conhecer() {
             Você sabe para onde seu dinheiro <span className="text-primary">está indo?</span>
           </h1>
           <p className="mt-5 max-w-2xl text-base leading-7 text-muted-foreground sm:text-lg">
-            Registre gastos, leia cupons com IA, acompanhe cartões e planeje as contas do mês — tudo em um só lugar, direto do celular.
+            Organize suas contas, acompanhe cartões e parcelas e saiba o que ainda falta pagar. Clareza para decidir melhor, no celular ou computador.
           </p>
           <Cta />
         </section>
@@ -96,7 +96,7 @@ export default function Conhecer() {
         {/* Destaque IA */}
         <section aria-labelledby="cupom" className="mx-auto max-w-6xl px-5 py-16">
           <p className="eyebrow">Destaque</p>
-          <h2 id="cupom" className="mt-2 font-display text-2xl font-bold sm:text-3xl">Do cupom ao lançamento em três passos</h2>
+          <h2 id="cupom" className="mt-2 font-display text-2xl font-bold sm:text-3xl">Leitura assistida de comprovantes em três passos</h2>
           <ol className="mt-8 grid gap-3 md:grid-cols-3">
             {steps.map(({ icon: Icon, title, text }, i) => (
               <li key={title} className="workspace-panel p-6">
@@ -142,8 +142,8 @@ export default function Conhecer() {
             <div className="workspace-panel p-6">
               <Smartphone className="h-8 w-8 text-primary" aria-hidden />
               <h3 className="mt-4 text-lg font-bold">Veja o app em ação</h3>
-              <p className="mt-2 text-sm leading-6 text-muted-foreground">Uma demonstração rápida das principais telas, sem precisar criar conta.</p>
-              <Link to="/demonstracao" className={`${secondaryBtn} mt-5 w-full`}><PlayCircle className="h-4 w-4" aria-hidden /> Abrir demonstração</Link>
+              <p className="mt-2 text-sm leading-6 text-muted-foreground">Conheça os recursos e o roteiro de apresentação. O vídeo demonstrativo ainda está em preparação.</p>
+              <Link to="/demonstracao" className={`${secondaryBtn} mt-5 w-full`}><PlayCircle className="h-4 w-4" aria-hidden /> Ver apresentação</Link>
             </div>
           </div>
         </section>
@@ -155,15 +155,15 @@ export default function Conhecer() {
               <p className="eyebrow">Plano único</p>
               <h2 id="preco" className="mt-2 font-display text-2xl font-bold">Um plano simples</h2>
               <ul className="mt-4 space-y-2 text-sm text-muted-foreground">
-                {["Contas, cartões, faturas e previsões", "Leitura de cupons por IA (com limite de uso)", "Relatórios, extratos e exportação dos seus dados"].map(i => (
+                {["Contas, cartões, faturas e previsões", "Leitura assistida por IA, sujeita a disponibilidade e limites", "Relatórios, extratos e exportação dos seus dados"].map(i => (
                   <li key={i} className="flex gap-2"><CheckCircle2 className="h-4 w-4 shrink-0 text-primary" aria-hidden />{i}</li>
                 ))}
               </ul>
             </div>
             <div className="text-left md:text-right">
               <p className="font-display text-4xl font-bold tabular-nums">{LANDING_PRICE_LABEL}<span className="text-base font-semibold text-muted-foreground">/mês</span></p>
-              <p className="mt-1 text-xs text-muted-foreground">Preço previsto. Nenhuma cobrança é feita nesta página.</p>
-              <Link to="/beta" className={`${primaryBtn} mt-4 w-full md:w-auto`}>Participar do Beta <ArrowRight className="h-4 w-4" aria-hidden /></Link>
+              <p className="mt-1 text-xs text-muted-foreground">Preço planejado para o lançamento. Assinaturas ainda não estão abertas.</p>
+              <Link to="/beta" className={`${primaryBtn} mt-4 w-full md:w-auto`}>Conhecer fase Beta <ArrowRight className="h-4 w-4" aria-hidden /></Link>
             </div>
           </div>
         </section>
