@@ -168,7 +168,8 @@ export default function Conhecer() {
                 <span className="fv-icon-box"><Sparkles size={24} aria-hidden="true" /></span>
                 <p className="fv-eyebrow">02 / Leitura por IA</p>
                 <h3 id="ia-destaque-title">Leitura por IA. Menos digitação, mais praticidade.</h3>
-                <p>Fez um Pix ou fotografou um comprovante? Compartilhe a imagem direto do banco ou da galeria com o FinVision. Ele abre a leitura, sugere os dados e reconhece a conta quando possível. Você confere e salva.</p>
+                <p>Tire uma foto ou envie um comprovante: a IA prepara o lançamento com os dados identificados e, quando possível, inclui os itens da compra. Você confere e salva.</p>
+                <p className="fv-ai-share-tip"><strong>Mais prático ainda:</strong> fez um Pix ou fotografou o comprovante fora do app? Compartilhe direto do banco ou da galeria com o FinVision. O arquivo abre na tela de leitura, que pode reconhecer a conta cadastrada.</p>
                 <ul className="fv-value-points">
                   <li><Check size={17} aria-hidden="true" /> Dados preenchidos para revisar</li>
                   <li><Check size={17} aria-hidden="true" /> Itens incluídos quando identificados</li>
