@@ -78,7 +78,7 @@ jobs:
           else
             mkdir -p docs/reviews
             cp "$RUNNER_TEMP/marketing-capture.log" docs/reviews/marketing-capture-last-error.log
-            git add docs/reviews/marketing-capture-last-error.log
+            git add -f docs/reviews/marketing-capture-last-error.log
             message="record marketing screenshot regeneration error"
           fi
           if ! git diff --cached --quiet; then
