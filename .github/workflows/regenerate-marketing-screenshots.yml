@@ -5,6 +5,8 @@ on:
     branches: [main]
     paths:
       - 'scripts/capture-landing-demo.mjs'
+      - 'scripts/prepare-landing-benefit-assets.mjs'
+      - '.github/workflows/regenerate-marketing-screenshots.yml'
   workflow_dispatch:
 
 permissions:
@@ -24,10 +26,13 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
-      - name: Rebuild demo screenshots without overlaid watermark
+      - name: Regenerate full-resolution DEMO assets
         run: |
           node scripts/capture-landing-demo.mjs
           node scripts/prepare-landing-benefit-assets.mjs
+      - name: Verify 2x raster dimensions
+        run: |
+          node --input-type=module -e "import fs from 'node:fs'; const m=JSON.parse(fs.readFileSync('scripts/landing-demo/manifest.json')); for(const name of ['dashboard.webp','analises.webp','registros.webp','contas.webp','extratos.webp','previsoes.webp']){ const a=m.assets.find(x=>x.name===name); if(!a||a.width!==2880&&a.width!==780) throw Error(name+' not 2x: '+JSON.stringify(a)); }"
       - name: Commit generated screenshot updates
         run: |
           git config user.name "github-actions[bot]"
