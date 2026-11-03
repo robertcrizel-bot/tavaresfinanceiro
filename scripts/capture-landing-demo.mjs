@@ -31,7 +31,7 @@ for (const [name, source] of Object.entries(mockSources)) {
   aliases.push({ find: `@/contexts/${name}`, replacement: file });
 }
 aliases.push({ find: '@', replacement: path.join(root, 'src') });
-await fs.writeFile(path.join(temporary, 'index.html'), `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FinVision DEMO — captura local</title><div id="root"></div><div style="position:fixed;bottom:12px;right:16px;z-index:1000;padding:6px 10px;border:1px solid #25c9a6;border-radius:7px;background:#07151eee;color:#8debd7;font:600 10px sans-serif;letter-spacing:.04em">DEMO — DADOS FICTÍCIOS</div><script type="module" src="./entry.tsx"></script></html>`);
+await fs.writeFile(path.join(temporary, 'index.html'), `<!doctype html><html lang="pt-BR"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>FinVision DEMO — captura local</title><div id="root"></div><script type="module" src="./entry.tsx"></script></html>`);
 await fs.writeFile(path.join(temporary, 'entry.tsx'), `
 import { createRoot } from 'react-dom/client';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
