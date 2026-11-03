@@ -14,61 +14,67 @@
       "name": "dashboard.webp",
       "width": 1440,
       "height": 1320,
-      "bytes": 139654
+      "bytes": 116732
     },
     {
       "name": "dashboard-focus.webp",
       "width": 1120,
       "height": 900,
-      "bytes": 95060
+      "bytes": 81396
     },
     {
       "name": "analises.webp",
       "width": 1440,
       "height": 1100,
-      "bytes": 137850
+      "bytes": 112780
     },
     {
       "name": "analises-detail.webp",
       "width": 368,
       "height": 368,
-      "bytes": 11134
+      "bytes": 10252
     },
     {
       "name": "orcamento-detail.webp",
-      "width": 402,
-      "height": 400,
-      "bytes": 21172
+      "width": 804,
+      "height": 1292,
+      "bytes": 61694
     },
     {
       "name": "registros.webp",
       "width": 1440,
       "height": 1100,
-      "bytes": 122592
+      "bytes": 110380
     },
     {
       "name": "registros-detail.webp",
       "width": 1151,
       "height": 360,
-      "bytes": 38600
+      "bytes": 37964
+    },
+    {
+      "name": "registros-focus.webp",
+      "width": 456,
+      "height": 360,
+      "bytes": 14066
     },
     {
       "name": "contas.webp",
       "width": 1440,
       "height": 730,
-      "bytes": 71854
+      "bytes": 66748
     },
     {
       "name": "contas-detail.webp",
-      "width": 365,
-      "height": 360,
-      "bytes": 16610
+      "width": 730,
+      "height": 720,
+      "bytes": 38156
     },
     {
       "name": "extratos.webp",
       "width": 1440,
       "height": 1100,
-      "bytes": 114032
+      "bytes": 92252
     },
     {
       "name": "categorias-detail.webp",
@@ -80,19 +86,19 @@
       "name": "previsoes.webp",
       "width": 1440,
       "height": 1100,
-      "bytes": 79060
+      "bytes": 65498
     },
     {
       "name": "dashboard-mobile.webp",
       "width": 390,
       "height": 844,
-      "bytes": 47044
+      "bytes": 41312
     },
     {
       "name": "dashboard-mobile-focus.webp",
       "width": 366,
       "height": 450,
-      "bytes": 26406
+      "bytes": 22136
     }
   ],
   "runtimeErrors": [],
