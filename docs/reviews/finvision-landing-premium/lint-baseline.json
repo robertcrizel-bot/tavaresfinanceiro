@@ -1,0 +1,354 @@
+{
+  "baseline": {
+    "commit": "b1e4c21",
+    "errors": 123,
+    "warnings": 24
+  },
+  "final": {
+    "errors": 123,
+    "warnings": 24
+  },
+  "changedFilesHaveFindings": false,
+  "findings": [
+    {
+      "file": "src/components/AccountStatementDialog.test.tsx",
+      "errors": 6,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/components/BetaAccessGate.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-hooks/exhaustive-deps"
+      ]
+    },
+    {
+      "file": "src/components/CreditCardStatementDialog.test.tsx",
+      "errors": 10,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/components/CreditCardStatementDialog.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/ban-ts-comment"
+      ]
+    },
+    {
+      "file": "src/components/TransactionDetail.test.tsx",
+      "errors": 2,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/components/TransactionForm.test.tsx",
+      "errors": 5,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/components/ui/badge.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/components/ui/button.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/components/ui/command.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-empty-object-type"
+      ]
+    },
+    {
+      "file": "src/components/ui/form.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/components/ui/navigation-menu.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/components/ui/sidebar.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/components/ui/sonner.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/components/ui/textarea.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-empty-object-type"
+      ]
+    },
+    {
+      "file": "src/components/ui/toggle.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/contexts/AccountContext.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/contexts/AuthContext.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/contexts/CategoryContext.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/contexts/FinanceContext.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/contexts/ForecastContext.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/contexts/TransferContext.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/lib/account-statement-export.test.ts",
+      "errors": 16,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/lib/account-statement-export.ts",
+      "errors": 2,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/ban-ts-comment",
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/lib/account-statement.test.ts",
+      "errors": 1,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/lib/account-statement.ts",
+      "errors": 1,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/ban-ts-comment"
+      ]
+    },
+    {
+      "file": "src/lib/credit-card-statement-export.ts",
+      "errors": 2,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/ban-ts-comment",
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/lib/credit-card-statement.ts",
+      "errors": 1,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/ban-ts-comment"
+      ]
+    },
+    {
+      "file": "src/lib/ocr-paddle-test/paddleToParsedReceipt.ts",
+      "errors": 1,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/ban-ts-comment"
+      ]
+    },
+    {
+      "file": "src/lib/ocr-paddle-test/realReceipts.test.ts",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        null
+      ]
+    },
+    {
+      "file": "src/lib/ocr-paddle-test/recognize.ts",
+      "errors": 1,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/ban-ts-comment"
+      ]
+    },
+    {
+      "file": "src/lib/ocr-paddle-test/spatialGrouper.ts",
+      "errors": 1,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/ban-ts-comment"
+      ]
+    },
+    {
+      "file": "src/lib/receipt-ocr.ts",
+      "errors": 3,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/lib/recurring-bill-editing.ts",
+      "errors": 1,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/ban-ts-comment"
+      ]
+    },
+    {
+      "file": "src/lib/shared-receipt.test.ts",
+      "errors": 12,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/pages/Accounts.test.tsx",
+      "errors": 23,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/pages/Accounts.tsx",
+      "errors": 1,
+      "warnings": 1,
+      "rules": [
+        "no-useless-escape",
+        "react-hooks/exhaustive-deps"
+      ]
+    },
+    {
+      "file": "src/pages/Auth.tsx",
+      "errors": 1,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/pages/Demonstracao.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-refresh/only-export-components"
+      ]
+    },
+    {
+      "file": "src/pages/Forecasts.test.tsx",
+      "errors": 30,
+      "warnings": 0,
+      "rules": [
+        "@typescript-eslint/no-explicit-any"
+      ]
+    },
+    {
+      "file": "src/pages/Forecasts.tsx",
+      "errors": 0,
+      "warnings": 1,
+      "rules": [
+        "react-hooks/exhaustive-deps"
+      ]
+    },
+    {
+      "file": "src/pages/ReceiptImport.tsx",
+      "errors": 0,
+      "warnings": 3,
+      "rules": [
+        "react-hooks/exhaustive-deps"
+      ]
+    },
+    {
+      "file": "src/pages/Records.tsx",
+      "errors": 0,
+      "warnings": 3,
+      "rules": [
+        "react-refresh/only-export-components",
+        "react-hooks/exhaustive-deps"
+      ]
+    }
+  ]
+}

@@ -6,6 +6,21 @@
 
 @layer base {
   :root {
+    /* The public landing keeps its petroleum palette in either app theme. */
+    --landing-background: 190 42% 5%;
+    --landing-surface: 182 44% 7%;
+    --landing-hero: 168 64% 8%;
+    --landing-hero-glow: 160 65% 22%;
+    --landing-card: 220 29% 10%;
+    --landing-foreground: 210 25% 96%;
+    --landing-muted: 216 15% 68%;
+    --landing-border: 218 27% 17%;
+    --landing-primary: 160 78% 52%;
+    --landing-primary-hover: 160 78% 62%;
+    --landing-primary-foreground: 222 47% 5%;
+    --landing-shadow: 222 60% 2%;
+    --landing-phone-border: 220 23% 15%;
+
     --background: 216 28% 8%;
     --foreground: 210 24% 94%;
 
