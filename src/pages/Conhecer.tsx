@@ -54,7 +54,7 @@ const faq = [
 ];
 
 function Brand() {
-  return <span className="fv-brand"><span className="fv-brand-mark" aria-hidden="true">F<span /></span><span>Fin<span className="fv-green">Vision</span></span></span>;
+  return <span className="fv-brand"><img className="fv-brand-mark" src="/finvision-icon.svg" width="36" height="36" alt="" aria-hidden="true" /><span>Fin<span className="fv-green">Vision</span></span></span>;
 }
 function SignupLink({ children = "Quero testar o FinVision", className = "" }: { children?: ReactNode; className?: string }) {
   return <Link to="/auth?mode=cadastro" className={`fv-button fv-button-primary ${className}`}>{children}<ArrowUpRight size={18} aria-hidden="true" /></Link>;
