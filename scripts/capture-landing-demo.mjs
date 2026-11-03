@@ -116,7 +116,7 @@ try {
   await open('/analises-despesas');
   await save('analises');
   await save('analises-detail', { clip: await clipElement('.recharts-wrapper', 430) });
-  await save('orcamento-detail', { clip: await clipElement('section:has(> div > h3:text-is("Orçamento × Realizado"))', 2000), scale: 'device' });
+  await save('orcamento-detail', { clip: await clipElement('section:has(> div > h3:text-is("Orçamento × Realizado"))', 300), scale: 'device' });
   await open('/records');
   await save('registros');
   await save('registros-detail', { clip: await clipElement('table', 360) });
