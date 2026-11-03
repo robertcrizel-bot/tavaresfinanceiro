@@ -110,9 +110,8 @@ describe("public pages", () => {
     expect(highlights[0].querySelector("img")).toHaveAttribute("src", "/landing/analises-overview.webp");
     const supporting = section.querySelectorAll(".fv-feature-grid .fv-eyebrow");
     expect([...supporting].map(element => element.textContent)).toEqual(["Dashboard financeiro", "Registros financeiros", "Extratos", "Contas e cartões", "Previsões"]);
-    expect(section.querySelector(".fv-showcase-dashboard")).toHaveTextContent("Toda a sua vida financeira em uma só visão.");
-    expect(section.querySelector(".fv-showcase-dashboard img")).toHaveAttribute("src", "/landing/dashboard-focus.webp");
-    expect(section.querySelectorAll(".fv-showcase-wide")).toHaveLength(2);
+    expect(section.querySelector(".fv-feature-grid .fv-feature-dashboard")).toHaveTextContent("Toda a sua vida financeira em uma só visão.");
+    expect(section.querySelector(".fv-feature-dashboard img")).toHaveAttribute("src", "/landing/dashboard.webp");
     expect(within(section).getByRole("region", { name: "Exemplo ilustrativo de registros financeiros com dados fictícios" })).toHaveTextContent("−R$ 149,90");
   });
 
