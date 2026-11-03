@@ -48,7 +48,7 @@ const faq = [
   { q: "Posso usar no celular e no computador?", a: "Sim. O FinVision funciona pelo navegador no celular, tablet e computador. Não é necessário instalar um aplicativo para começar." },
   { q: "Quais recursos estão disponíveis?", a: "O aplicativo reúne dashboard financeiro, contas e cartões, registros, análises de despesas, extratos e previsões. A leitura assistida de comprovantes com IA está em avaliação, sujeita à disponibilidade e a limites de uso." },
   { q: "Como ficam a segurança e a privacidade?", a: "O acesso às informações exige autenticação e permissões da sua conta. O FinVision não pede sua senha bancária nem se conecta ao banco. Você pode exportar seus registros financeiros pelo Perfil; imagens e PDFs de comprovantes não fazem parte dessa exportação em JSON. As condições de privacidade serão apresentadas antes da abertura das assinaturas." },
-  { q: "Como funciona a leitura de comprovantes com IA?", a: "Quando disponível, a IA lê o comprovante e preenche automaticamente valor, data e estabelecimento/descrição, além de ajudar na categoria. Sempre que possível, os itens identificados entram na descrição do cadastro do lançamento. Você precisa conferir e corrigir os dados antes de salvar. A IA pode errar, tem limites de uso e não é um benefício garantido do plano Beta." },
+  { q: "Como funciona a leitura de comprovantes com IA?", a: "Quando disponível, a IA analisa o comprovante e sugere dados como valor, data, estabelecimento/descrição e categoria. Os campos identificados são levados ao cadastro para sua conferência. Sempre que possível, os itens reconhecidos também entram na descrição do lançamento. Confira e corrija as informações antes de salvar: a IA pode errar, está sujeita a limites de uso e não é um benefício garantido do plano Beta." },
   { q: "Como faço o cadastro e solicito o Beta?", a: "Clique em “Quero testar o FinVision” para criar sua conta. Depois de confirmar o e-mail, quando solicitado, entre no aplicativo e use “Solicitar análise de acesso”. O cadastro não libera o acesso automaticamente: a solicitação depende de análise e liberação." },
   { q: "Quanto custa? Já posso assinar?", a: `O preço planejado é ${LANDING_PRICE_LABEL}/mês. A assinatura está em preparação e não há pagamento nesta página. Nesta etapa, você pode criar uma conta e solicitar acesso ao Beta, sujeito à liberação. As condições da assinatura serão apresentadas antes da contratação.` },
 ];
@@ -167,12 +167,12 @@ export default function Conhecer() {
               <div className="fv-spotlight-copy">
                 <span className="fv-icon-box"><Sparkles size={24} aria-hidden="true" /></span>
                 <p className="fv-eyebrow">02 / Leitura por IA</p>
-                <h3 id="ia-destaque-title">Leitura por IA que já deixa seu lançamento praticamente pronto.</h3>
-                <p>Envie uma foto ou comprovante e o FinVision lê e preenche automaticamente valor, data e estabelecimento/descrição, além de ajudar na categoria. Sempre que possível, até os itens da compra entram na descrição do cadastro.</p>
-                <p>Você não precisa digitar tudo manualmente. Ganhe velocidade e praticidade: confira os dados preenchidos e confirme o lançamento.</p>
+                <h3 id="ia-destaque-title">Leitura por IA para deixar seu lançamento praticamente pronto.</h3>
+                <p>Envie uma foto ou comprovante e a IA analisa o conteúdo para sugerir valor, data, estabelecimento/descrição e categoria. Quando a leitura identifica essas informações, elas são levadas ao cadastro para sua conferência. Sempre que possível, os itens da compra também entram na descrição.</p>
+                <p>Reduza a digitação manual: confira os campos sugeridos, faça os ajustes necessários e só então salve o lançamento.</p>
                 <ul className="fv-value-points">
                   <li><Check size={17} aria-hidden="true" /> Menos digitação manual</li>
-                  <li><Check size={17} aria-hidden="true" /> Preenchimento automático dos lançamentos</li>
+                  <li><Check size={17} aria-hidden="true" /> Campos sugeridos para revisão antes de salvar</li>
                   <li><Check size={17} aria-hidden="true" /> Leitura dos itens do comprovante, quando identificados</li>
                   <li><Check size={17} aria-hidden="true" /> Mais rapidez para registrar compras e despesas</li>
                 </ul>
@@ -186,6 +186,17 @@ export default function Conhecer() {
           </div>
           <p className="fv-supporting-heading">E o restante da sua vida financeira, no mesmo lugar.</p>
           <div className="fv-feature-grid">
+            <article className="fv-feature fv-feature-dashboard">
+              <div className="fv-feature-copy">
+                <span className="fv-icon-box"><LayoutDashboard size={22} aria-hidden="true" /></span>
+                <p className="fv-eyebrow">Dashboard financeiro</p>
+                <h3>Toda a sua vida financeira em uma só visão.</h3>
+                <p>Acompanhe saldo, entradas, saídas e movimentações no mesmo painel para entender o mês sem procurar informações em várias telas.</p>
+                <a href="#produto" className="fv-text-link">Explorar o dashboard <ArrowUpRight size={16} aria-hidden="true" /></a>
+                <span className="fv-demo-note">Visualização com dados DEMO</span>
+              </div>
+              <div className="fv-feature-image"><img src="/landing/dashboard.webp" alt="Dashboard real do FinVision preenchido com dados DEMO, contas e gráficos" width="1440" height="1320" loading="lazy" /></div>
+            </article>
             {features.map(({ icon: Icon, title, headline, text, image, alt }) => <article key={title} className={`fv-feature fv-feature-small fv-feature-${image}`}><div className="fv-small-feature-copy"><span className="fv-icon-box"><Icon size={22} aria-hidden="true" /></span><p className="fv-eyebrow">{title}</p><h3>{headline}</h3><p>{text}</p></div><div className="fv-mini-product"><span className="fv-demo-tag">DEMO</span><img src={`/landing/${image}.webp`} alt={alt} loading="lazy" /></div></article>)}
           </div>
         </section>
