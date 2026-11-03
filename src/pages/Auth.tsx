@@ -38,7 +38,7 @@ export default function Auth() {
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-foreground">
-            Finance<span className="text-primary">Control</span>
+            <span className="text-foreground">Fin</span><span className="text-primary">Vision</span>
           </h1>
           <p className="text-muted-foreground mt-2">
             {isLogin ? "Entre na sua conta" : "Crie sua conta"}
