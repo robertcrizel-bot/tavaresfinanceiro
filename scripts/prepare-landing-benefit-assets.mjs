@@ -23,7 +23,7 @@ try {
       return canvas.toDataURL('image/webp', .98).split(',')[1];
     }, { crop, source: source.toString('base64'), scale: SCALE });
     await fs.writeFile(`public/landing/${crop.name}.webp`, Buffer.from(data, 'base64'));
-    console.log(`${crop.name}.webp: ${crop.width * scale} x ${crop.height * scale}, cropped from ${crop.source}.webp`);
+    console.log(`${crop.name}.webp: ${crop.width * SCALE} x ${crop.height * SCALE}, cropped from ${crop.source}.webp`);
   }
 } finally {
   await browser.close();
