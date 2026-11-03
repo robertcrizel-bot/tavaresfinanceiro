@@ -6,9 +6,11 @@
 
 @layer base {
   :root {
-    /* The public landing keeps its navy palette in either application theme. */
-    --landing-background: 222 47% 5%;
-    --landing-surface: 222 40% 6%;
+    /* The public landing keeps its petroleum palette in either app theme. */
+    --landing-background: 190 42% 5%;
+    --landing-surface: 182 44% 7%;
+    --landing-hero: 168 64% 8%;
+    --landing-hero-glow: 160 65% 22%;
     --landing-card: 220 29% 10%;
     --landing-foreground: 210 25% 96%;
     --landing-muted: 216 15% 68%;

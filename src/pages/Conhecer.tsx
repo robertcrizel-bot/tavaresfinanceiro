@@ -85,22 +85,46 @@ export default function Conhecer() {
       <main id="conteudo">
         <section className="fv-hero fv-container" aria-labelledby="hero-title">
           <div className="fv-hero-layout">
-          <div className="fv-hero-copy">
-            <a href="#plano" className="fv-badge"><span className="fv-dot" /> Seu próximo capítulo financeiro <ArrowRight size={13} aria-hidden="true" /></a>
-            <h1 id="hero-title">Seu dinheiro mais organizado.<br /><span>Suas decisões <em>mais claras.</em></span></h1>
-            <p className="fv-lead">Contas, cartões, lançamentos e análises em um só lugar. Menos informações espalhadas. Mais clareza para cuidar do que é seu.</p>
-            <div className="fv-cta-row"><SignupLink /><a href="#recursos" className="fv-button fv-button-secondary">Conhecer os recursos <ArrowDown size={16} aria-hidden="true" /></a></div>
-            <p className="fv-hero-note"><LockKeyhole size={13} aria-hidden="true" /> Cadastro sem pagamento. Acesso Beta sujeito à liberação.</p>
-          </div>
-          <figure className="fv-hero-product">
-            <div className="fv-browser">
-              <div className="fv-browser-bar"><span className="fv-browser-dots" aria-hidden="true"><i /><i /><i /></span><span>FinVision <span className="fv-demo-tag">DEMO</span></span><span className="fv-live-label">Outubro / 2026</span></div>
-              <picture><source media="(max-width: 599px)" srcSet="/landing/dashboard-mobile-focus.webp" width="366" height="450" /><img className="fv-dashboard-image" src="/landing/dashboard-focus.webp" alt="Dashboard real do FinVision com dados DEMO: receitas de R$ 8.540,00, despesas de R$ 4.516,95 e saldo de R$ 4.023,05" width="1120" height="900" loading="eager" /></picture>
+            <div className="fv-hero-copy">
+              <h1 id="hero-title">Assuma o controle<br />do seu <span className="fv-green">dinheiro.</span></h1>
+              <p className="fv-lead">
+                Organize contas, cartões e gastos em um só lugar.{" "}<br className="fv-desktop-break" />
+                Mais clareza para decidir. Mais tranquilidade para planejar.
+              </p>
+              <div className="fv-cta-row">
+                <SignupLink />
+                <a href="#recursos" className="fv-button fv-button-secondary">
+                  Conhecer os recursos <ArrowDown size={16} aria-hidden="true" />
+                </a>
+              </div>
+              <p className="fv-hero-note">
+                <LockKeyhole size={13} aria-hidden="true" />
+                Cadastro sem pagamento. Acesso Beta sujeito à liberação.
+              </p>
             </div>
-            <div className="fv-floating-chart"><div><span className="fv-dot" /> Evolução dos gastos <span>DEMO</span></div><img src="/landing/analises-detail.webp" alt="Gráfico real do FinVision com evolução de despesas DEMO e comparação com o mês anterior" width="368" height="368" /></div>
-            <div className="fv-floating-donut"><div>Para onde vai <ArrowUpRight size={14} aria-hidden="true" /></div><img src="/landing/categorias-detail.webp" alt="Gráfico donut real com sete categorias de gastos DEMO" width="380" height="190" /><p>7 categorias <span>DEMO</span></p></div>
-            <figcaption><span className="fv-dot" /> Telas reais. Dados DEMO fictícios. Nenhuma informação de clientes.</figcaption>
-          </figure>
+            <figure className="fv-hero-product">
+              <div className="fv-browser">
+                <div className="fv-browser-bar">
+                  <span className="fv-browser-dots" aria-hidden="true"><i /><i /><i /></span>
+                  <span>FinVision <span className="fv-demo-tag">DEMO</span></span>
+                  <span className="fv-live-label">Outubro / 2026</span>
+                </div>
+                <picture>
+                  <source media="(max-width: 599px)" srcSet="/landing/dashboard-mobile-focus.webp" width="366" height="450" />
+                  <img
+                    className="fv-dashboard-image"
+                    src="/landing/dashboard.webp"
+                    alt="Dashboard real do FinVision com dados DEMO: receitas de R$ 8.540,00, despesas de R$ 4.516,95 e saldo de R$ 4.023,05"
+                    width="1440"
+                    height="1320"
+                    loading="eager"
+                  />
+                </picture>
+              </div>
+              <figcaption>
+                <span className="fv-dot" /> Telas reais. Dados DEMO fictícios. Nenhuma informação de clientes.
+              </figcaption>
+            </figure>
           </div>
           <div className="fv-assurances"><span><Smartphone size={17} aria-hidden="true" /> No celular e computador</span><span><Wallet size={17} aria-hidden="true" /> Sem conexão bancária</span><span><ScanLine size={17} aria-hidden="true" /> IA com revisão por você</span></div>
         </section>

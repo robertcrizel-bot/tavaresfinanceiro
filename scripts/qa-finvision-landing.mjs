@@ -34,6 +34,28 @@ try {
     assert.equal(geometry.scrollWidth, width, `Horizontal overflow at ${width}`);
     assert.deepEqual(geometry.overflow, [], `Clipped text/control at ${width}`);
     assert.equal(await page.locator('h1').count(), 1);
+    const composition = await page.evaluate(() => {
+      const box = selector => {
+        const rect = document.querySelector(selector).getBoundingClientRect();
+        return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom, width: rect.width };
+      };
+      return {
+        viewport: innerWidth,
+        hero: box('.fv-hero'),
+        title: box('.fv-hero h1'),
+        ctas: box('.fv-cta-row'),
+        product: box('.fv-browser'),
+        alignment: getComputedStyle(document.querySelector('.fv-hero-copy')).textAlign,
+        highlightedWords: [...document.querySelectorAll('.fv-hero h1 .fv-green')].map(el => el.textContent),
+        overlays: document.querySelectorAll('.fv-floating-chart, .fv-floating-donut').length,
+      };
+    });
+    assert.equal(composition.alignment, 'center', `CONYEST title must remain centered at ${width}`);
+    assert.deepEqual(composition.highlightedWords, ['dinheiro.']);
+    assert.equal(composition.overlays, 0);
+    assert.ok(Math.abs((composition.title.left + composition.title.right) / 2 - width / 2) < 2);
+    assert.ok(composition.product.top > composition.ctas.bottom, `Dashboard must follow the CTAs at ${width}`);
+    assert.ok(composition.product.width >= composition.hero.width * .98, `Dashboard must span the hero width at ${width}`);
     for (const anchor of await page.locator('a[href^="#"]').evaluateAll(links => links.map(link => link.hash))) {
       assert.equal(await page.locator(anchor).count(), 1, `Broken anchor ${anchor}`);
     }
@@ -84,14 +106,14 @@ try {
       await page.screenshot({ path: `${output}/landing-${width}-full.png`, fullPage: true, animations: 'disabled' });
       await page.screenshot({ path: `${output}/landing-${width}-hero.png`, animations: 'disabled' });
     }
-    results.push({ width, height, horizontalOverflow: false, navigation: 'passed', productPicker: '6 demo screens passed', faqKeyboard: 'passed' });
+    results.push({ width, height, heroComposition: 'CONYEST: centered title and CTAs, wide dashboard below', dashboardWidth: composition.product.width, horizontalOverflow: false, navigation: 'passed', productPicker: '6 demo screens passed', faqKeyboard: 'passed' });
   }
-  // Marketing stays navy even when the user saved the light application theme.
+  // Marketing stays petroleum even with the light application theme saved.
   await page.evaluate(() => { localStorage.setItem('financecontrol-theme', 'light'); });
   await page.reload();
   await page.locator('html.light').waitFor();
   const palette = await page.locator('.fv-landing').evaluate(el => ({ background: getComputedStyle(el).backgroundColor, foreground: getComputedStyle(el).color }));
-  assert.equal(palette.background, 'rgb(7, 10, 19)');
+  assert.equal(palette.background, 'rgb(7, 16, 18)');
   results.push({ savedAppTheme: 'light', landingPalette: palette });
   await page.getByRole('link', { name: 'Quero testar o FinVision', exact: true }).click();
   await page.getByText('Crie sua conta', { exact: true }).waitFor();

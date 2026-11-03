@@ -20,7 +20,7 @@ describe("public pages", () => {
 
   it("takes visitors straight to signup and explains the Beta release requirement", () => {
     render(<MemoryRouter><Conhecer /></MemoryRouter>);
-    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Seu dinheiro mais organizado.Suas decisões mais claras.");
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Assuma o controledo seu dinheiro.");
     expect(screen.getByRole("link", { name: "Quero testar o FinVision" })).toHaveAttribute("href", "/auth?mode=cadastro");
     expect(screen.getByRole("link", { name: "Criar conta e solicitar acesso Beta" })).toHaveAttribute("href", "/auth?mode=cadastro");
     const plan = document.getElementById("plano")!;
@@ -30,6 +30,21 @@ describe("public pages", () => {
     expect(plan).toHaveTextContent("Nenhum pagamento é solicitado nesta página");
     expect(screen.queryByRole("link", { name: /pagar|comprar|assinar/i })).not.toBeInTheDocument();
     expect(screen.getAllByRole("link").every(link => !/asaas|checkout|payment/.test(link.getAttribute("href") || ""))).toBe(true);
+  });
+
+  it("keeps one highlighted word and the full populated dashboard below the hero copy", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    const hero = screen.getByRole("heading", { level: 1 });
+    expect(hero.querySelectorAll(".fv-green")).toHaveLength(1);
+    expect(hero.querySelector(".fv-green")).toHaveTextContent("dinheiro.");
+    const copy = document.querySelector(".fv-hero-copy")!;
+    const product = document.querySelector(".fv-hero-product")!;
+    expect(copy.parentElement?.children[1]).toBe(product);
+    expect(within(copy as HTMLElement).getAllByRole("link")).toHaveLength(2);
+    expect(product.querySelector("img")).toHaveAttribute("src", "/landing/dashboard.webp");
+    expect(product.querySelector("img")).toHaveAttribute("width", "1440");
+    expect(product.querySelector("img")).toHaveAttribute("alt", expect.stringContaining("DEMO"));
+    expect(document.querySelector(".fv-floating-chart, .fv-floating-donut")).not.toBeInTheDocument();
   });
 
   it("opens mobile navigation and closes it after following an existing section anchor", () => {

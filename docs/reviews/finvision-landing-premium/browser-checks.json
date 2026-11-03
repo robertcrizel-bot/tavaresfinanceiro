@@ -4,6 +4,8 @@
     {
       "width": 320,
       "height": 844,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 280,
       "horizontalOverflow": false,
       "navigation": "passed",
       "productPicker": "6 demo screens passed",
@@ -12,6 +14,8 @@
     {
       "width": 360,
       "height": 844,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 320,
       "horizontalOverflow": false,
       "navigation": "passed",
       "productPicker": "6 demo screens passed",
@@ -20,6 +24,8 @@
     {
       "width": 390,
       "height": 844,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 350,
       "horizontalOverflow": false,
       "navigation": "passed",
       "productPicker": "6 demo screens passed",
@@ -28,6 +34,8 @@
     {
       "width": 768,
       "height": 1000,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 704,
       "horizontalOverflow": false,
       "navigation": "passed",
       "productPicker": "6 demo screens passed",
@@ -36,6 +44,8 @@
     {
       "width": 1024,
       "height": 1000,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 960,
       "horizontalOverflow": false,
       "navigation": "passed",
       "productPicker": "6 demo screens passed",
@@ -44,6 +54,8 @@
     {
       "width": 1280,
       "height": 900,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 1216,
       "horizontalOverflow": false,
       "navigation": "passed",
       "productPicker": "6 demo screens passed",
@@ -52,6 +64,8 @@
     {
       "width": 1440,
       "height": 1000,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 1240,
       "horizontalOverflow": false,
       "navigation": "passed",
       "productPicker": "6 demo screens passed",
@@ -60,6 +74,8 @@
     {
       "width": 1920,
       "height": 1000,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 1240,
       "horizontalOverflow": false,
       "navigation": "passed",
       "productPicker": "6 demo screens passed",
@@ -68,7 +84,7 @@
     {
       "savedAppTheme": "light",
       "landingPalette": {
-        "background": "rgb(7, 10, 19)",
+        "background": "rgb(7, 16, 18)",
         "foreground": "rgb(242, 245, 247)"
       }
     },
