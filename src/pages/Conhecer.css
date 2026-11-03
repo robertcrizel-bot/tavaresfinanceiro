@@ -291,3 +291,5 @@
 @media (prefers-reduced-motion: reduce) {
   .fv-landing *, .fv-landing *::before, .fv-landing *::after { transition: none !important; animation: none !important; scroll-behavior: auto !important; }
 }
+.fv-feature-registros-focus .fv-mini-product { flex: 1; min-height: 0; }
+.fv-feature-registros-focus .fv-mini-product img { height: 100%; min-height: 100%; object-fit: cover; object-position: left top; }
