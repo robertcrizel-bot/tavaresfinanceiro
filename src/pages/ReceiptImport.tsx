@@ -9,7 +9,7 @@ import { useFinance } from "@/contexts/FinanceContext";
 import { useAccounts } from "@/contexts/AccountContext";
 import { useCategories } from "@/contexts/CategoryContext";
 import { toast } from "@/hooks/use-toast";
-import { isShareWorkerOutdated, takeSharedReceiptWithDiagnostics, type ShareDiagnostics } from "@/lib/shared-receipt";
+import { takeSharedReceiptWithDiagnostics, type ShareDiagnostics } from "@/lib/shared-receipt";
 import { beginAppBusy, endAppBusy } from "@/lib/app-update";
 import { parseReceipt, parseReceiptFree, getFreeAiStatus, prepareReceiptForLocalOcr, matchByName, matchCategory, ParsedReceipt, type LocalOcrPreparationMetrics } from "@/lib/receipt";
 import { formatReceiptDescription } from "@/lib/receipt-description";
@@ -695,8 +695,6 @@ export default function ReceiptImport() {
     card_last_four: "final do cartão",
     purchased_items: "itens comprados",
   };
-  const reportedSwVersion = shareDiag?.sw?.swVersion;
-  const shareWorkerOutdated = isShareWorkerOutdated(reportedSwVersion);
   // Preserve legacy readers for rollback and OCR regression testing, but keep
   // them out of the customer UI unless deliberately enabled for internal QA.
   const showLegacyReaders = import.meta.env.VITE_ENABLE_LEGACY_RECEIPT_READERS === "true";
@@ -717,17 +715,6 @@ export default function ReceiptImport() {
         <div className="rounded-md border border-border bg-muted/40 p-3 text-sm text-foreground">
           Não foi possível receber a imagem compartilhada neste aparelho. Use 'Galeria/arquivo' abaixo.
         </div>
-      )}
-
-      {shareDiag && (
-        <details className="rounded-md border border-border bg-muted/40 p-3 text-xs text-muted-foreground">
-          <summary className="cursor-pointer font-medium text-foreground">
-            Diagnóstico do compartilhamento: {shareDiag.page.found ? "arquivo recebido" : "arquivo não encontrado"}
-          </summary>
-          <p className="mt-2">swVersion: {typeof reportedSwVersion === "string" ? reportedSwVersion : "indisponível"}</p>
-          {shareWorkerOutdated && <p className="mt-2 font-medium text-destructive">Service Worker desatualizado</p>}
-          <pre className="mt-2 whitespace-pre-wrap break-all">{JSON.stringify(shareDiag, null, 2)}</pre>
-        </details>
       )}
 
       <Card className="workspace-panel space-y-3 rounded-xl p-3 sm:space-y-4 sm:p-5">
