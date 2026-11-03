@@ -16,14 +16,14 @@ export type Database = {
     Tables: {
       accounts: {
         Row: {
-          agency: string | null
-          account_number: string | null
           account_digit: string | null
-          holder_name: string | null
-          holder_cpf: string | null
+          account_number: string | null
+          agency: string | null
           bank: string
           color: string
           created_at: string
+          holder_cpf: string | null
+          holder_name: string | null
           id: string
           initial_balance: number
           name: string
@@ -32,14 +32,14 @@ export type Database = {
           user_id: string
         }
         Insert: {
-          agency?: string | null
-          account_number?: string | null
           account_digit?: string | null
-          holder_name?: string | null
-          holder_cpf?: string | null
+          account_number?: string | null
+          agency?: string | null
           bank: string
           color?: string
           created_at?: string
+          holder_cpf?: string | null
+          holder_name?: string | null
           id?: string
           initial_balance?: number
           name: string
@@ -48,14 +48,14 @@ export type Database = {
           user_id: string
         }
         Update: {
-          agency?: string | null
-          account_number?: string | null
           account_digit?: string | null
-          holder_name?: string | null
-          holder_cpf?: string | null
+          account_number?: string | null
+          agency?: string | null
           bank?: string
           color?: string
           created_at?: string
+          holder_cpf?: string | null
+          holder_name?: string | null
           id?: string
           initial_balance?: number
           name?: string
@@ -306,45 +306,45 @@ export type Database = {
       }
       credit_cards: {
         Row: {
-          holder_name: string | null
+          bank: string
           card_brand: string | null
           card_last_four: string | null
-          bank: string
           closing_day: number
           color: string
           created_at: string
           credit_limit: number
           due_day: number
+          holder_name: string | null
           id: string
           name: string
           updated_at: string
           user_id: string
         }
         Insert: {
-          holder_name?: string | null
+          bank: string
           card_brand?: string | null
           card_last_four?: string | null
-          bank: string
           closing_day?: number
           color?: string
           created_at?: string
           credit_limit?: number
           due_day?: number
+          holder_name?: string | null
           id?: string
           name: string
           updated_at?: string
           user_id: string
         }
         Update: {
-          holder_name?: string | null
+          bank?: string
           card_brand?: string | null
           card_last_four?: string | null
-          bank?: string
           closing_day?: number
           color?: string
           created_at?: string
           credit_limit?: number
           due_day?: number
+          holder_name?: string | null
           id?: string
           name?: string
           updated_at?: string
@@ -603,27 +603,6 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      update_category_with_references: {
-        Args: { p_id: string; p_name: string; p_type: string; p_monthly_budget?: number | null }
-        Returns: undefined
-      }
-      delete_category_with_replacement: {
-        Args: { p_id: string; p_replacement_id?: string | null }
-        Returns: undefined
-      }
-      convert_existing_card_purchase_to_installments: {
-        Args: {
-          p_transaction_id: string
-          p_title: string
-          p_amount: number
-          p_category: string
-          p_date: string
-          p_description: string
-          p_credit_card_id: string
-          p_installments: number
-        }
-        Returns: undefined
-      }
       beta_has_access: { Args: never; Returns: boolean }
       close_credit_card_invoice:
         | { Args: { p_invoice_id: string }; Returns: string }
@@ -652,6 +631,19 @@ export type Database = {
         }
         Returns: Json
       }
+      convert_existing_card_purchase_to_installments: {
+        Args: {
+          p_amount: number
+          p_category: string
+          p_credit_card_id: string
+          p_date: string
+          p_description: string
+          p_installments: number
+          p_title: string
+          p_transaction_id: string
+        }
+        Returns: undefined
+      }
       credit_card_cycle_dates: {
         Args: {
           p_closing_day: number
@@ -664,6 +656,10 @@ export type Database = {
           cycle_start: string
           due_date: string
         }[]
+      }
+      delete_category_with_replacement: {
+        Args: { p_id: string; p_replacement_id?: string }
+        Returns: undefined
       }
       ensure_credit_card_invoice: {
         Args: { p_credit_card_id: string; p_reference_date?: string }
@@ -703,6 +699,15 @@ export type Database = {
           p_reference_month: string
         }
         Returns: Json
+      }
+      update_category_with_references: {
+        Args: {
+          p_id: string
+          p_monthly_budget?: number
+          p_name: string
+          p_type: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
