@@ -8,6 +8,7 @@ import { chromium } from '@playwright/test';
 import * as fixture from './landing-demo/fixture.mjs';
 
 // Screenshot-only server. This entry, aliases and fixtures never join the app build.
+// The landing itself labels these captures as DEMO outside the image; never overlay graph data.
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const temporary = path.join(root, 'landing-demo.local');
 const output = path.join(root, 'public/landing');
