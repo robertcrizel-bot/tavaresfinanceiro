@@ -9,96 +9,98 @@
     "expense": 4516.95,
     "balance": 4023.05
   },
+  "captureScale": 2,
+  "webpQuality": 0.98,
   "assets": [
     {
       "name": "dashboard.webp",
-      "width": 1440,
-      "height": 1320,
-      "bytes": 130730
+      "width": 2880,
+      "height": 2640,
+      "bytes": 473984
     },
     {
       "name": "dashboard-focus.webp",
-      "width": 1120,
-      "height": 900,
-      "bytes": 91582
+      "width": 2240,
+      "height": 1800,
+      "bytes": 328604
     },
     {
       "name": "analises.webp",
-      "width": 1440,
-      "height": 1100,
-      "bytes": 125236
+      "width": 2880,
+      "height": 2200,
+      "bytes": 412496
     },
     {
       "name": "analises-detail.webp",
-      "width": 368,
-      "height": 368,
-      "bytes": 10208
+      "width": 736,
+      "height": 736,
+      "bytes": 32880
     },
     {
       "name": "orcamento-detail.webp",
       "width": 804,
       "height": 600,
-      "bytes": 29364
+      "bytes": 43032
     },
     {
       "name": "registros.webp",
-      "width": 1440,
-      "height": 1100,
-      "bytes": 114114
+      "width": 2880,
+      "height": 2200,
+      "bytes": 370010
     },
     {
       "name": "registros-detail.webp",
-      "width": 1151,
-      "height": 360,
-      "bytes": 38792
+      "width": 2302,
+      "height": 720,
+      "bytes": 128140
     },
     {
       "name": "registros-focus.webp",
-      "width": 456,
-      "height": 360,
-      "bytes": 14210
+      "width": 912,
+      "height": 720,
+      "bytes": 45948
     },
     {
       "name": "contas.webp",
-      "width": 1440,
-      "height": 730,
-      "bytes": 69954
+      "width": 2880,
+      "height": 1460,
+      "bytes": 231076
     },
     {
       "name": "contas-detail.webp",
       "width": 730,
       "height": 720,
-      "bytes": 38808
+      "bytes": 50676
     },
     {
       "name": "extratos.webp",
-      "width": 1440,
-      "height": 1100,
-      "bytes": 108360
+      "width": 2880,
+      "height": 2200,
+      "bytes": 352250
     },
     {
       "name": "categorias-detail.webp",
-      "width": 380,
-      "height": 190,
-      "bytes": 5054
+      "width": 760,
+      "height": 380,
+      "bytes": 13234
     },
     {
       "name": "previsoes.webp",
-      "width": 1440,
-      "height": 1100,
-      "bytes": 75366
+      "width": 2880,
+      "height": 2200,
+      "bytes": 249054
     },
     {
       "name": "dashboard-mobile.webp",
-      "width": 390,
-      "height": 844,
-      "bytes": 45508
+      "width": 780,
+      "height": 1688,
+      "bytes": 161176
     },
     {
       "name": "dashboard-mobile-focus.webp",
-      "width": 366,
-      "height": 450,
-      "bytes": 25610
+      "width": 732,
+      "height": 900,
+      "bytes": 86878
     }
   ],
   "runtimeErrors": [],
