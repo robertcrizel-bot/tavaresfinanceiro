@@ -378,3 +378,31 @@
   }
 }
 
+
+/* Reuse the product's existing icon and wordmark in the hero. */
+.fv-hero-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+.fv-hero-brand .fv-brand {
+  font-size: clamp(16px, 1.45vw, 20px);
+}
+.fv-hero-brand .fv-brand-mark {
+  width: 29px;
+  height: 29px;
+}
+.fv-hero-brand-caption {
+  font-size: 11px;
+  line-height: 1.5;
+  color: var(--fv-muted);
+  border-left: 1px solid var(--fv-border);
+  padding-left: 12px;
+}
+@media (max-width: 599px) {
+  .fv-hero-brand { gap: 8px; margin-bottom: 18px; }
+  .fv-hero-brand-caption { font-size: 10px; }
+}
