@@ -62,7 +62,7 @@ const server = await createServer({
   server: { host: '127.0.0.1', port: 5189, strictPort: true },
 });
 let browser;
-const manifest = { sourceCommit: '650256f', referenceDate: fixture.referenceDate, summary: fixture.summary, assets: [] };
+const manifest = { sourceCommit: '650256f', referenceDate: fixture.referenceDate, summary: fixture.summary, captureScale: 2, webpQuality: 0.98, assets: [] };
 try {
   await server.listen();
   browser = await chromium.launch({ headless: true });
@@ -86,17 +86,18 @@ try {
     await page.locator('main h1').first().waitFor();
     await page.evaluate(() => document.fonts.ready);
     // Chart geometry must finish its initial animation before raster capture.
+    // Capture at native 2x device resolution: do not resample to CSS pixels.
     await page.waitForTimeout(1800);
   };
   const save = async (name, options = {}) => {
-    const png = await page.screenshot({ animations: 'disabled', scale: 'css', ...options });
+    const png = await page.screenshot({ animations: 'disabled', scale: 'device', ...options });
     // Browser-native encoding; no additional image package required.
     const encoded = await page.evaluate(async base64 => {
       const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${base64}`)).blob());
       const canvas = document.createElement('canvas');
       canvas.width = bitmap.width; canvas.height = bitmap.height;
       canvas.getContext('2d').drawImage(bitmap, 0, 0);
-      return { data: canvas.toDataURL('image/webp', .92).split(',')[1], width: bitmap.width, height: bitmap.height };
+      return { data: canvas.toDataURL('image/webp', .98).split(',')[1], width: bitmap.width, height: bitmap.height };
     }, png.toString('base64'));
     const bytes = Buffer.from(encoded.data, 'base64');
     await fs.writeFile(path.join(output, `${name}.webp`), bytes);
