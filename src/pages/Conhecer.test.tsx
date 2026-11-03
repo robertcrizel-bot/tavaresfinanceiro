@@ -89,10 +89,72 @@ describe("public pages", () => {
     const questions = document.querySelectorAll("#faq details");
     expect(questions).toHaveLength(7);
     const ai = screen.getByText("Como funciona a leitura de comprovantes com IA?").closest("details")!;
-    expect(ai).toHaveTextContent("conferir e corrigir");
+    expect(ai).toHaveTextContent("Confira e corrija");
     expect(ai).toHaveTextContent("não é um benefício garantido do plano Beta");
     const signup = screen.getByText("Como faço o cadastro e solicito o Beta?").closest("details")!;
     expect(signup).toHaveTextContent("Solicitar análise de acesso");
     expect(signup).toHaveTextContent("O cadastro não libera o acesso automaticamente");
+  });
+
+  it("puts expense analysis and assisted receipt entry before the supporting features", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    const section = document.getElementById("recursos")!;
+    const highlights = section.querySelectorAll(".fv-feature-highlights > article");
+    expect(highlights).toHaveLength(2);
+    expect(highlights[0]).toHaveAttribute("id", "analises-destaque");
+    expect(highlights[1]).toHaveAttribute("id", "ia-destaque");
+    expect(highlights[0]).toHaveTextContent("Veja para ondeseu dinheiro está indo.");
+    expect(highlights[0]).toHaveTextContent("forma de pagamento");
+    expect(highlights[0]).toHaveTextContent("Compare o mês atual com o anterior");
+    expect(highlights[0]).toHaveTextContent("o que aumentou");
+    expect(highlights[0].querySelector("img")).toHaveAttribute("src", "/landing/analises-overview.webp");
+    const supporting = section.querySelectorAll(".fv-feature-grid .fv-eyebrow");
+    expect([...supporting].map(element => element.textContent)).toEqual(["Dashboard financeiro", "Registros financeiros", "Extratos", "Contas e cartões", "Previsões"]);
+    expect(section.querySelector(".fv-feature-grid .fv-feature-dashboard")).toHaveTextContent("Toda a sua vida financeira em uma só visão.");
+    expect(section.querySelector(".fv-feature-dashboard img")).toHaveAttribute("src", "/landing/dashboard.webp");
+  });
+
+  it("opens the actual analysis view in the gallery from its benefit link", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    const link = screen.getByRole("link", { name: "Explorar as análises" });
+    expect(link).toHaveAttribute("href", "#produto");
+    fireEvent.click(link);
+    expect(screen.getByRole("button", { name: "Análises", pressed: true })).toBeInTheDocument();
+    expect(document.querySelector(".fv-product-figure > img")).toHaveAttribute("src", "/landing/analises.webp");
+  });
+
+  it("explains the IA benefit without pretending to run a receipt read or guarantee timing", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    const feature = document.getElementById("ia-destaque")!;
+    expect(feature).toHaveTextContent("Leitura por IA para deixar seu lançamento praticamente pronto");
+    expect(feature).toHaveTextContent("sugerir valor, data, estabelecimento/descrição e categoria");
+    expect(feature).toHaveTextContent("Reduza a digitação manual");
+    expect(feature).toHaveTextContent("Sempre que possível");
+    expect(feature).toHaveTextContent("Itens incluídos");
+    expect(feature).toHaveTextContent("Você revisa e confirma");
+    expect(feature).toHaveTextContent("sujeito à disponibilidade e a limites");
+    expect(feature).toHaveTextContent("ILUSTRAÇÃO DEMO");
+    expect(feature).toHaveTextContent("Nenhuma leitura é executada nesta página");
+    expect(feature.querySelectorAll("input, form")).toHaveLength(0);
+    expect(within(feature).getByRole("link", { name: "Veja como a IA agiliza seus lançamentos" })).toHaveAttribute("href", "#ia-fluxo");
+    expect(document.getElementById("ia-fluxo")).toBeInTheDocument();
+  });
+
+  it("shows the automatic field prefill and identified purchase items inside the illustrative registration", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    const demo = document.getElementById("ia-fluxo")!;
+    expect(demo).toHaveTextContent("Lançamento preenchido");
+    expect(demo).toHaveTextContent("Estabelecimento / título");
+    expect(demo).toHaveTextContent("Mercado Exemplo");
+    expect(demo).toHaveTextContent("Valor preenchido");
+    expect(demo).toHaveTextContent("R$ 248,70");
+    expect(demo).toHaveTextContent("Data preenchida");
+    expect(demo).toHaveTextContent("Categoria sugerida");
+    const items = within(demo).getByRole("group", { name: "Itens incluídos automaticamente na descrição do cadastro, quando identificados" });
+    expect(within(items).getAllByRole("listitem")).toHaveLength(3);
+    for (const item of ["1 × Mercearia", "1 × Hortifruti", "1 × Arroz"]) expect(items).toHaveTextContent(item);
+    expect(items).toHaveTextContent("Incluídos automaticamente quando identificados");
+    expect(demo).toHaveTextContent("antes de salvar");
+    expect(demo.querySelectorAll("input, form, button")).toHaveLength(0);
   });
 });

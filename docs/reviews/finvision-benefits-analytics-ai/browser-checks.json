@@ -1,0 +1,129 @@
+{
+  "baseURL": "http://127.0.0.1:5188",
+  "results": [
+    {
+      "width": 320,
+      "height": 844,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 280,
+      "featureHierarchy": "Expense analysis and IA first; both full width",
+      "analyticsGalleryLink": "passed",
+      "iaIllustrationHasNoProcessingForm": true,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "6 demo screens passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 360,
+      "height": 844,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 320,
+      "featureHierarchy": "Expense analysis and IA first; both full width",
+      "analyticsGalleryLink": "passed",
+      "iaIllustrationHasNoProcessingForm": true,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "6 demo screens passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 390,
+      "height": 844,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 350,
+      "featureHierarchy": "Expense analysis and IA first; both full width",
+      "analyticsGalleryLink": "passed",
+      "iaIllustrationHasNoProcessingForm": true,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "6 demo screens passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 768,
+      "height": 1000,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 704,
+      "featureHierarchy": "Expense analysis and IA first; both full width",
+      "analyticsGalleryLink": "passed",
+      "iaIllustrationHasNoProcessingForm": true,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "6 demo screens passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 1024,
+      "height": 1000,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 960,
+      "featureHierarchy": "Expense analysis and IA first; both full width",
+      "analyticsGalleryLink": "passed",
+      "iaIllustrationHasNoProcessingForm": true,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "6 demo screens passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 1280,
+      "height": 900,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 1216,
+      "featureHierarchy": "Expense analysis and IA first; both full width",
+      "analyticsGalleryLink": "passed",
+      "iaIllustrationHasNoProcessingForm": true,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "6 demo screens passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 1440,
+      "height": 1000,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 1240,
+      "featureHierarchy": "Expense analysis and IA first; both full width",
+      "analyticsGalleryLink": "passed",
+      "iaIllustrationHasNoProcessingForm": true,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "6 demo screens passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 1920,
+      "height": 1000,
+      "heroComposition": "CONYEST: centered title and CTAs, wide dashboard below",
+      "dashboardWidth": 1240,
+      "featureHierarchy": "Expense analysis and IA first; both full width",
+      "analyticsGalleryLink": "passed",
+      "iaIllustrationHasNoProcessingForm": true,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "6 demo screens passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "savedAppTheme": "light",
+      "landingPalette": {
+        "background": "rgb(7, 16, 18)",
+        "foreground": "rgb(242, 245, 247)"
+      }
+    },
+    {
+      "route": "/auth",
+      "status": 200
+    },
+    {
+      "route": "/beta",
+      "status": 200
+    },
+    {
+      "route": "/demonstracao",
+      "status": 200
+    }
+  ],
+  "runtimeErrors": []
+}

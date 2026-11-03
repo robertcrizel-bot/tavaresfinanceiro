@@ -3,8 +3,9 @@ import { Link } from "react-router-dom";
 import {
   ArrowDown, ArrowRight, ArrowUpRight, BarChart3, CalendarDays, Check,
   CreditCard, Files, LayoutDashboard, LockKeyhole, Menu,
-  Plus, ReceiptText, ScanLine, Smartphone, Wallet, X,
+  Plus, ReceiptText, ScanLine, Smartphone, Sparkles, Wallet, X,
 } from "lucide-react";
+import { ReceiptAssistDemo } from "@/components/landing/ReceiptAssistDemo";
 import "./Conhecer.css";
 
 export const LANDING_PRICE_LABEL = "R$ 14,90";
@@ -23,11 +24,10 @@ const pains = [
   { icon: ReceiptText, title: "Informações espalhadas", text: "Um pouco na planilha, outro tanto nos comprovantes.", solution: "Centralize registros, contas e comprovantes no FinVision." },
 ];
 const features = [
-  { icon: Wallet, title: "Contas e cartões", text: "Cada conta, cartão e fatura no seu lugar. Acompanhe também as compras parceladas.", image: "contas-detail", alt: "Cartão DEMO com limite e fatura preenchidos" },
-  { icon: ReceiptText, title: "Registros financeiros", text: "Registre entradas e saídas com categorias, observações e comprovantes anexados.", image: "registros-detail", alt: "Lista de registros DEMO com compras, receitas e parcelamentos fictícios" },
-  { icon: BarChart3, title: "Análises de despesas", text: "Entenda seus gastos por categoria e período para decidir com mais clareza.", image: "analises-detail", alt: "Evolução de gastos DEMO com comparação entre dois meses fictícios" },
-  { icon: Files, title: "Extratos", text: "Consulte as movimentações de contas e cartões e exporte seus relatórios.", image: "categorias-detail", alt: "Gráfico donut com sete categorias de despesas DEMO" },
-  { icon: CalendarDays, title: "Previsões", text: "Organize contas recorrentes, confira os vencimentos e marque o que já foi pago.", image: "orcamento-detail", alt: "Orçamento e valores realizados DEMO com barras preenchidas por categoria" },
+  { icon: ReceiptText, title: "Registros financeiros", headline: "Cada gasto, com os detalhes certos.", text: "Organize entradas e saídas por categoria, acrescente observações e mantenha o comprovante junto do lançamento.", image: "registros-focus", alt: "Recorte real de registros DEMO com descrição, categoria e valor de cada gasto" },
+  { icon: Files, title: "Extratos", headline: "Encontre a movimentação que procura.", text: "Consulte o histórico de contas e cartões, filtre o período e tenha os detalhes à mão quando precisar conferir um valor.", image: "extratos-movimentos", alt: "Recorte real de extratos DEMO com receitas e despesas fictícias" },
+  { icon: Wallet, title: "Contas e cartões", headline: "Acompanhe a fatura sem perder o contexto.", text: "Veja contas, limites e compras parceladas no mesmo lugar para entender o que já está comprometido.", image: "contas-detail", alt: "Cartão DEMO com limite e fatura preenchidos" },
+  { icon: CalendarDays, title: "Previsões", headline: "Planeje antes de o mês acontecer.", text: "Organize os vencimentos e acompanhe o orçamento para decidir com uma visão do que ainda vem pela frente.", image: "orcamento-detail", alt: "Orçamento e valores realizados DEMO com barras preenchidas por categoria" },
 ];
 const steps = [
   { title: "Crie sua conta", text: "Faça o cadastro e solicite acesso ao Beta. A entrada depende de liberação." },
@@ -48,7 +48,7 @@ const faq = [
   { q: "Posso usar no celular e no computador?", a: "Sim. O FinVision funciona pelo navegador no celular, tablet e computador. Não é necessário instalar um aplicativo para começar." },
   { q: "Quais recursos estão disponíveis?", a: "O aplicativo reúne dashboard financeiro, contas e cartões, registros, análises de despesas, extratos e previsões. A leitura assistida de comprovantes com IA está em avaliação, sujeita à disponibilidade e a limites de uso." },
   { q: "Como ficam a segurança e a privacidade?", a: "O acesso às informações exige autenticação e permissões da sua conta. O FinVision não pede sua senha bancária nem se conecta ao banco. Você pode exportar seus registros financeiros pelo Perfil; imagens e PDFs de comprovantes não fazem parte dessa exportação em JSON. As condições de privacidade serão apresentadas antes da abertura das assinaturas." },
-  { q: "Como funciona a leitura de comprovantes com IA?", a: "Quando disponível, a leitura assistida sugere informações a partir do comprovante. Você precisa conferir e corrigir os dados antes de salvar. A IA pode errar, tem limites de uso e não é um benefício garantido do plano Beta." },
+  { q: "Como funciona a leitura de comprovantes com IA?", a: "Quando disponível, a IA analisa o comprovante e sugere dados como valor, data, estabelecimento/descrição e categoria. Os campos identificados são levados ao cadastro para sua conferência. Sempre que possível, os itens reconhecidos também entram na descrição do lançamento. Confira e corrija as informações antes de salvar: a IA pode errar, está sujeita a limites de uso e não é um benefício garantido do plano Beta." },
   { q: "Como faço o cadastro e solicito o Beta?", a: "Clique em “Quero testar o FinVision” para criar sua conta. Depois de confirmar o e-mail, quando solicitado, entre no aplicativo e use “Solicitar análise de acesso”. O cadastro não libera o acesso automaticamente: a solicitação depende de análise e liberação." },
   { q: "Quanto custa? Já posso assinar?", a: `O preço planejado é ${LANDING_PRICE_LABEL}/mês. A assinatura está em preparação e não há pagamento nesta página. Nesta etapa, você pode criar uma conta e solicitar acesso ao Beta, sujeito à liberação. As condições da assinatura serão apresentadas antes da contratação.` },
 ];
@@ -133,11 +133,71 @@ export default function Conhecer() {
           <div className="fv-pain-grid">{pains.map(({ icon: Icon, title, text, solution }) => <article className="fv-pain" key={title}><Icon size={22} aria-hidden="true" /><h3>{title}</h3><p>{text}</p><div className="fv-pain-solution"><ArrowDown size={14} aria-hidden="true" /><p>{solution}</p></div></article>)}</div>
         </div></section>
         <section id="recursos" className="fv-section fv-container" aria-labelledby="recursos-title">
-          <div className="fv-section-heading fv-centered"><p className="fv-eyebrow">Uma visão completa, do seu jeito</p><h2 id="recursos-title">Tudo conectado.<br /><span className="fv-green">Tudo mais claro.</span></h2><p className="fv-description">Do primeiro lançamento ao planejamento do mês.<br />O essencial para cuidar das suas finanças em um só lugar.</p></div>
+          <div className="fv-section-heading fv-centered">
+            <p className="fv-eyebrow">Clareza para decidir. Praticidade para registrar.</p>
+            <h2 id="recursos-title">Entenda seus gastos.<br /><span className="fv-green">Simplifique sua rotina.</span></h2>
+            <p className="fv-description">Descubra o que pesa no orçamento e reduza o trabalho de registrar cada gasto. Mais contexto para suas decisões, menos digitação no dia a dia.</p>
+          </div>
+          <div className="fv-feature-highlights">
+            <article id="analises-destaque" className="fv-feature fv-feature-spotlight" aria-labelledby="analises-destaque-title">
+              <div className="fv-spotlight-copy">
+                <span className="fv-icon-box"><BarChart3 size={24} aria-hidden="true" /></span>
+                <p className="fv-eyebrow">01 / Análises de despesas</p>
+                <h3 id="analises-destaque-title">Veja para onde<br />seu dinheiro está indo.</h3>
+                <p>Visualize seus gastos por categoria, período e forma de pagamento. Descubra excessos, compare períodos e identifique o que está pesando no seu orçamento.</p>
+                <ul className="fv-value-points">
+                  <li><Check size={17} aria-hidden="true" /> Entenda quais categorias concentram os gastos</li>
+                  <li><Check size={17} aria-hidden="true" /> Compare o mês atual com o anterior</li>
+                  <li><Check size={17} aria-hidden="true" /> Enxergue rapidamente o que aumentou</li>
+                </ul>
+                <a href="#produto" className="fv-text-link" onClick={() => setSelectedScreen(screens.find(screen => screen.id === "analises")!)}>
+                  Explorar as análises <ArrowUpRight size={17} aria-hidden="true" />
+                </a>
+              </div>
+              <figure className="fv-analytics-preview">
+                <div className="fv-analytics-preview-heading"><span>Seus gastos em perspectiva</span><span className="fv-demo-tag">DEMO</span></div>
+                <picture>
+                  <source media="(max-width: 599px)" srcSet="/landing/analises-categorias.webp" width="406" height="535" />
+                  <img src="/landing/analises-overview.webp" alt="Recorte real das análises do FinVision com dados DEMO: gastos por categoria, comparação entre períodos, aumentos e orçamento realizado" width="826" height="776" loading="lazy" />
+                </picture>
+                <figcaption>Tela real com dados DEMO fictícios. No celular, o recorte destaca as categorias para facilitar a leitura.</figcaption>
+              </figure>
+            </article>
+            <article id="ia-destaque" className="fv-feature fv-feature-spotlight fv-spotlight-ai" aria-labelledby="ia-destaque-title">
+              <div className="fv-spotlight-copy">
+                <span className="fv-icon-box"><Sparkles size={24} aria-hidden="true" /></span>
+                <p className="fv-eyebrow">02 / Leitura por IA</p>
+                <h3 id="ia-destaque-title">Leitura por IA para deixar seu lançamento praticamente pronto.</h3>
+                <p>Envie uma foto ou comprovante e a IA analisa o conteúdo para sugerir valor, data, estabelecimento/descrição e categoria. Quando a leitura identifica essas informações, elas são levadas ao cadastro para sua conferência. Sempre que possível, os itens da compra também entram na descrição.</p>
+                <p>Reduza a digitação manual: confira os campos sugeridos, faça os ajustes necessários e só então salve o lançamento.</p>
+                <ul className="fv-value-points">
+                  <li><Check size={17} aria-hidden="true" /> Menos digitação manual</li>
+                  <li><Check size={17} aria-hidden="true" /> Campos sugeridos para revisão antes de salvar</li>
+                  <li><Check size={17} aria-hidden="true" /> Leitura dos itens do comprovante, quando identificados</li>
+                  <li><Check size={17} aria-hidden="true" /> Mais rapidez para registrar compras e despesas</li>
+                </ul>
+                <a href="#ia-fluxo" className="fv-button fv-button-primary" aria-describedby="ia-fluxo-caption">
+                  Veja como a IA agiliza seus lançamentos <ArrowDown size={17} aria-hidden="true" />
+                </a>
+                <p className="fv-small-note">Recurso em avaliação no Beta, sujeito à disponibilidade e a limites de uso. A IA pode errar; você sempre revisa antes de salvar.</p>
+              </div>
+              <ReceiptAssistDemo />
+            </article>
+          </div>
+          <p className="fv-supporting-heading">E o restante da sua vida financeira, no mesmo lugar.</p>
           <div className="fv-feature-grid">
-            <article className="fv-feature fv-feature-dashboard"><div className="fv-feature-copy"><span className="fv-icon-box"><LayoutDashboard size={22} aria-hidden="true" /></span><p className="fv-eyebrow">O panorama que faltava</p><h3>Dashboard financeiro</h3><p>Entenda como está seu mês. Saldo, receitas, despesas e movimentações reunidos em uma visão geral.</p><a href="#produto" className="fv-text-link">Explorar o produto <ArrowUpRight size={16} aria-hidden="true" /></a><span className="fv-demo-note">Visualização com dados DEMO</span></div><div className="fv-feature-image"><img src="/landing/dashboard.webp" alt="Dashboard real do FinVision preenchido com dados DEMO, contas e gráficos" width="1440" height="1320" loading="lazy" /></div></article>
-            {features.map(({ icon: Icon, title, text, image, alt }) => <article key={title} className={`fv-feature fv-feature-small fv-feature-${image}`}><div className="fv-small-feature-copy"><span className="fv-icon-box"><Icon size={22} aria-hidden="true" /></span><h3>{title}</h3><p>{text}</p></div><div className="fv-mini-product"><span className="fv-demo-tag">DEMO</span><img src={`/landing/${image}.webp`} alt={alt} loading="lazy" /></div></article>)}
-            <article className="fv-feature fv-feature-ai"><div><span className="fv-ai-label"><ScanLine size={18} aria-hidden="true" /> Leitura assistida com IA</span><h3>Do comprovante ao registro,<br />com você no controle.</h3><p>Quando disponível, a IA sugere os dados do comprovante. Você revisa, corrige e confirma antes de salvar.</p><p className="fv-small-note">Recurso em avaliação, sujeito à disponibilidade e a limites. Não é um benefício garantido do Beta.</p></div><ol className="fv-ai-steps"><li><span>01</span> Envie o comprovante</li><li><span>02</span> Revise as sugestões</li><li><span>03</span> Confirme o registro <Check size={17} aria-hidden="true" /></li></ol></article>
+            <article className="fv-feature fv-feature-dashboard">
+              <div className="fv-feature-copy">
+                <span className="fv-icon-box"><LayoutDashboard size={22} aria-hidden="true" /></span>
+                <p className="fv-eyebrow">Dashboard financeiro</p>
+                <h3>Toda a sua vida financeira em uma só visão.</h3>
+                <p>Acompanhe saldo, entradas, saídas e movimentações no mesmo painel para entender o mês sem procurar informações em várias telas.</p>
+                <a href="#produto" className="fv-text-link">Explorar o dashboard <ArrowUpRight size={16} aria-hidden="true" /></a>
+                <span className="fv-demo-note">Visualização com dados DEMO</span>
+              </div>
+              <div className="fv-feature-image"><img src="/landing/dashboard.webp" alt="Dashboard real do FinVision preenchido com dados DEMO, contas e gráficos" width="1440" height="1320" loading="lazy" /></div>
+            </article>
+            {features.map(({ icon: Icon, title, headline, text, image, alt }) => <article key={title} className={`fv-feature fv-feature-small fv-feature-${image}`}><div className="fv-small-feature-copy"><span className="fv-icon-box"><Icon size={22} aria-hidden="true" /></span><p className="fv-eyebrow">{title}</p><h3>{headline}</h3><p>{text}</p></div><div className="fv-mini-product"><span className="fv-demo-tag">DEMO</span><img src={`/landing/${image}.webp`} alt={alt} loading="lazy" /></div></article>)}
           </div>
         </section>
         <section id="como-funciona" className="fv-section fv-how" aria-labelledby="como-title"><div className="fv-container">
