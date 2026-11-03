@@ -1,0 +1,74 @@
+{
+  "baseURL": "http://127.0.0.1:5188",
+  "results": [
+    {
+      "width": 320,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 360,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 390,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 768,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 1024,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 1440,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 1920,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "savedAppTheme": "light",
+      "landingPalette": {
+        "background": "rgb(7, 10, 19)",
+        "foreground": "rgb(242, 245, 247)"
+      }
+    },
+    {
+      "route": "/auth",
+      "status": 200
+    },
+    {
+      "route": "/beta",
+      "status": 200
+    },
+    {
+      "route": "/demonstracao",
+      "status": 200
+    }
+  ],
+  "runtimeErrors": []
+}

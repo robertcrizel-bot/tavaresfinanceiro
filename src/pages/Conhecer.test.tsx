@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen, within } from "@testing-library/react";
 import { MemoryRouter } from "react-router-dom";
 import { describe, expect, it } from "vitest";
 import Conhecer from "@/pages/Conhecer";
@@ -16,5 +16,60 @@ describe("public pages", () => {
     const end = Number(STORYBOARD[STORYBOARD.length - 1].time.split("–")[1].replace("s", ""));
     expect(end).toBeGreaterThanOrEqual(45);
     expect(end).toBeLessThanOrEqual(60);
+  });
+
+  it("takes visitors straight to signup and explains the Beta release requirement", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Seu dinheiro mais organizado.Suas decisões mais claras.");
+    expect(screen.getByRole("link", { name: "Quero testar o FinVision" })).toHaveAttribute("href", "/auth?mode=cadastro");
+    expect(screen.getByRole("link", { name: "Criar conta e solicitar acesso Beta" })).toHaveAttribute("href", "/auth?mode=cadastro");
+    const plan = document.getElementById("plano")!;
+    expect(plan).toHaveTextContent("R$ 14,90/mês");
+    expect(plan).toHaveTextContent("Assinatura em preparação");
+    expect(plan).toHaveTextContent("O acesso Beta depende de liberação");
+    expect(plan).toHaveTextContent("Nenhum pagamento é solicitado nesta página");
+    expect(screen.queryByRole("link", { name: /pagar|comprar|assinar/i })).not.toBeInTheDocument();
+    expect(screen.getAllByRole("link").every(link => !/asaas|checkout|payment/.test(link.getAttribute("href") || ""))).toBe(true);
+  });
+
+  it("opens mobile navigation and closes it after following an existing section anchor", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "Abrir menu" }));
+    const menu = screen.getByRole("navigation", { name: "Navegação móvel" });
+    expect(screen.getByRole("button", { name: "Fechar menu" })).toHaveAttribute("aria-expanded", "true");
+    const resources = within(menu).getByRole("link", { name: "Recursos" });
+    expect(document.querySelector(resources.getAttribute("href")!)).toBeInTheDocument();
+    fireEvent.click(resources);
+    expect(screen.queryByRole("navigation", { name: "Navegação móvel" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Abrir menu" })).toHaveAttribute("aria-expanded", "false");
+    for (const link of screen.getAllByRole("link")) {
+      const href = link.getAttribute("href") || "";
+      if (href.startsWith("#")) expect(document.querySelector(href)).toBeInTheDocument();
+    }
+  });
+
+  it("switches real product images and their enlarge links together", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    const picker = screen.getByRole("group", { name: "Escolher tela do produto" });
+    fireEvent.click(within(picker).getByRole("button", { name: "Análises" }));
+    expect(within(picker).getByRole("button", { name: "Análises" })).toHaveAttribute("aria-pressed", "true");
+    expect(within(picker).getByRole("button", { name: "Dashboard" })).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("img", { name: /Tela real de Análises/ })).toHaveAttribute("src", "/landing/analises.webp");
+    expect(screen.getByRole("link", { name: /Ampliar captura de Análises/ })).toHaveAttribute("href", "/landing/analises.webp");
+    fireEvent.click(within(picker).getByRole("button", { name: "Registros" }));
+    expect(screen.getByRole("img", { name: /Tela real de Meus Registros/ })).toHaveAttribute("src", "/landing/registros.webp");
+    expect(screen.getByRole("link", { name: /Ampliar captura de Registros/ })).toHaveAttribute("href", "/landing/registros.webp");
+  });
+
+  it("explains IA limitations and the existing signup/request flow in the FAQ", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    const questions = document.querySelectorAll("#faq details");
+    expect(questions).toHaveLength(7);
+    const ai = screen.getByText("Como funciona a leitura de comprovantes com IA?").closest("details")!;
+    expect(ai).toHaveTextContent("conferir e corrigir");
+    expect(ai).toHaveTextContent("não é um benefício garantido do plano Beta");
+    const signup = screen.getByText("Como faço o cadastro e solicito o Beta?").closest("details")!;
+    expect(signup).toHaveTextContent("Solicitar análise de acesso");
+    expect(signup).toHaveTextContent("O cadastro não libera o acesso automaticamente");
   });
 });

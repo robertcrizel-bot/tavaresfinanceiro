@@ -6,6 +6,19 @@
 
 @layer base {
   :root {
+    /* The public landing keeps its navy palette in either application theme. */
+    --landing-background: 222 47% 5%;
+    --landing-surface: 222 40% 6%;
+    --landing-card: 222 35% 8%;
+    --landing-foreground: 210 25% 96%;
+    --landing-muted: 216 15% 68%;
+    --landing-border: 218 27% 17%;
+    --landing-primary: 160 78% 52%;
+    --landing-primary-hover: 160 78% 62%;
+    --landing-primary-foreground: 222 47% 5%;
+    --landing-shadow: 222 60% 2%;
+    --landing-phone-border: 220 23% 15%;
+
     --background: 216 28% 8%;
     --foreground: 210 24% 94%;
 
