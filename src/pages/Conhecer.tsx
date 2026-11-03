@@ -86,6 +86,7 @@ export default function Conhecer() {
         <section className="fv-hero fv-container" aria-labelledby="hero-title">
           <div className="fv-hero-layout">
             <div className="fv-hero-copy">
+              <div className="fv-hero-brand"><Brand /><span className="fv-hero-brand-caption">Sua central financeira pessoal</span></div>
               <h1 id="hero-title">Assuma o controle<br />do seu <span className="fv-green">dinheiro.</span></h1>
               <p className="fv-lead">
                 Organize contas, cartões e gastos em um só lugar.{" "}<br className="fv-desktop-break" />
