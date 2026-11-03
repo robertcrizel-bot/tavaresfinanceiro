@@ -2,3 +2,12 @@ project_id = "onhmpgevkttysbfllhjq"
 
 [functions.parse-receipt-free]
 verify_jwt = true
+
+# These endpoints verify their own credentials. Checkout validates the user
+# through Auth.getUser; webhook/worker use separate secrets, never an anon JWT.
+[functions.asaas-sandbox-checkout]
+verify_jwt = false
+[functions.asaas-sandbox-webhook]
+verify_jwt = false
+[functions.asaas-sandbox-worker]
+verify_jwt = false
