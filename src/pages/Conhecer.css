@@ -358,3 +358,22 @@
   .fv-demo-records-head, .fv-demo-records-row { padding: 12px 7px; gap: 4px; }
   .fv-demo-records-head, .fv-demo-records-row { grid-template-columns: .68fr 1.3fr 1.05fr 1fr; }
 }
+
+
+/* Align the divider above each solution across all five desktop pain cards.
+   Previously the solution's variable text height moved its top border. */
+@media (min-width: 1000px) {
+  .fv-pain-grid .fv-pain-solution {
+    box-sizing: border-box;
+    height: 105px;
+    min-height: 105px;
+    flex: 0 0 105px;
+    margin-top: auto;
+  }
+}
+@media (min-width: 600px) and (max-width: 999px) {
+  .fv-pain-grid .fv-pain-solution {
+    box-sizing: border-box;
+    min-height: 105px;
+  }
+}
