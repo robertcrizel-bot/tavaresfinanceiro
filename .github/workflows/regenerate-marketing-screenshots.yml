@@ -12,10 +12,14 @@ on:
 permissions:
   contents: write
 
+concurrency:
+  group: marketing-demo-screenshots
+  cancel-in-progress: false
+
 jobs:
   regenerate:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v4
         with:
@@ -26,19 +30,61 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - run: npx playwright install --with-deps chromium
-      - name: Regenerate full-resolution DEMO assets
+      - name: Render all screenshots and full-resolution crops
+        id: capture
+        continue-on-error: true
+        shell: bash
         run: |
-          node scripts/capture-landing-demo.mjs
-          node scripts/prepare-landing-benefit-assets.mjs
-      - name: Verify 2x raster dimensions
-        run: |
-          node --input-type=module -e "import fs from 'node:fs'; const m=JSON.parse(fs.readFileSync('scripts/landing-demo/manifest.json')); for(const name of ['dashboard.webp','analises.webp','registros.webp','contas.webp','extratos.webp','previsoes.webp']){ const a=m.assets.find(x=>x.name===name); if(!a||a.width!==2880&&a.width!==780) throw Error(name+' not 2x: '+JSON.stringify(a)); }"
-      - name: Commit generated screenshot updates
+          set +e
+          node scripts/capture-landing-demo.mjs > "$RUNNER_TEMP/marketing-capture.log" 2>&1
+          capture_code=$?
+          if [ "$capture_code" -eq 0 ]; then
+            node scripts/prepare-landing-benefit-assets.mjs >> "$RUNNER_TEMP/marketing-capture.log" 2>&1
+            capture_code=$?
+          fi
+          if [ "$capture_code" -eq 0 ]; then
+            node --input-type=module <<'CHECK' >> "$RUNNER_TEMP/marketing-capture.log" 2>&1
+          import fs from 'node:fs';
+          const manifest = JSON.parse(fs.readFileSync('scripts/landing-demo/manifest.json', 'utf8'));
+          const expected = {
+            'dashboard.webp': [2880,2640],
+            'analises.webp': [2880,2200],
+            'registros.webp': [2880,2200],
+            'contas.webp': [2880,1460],
+            'extratos.webp': [2880,2200],
+            'previsoes.webp': [2880,2200],
+          };
+          for (const [name,[w,h]] of Object.entries(expected)) {
+            const asset=manifest.assets.find(a=>a.name===name);
+            if (!asset || asset.width!==w || asset.height!==h) throw Error('Unexpected resolution '+name+': '+JSON.stringify(asset));
+          }
+          if ((manifest.runtimeErrors || []).length || (manifest.backendRequests || []).length) throw Error('Capture had runtime/backend errors');
+          CHECK
+            capture_code=$?
+          fi
+          echo "capture_code=$capture_code" >> "$GITHUB_OUTPUT"
+          echo "Capture process exit code: $capture_code"
+          tail -70 "$RUNNER_TEMP/marketing-capture.log"
+          exit "$capture_code"
+      - name: Save generated images OR diagnostic log in GitHub
+        if: always() && steps.capture.outcome != 'skipped'
+        shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add public/landing/ scripts/landing-demo/manifest.json
+          if [ "${{ steps.capture.outputs.capture_code }}" = "0" ]; then
+            git add public/landing/ scripts/landing-demo/manifest.json
+            message="regenerate high resolution marketing DEMO screenshots"
+          else
+            mkdir -p docs/reviews
+            cp "$RUNNER_TEMP/marketing-capture.log" docs/reviews/marketing-capture-last-error.log
+            git add docs/reviews/marketing-capture-last-error.log
+            message="record marketing screenshot regeneration error"
+          fi
           if ! git diff --cached --quiet; then
-            git commit -m "refresh marketing screenshots without overlaid DEMO watermark"
+            git commit -m "$message"
             git push origin HEAD:main
           fi
+      - name: Fail on capture issues
+        if: steps.capture.outputs.capture_code != '0'
+        run: exit 1
