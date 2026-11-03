@@ -15,6 +15,16 @@ export const creditCardInvoices = [
   { id: 'demo-invoice-virtual', creditCardId: 'demo-virtual', competence: '2026-11', cycleStart: '2026-10-04', cycleEnd: '2026-11-03', dueDate: '2026-11-10', status: 'OPEN' },
   { id: 'demo-invoice-family', creditCardId: 'demo-family', competence: '2026-11', cycleStart: '2026-10-04', cycleEnd: '2026-11-03', dueDate: '2026-11-10', status: 'OPEN' },
 ];
+const notes = {
+  Estacionamento: 'Estacionamento no centro da cidade',
+  Delivery: 'Pedido de hambúrguer e batata frita',
+  'Presente de aniversário': 'Presente comprado para aniversário',
+  Academia: 'Mensalidade da academia — outubro',
+  Restaurante: 'Almoço de domingo em família',
+  Streaming: 'Assinatura mensal de streaming',
+  'Transporte por aplicativo': 'Corrida até o centro da cidade',
+  'Consulta médica': 'Consulta médica particular',
+};
 const rows = [
   // day, description, category, amount, origin, installment number, installments
   [1, 'Salário de outubro', 'Salário', 6800, 'income'],
@@ -54,7 +64,7 @@ export const transactions = rows.map(([day, title, category, amount, origin, ins
   financialKind: origin.startsWith('card') ? 'card_purchase' : 'regular',
   installmentNumber, installments,
   isPaid: !origin.startsWith('card'),
-  description: 'Dado fictício para demonstração comercial do FinVision.',
+  description: notes[title] ?? '',
 }));
 // A comparison month makes the actual analytics evolution and deltas meaningful.
 export const previousTransactions = transactions.map((transaction, index) => ({
