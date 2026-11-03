@@ -6,6 +6,7 @@ import { chromium } from '@playwright/test';
 const baseURL = process.argv[2] || 'http://127.0.0.1:5187';
 const output = process.argv[3] || 'docs/reviews/finvision-landing-premium';
 const captureBenefits = process.argv.includes('--benefits');
+const captureIaOnly = process.argv.includes('--ia-only');
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const results = [];
@@ -28,7 +29,7 @@ try {
     await page.locator('.fv-hero-product img').first().evaluate(image => image.decode());
     const geometry = await page.evaluate(() => ({
       width: innerWidth, scrollWidth: document.documentElement.scrollWidth,
-      overflow: [...document.querySelectorAll('.fv-landing :is(h1,h2,h3,p,button,summary,a)')]
+      overflow: [...document.querySelectorAll('.fv-landing :is(h1,h2,h3,p,button,summary,a,dt,dd)')]
         .filter(el => el.getClientRects().length && (el.getBoundingClientRect().right > innerWidth + 1 || el.getBoundingClientRect().left < -1))
         .map(el => el.textContent.slice(0, 80)),
     }));
@@ -68,6 +69,8 @@ try {
         sectionWidth: root.getBoundingClientRect().width,
         aiIsIllustration: root.querySelector('.fv-receipt-demo figcaption').textContent.includes('Nenhuma leitura é executada'),
         activeForms: root.querySelectorAll('input, form').length,
+        filledItems: root.querySelectorAll('.fv-demo-filled-items li').length,
+        automaticFields: root.querySelector('.fv-demo-filled-fields').textContent,
       };
     });
     assert.deepEqual(features.order, ['analises-destaque', 'ia-destaque']);
@@ -75,6 +78,13 @@ try {
     assert.ok(features.positions.every(card => card.width >= features.sectionWidth * .98));
     assert.equal(features.aiIsIllustration, true);
     assert.equal(features.activeForms, 0);
+    assert.equal(features.filledItems, 3);
+    assert.match(features.automaticFields, /Valor preenchido/);
+    assert.match(features.automaticFields, /Data preenchida/);
+    await page.getByRole('link', { name: 'Veja como a IA agiliza seus lançamentos', exact: true }).click();
+    assert.equal(new URL(page.url()).hash, '#ia-fluxo');
+    const iaTop = await page.locator('#ia-fluxo').evaluate(el => el.getBoundingClientRect().top);
+    assert.ok(iaTop >= await page.locator('.fv-header').evaluate(el => el.getBoundingClientRect().bottom));
     await page.getByRole('link', { name: 'Explorar as análises', exact: true }).click();
     assert.equal(await page.getByRole('button', { name: 'Análises', exact: true }).getAttribute('aria-pressed'), 'true');
     for (const anchor of await page.locator('a[href^="#"]').evaluateAll(links => links.map(link => link.hash))) {
@@ -125,14 +135,14 @@ try {
       await page.locator('img').evaluateAll(images => Promise.all(images.map(image => { image.loading = 'eager'; return image.decode(); })));
       const product = await page.locator('.fv-browser').boundingBox();
       assert.ok(product.y < height * .85, `Product should appear in the first fold at ${width}`);
-      if (captureBenefits) {
+      if (captureBenefits || captureIaOnly) {
         // Crop the full-page capture so sticky navigation never obscures a tall section.
         const rectangles = await page.evaluate(() => ['recursos', 'analises-destaque', 'ia-destaque'].map(id => {
           const box = document.getElementById(id).getBoundingClientRect();
           return { id, x: Math.ceil(box.left), y: Math.ceil(box.top), width: Math.floor(box.width), height: Math.floor(box.height) };
         }));
         const fullPage = await page.screenshot({ fullPage: true, animations: 'disabled' });
-        for (const rect of rectangles.filter(rect => width === 1440 || rect.id === 'recursos')) {
+        for (const rect of rectangles.filter(rect => captureIaOnly ? rect.id === 'ia-destaque' : width === 1440 || rect.id === 'recursos')) {
           const crop = await page.evaluate(async ({ base64, rect }) => {
             const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${base64}`)).blob());
             const canvas = document.createElement('canvas'); canvas.width = rect.width; canvas.height = rect.height;
@@ -146,7 +156,7 @@ try {
         await page.screenshot({ path: `${output}/landing-${width}-hero.png`, animations: 'disabled' });
       }
     }
-    results.push({ width, height, heroComposition: 'CONYEST: centered title and CTAs, wide dashboard below', dashboardWidth: composition.product.width, featureHierarchy: 'Expense analysis and IA first; both full width', analyticsGalleryLink: 'passed', iaIllustrationHasNoProcessingForm: true, horizontalOverflow: false, navigation: 'passed', productPicker: '6 demo screens passed', faqKeyboard: 'passed' });
+    results.push({ width, height, heroComposition: 'CONYEST: centered title and CTAs, wide dashboard below', dashboardWidth: composition.product.width, featureHierarchy: 'Expense analysis and IA first; both full width', analyticsGalleryLink: 'passed', iaAutomaticFieldsAndThreeItems: 'passed', iaFlowAnchor: 'passed', iaIllustrationHasNoProcessingForm: true, horizontalOverflow: false, navigation: 'passed', productPicker: '6 demo screens passed', faqKeyboard: 'passed' });
   }
   // Marketing stays petroleum even with the light application theme saved.
   await page.evaluate(() => { localStorage.setItem('financecontrol-theme', 'light'); });

@@ -124,14 +124,35 @@ describe("public pages", () => {
   it("explains the IA benefit without pretending to run a receipt read or guarantee timing", () => {
     render(<MemoryRouter><Conhecer /></MemoryRouter>);
     const feature = document.getElementById("ia-destaque")!;
-    expect(feature).toHaveTextContent("Tire uma foto ou envie um comprovante");
-    expect(feature).toHaveTextContent("Economize tempo com menos trabalho manual");
-    expect(feature).toHaveTextContent("A IA sugere os dados do lançamento");
-    expect(feature).toHaveTextContent("Revise e confirme antes de salvar");
+    expect(feature).toHaveTextContent("Leitura por IA que já deixa seu lançamento praticamente pronto");
+    expect(feature).toHaveTextContent("preenche automaticamente valor, data e estabelecimento/descrição");
+    expect(feature).toHaveTextContent("Você não precisa digitar tudo manualmente");
+    expect(feature).toHaveTextContent("Sempre que possível");
+    expect(feature).toHaveTextContent("Itens incluídos");
+    expect(feature).toHaveTextContent("Você revisa e confirma");
     expect(feature).toHaveTextContent("sujeito à disponibilidade e a limites");
     expect(feature).toHaveTextContent("ILUSTRAÇÃO DEMO");
     expect(feature).toHaveTextContent("Nenhuma leitura é executada nesta página");
     expect(feature.querySelectorAll("input, form")).toHaveLength(0);
-    expect(within(feature).getByRole("link", { name: "Quero simplificar meus lançamentos" })).toHaveAttribute("href", "/auth?mode=cadastro");
+    expect(within(feature).getByRole("link", { name: "Veja como a IA agiliza seus lançamentos" })).toHaveAttribute("href", "#ia-fluxo");
+    expect(document.getElementById("ia-fluxo")).toBeInTheDocument();
+  });
+
+  it("shows the automatic field prefill and identified purchase items inside the illustrative registration", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    const demo = document.getElementById("ia-fluxo")!;
+    expect(demo).toHaveTextContent("Lançamento preenchido");
+    expect(demo).toHaveTextContent("Estabelecimento / título");
+    expect(demo).toHaveTextContent("Mercado Exemplo");
+    expect(demo).toHaveTextContent("Valor preenchido");
+    expect(demo).toHaveTextContent("R$ 248,70");
+    expect(demo).toHaveTextContent("Data preenchida");
+    expect(demo).toHaveTextContent("Categoria sugerida");
+    const items = within(demo).getByRole("group", { name: "Itens incluídos automaticamente na descrição do cadastro, quando identificados" });
+    expect(within(items).getAllByRole("listitem")).toHaveLength(3);
+    for (const item of ["1 × Mercearia", "1 × Hortifruti", "1 × Arroz"]) expect(items).toHaveTextContent(item);
+    expect(items).toHaveTextContent("Incluídos automaticamente quando identificados");
+    expect(demo).toHaveTextContent("antes de salvar");
+    expect(demo.querySelectorAll("input, form, button")).toHaveLength(0);
   });
 });

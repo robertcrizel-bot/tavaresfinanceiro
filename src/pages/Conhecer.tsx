@@ -48,7 +48,7 @@ const faq = [
   { q: "Posso usar no celular e no computador?", a: "Sim. O FinVision funciona pelo navegador no celular, tablet e computador. Não é necessário instalar um aplicativo para começar." },
   { q: "Quais recursos estão disponíveis?", a: "O aplicativo reúne dashboard financeiro, contas e cartões, registros, análises de despesas, extratos e previsões. A leitura assistida de comprovantes com IA está em avaliação, sujeita à disponibilidade e a limites de uso." },
   { q: "Como ficam a segurança e a privacidade?", a: "O acesso às informações exige autenticação e permissões da sua conta. O FinVision não pede sua senha bancária nem se conecta ao banco. Você pode exportar seus registros financeiros pelo Perfil; imagens e PDFs de comprovantes não fazem parte dessa exportação em JSON. As condições de privacidade serão apresentadas antes da abertura das assinaturas." },
-  { q: "Como funciona a leitura de comprovantes com IA?", a: "Quando disponível, a leitura assistida sugere informações a partir do comprovante. Você precisa conferir e corrigir os dados antes de salvar. A IA pode errar, tem limites de uso e não é um benefício garantido do plano Beta." },
+  { q: "Como funciona a leitura de comprovantes com IA?", a: "Quando disponível, a IA lê o comprovante e preenche automaticamente valor, data e estabelecimento/descrição, além de ajudar na categoria. Sempre que possível, os itens identificados entram na descrição do cadastro do lançamento. Você precisa conferir e corrigir os dados antes de salvar. A IA pode errar, tem limites de uso e não é um benefício garantido do plano Beta." },
   { q: "Como faço o cadastro e solicito o Beta?", a: "Clique em “Quero testar o FinVision” para criar sua conta. Depois de confirmar o e-mail, quando solicitado, entre no aplicativo e use “Solicitar análise de acesso”. O cadastro não libera o acesso automaticamente: a solicitação depende de análise e liberação." },
   { q: "Quanto custa? Já posso assinar?", a: `O preço planejado é ${LANDING_PRICE_LABEL}/mês. A assinatura está em preparação e não há pagamento nesta página. Nesta etapa, você pode criar uma conta e solicitar acesso ao Beta, sujeito à liberação. As condições da assinatura serão apresentadas antes da contratação.` },
 ];
@@ -167,14 +167,18 @@ export default function Conhecer() {
               <div className="fv-spotlight-copy">
                 <span className="fv-icon-box"><Sparkles size={24} aria-hidden="true" /></span>
                 <p className="fv-eyebrow">02 / Leitura por IA</p>
-                <h3 id="ia-destaque-title">Menos digitação.<br />Mais agilidade com IA.</h3>
-                <p>Tire uma foto ou envie um comprovante e deixe a IA adiantar o preenchimento do lançamento. Economize tempo com menos trabalho manual e uma rotina de registros mais simples, rápida e dinâmica.</p>
-                <ol className="fv-ai-steps">
-                  <li><span>01</span> Fotografe ou envie o comprovante</li>
-                  <li><span>02</span> A IA sugere os dados do lançamento</li>
-                  <li><span>03</span> Revise e confirme antes de salvar</li>
-                </ol>
-                <SignupLink>Quero simplificar meus lançamentos</SignupLink>
+                <h3 id="ia-destaque-title">Leitura por IA que já deixa seu lançamento praticamente pronto.</h3>
+                <p>Envie uma foto ou comprovante e o FinVision lê e preenche automaticamente valor, data e estabelecimento/descrição, além de ajudar na categoria. Sempre que possível, até os itens da compra entram na descrição do cadastro.</p>
+                <p>Você não precisa digitar tudo manualmente. Ganhe velocidade e praticidade: confira os dados preenchidos e confirme o lançamento.</p>
+                <ul className="fv-value-points">
+                  <li><Check size={17} aria-hidden="true" /> Menos digitação manual</li>
+                  <li><Check size={17} aria-hidden="true" /> Preenchimento automático dos lançamentos</li>
+                  <li><Check size={17} aria-hidden="true" /> Leitura dos itens do comprovante, quando identificados</li>
+                  <li><Check size={17} aria-hidden="true" /> Mais rapidez para registrar compras e despesas</li>
+                </ul>
+                <a href="#ia-fluxo" className="fv-button fv-button-primary" aria-describedby="ia-fluxo-caption">
+                  Veja como a IA agiliza seus lançamentos <ArrowDown size={17} aria-hidden="true" />
+                </a>
                 <p className="fv-small-note">Recurso em avaliação no Beta, sujeito à disponibilidade e a limites de uso. A IA pode errar; você sempre revisa antes de salvar.</p>
               </div>
               <ReceiptAssistDemo />
