@@ -46,9 +46,9 @@ const screens = [
 const faq = [
   { q: "Como o FinVision funciona?", a: "Você cadastra suas contas e cartões e registra receitas e despesas. O FinVision reúne essas informações no dashboard, nas análises, nos extratos e nas previsões. Não há conexão automática com seu banco." },
   { q: "Posso usar no celular e no computador?", a: "Sim. O FinVision funciona pelo navegador no celular, tablet e computador. Não é necessário instalar um aplicativo para começar." },
-  { q: "Quais recursos estão disponíveis?", a: "O aplicativo reúne dashboard financeiro, contas e cartões, registros, análises de despesas, extratos e previsões. A leitura assistida de comprovantes com IA está em avaliação, sujeita à disponibilidade e a limites de uso." },
+  { q: "Quais recursos estão disponíveis?", a: "O aplicativo reúne dashboard financeiro, contas e cartões, registros, análises de despesas, extratos e previsões. A leitura de comprovantes com IA também está disponível, com limites de uso." },
   { q: "Como ficam a segurança e a privacidade?", a: "O acesso às informações exige autenticação e permissões da sua conta. O FinVision não pede sua senha bancária nem se conecta ao banco. Você pode exportar seus registros financeiros pelo Perfil; imagens e PDFs de comprovantes não fazem parte dessa exportação em JSON. As condições de privacidade serão apresentadas antes da abertura das assinaturas." },
-  { q: "Como funciona a leitura de comprovantes com IA?", a: "Quando disponível, a IA analisa o comprovante e sugere dados como valor, data, estabelecimento/descrição e categoria. Os campos identificados são levados ao cadastro para sua conferência. Sempre que possível, os itens reconhecidos também entram na descrição do lançamento. Confira e corrija as informações antes de salvar: a IA pode errar, está sujeita a limites de uso e não é um benefício garantido do plano Beta." },
+  { q: "Como funciona a leitura de comprovantes com IA?", a: "A IA analisa o comprovante e sugere dados como valor, data, estabelecimento/descrição e categoria. Os campos identificados são levados ao cadastro para sua conferência. Sempre que possível, os itens reconhecidos também entram na descrição do lançamento. Confira e corrija as informações antes de salvar: a IA pode errar e a leitura está sujeita a limites de uso." },
   { q: "Como faço o cadastro e solicito o Beta?", a: "Clique em “Quero testar o FinVision” para criar sua conta. Depois de confirmar o e-mail, quando solicitado, entre no aplicativo e use “Solicitar análise de acesso”. O cadastro não libera o acesso automaticamente: a solicitação depende de análise e liberação." },
   { q: "Quanto custa? Já posso assinar?", a: `O preço planejado é ${LANDING_PRICE_LABEL}/mês. A assinatura está em preparação e não há pagamento nesta página. Nesta etapa, você pode criar uma conta e solicitar acesso ao Beta, sujeito à liberação. As condições da assinatura serão apresentadas antes da contratação.` },
 ];
@@ -178,7 +178,7 @@ export default function Conhecer() {
                 <a href="#ia-fluxo" className="fv-button fv-button-primary" aria-describedby="ia-fluxo-caption">
                   Veja como a IA agiliza seus lançamentos <ArrowDown size={17} aria-hidden="true" />
                 </a>
-                <p className="fv-small-note">Recurso em avaliação no Beta, sujeito à disponibilidade e a limites de uso. A IA pode errar; você sempre revisa antes de salvar.</p>
+                <p className="fv-small-note">Leitura com IA sujeita a limites de uso. Confira os dados sugeridos antes de salvar.</p>
               </div>
               <ReceiptAssistDemo />
             </article>
