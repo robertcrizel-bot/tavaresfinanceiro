@@ -92,7 +92,7 @@ describe("public pages", () => {
     expect(questions).toHaveLength(7);
     const ai = screen.getByText("Como funciona a leitura de comprovantes com IA?").closest("details")!;
     expect(ai).toHaveTextContent("Confira e corrija");
-    expect(ai).toHaveTextContent("não é um benefício garantido do plano Beta");
+    expect(ai).toHaveTextContent("a leitura está sujeita a limites de uso");
     const signup = screen.getByText("Como faço o cadastro e solicito o Beta?").closest("details")!;
     expect(signup).toHaveTextContent("Solicitar análise de acesso");
     expect(signup).toHaveTextContent("O cadastro não libera o acesso automaticamente");
@@ -136,7 +136,7 @@ describe("public pages", () => {
     expect(feature).toHaveTextContent("quando possível");
     expect(feature).toHaveTextContent("Itens incluídos");
     expect(feature).toHaveTextContent("Você revisa e confirma");
-    expect(feature).toHaveTextContent("sujeito à disponibilidade e a limites");
+    expect(feature).toHaveTextContent("sujeita a limites de uso");
     expect(feature).toHaveTextContent("ILUSTRAÇÃO DEMO");
     expect(feature).toHaveTextContent("Nenhuma leitura é executada nesta página");
     expect(feature.querySelectorAll("input, form")).toHaveLength(0);
