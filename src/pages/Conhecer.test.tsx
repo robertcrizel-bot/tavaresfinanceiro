@@ -95,4 +95,43 @@ describe("public pages", () => {
     expect(signup).toHaveTextContent("Solicitar análise de acesso");
     expect(signup).toHaveTextContent("O cadastro não libera o acesso automaticamente");
   });
+
+  it("puts expense analysis and assisted receipt entry before the supporting features", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    const section = document.getElementById("recursos")!;
+    const highlights = section.querySelectorAll(".fv-feature-highlights > article");
+    expect(highlights).toHaveLength(2);
+    expect(highlights[0]).toHaveAttribute("id", "analises-destaque");
+    expect(highlights[1]).toHaveAttribute("id", "ia-destaque");
+    expect(highlights[0]).toHaveTextContent("Veja para ondeseu dinheiro está indo.");
+    expect(highlights[0]).toHaveTextContent("forma de pagamento");
+    expect(highlights[0]).toHaveTextContent("Compare o mês atual com o anterior");
+    expect(highlights[0]).toHaveTextContent("o que aumentou");
+    expect(highlights[0].querySelector("img")).toHaveAttribute("src", "/landing/analises-overview.webp");
+    const supporting = section.querySelectorAll(".fv-feature-grid .fv-eyebrow");
+    expect([...supporting].map(element => element.textContent)).toEqual(["Registros financeiros", "Extratos", "Contas e cartões", "Previsões"]);
+  });
+
+  it("opens the actual analysis view in the gallery from its benefit link", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    const link = screen.getByRole("link", { name: "Explorar as análises" });
+    expect(link).toHaveAttribute("href", "#produto");
+    fireEvent.click(link);
+    expect(screen.getByRole("button", { name: "Análises", pressed: true })).toBeInTheDocument();
+    expect(document.querySelector(".fv-product-figure > img")).toHaveAttribute("src", "/landing/analises.webp");
+  });
+
+  it("explains the IA benefit without pretending to run a receipt read or guarantee timing", () => {
+    render(<MemoryRouter><Conhecer /></MemoryRouter>);
+    const feature = document.getElementById("ia-destaque")!;
+    expect(feature).toHaveTextContent("Tire uma foto ou envie um comprovante");
+    expect(feature).toHaveTextContent("Economize tempo com menos trabalho manual");
+    expect(feature).toHaveTextContent("A IA sugere os dados do lançamento");
+    expect(feature).toHaveTextContent("Revise e confirme antes de salvar");
+    expect(feature).toHaveTextContent("sujeito à disponibilidade e a limites");
+    expect(feature).toHaveTextContent("ILUSTRAÇÃO DEMO");
+    expect(feature).toHaveTextContent("Nenhuma leitura é executada nesta página");
+    expect(feature.querySelectorAll("input, form")).toHaveLength(0);
+    expect(within(feature).getByRole("link", { name: "Quero simplificar meus lançamentos" })).toHaveAttribute("href", "/auth?mode=cadastro");
+  });
 });

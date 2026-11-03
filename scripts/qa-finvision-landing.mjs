@@ -4,7 +4,8 @@ import { chromium } from '@playwright/test';
 
 // Run against a local dev/preview server. Never signs in or submits data.
 const baseURL = process.argv[2] || 'http://127.0.0.1:5187';
-const output = 'docs/reviews/finvision-landing-premium';
+const output = process.argv[3] || 'docs/reviews/finvision-landing-premium';
+const captureBenefits = process.argv.includes('--benefits');
 await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const results = [];
@@ -56,6 +57,26 @@ try {
     assert.ok(Math.abs((composition.title.left + composition.title.right) / 2 - width / 2) < 2);
     assert.ok(composition.product.top > composition.ctas.bottom, `Dashboard must follow the CTAs at ${width}`);
     assert.ok(composition.product.width >= composition.hero.width * .98, `Dashboard must span the hero width at ${width}`);
+    const features = await page.evaluate(() => {
+      const root = document.getElementById('recursos');
+      const cards = [...root.querySelectorAll('.fv-feature-highlights > article')];
+      const secondary = root.querySelector('.fv-feature-grid');
+      return {
+        order: cards.map(card => card.id),
+        positions: cards.map(card => ({ top: card.getBoundingClientRect().top, width: card.getBoundingClientRect().width })),
+        secondaryTop: secondary.getBoundingClientRect().top,
+        sectionWidth: root.getBoundingClientRect().width,
+        aiIsIllustration: root.querySelector('.fv-receipt-demo figcaption').textContent.includes('Nenhuma leitura é executada'),
+        activeForms: root.querySelectorAll('input, form').length,
+      };
+    });
+    assert.deepEqual(features.order, ['analises-destaque', 'ia-destaque']);
+    assert.ok(features.positions[0].top < features.positions[1].top && features.positions[1].top < features.secondaryTop);
+    assert.ok(features.positions.every(card => card.width >= features.sectionWidth * .98));
+    assert.equal(features.aiIsIllustration, true);
+    assert.equal(features.activeForms, 0);
+    await page.getByRole('link', { name: 'Explorar as análises', exact: true }).click();
+    assert.equal(await page.getByRole('button', { name: 'Análises', exact: true }).getAttribute('aria-pressed'), 'true');
     for (const anchor of await page.locator('a[href^="#"]').evaluateAll(links => links.map(link => link.hash))) {
       assert.equal(await page.locator(anchor).count(), 1, `Broken anchor ${anchor}`);
     }
@@ -99,14 +120,33 @@ try {
     assert.match(await page.locator('#plano').textContent(), /R\$ 14,90\/mês/);
     assert.equal(await page.locator('a[href*="checkout"],a[href*="asaas"],iframe').count(), 0);
     if (width === 390 || width === 1280 || width === 1440) {
-      await page.evaluate(() => window.scrollTo(0, 0));
+      await page.evaluate(() => { document.activeElement?.blur(); window.scrollTo(0, 0); });
       await page.mouse.move(0, 0);
+      await page.locator('img').evaluateAll(images => Promise.all(images.map(image => { image.loading = 'eager'; return image.decode(); })));
       const product = await page.locator('.fv-browser').boundingBox();
       assert.ok(product.y < height * .85, `Product should appear in the first fold at ${width}`);
-      await page.screenshot({ path: `${output}/landing-${width}-full.png`, fullPage: true, animations: 'disabled' });
-      await page.screenshot({ path: `${output}/landing-${width}-hero.png`, animations: 'disabled' });
+      if (captureBenefits) {
+        // Crop the full-page capture so sticky navigation never obscures a tall section.
+        const rectangles = await page.evaluate(() => ['recursos', 'analises-destaque', 'ia-destaque'].map(id => {
+          const box = document.getElementById(id).getBoundingClientRect();
+          return { id, x: Math.ceil(box.left), y: Math.ceil(box.top), width: Math.floor(box.width), height: Math.floor(box.height) };
+        }));
+        const fullPage = await page.screenshot({ fullPage: true, animations: 'disabled' });
+        for (const rect of rectangles.filter(rect => width === 1440 || rect.id === 'recursos')) {
+          const crop = await page.evaluate(async ({ base64, rect }) => {
+            const bitmap = await createImageBitmap(await (await fetch(`data:image/png;base64,${base64}`)).blob());
+            const canvas = document.createElement('canvas'); canvas.width = rect.width; canvas.height = rect.height;
+            canvas.getContext('2d').drawImage(bitmap, rect.x, rect.y, rect.width, rect.height, 0, 0, rect.width, rect.height);
+            return canvas.toDataURL('image/png').split(',')[1];
+          }, { base64: fullPage.toString('base64'), rect });
+          await fs.writeFile(`${output}/${rect.id}-${width}.png`, Buffer.from(crop, 'base64'));
+        }
+      } else {
+        await page.screenshot({ path: `${output}/landing-${width}-full.png`, fullPage: true, animations: 'disabled' });
+        await page.screenshot({ path: `${output}/landing-${width}-hero.png`, animations: 'disabled' });
+      }
     }
-    results.push({ width, height, heroComposition: 'CONYEST: centered title and CTAs, wide dashboard below', dashboardWidth: composition.product.width, horizontalOverflow: false, navigation: 'passed', productPicker: '6 demo screens passed', faqKeyboard: 'passed' });
+    results.push({ width, height, heroComposition: 'CONYEST: centered title and CTAs, wide dashboard below', dashboardWidth: composition.product.width, featureHierarchy: 'Expense analysis and IA first; both full width', analyticsGalleryLink: 'passed', iaIllustrationHasNoProcessingForm: true, horizontalOverflow: false, navigation: 'passed', productPicker: '6 demo screens passed', faqKeyboard: 'passed' });
   }
   // Marketing stays petroleum even with the light application theme saved.
   await page.evaluate(() => { localStorage.setItem('financecontrol-theme', 'light'); });
