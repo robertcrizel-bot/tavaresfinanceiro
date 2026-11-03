@@ -14,67 +14,67 @@
       "name": "dashboard.webp",
       "width": 1440,
       "height": 1320,
-      "bytes": 116732
+      "bytes": 130730
     },
     {
       "name": "dashboard-focus.webp",
       "width": 1120,
       "height": 900,
-      "bytes": 81396
+      "bytes": 91582
     },
     {
       "name": "analises.webp",
       "width": 1440,
       "height": 1100,
-      "bytes": 112750
+      "bytes": 125236
     },
     {
       "name": "analises-detail.webp",
       "width": 368,
       "height": 368,
-      "bytes": 10358
+      "bytes": 10208
     },
     {
       "name": "orcamento-detail.webp",
       "width": 804,
       "height": 600,
-      "bytes": 29096
+      "bytes": 29364
     },
     {
       "name": "registros.webp",
       "width": 1440,
       "height": 1100,
-      "bytes": 110380
+      "bytes": 114114
     },
     {
       "name": "registros-detail.webp",
       "width": 1151,
       "height": 360,
-      "bytes": 37964
+      "bytes": 38792
     },
     {
       "name": "registros-focus.webp",
       "width": 456,
       "height": 360,
-      "bytes": 14066
+      "bytes": 14210
     },
     {
       "name": "contas.webp",
       "width": 1440,
       "height": 730,
-      "bytes": 66748
+      "bytes": 69954
     },
     {
       "name": "contas-detail.webp",
       "width": 730,
       "height": 720,
-      "bytes": 38156
+      "bytes": 38808
     },
     {
       "name": "extratos.webp",
       "width": 1440,
       "height": 1100,
-      "bytes": 92220
+      "bytes": 108360
     },
     {
       "name": "categorias-detail.webp",
@@ -86,19 +86,19 @@
       "name": "previsoes.webp",
       "width": 1440,
       "height": 1100,
-      "bytes": 65498
+      "bytes": 75366
     },
     {
       "name": "dashboard-mobile.webp",
       "width": 390,
       "height": 844,
-      "bytes": 41312
+      "bytes": 45508
     },
     {
       "name": "dashboard-mobile-focus.webp",
       "width": 366,
       "height": 450,
-      "bytes": 22136
+      "bytes": 25610
     }
   ],
   "runtimeErrors": [],
