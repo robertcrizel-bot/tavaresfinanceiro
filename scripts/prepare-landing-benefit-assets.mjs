@@ -14,16 +14,16 @@ try {
   const page = await browser.newPage();
   for (const crop of crops) {
     const source = await fs.readFile(`public/landing/${crop.source}.webp`);
-    const data = await page.evaluate(async ({ crop, source }) => {
+    const data = await page.evaluate(async ({ crop, source, scale }) => {
       const image = await createImageBitmap(await (await fetch(`data:image/webp;base64,${source}`)).blob());
-      if ((crop.x + crop.width) * SCALE > image.width || (crop.y + crop.height) * SCALE > image.height) throw Error('Crop exceeds source');
+      if ((crop.x + crop.width) * scale > image.width || (crop.y + crop.height) * scale > image.height) throw Error('Crop exceeds source');
       const canvas = document.createElement('canvas');
-      canvas.width = crop.width * SCALE; canvas.height = crop.height * SCALE;
-      canvas.getContext('2d').drawImage(image, crop.x * SCALE, crop.y * SCALE, crop.width * SCALE, crop.height * SCALE, 0, 0, canvas.width, canvas.height);
+      canvas.width = crop.width * scale; canvas.height = crop.height * scale;
+      canvas.getContext('2d').drawImage(image, crop.x * scale, crop.y * scale, crop.width * scale, crop.height * scale, 0, 0, canvas.width, canvas.height);
       return canvas.toDataURL('image/webp', .98).split(',')[1];
-    }, { crop, source: source.toString('base64') });
+    }, { crop, source: source.toString('base64'), scale: SCALE });
     await fs.writeFile(`public/landing/${crop.name}.webp`, Buffer.from(data, 'base64'));
-    console.log(`${crop.name}.webp: ${crop.width * SCALE} x ${crop.height * SCALE}, cropped from ${crop.source}.webp`);
+    console.log(`${crop.name}.webp: ${crop.width * scale} x ${crop.height * scale}, cropped from ${crop.source}.webp`);
   }
 } finally {
   await browser.close();
