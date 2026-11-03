@@ -1,0 +1,39 @@
+name: Regenerate marketing demo screenshots
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scripts/capture-landing-demo.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  regenerate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npx playwright install --with-deps chromium
+      - name: Rebuild demo screenshots without overlaid watermark
+        run: |
+          node scripts/capture-landing-demo.mjs
+          node scripts/prepare-landing-benefit-assets.mjs
+      - name: Commit generated screenshot updates
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/landing/ scripts/landing-demo/manifest.json
+          if ! git diff --cached --quiet; then
+            git commit -m "refresh marketing screenshots without overlaid DEMO watermark"
+            git push origin HEAD:main
+          fi
