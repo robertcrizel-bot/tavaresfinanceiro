@@ -129,7 +129,8 @@ describe("public pages", () => {
     render(<MemoryRouter><Conhecer /></MemoryRouter>);
     const feature = document.getElementById("ia-destaque")!;
     expect(feature).toHaveTextContent("Leitura por IA. Menos digitação, mais praticidade.");
-    expect(feature).toHaveTextContent("Compartilhe a imagem direto do banco ou da galeria");
+    expect(feature).toHaveTextContent("Tire uma foto ou envie um comprovante");
+    expect(feature).toHaveTextContent("Compartilhe direto do banco ou da galeria");
     expect(feature).toHaveTextContent("Você só confere e salva");
     expect(feature).toHaveTextContent("quando possível");
     expect(feature).toHaveTextContent("Itens incluídos");
