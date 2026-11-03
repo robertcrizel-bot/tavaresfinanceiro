@@ -59,6 +59,14 @@ describe("public pages", () => {
     fireEvent.click(within(picker).getByRole("button", { name: "Registros" }));
     expect(screen.getByRole("img", { name: /Tela real de Meus Registros/ })).toHaveAttribute("src", "/landing/registros.webp");
     expect(screen.getByRole("link", { name: /Ampliar captura de Registros/ })).toHaveAttribute("href", "/landing/registros.webp");
+    for (const [label, image] of [["Extratos", "extratos"], ["Cartões", "contas"], ["Previsões", "previsoes"]]) {
+      fireEvent.click(within(picker).getByRole("button", { name: label }));
+      expect(within(picker).getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "true");
+      expect(screen.getByRole("link", { name: `Ampliar captura de ${label} em nova aba` })).toHaveAttribute("href", `/landing/${image}.webp`);
+      expect(document.querySelector(".fv-product-figure > img")).toHaveAttribute("src", `/landing/${image}.webp`);
+    }
+    expect(document.querySelector(".fv-product-caption")).toHaveTextContent("DEMO — DADOS FICTÍCIOS");
+    expect(document.querySelector(".fv-product-figure > img")).toHaveAttribute("alt", expect.stringContaining("DEMO"));
   });
 
   it("explains IA limitations and the existing signup/request flow in the FAQ", () => {

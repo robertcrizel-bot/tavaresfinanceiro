@@ -15,8 +15,9 @@ try {
   const page = await context.newPage();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  for (const width of [320, 360, 390, 768, 1024, 1440, 1920]) {
-    await page.setViewportSize({ width, height: 1000 });
+  for (const width of [320, 360, 390, 768, 1024, 1280, 1440, 1920]) {
+    const height = width < 600 ? 844 : width === 1280 ? 900 : 1000;
+    await page.setViewportSize({ width, height });
     const response = await page.goto(`${baseURL}/conhecer`);
     assert.equal(response.status(), 200);
     await page.locator('.fv-hero h1').waitFor();
@@ -39,7 +40,8 @@ try {
     await page.getByRole('link', { name: 'Conhecer os recursos', exact: true }).click();
     assert.equal(new URL(page.url()).hash, '#recursos');
     const resourcesTop = await page.locator('#recursos').evaluate(el => el.getBoundingClientRect().top);
-    assert.ok(resourcesTop >= 78, `Section hidden behind header at ${width}`);
+    const headerBottom = await page.locator('.fv-header').evaluate(el => el.getBoundingClientRect().bottom);
+    assert.ok(resourcesTop >= headerBottom, `Section hidden behind header at ${width}`);
     if (width < 1000) {
       await page.evaluate(() => window.scrollTo(0, 0));
       await page.getByRole('button', { name: 'Abrir menu', exact: true }).click();
@@ -53,10 +55,12 @@ try {
       assert.equal(new URL(page.url()).hash, '#plano');
       assert.equal(await menu.count(), 0);
     }
-    for (const label of ['Análises', 'Registros', 'Dashboard']) {
+    for (const label of ['Análises', 'Registros', 'Extratos', 'Cartões', 'Previsões', 'Dashboard']) {
       const button = page.getByRole('button', { name: label, exact: true });
       await button.click();
       assert.equal(await button.getAttribute('aria-pressed'), 'true');
+      assert.match(await page.locator('.fv-product-caption').textContent(), /DEMO — DADOS FICTÍCIOS/);
+      assert.match(await page.locator('.fv-product-figure > img').getAttribute('alt'), /DEMO/);
       await page.locator('.fv-product-figure > img').evaluate(image => image.decode());
       const enlarge = page.getByRole('link', { name: `Ampliar captura de ${label} em nova aba` });
       const imageURL = await page.locator('.fv-product-figure > img').getAttribute('src');
@@ -72,12 +76,15 @@ try {
     assert.equal(await page.locator('#faq details').count(), 7);
     assert.match(await page.locator('#plano').textContent(), /R\$ 14,90\/mês/);
     assert.equal(await page.locator('a[href*="checkout"],a[href*="asaas"],iframe').count(), 0);
-    if (width === 390 || width === 1440) {
+    if (width === 390 || width === 1280 || width === 1440) {
       await page.evaluate(() => window.scrollTo(0, 0));
+      await page.mouse.move(0, 0);
+      const product = await page.locator('.fv-browser').boundingBox();
+      assert.ok(product.y < height * .85, `Product should appear in the first fold at ${width}`);
       await page.screenshot({ path: `${output}/landing-${width}-full.png`, fullPage: true, animations: 'disabled' });
       await page.screenshot({ path: `${output}/landing-${width}-hero.png`, animations: 'disabled' });
     }
-    results.push({ width, horizontalOverflow: false, navigation: 'passed', productPicker: 'passed', faqKeyboard: 'passed' });
+    results.push({ width, height, horizontalOverflow: false, navigation: 'passed', productPicker: '6 demo screens passed', faqKeyboard: 'passed' });
   }
   // Marketing stays navy even when the user saved the light application theme.
   await page.evaluate(() => { localStorage.setItem('financecontrol-theme', 'light'); });

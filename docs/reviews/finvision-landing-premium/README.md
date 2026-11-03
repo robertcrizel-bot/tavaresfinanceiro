@@ -1,69 +1,89 @@
-# FinVision — landing premium de /conhecer
+# FinVision — refinamento visual da landing /conhecer
 
-Implementação de 03/11/2026, em `feat/finvision-landing-premium-20261103`, baseada na `origin/main` sincronizada em `b1e4c21`. Trabalho isolado em worktree; arquivos locais anteriores preservados. Não houve publicação nem merge.
+Continuação da PR #62, em `feat/finvision-landing-premium-20261103`, sobre a landing existente (`650256f`). A branch foi conferida e sincronizada com `origin/main` (`b1e4c21`, sem commits novos na main nesta revisão). Os arquivos locais anteriores permaneceram intactos no checkout original. Não foi criada outra landing, rota de demonstração pública ou hospedagem.
 
-## Resultado
+## Direção visual aplicada
 
-- Hero com o título solicitado, CTA direto para `/auth?mode=cadastro`, âncora de recursos e dashboard como protagonista.
-- Fundo marinho, destaques esmeralda, tipografia Manrope já disponível no projeto e cards com bordas e efeitos discretos. Composição própria a partir da direção visual fornecida.
-- Problemas cotidianos associados aos recursos que ajudam a organizar cada situação.
-- Dashboard, contas/cartões, registros, análises, extratos, previsões e leitura assistida apresentados em uma grade responsiva.
-- Quatro etapas de uso, com a necessidade de liberação do Beta explícita desde o cadastro.
-- Galeria de três telas reais, com seleção por botões e opção de ampliar a captura em outra aba.
-- Preço planejado de R$ 14,90/mês. Assinatura em preparação, nenhum pagamento na landing e acesso Beta sujeito à liberação.
-- Sete perguntas frequentes sobre uso, dispositivos, recursos, privacidade, IA, cadastro e assinatura. A instrução de solicitação usa o nome atual do botão existente: “Solicitar análise de acesso”.
-- Menu móvel com estado acessível e retorno de foco por Escape, link para pular ao conteúdo, foco visível, FAQ nativo por teclado e respeito a movimento reduzido.
-- Paleta definida em novos tokens globais `--landing-*`, restrita aos estilos da landing. O tema da aplicação e a posição do `AppThemeProvider` não foram modificados. A landing conserva a direção marinho/esmeralda mesmo com o tema claro salvo.
-- Sem novas dependências, animações contínuas, carrossel automático, depoimentos ou estatísticas.
+| Referência | Elementos observados | Adaptação para o FinVision |
+| --- | --- | --- |
+| [CONYEST / CONIYEST](https://dribbble.com/shots/26855212-SaaS-Landing-Page) | Tipografia ampla e de peso moderado, fundo profundo, verde vivo nos pontos de ação, apresentação ampla do dashboard e grades discretas | Títulos mais leves, CTA esmeralda com contraste, composição com aplicativo real preenchido, moldura com profundidade e textura geométrica sutil |
+| [Monevi](https://www.behance.net/gallery/241282083/SaaS-Website-Design) | Hero dividido, texto branco com ênfase em itálico, halo verde, painéis analíticos sobrepostos e cards com gráficos | Copy à esquerda e dashboard à direita no desktop, ênfase serifada em verde, gráfico de evolução e donut reais sobrepostos, cards de benefícios com recortes reais e navegação em cápsula |
 
-## Capturas do produto: procedência
+As duas referências guiaram a composição, não apenas a escolha de cores. O FinVision conserva seu nome, marca, produto, paleta marinho/petróleo e verde esmeralda e condições comerciais. Não foram usados textos, logos de parceiros, depoimentos, métricas de usuários, telas de terceiros ou planos das referências.
 
-Os quatro arquivos em `public/landing/` são capturas locais dos componentes reais da base `b1e4c21`: `Dashboard`, `ExpenseAnalytics`, `Records` e `AppLayout`, com o CSS original do aplicativo. Um harness temporário e ignorado em `qa.local/` montou os providers existentes sem usuário autenticado. Os providers retornaram seu estado vazio normal. O tráfego de backend foi bloqueado no navegador; nenhum cliente foi acessado e nenhum registro foi criado.
+O estudo visual abriu a imagem da referência CONYEST. O Behance apresentou timeout; para a Monevi foram consultadas as prévias indexadas desse projeto e a [publicação do mesmo design por Sujon Hossain no Dribbble](https://dribbble.com/shots/27038464-SaaS-Landing-Page). Essas imagens serviram somente ao estudo local; não integram o repositório ou a landing.
 
-Capturas de desktop: 1440 × 1024. Captura móvel: 390 × 844. Conversão para WebP, qualidade 86, sem redesenhar telas nem inserir dados. Os quatro assets somam aproximadamente 185 KiB. No hero móvel, `<picture>` seleciona a captura móvel real. As molduras de navegador e telefone são elementos de apresentação da landing. As legendas deixam explícito o estado vazio, sem dados de clientes.
+## O que mudou na página
 
-## Verificações
+- Hero dividido e mais compacto, com o produto visível já na primeira dobra em 1440, 1280 e 390 px.
+- Hierarquia tipográfica mais leve, ênfases em itálico, contraste marinho/esmeralda e efeitos estáticos de profundidade. Sem animações contínuas.
+- Gráfico de evolução e donut com sete fatias em painéis sobrepostos ao dashboard real.
+- Cards de benefícios com telas, registros, orçamento, faturas e gráficos preenchidos. Cartão principal ampliado e grade equilibrada.
+- Galeria com seis áreas: Dashboard, Análises, Registros, Extratos, Cartões e Previsões. Botões de seleção, legendas e ampliação funcionais.
+- Identificação DEMO no hero, nos recortes, nos textos alternativos, na galeria e nas capturas completas ampliadas.
+- R$ 14,90/mês permanece como preço previsto; assinatura em preparação e Beta sujeito à liberação. Nenhum pagamento foi ativado ou oferecido pela landing.
+- Navegação, CTA para `/auth?mode=cadastro`, FAQ por teclado, retorno de foco do menu e tema claro salvo continuam funcionando.
+
+## Dados DEMO e procedência das telas
+
+As imagens são capturas dos componentes reais `Dashboard`, `ExpenseAnalytics`, `Records`, `Accounts`, `Statements`, `Forecasts` e `AppLayout`. Nenhuma dessas páginas ou regra financeira foi modificada para produzir as capturas.
+
+O script [capture-landing-demo.mjs](../../../scripts/capture-landing-demo.mjs) cria um servidor Vite temporário e exclusivo de captura. Somente esse servidor substitui os hooks dos contextos por fixtures locais. A aplicação normal não importa essas fixtures, mocks ou entry point. O harness fica em `landing-demo.local/`, ignorado pelo Git e ausente do build. Não existe um bypass de autenticação ou rota DEMO no aplicativo publicado.
+
+O conjunto [fixture.mjs](../../../scripts/landing-demo/fixture.mjs) contém:
+
+- Outubro de 2026: 24 movimentações, R$ 8.540,00 de receitas, R$ 4.516,95 de despesas e R$ 4.023,05 de saldo do período.
+- Sete categorias de despesas, com orçamento total de R$ 5.850,00.
+- Um mês anterior fictício para comparação e evolução de despesas.
+- Três contas e três cartões fictícios com limites, faturas abertas e compras de exemplo.
+- Compras parceladas identificadas como notebook 3/10 e viagem 2/6, além de despesas por Pix, débito, crédito e dinheiro.
+- Previsões de receitas e despesas recorrentes, com exemplos de contas pagas e previstas.
+
+Não há CPF, conta bancária, e-mail ou cliente real. Banco, cartões e lançamentos são fictícios. Operações de escrita no harness lançam erro; o navegador bloqueia chamadas de backend e métodos diferentes de GET. A captura final registrou **zero requisições ao backend e zero erros JavaScript**. O relógio é fixado em 24/10/2026 para reprodução consistente dos filtros.
+
+Os gráficos são renderizados pelos componentes e cálculos originais do produto. O script verifica a existência de curvas no dashboard e de pelo menos três setores no donut antes de salvar. As imagens são codificadas em WebP pelo navegador, sem nova dependência. Recortes e redimensionamento são apenas composição comercial, sem inserir valores ou desenhar telas inexistentes.
+
+O [manifesto de captura](../../../scripts/landing-demo/manifest.json) registra data, resumo fictício, dimensões, tamanhos e ausência de operações de backend. As telas completas levam uma marca DEMO visível. Os recortes recebem a identificação DEMO na página comercial.
+
+## Validação
 
 | Verificação | Resultado |
 | --- | --- |
-| `npm test -- --maxWorkers=2 --reporter=dot` | 93 arquivos, 1.482 testes aprovados; código de saída 0 |
-| `vitest run src/pages/Conhecer.test.tsx --maxWorkers=2` | 6 testes aprovados, repetidos após o ajuste final de texto |
+| `npm test -- --maxWorkers=2 --reporter=dot` | 93 arquivos / 1.482 testes aprovados |
+| Testes específicos de `Conhecer.test.tsx` | 6 testes aprovados, incluindo as seis telas e identificação DEMO |
 | `tsc -p tsconfig.app.json --noEmit` | Aprovado |
 | `tsc -p tsconfig.node.json --noEmit` | Aprovado |
-| `eslint src/pages/Conhecer.tsx src/pages/Conhecer.test.tsx` | Sem erros ou avisos |
-| `npm run lint` / lint geral final | 123 erros e 24 avisos preexistentes; nenhum nos arquivos alterados |
-| `npm run build` | Aprovado após as últimas alterações |
-| `node --check scripts/qa-finvision-landing.mjs` | Aprovado |
-| `node scripts/qa-finvision-landing.mjs http://127.0.0.1:5188` | Aprovado contra o build de produção servido apenas em preview local |
+| ESLint de `Conhecer.tsx` e `Conhecer.test.tsx` | Zero erros e avisos |
+| `node --check` dos scripts de captura e fixture | Aprovado |
+| `npm run build` | Aprovado |
+| Playwright contra o build de produção em preview local | Aprovado em 320, 360, 390, 768, 1024, 1280, 1440 e 1920 px |
 | `git diff --check` | Aprovado |
 
-A primeira execução da suíte na base, com a concorrência padrão, aprovou os 1.478 testes existentes, mas terminou com um timeout interno do Vitest (`snapshotSaved`). A suíte final com dois workers aprovou todos os 1.482 testes sem esse erro. Não foi alterada nenhuma configuração de testes para ocultar falhas.
+O lint geral foi executado novamente: mantém os **123 erros e 24 avisos preexistentes** da base. Nenhum nos arquivos alterados; excluídos somente os diretórios temporários `*.local/`. [Inventário da base](lint-baseline.json). O build mantém avisos preexistentes de tamanho dos chunks do aplicativo e Browserslist antigo. Não foram alterados OCR, dependências ou a estrutura dos bundles para tratar esses avisos.
 
-O lint geral permanece pendente por problemas já presentes na base, principalmente `no-explicit-any` e `ban-ts-comment`, em arquivos não alterados por este PR. [Comparação e lista de arquivos](lint-baseline.json). O lint final excluiu somente o diretório local e ignorado `qa.local/`.
+## Evidências obrigatórias
 
-O build mantém avisos sobre tamanho de chunks do aplicativo e Browserslist antigo. Não foram alterados os bundles financeiros, de OCR ou suas dependências para tratar avisos fora do escopo.
+Capturas reais do navegador, geradas contra o build servido em preview local. O [resultado estruturado](browser-checks.json) registra navegação, limites horizontais, galeria com seis telas, FAQ por teclado, tema claro salvo e rotas comerciais. Nenhum formulário foi enviado. Os testes usam viewports simulados no Chromium, não aparelhos físicos.
 
-## Evidências de navegador
+| Largura | Primeira dobra | Página completa |
+| --- | --- | --- |
+| Desktop 1440 px | [Captura](landing-1440-hero.png) | [Captura completa](landing-1440-full.png) |
+| Desktop 1280 px | [Captura](landing-1280-hero.png) | [Captura completa](landing-1280-full.png) |
+| Mobile 390 px | [Captura](landing-390-hero.png) | [Captura completa](landing-390-full.png) |
 
-[Resultados estruturados](browser-checks.json): Chromium, larguras 320, 360, 390, 768, 1024, 1440 e 1920 px. Em cada largura foram verificados limites horizontais de textos/controles, âncoras existentes, deslocamento abaixo do cabeçalho, seleção de telas, assets acessíveis e FAQ por teclado. Menu móvel, fechamento por Escape e retorno de foco também verificados quando aplicáveis.
+Para repetir a geração dos assets: `node scripts/capture-landing-demo.mjs`. Requer apenas as dependências já existentes e o Chromium do Playwright. O script encerra seu servidor ao terminar.
 
-Também foram verificados tema claro salvo, CTA até a tela real de cadastro, rotas `/auth`, `/beta`, `/demonstracao` e ausência de links de checkout/Asaas na landing. Não houve envio de formulário ou solicitação real ao backend. Nenhum erro de execução JavaScript foi registrado. A revisão em viewports simulados não substitui testes em aparelhos físicos.
-
-- [Desktop: hero](landing-1440-hero.png) · [página completa](landing-1440-full.png)
-- [Celular: hero](landing-390-hero.png) · [página completa](landing-390-full.png)
-
-Para repetir: instale as dependências existentes, gere o build, sirva com `npm run preview -- --host 127.0.0.1 --port 5188` e execute o script acima. O Chromium do Playwright precisa estar disponível. O script escreve as evidências neste diretório e bloqueia Service Workers e tráfego Supabase no contexto de QA, sem mudar o Service Worker ou o cliente do aplicativo.
+Para repetir a revisão da landing: `npm run build`, servir com `npm run preview -- --host 127.0.0.1 --port 5188` e executar `node scripts/qa-finvision-landing.mjs http://127.0.0.1:5188`.
 
 ## Arquivos e limites
 
-- `src/pages/Conhecer.tsx`: conteúdo e interações comerciais.
-- `src/pages/Conhecer.css`: estilos responsivos, isolados pelo prefixo `fv-`.
-- `src/index.css`: somente acréscimo de tokens de cor exclusivos da landing.
-- `src/pages/Conhecer.test.tsx`: regressões de conversão, navegação, apresentação e condições do Beta.
-- `public/landing/*.webp`: quatro capturas reais otimizadas.
-- `scripts/qa-finvision-landing.mjs`: validação local de navegador.
-- `docs/reviews/finvision-landing-premium/*`: relatório e evidências.
+- `src/pages/Conhecer.tsx`, `Conhecer.css` e `Conhecer.test.tsx`: composição e regressões da página existente.
+- `src/index.css`: somente ajuste do token exclusivo `--landing-card`; paleta e providers do aplicativo preservados.
+- `public/landing/*.webp`: telas reais com dados DEMO e recortes usados na composição.
+- `scripts/capture-landing-demo.mjs`, `scripts/landing-demo/fixture.mjs` e `manifest.json`: captura reprodutível e isolada.
+- `scripts/qa-finvision-landing.mjs`: revisão de oito larguras, seis telas e novas evidências.
+- `docs/reviews/finvision-landing-premium/*`: relatório e capturas atualizados na mesma PR.
 
-Não foram modificados OCR, parser, câmera, compartilhamento Android, Service Worker, providers financeiros, cartões/faturas, banco de dados, autenticação, permissões, Asaas, rotas ou configurações de produção. A landing utiliza o fluxo de cadastro e análise de acesso que já existe. A liberação do Beta continua sob responsabilidade desse fluxo.
+OCR, parser, câmera, compartilhamento Android, Service Worker, lógica financeira, regras de cartões/faturas, banco, autenticação, permissões, Asaas e configurações de produção não foram alterados. Não há nova dependência nem migração.
 
-Status de publicação: **não publicado; aguardando validação do PR**. Não habilitar merge automático nem publicar a partir desta entrega.
+**Status: implementação pronta para validação visual na PR #62. Não publicada, sem merge e sem auto-merge. A publicação depende da aprovação visual do responsável.**

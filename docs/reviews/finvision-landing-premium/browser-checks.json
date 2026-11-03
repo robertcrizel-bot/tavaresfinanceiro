@@ -3,51 +3,66 @@
   "results": [
     {
       "width": 320,
+      "height": 844,
       "horizontalOverflow": false,
       "navigation": "passed",
-      "productPicker": "passed",
+      "productPicker": "6 demo screens passed",
       "faqKeyboard": "passed"
     },
     {
       "width": 360,
+      "height": 844,
       "horizontalOverflow": false,
       "navigation": "passed",
-      "productPicker": "passed",
+      "productPicker": "6 demo screens passed",
       "faqKeyboard": "passed"
     },
     {
       "width": 390,
+      "height": 844,
       "horizontalOverflow": false,
       "navigation": "passed",
-      "productPicker": "passed",
+      "productPicker": "6 demo screens passed",
       "faqKeyboard": "passed"
     },
     {
       "width": 768,
+      "height": 1000,
       "horizontalOverflow": false,
       "navigation": "passed",
-      "productPicker": "passed",
+      "productPicker": "6 demo screens passed",
       "faqKeyboard": "passed"
     },
     {
       "width": 1024,
+      "height": 1000,
       "horizontalOverflow": false,
       "navigation": "passed",
-      "productPicker": "passed",
+      "productPicker": "6 demo screens passed",
+      "faqKeyboard": "passed"
+    },
+    {
+      "width": 1280,
+      "height": 900,
+      "horizontalOverflow": false,
+      "navigation": "passed",
+      "productPicker": "6 demo screens passed",
       "faqKeyboard": "passed"
     },
     {
       "width": 1440,
+      "height": 1000,
       "horizontalOverflow": false,
       "navigation": "passed",
-      "productPicker": "passed",
+      "productPicker": "6 demo screens passed",
       "faqKeyboard": "passed"
     },
     {
       "width": 1920,
+      "height": 1000,
       "horizontalOverflow": false,
       "navigation": "passed",
-      "productPicker": "passed",
+      "productPicker": "6 demo screens passed",
       "faqKeyboard": "passed"
     },
     {

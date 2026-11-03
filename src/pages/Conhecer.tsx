@@ -23,11 +23,11 @@ const pains = [
   { icon: ReceiptText, title: "Informações espalhadas", text: "Um pouco na planilha, outro tanto nos comprovantes.", solution: "Centralize registros, contas e comprovantes no FinVision." },
 ];
 const features = [
-  { icon: Wallet, title: "Contas e cartões", text: "Cada conta, cartão e fatura no seu lugar. Acompanhe também as compras parceladas." },
-  { icon: ReceiptText, title: "Registros financeiros", text: "Registre entradas e saídas com categorias, observações e comprovantes anexados." },
-  { icon: BarChart3, title: "Análises de despesas", text: "Entenda seus gastos por categoria e período para decidir com mais clareza." },
-  { icon: Files, title: "Extratos", text: "Consulte as movimentações de contas e cartões e exporte seus relatórios." },
-  { icon: CalendarDays, title: "Previsões", text: "Organize contas recorrentes, confira os vencimentos e marque o que já foi pago." },
+  { icon: Wallet, title: "Contas e cartões", text: "Cada conta, cartão e fatura no seu lugar. Acompanhe também as compras parceladas.", image: "contas-detail", alt: "Cartão DEMO com limite e fatura preenchidos" },
+  { icon: ReceiptText, title: "Registros financeiros", text: "Registre entradas e saídas com categorias, observações e comprovantes anexados.", image: "registros-detail", alt: "Lista de registros DEMO com compras, receitas e parcelamentos fictícios" },
+  { icon: BarChart3, title: "Análises de despesas", text: "Entenda seus gastos por categoria e período para decidir com mais clareza.", image: "analises-detail", alt: "Evolução de gastos DEMO com comparação entre dois meses fictícios" },
+  { icon: Files, title: "Extratos", text: "Consulte as movimentações de contas e cartões e exporte seus relatórios.", image: "categorias-detail", alt: "Gráfico donut com sete categorias de despesas DEMO" },
+  { icon: CalendarDays, title: "Previsões", text: "Organize contas recorrentes, confira os vencimentos e marque o que já foi pago.", image: "orcamento-detail", alt: "Orçamento e valores realizados DEMO com barras preenchidas por categoria" },
 ];
 const steps = [
   { title: "Crie sua conta", text: "Faça o cadastro e solicite acesso ao Beta. A entrada depende de liberação." },
@@ -36,9 +36,12 @@ const steps = [
   { title: "Acompanhe suas finanças", text: "Consulte o dashboard, analise seus gastos e planeje o mês." },
 ];
 const screens = [
-  { id: "dashboard", icon: LayoutDashboard, label: "Dashboard", title: "Seu ponto de partida para decidir melhor.", text: "Receitas, despesas, saldo e movimentações reunidos em uma visão geral.", alt: "Dashboard real do FinVision sem movimentações, com saldo, receitas e despesas zerados" },
-  { id: "analises", icon: BarChart3, label: "Análises", title: "Mais contexto para cada escolha.", text: "Uma área dedicada a entender as despesas, com filtros por período e categoria.", alt: "Tela real de Análises de Despesas do FinVision, em estado vazio" },
-  { id: "registros", icon: ReceiptText, label: "Registros", title: "Os detalhes que fazem a diferença.", text: "Uma visão organizada dos lançamentos, com filtros para encontrar o que precisa.", alt: "Tela real de Meus Registros do FinVision sem lançamentos cadastrados" },
+  { id: "dashboard", icon: LayoutDashboard, label: "Dashboard", height: 1320, title: "Seu ponto de partida para decidir melhor.", text: "Receitas, despesas, saldo e movimentações reunidos em uma visão geral.", alt: "Dashboard real do FinVision com dados DEMO: saldo, receitas, despesas e gráficos preenchidos" },
+  { id: "analises", icon: BarChart3, label: "Análises", title: "Mais contexto para cada escolha.", text: "Uma área dedicada a entender as despesas, com filtros por período e categoria.", alt: "Tela real de Análises de Despesas do FinVision com categorias, evolução e orçamento DEMO" },
+  { id: "registros", icon: ReceiptText, label: "Registros", title: "Os detalhes que fazem a diferença.", text: "Uma visão organizada dos lançamentos, com filtros para encontrar o que precisa.", alt: "Tela real de Meus Registros do FinVision com lançamentos e parcelas DEMO" },
+  { id: "extratos", icon: Files, label: "Extratos", title: "Cada movimentação conta uma parte da história.", text: "Consulte o período, acompanhe o fluxo e visualize as despesas por categoria.", alt: "Tela real de Extratos do FinVision com movimentações, gráfico donut e evolução DEMO" },
+  { id: "contas", icon: CreditCard, label: "Cartões", height: 730, title: "A fatura de hoje. As escolhas de amanhã.", text: "Veja o limite, o valor da fatura e as condições do cartão em um só lugar.", alt: "Tela real de Cartões do FinVision com fatura e limite DEMO" },
+  { id: "previsoes", icon: CalendarDays, label: "Previsões", title: "Antecipe o mês, sem perder os detalhes.", text: "Reúna receitas e contas previstas e acompanhe o que já foi pago.", alt: "Tela real de Previsões do FinVision com contas e receitas recorrentes DEMO" },
 ];
 const faq = [
   { q: "Como o FinVision funciona?", a: "Você cadastra suas contas e cartões e registra receitas e despesas. O FinVision reúne essas informações no dashboard, nas análises, nos extratos e nas previsões. Não há conexão automática com seu banco." },
@@ -81,21 +84,24 @@ export default function Conhecer() {
       </header>
       <main id="conteudo">
         <section className="fv-hero fv-container" aria-labelledby="hero-title">
+          <div className="fv-hero-layout">
           <div className="fv-hero-copy">
-            <a href="#plano" className="fv-badge"><span className="fv-dot" /> FinVision Beta <span className="fv-badge-divider">/</span> Clareza começa aqui <ArrowRight size={13} aria-hidden="true" /></a>
-            <h1 id="hero-title">Seu dinheiro mais organizado.<br /><span>Suas decisões mais claras.</span></h1>
-            <p className="fv-lead">Contas, cartões, lançamentos e análises em um só lugar.<br className="fv-desktop-break" /> Tenha uma visão clara das suas finanças e mais tranquilidade para planejar.</p>
+            <a href="#plano" className="fv-badge"><span className="fv-dot" /> Seu próximo capítulo financeiro <ArrowRight size={13} aria-hidden="true" /></a>
+            <h1 id="hero-title">Seu dinheiro mais organizado.<br /><span>Suas decisões <em>mais claras.</em></span></h1>
+            <p className="fv-lead">Contas, cartões, lançamentos e análises em um só lugar. Menos informações espalhadas. Mais clareza para cuidar do que é seu.</p>
             <div className="fv-cta-row"><SignupLink /><a href="#recursos" className="fv-button fv-button-secondary">Conhecer os recursos <ArrowDown size={16} aria-hidden="true" /></a></div>
             <p className="fv-hero-note"><LockKeyhole size={13} aria-hidden="true" /> Cadastro sem pagamento. Acesso Beta sujeito à liberação.</p>
           </div>
           <figure className="fv-hero-product">
             <div className="fv-browser">
-              <div className="fv-browser-bar" aria-hidden="true"><span className="fv-browser-dots"><i /><i /><i /></span><span><LockKeyhole size={10} /> FinVision / Sua central financeira</span><span className="fv-live-label"><span className="fv-dot" /> Visão geral</span></div>
-              <picture><source media="(max-width: 599px)" srcSet="/landing/dashboard-mobile.webp" width="390" height="844" /><img className="fv-dashboard-image" src="/landing/dashboard.webp" alt="Dashboard real do FinVision: visão geral com saldo, receitas e despesas zerados, sem dados de clientes" width="1440" height="1024" loading="eager" /></picture>
+              <div className="fv-browser-bar"><span className="fv-browser-dots" aria-hidden="true"><i /><i /><i /></span><span>FinVision <span className="fv-demo-tag">DEMO</span></span><span className="fv-live-label">Outubro / 2026</span></div>
+              <picture><source media="(max-width: 599px)" srcSet="/landing/dashboard-mobile-focus.webp" width="366" height="450" /><img className="fv-dashboard-image" src="/landing/dashboard-focus.webp" alt="Dashboard real do FinVision com dados DEMO: receitas de R$ 8.540,00, despesas de R$ 4.516,95 e saldo de R$ 4.023,05" width="1120" height="900" loading="eager" /></picture>
             </div>
-            <div className="fv-phone"><div className="fv-phone-speaker" aria-hidden="true" /><img src="/landing/dashboard-mobile.webp" alt="Dashboard real do FinVision no celular, em estado vazio" width="390" height="844" /></div>
-            <figcaption>Seu financeiro em perspectiva. <span>Capturas reais do aplicativo, sem dados de clientes.</span></figcaption>
+            <div className="fv-floating-chart"><div><span className="fv-dot" /> Evolução dos gastos <span>DEMO</span></div><img src="/landing/analises-detail.webp" alt="Gráfico real do FinVision com evolução de despesas DEMO e comparação com o mês anterior" width="368" height="368" /></div>
+            <div className="fv-floating-donut"><div>Para onde vai <ArrowUpRight size={14} aria-hidden="true" /></div><img src="/landing/categorias-detail.webp" alt="Gráfico donut real com sete categorias de gastos DEMO" width="380" height="190" /><p>7 categorias <span>DEMO</span></p></div>
+            <figcaption><span className="fv-dot" /> Telas reais. Dados DEMO fictícios. Nenhuma informação de clientes.</figcaption>
           </figure>
+          </div>
           <div className="fv-assurances"><span><Smartphone size={17} aria-hidden="true" /> No celular e computador</span><span><Wallet size={17} aria-hidden="true" /> Sem conexão bancária</span><span><ScanLine size={17} aria-hidden="true" /> IA com revisão por você</span></div>
         </section>
         <section className="fv-section fv-problem" aria-labelledby="problema-title"><div className="fv-container">
@@ -105,8 +111,8 @@ export default function Conhecer() {
         <section id="recursos" className="fv-section fv-container" aria-labelledby="recursos-title">
           <div className="fv-section-heading fv-centered"><p className="fv-eyebrow">Uma visão completa, do seu jeito</p><h2 id="recursos-title">Tudo conectado.<br /><span className="fv-green">Tudo mais claro.</span></h2><p className="fv-description">Do primeiro lançamento ao planejamento do mês.<br />O essencial para cuidar das suas finanças em um só lugar.</p></div>
           <div className="fv-feature-grid">
-            <article className="fv-feature fv-feature-dashboard"><div className="fv-feature-copy"><span className="fv-icon-box"><LayoutDashboard size={22} aria-hidden="true" /></span><p className="fv-eyebrow">O panorama que faltava</p><h3>Dashboard financeiro</h3><p>Entenda como está seu mês. Saldo, receitas, despesas e movimentações reunidos em uma visão geral.</p><a href="#produto" className="fv-text-link">Explorar o produto <ArrowUpRight size={16} aria-hidden="true" /></a></div><div className="fv-feature-image"><img src="/landing/dashboard.webp" alt="Visão do dashboard do FinVision sem movimentações" width="1440" height="1024" loading="lazy" /></div></article>
-            {features.map(({ icon: Icon, title, text }) => <article key={title} className="fv-feature fv-feature-small"><span className="fv-icon-box"><Icon size={22} aria-hidden="true" /></span><h3>{title}</h3><p>{text}</p></article>)}
+            <article className="fv-feature fv-feature-dashboard"><div className="fv-feature-copy"><span className="fv-icon-box"><LayoutDashboard size={22} aria-hidden="true" /></span><p className="fv-eyebrow">O panorama que faltava</p><h3>Dashboard financeiro</h3><p>Entenda como está seu mês. Saldo, receitas, despesas e movimentações reunidos em uma visão geral.</p><a href="#produto" className="fv-text-link">Explorar o produto <ArrowUpRight size={16} aria-hidden="true" /></a><span className="fv-demo-note">Visualização com dados DEMO</span></div><div className="fv-feature-image"><img src="/landing/dashboard.webp" alt="Dashboard real do FinVision preenchido com dados DEMO, contas e gráficos" width="1440" height="1320" loading="lazy" /></div></article>
+            {features.map(({ icon: Icon, title, text, image, alt }) => <article key={title} className={`fv-feature fv-feature-small fv-feature-${image}`}><div className="fv-small-feature-copy"><span className="fv-icon-box"><Icon size={22} aria-hidden="true" /></span><h3>{title}</h3><p>{text}</p></div><div className="fv-mini-product"><span className="fv-demo-tag">DEMO</span><img src={`/landing/${image}.webp`} alt={alt} loading="lazy" /></div></article>)}
             <article className="fv-feature fv-feature-ai"><div><span className="fv-ai-label"><ScanLine size={18} aria-hidden="true" /> Leitura assistida com IA</span><h3>Do comprovante ao registro,<br />com você no controle.</h3><p>Quando disponível, a IA sugere os dados do comprovante. Você revisa, corrige e confirma antes de salvar.</p><p className="fv-small-note">Recurso em avaliação, sujeito à disponibilidade e a limites. Não é um benefício garantido do Beta.</p></div><ol className="fv-ai-steps"><li><span>01</span> Envie o comprovante</li><li><span>02</span> Revise as sugestões</li><li><span>03</span> Confirme o registro <Check size={17} aria-hidden="true" /></li></ol></article>
           </div>
         </section>
@@ -116,9 +122,9 @@ export default function Conhecer() {
           <div className="fv-centered fv-how-cta"><SignupLink>Começar meu cadastro</SignupLink></div>
         </div></section>
         <section id="produto" className="fv-section fv-container" aria-labelledby="produto-title">
-          <div className="fv-section-heading fv-heading-split"><div><p className="fv-eyebrow">Conheça por dentro</p><h2 id="produto-title">Feito para você enxergar<br />o que realmente importa.</h2></div><p className="fv-description">Explore as telas reais do FinVision.<br />Uma experiência pensada para a sua rotina, no computador e no celular.</p></div>
+          <div className="fv-section-heading fv-heading-split"><div><p className="fv-eyebrow">Conheça por dentro</p><h2 id="produto-title">Seus números.<br /><em>Uma nova perspectiva.</em></h2></div><p className="fv-description">Explore as telas reais do FinVision com exemplos de uso. Todos os valores abaixo são dados DEMO fictícios.</p></div>
           <div className="fv-screen-buttons" role="group" aria-label="Escolher tela do produto">{screens.map(screen => <button type="button" key={screen.id} aria-pressed={selectedScreen.id === screen.id} onClick={() => setSelectedScreen(screen)}><screen.icon size={17} aria-hidden="true" />{screen.label}</button>)}</div>
-          <figure className="fv-product-figure"><div className="fv-product-caption" aria-live="polite"><div><h3>{selectedScreen.title}</h3><p>{selectedScreen.text}</p></div><a href={`/landing/${selectedScreen.id}.webp`} target="_blank" rel="noopener noreferrer" className="fv-text-link" aria-label={`Ampliar captura de ${selectedScreen.label} em nova aba`}>Ampliar <ArrowUpRight size={15} aria-hidden="true" /></a></div><img src={`/landing/${selectedScreen.id}.webp`} alt={selectedScreen.alt} width="1440" height="1024" loading="lazy" /><figcaption>Capturas reais em estado vazio. Nenhum dado de cliente ou resultado financeiro é apresentado.</figcaption></figure>
+          <figure className="fv-product-figure"><div className="fv-product-caption" aria-live="polite"><div><span className="fv-demo-tag">DEMO — DADOS FICTÍCIOS</span><h3>{selectedScreen.title}</h3><p>{selectedScreen.text}</p></div><a href={`/landing/${selectedScreen.id}.webp`} target="_blank" rel="noopener noreferrer" className="fv-text-link" aria-label={`Ampliar captura de ${selectedScreen.label} em nova aba`}>Ampliar <ArrowUpRight size={15} aria-hidden="true" /></a></div><img src={`/landing/${selectedScreen.id}.webp`} alt={selectedScreen.alt} width="1440" height={selectedScreen.height ?? 1100} loading="lazy" /><figcaption>Telas reais do aplicativo com dados DEMO fictícios. Os exemplos não representam clientes nem resultados garantidos.</figcaption></figure>
           <p className="fv-demo-link">Prefere conhecer o passo a passo? <Link to="/demonstracao" className="fv-text-link">Ver roteiro de apresentação <ArrowRight size={15} aria-hidden="true" /></Link></p>
         </section>
         <section id="plano" className="fv-section fv-plan-section" aria-labelledby="plano-title"><div className="fv-container fv-plan-layout">

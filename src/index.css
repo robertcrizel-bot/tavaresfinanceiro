@@ -9,7 +9,7 @@
     /* The public landing keeps its navy palette in either application theme. */
     --landing-background: 222 47% 5%;
     --landing-surface: 222 40% 6%;
-    --landing-card: 222 35% 8%;
+    --landing-card: 220 29% 10%;
     --landing-foreground: 210 25% 96%;
     --landing-muted: 216 15% 68%;
     --landing-border: 218 27% 17%;
