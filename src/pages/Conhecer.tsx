@@ -161,7 +161,7 @@ export default function Conhecer() {
                   <source media="(max-width: 599px)" srcSet="/landing/analises-categorias.webp" width="406" height="535" />
                   <img src="/landing/analises-overview.webp" alt="Recorte real das análises do FinVision com dados DEMO: gastos por categoria, comparação entre períodos, aumentos e orçamento realizado" width="826" height="776" loading="lazy" />
                 </picture>
-                <figcaption>Imagem demonstrativa com dados fictícios.</figcaption>
+                
               </figure>
             </article>
             <article id="ia-destaque" className="fv-feature fv-feature-spotlight fv-spotlight-ai" aria-labelledby="ia-destaque-title">
