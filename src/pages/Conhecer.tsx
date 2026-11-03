@@ -167,14 +167,11 @@ export default function Conhecer() {
               <div className="fv-spotlight-copy">
                 <span className="fv-icon-box"><Sparkles size={24} aria-hidden="true" /></span>
                 <p className="fv-eyebrow">02 / Leitura por IA</p>
-                <h3 id="ia-destaque-title">Leitura por IA para deixar seu lançamento praticamente pronto.</h3>
-                <p>Envie uma foto ou comprovante e a IA analisa o conteúdo para sugerir valor, data, estabelecimento/descrição e categoria. Quando a leitura identifica essas informações, elas são levadas ao cadastro para sua conferência. Sempre que possível, os itens da compra também entram na descrição.</p>
-                <p>Reduza a digitação manual: confira os campos sugeridos, faça os ajustes necessários e só então salve o lançamento.</p>
+                <h3 id="ia-destaque-title">Leitura por IA. Menos digitação, mais praticidade.</h3>
+                <p>Tire uma foto do comprovante e deixe a IA preparar seu lançamento, incluindo os itens da compra sempre que identificados. Você só confere e salva.</p>
                 <ul className="fv-value-points">
-                  <li><Check size={17} aria-hidden="true" /> Menos digitação manual</li>
-                  <li><Check size={17} aria-hidden="true" /> Campos sugeridos para revisão antes de salvar</li>
-                  <li><Check size={17} aria-hidden="true" /> Leitura dos itens do comprovante, quando identificados</li>
-                  <li><Check size={17} aria-hidden="true" /> Mais rapidez para registrar compras e despesas</li>
+                  <li><Check size={17} aria-hidden="true" /> Dados preenchidos para revisar</li>
+                  <li><Check size={17} aria-hidden="true" /> Itens incluídos quando identificados</li>
                 </ul>
                 <a href="#ia-fluxo" className="fv-button fv-button-primary" aria-describedby="ia-fluxo-caption">
                   Veja como a IA agiliza seus lançamentos <ArrowDown size={17} aria-hidden="true" />
@@ -197,7 +194,23 @@ export default function Conhecer() {
               </div>
               <div className="fv-feature-image"><img src="/landing/dashboard.webp" alt="Dashboard real do FinVision preenchido com dados DEMO, contas e gráficos" width="1440" height="1320" loading="lazy" /></div>
             </article>
-            {features.map(({ icon: Icon, title, headline, text, image, alt }) => <article key={title} className={`fv-feature fv-feature-small fv-feature-${image}`}><div className="fv-small-feature-copy"><span className="fv-icon-box"><Icon size={22} aria-hidden="true" /></span><p className="fv-eyebrow">{title}</p><h3>{headline}</h3><p>{text}</p></div><div className="fv-mini-product"><span className="fv-demo-tag">DEMO</span><img src={`/landing/${image}.webp`} alt={alt} loading="lazy" /></div></article>)}
+            {features.map(({ icon: Icon, title, headline, text, image, alt }) => <article key={title} className={`fv-feature fv-feature-small fv-feature-${image}`}><div className="fv-small-feature-copy"><span className="fv-icon-box"><Icon size={22} aria-hidden="true" /></span><p className="fv-eyebrow">{title}</p><h3>{headline}</h3><p>{text}</p></div><div className="fv-mini-product">
+              {image === "registros-focus" ? (
+                <div className="fv-demo-records" role="region" aria-label="Exemplo ilustrativo de registros financeiros com dados fictícios">
+                  <div className="fv-demo-records-head"><span>Data</span><span>Descrição</span><span>Categoria</span><span>Valor</span></div>
+                  {[
+                    ["24/10", "Estacionamento", "Transporte", "−R$ 18,00"],
+                    ["23/10", "Delivery", "Alimentação", "−R$ 54,90"],
+                    ["22/10", "Presente", "Outros", "−R$ 149,90"],
+                    ["21/10", "Academia", "Saúde", "−R$ 149,90"],
+                    ["20/10", "Restaurante", "Alimentação", "−R$ 89,90"],
+                  ].map(([date, description, category, amount]) => (
+                    <div className="fv-demo-records-row" key={date}><span>{date}</span><strong>{description}</strong><span>{category}</span><span>{amount}</span></div>
+                  ))}
+                  <p className="fv-demo-records-note">Exemplo com dados fictícios. Explore a tela completa na galeria.</p>
+                </div>
+              ) : <img src={`/landing/${image}.webp`} alt={alt} loading="lazy" />}
+            </div></article>)}
           </div>
         </section>
         <section id="como-funciona" className="fv-section fv-how" aria-labelledby="como-title"><div className="fv-container">
