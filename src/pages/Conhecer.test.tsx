@@ -110,6 +110,8 @@ describe("public pages", () => {
     expect(highlights[0].querySelector("img")).toHaveAttribute("src", "/landing/analises-overview.webp");
     const supporting = section.querySelectorAll(".fv-feature-grid .fv-eyebrow");
     expect([...supporting].map(element => element.textContent)).toEqual(["Registros financeiros", "Extratos", "Contas e cartões", "Previsões"]);
+    expect(section.querySelector(".fv-feature-grid .fv-feature-dashboard")).toHaveTextContent("Toda a sua vida financeira em uma só visão.");
+    expect(section.querySelector(".fv-feature-dashboard img")).toHaveAttribute("src", "/landing/dashboard.webp");
   });
 
   it("opens the actual analysis view in the gallery from its benefit link", () => {
@@ -124,9 +126,9 @@ describe("public pages", () => {
   it("explains the IA benefit without pretending to run a receipt read or guarantee timing", () => {
     render(<MemoryRouter><Conhecer /></MemoryRouter>);
     const feature = document.getElementById("ia-destaque")!;
-    expect(feature).toHaveTextContent("Leitura por IA que já deixa seu lançamento praticamente pronto");
-    expect(feature).toHaveTextContent("preenche automaticamente valor, data e estabelecimento/descrição");
-    expect(feature).toHaveTextContent("Você não precisa digitar tudo manualmente");
+    expect(feature).toHaveTextContent("Leitura por IA para deixar seu lançamento praticamente pronto");
+    expect(feature).toHaveTextContent("sugerir valor, data, estabelecimento/descrição e categoria");
+    expect(feature).toHaveTextContent("Reduza a digitação manual");
     expect(feature).toHaveTextContent("Sempre que possível");
     expect(feature).toHaveTextContent("Itens incluídos");
     expect(feature).toHaveTextContent("Você revisa e confirma");
