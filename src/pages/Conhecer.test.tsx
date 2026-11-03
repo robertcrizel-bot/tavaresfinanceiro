@@ -37,6 +37,8 @@ describe("public pages", () => {
     const hero = screen.getByRole("heading", { level: 1 });
     expect(hero.querySelectorAll(".fv-green")).toHaveLength(1);
     expect(hero.querySelector(".fv-green")).toHaveTextContent("dinheiro.");
+    expect(document.querySelector(".fv-hero-brand")).toHaveTextContent("FinVision");
+    expect(document.querySelector(".fv-hero-brand .fv-brand-mark")).toBeInTheDocument();
     const copy = document.querySelector(".fv-hero-copy")!;
     const product = document.querySelector(".fv-hero-product")!;
     expect(copy.parentElement?.children[1]).toBe(product);
