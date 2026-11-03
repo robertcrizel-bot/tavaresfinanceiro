@@ -89,7 +89,7 @@ describe("public pages", () => {
     const questions = document.querySelectorAll("#faq details");
     expect(questions).toHaveLength(7);
     const ai = screen.getByText("Como funciona a leitura de comprovantes com IA?").closest("details")!;
-    expect(ai).toHaveTextContent("conferir e corrigir");
+    expect(ai).toHaveTextContent("Confira e corrija");
     expect(ai).toHaveTextContent("não é um benefício garantido do plano Beta");
     const signup = screen.getByText("Como faço o cadastro e solicito o Beta?").closest("details")!;
     expect(signup).toHaveTextContent("Solicitar análise de acesso");
@@ -109,7 +109,7 @@ describe("public pages", () => {
     expect(highlights[0]).toHaveTextContent("o que aumentou");
     expect(highlights[0].querySelector("img")).toHaveAttribute("src", "/landing/analises-overview.webp");
     const supporting = section.querySelectorAll(".fv-feature-grid .fv-eyebrow");
-    expect([...supporting].map(element => element.textContent)).toEqual(["Registros financeiros", "Extratos", "Contas e cartões", "Previsões"]);
+    expect([...supporting].map(element => element.textContent)).toEqual(["Dashboard financeiro", "Registros financeiros", "Extratos", "Contas e cartões", "Previsões"]);
     expect(section.querySelector(".fv-feature-grid .fv-feature-dashboard")).toHaveTextContent("Toda a sua vida financeira em uma só visão.");
     expect(section.querySelector(".fv-feature-dashboard img")).toHaveAttribute("src", "/landing/dashboard.webp");
   });
