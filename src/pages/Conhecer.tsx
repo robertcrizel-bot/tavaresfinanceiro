@@ -184,28 +184,19 @@ export default function Conhecer() {
           </div>
           <p className="fv-supporting-heading">E o restante da sua vida financeira, no mesmo lugar.</p>
           <div className="fv-feature-grid">
-            <article className="fv-feature fv-showcase-wide fv-showcase-dashboard" aria-labelledby="fv-dashboard-title">
-              <div className="fv-showcase-copy">
+            <article className="fv-feature fv-feature-dashboard">
+              <div className="fv-feature-copy">
                 <span className="fv-icon-box"><LayoutDashboard size={22} aria-hidden="true" /></span>
                 <p className="fv-eyebrow">Dashboard financeiro</p>
-                <h3 id="fv-dashboard-title">Toda a sua vida financeira em uma só visão.</h3>
-                <p>Acompanhe saldo, entradas, saídas e movimentações em um painel claro e prático.</p>
-                <a href="#produto" className="fv-text-link" onClick={() => setSelectedScreen(screens.find(screen => screen.id === "dashboard")!)}>Explorar o dashboard <ArrowUpRight size={16} aria-hidden="true" /></a>
+                <h3>Toda a sua vida financeira em uma só visão.</h3>
+                <p>Acompanhe saldo, entradas, saídas e movimentações no mesmo painel para entender o mês sem procurar informações em várias telas.</p>
+                <a href="#produto" className="fv-text-link">Explorar o dashboard <ArrowUpRight size={16} aria-hidden="true" /></a>
+                <span className="fv-demo-note">Visualização com dados DEMO</span>
               </div>
-              <figure className="fv-showcase-visual">
-                <img src="/landing/dashboard-focus.webp" alt="Recorte DEMO do dashboard do FinVision, com saldos, receitas, despesas e gráficos" loading="lazy" />
-                <figcaption>Dashboard real com dados fictícios para demonstração.</figcaption>
-              </figure>
+              <div className="fv-feature-image"><img src="/landing/dashboard.webp" alt="Dashboard real do FinVision preenchido com dados DEMO, contas e gráficos" width="1440" height="1320" loading="lazy" /></div>
             </article>
-            <article className="fv-feature fv-showcase-wide fv-showcase-records" aria-labelledby="fv-records-title">
-              <div className="fv-showcase-copy">
-                <span className="fv-icon-box"><ReceiptText size={22} aria-hidden="true" /></span>
-                <p className="fv-eyebrow">Registros financeiros</p>
-                <h3 id="fv-records-title">Cada lançamento com os detalhes certos.</h3>
-                <p>Encontre seus registros por data, descrição, categoria e valor — sem perder informações importantes.</p>
-                <a href="#produto" className="fv-text-link" onClick={() => setSelectedScreen(screens.find(screen => screen.id === "registros")!)}>Explorar os registros <ArrowUpRight size={16} aria-hidden="true" /></a>
-              </div>
-              <div className="fv-showcase-visual fv-showcase-records-visual">
+            {features.map(({ icon: Icon, title, headline, text, image, alt }) => <article key={title} className={`fv-feature fv-feature-small fv-feature-${image}`}><div className="fv-small-feature-copy"><span className="fv-icon-box"><Icon size={22} aria-hidden="true" /></span><p className="fv-eyebrow">{title}</p><h3>{headline}</h3><p>{text}</p></div><div className="fv-mini-product">
+              {image === "registros-focus" ? (
                 <div className="fv-demo-records" role="region" aria-label="Exemplo ilustrativo de registros financeiros com dados fictícios">
                   <div className="fv-demo-records-head"><span>Data</span><span>Descrição</span><span>Categoria</span><span>Valor</span></div>
                   {[
@@ -217,11 +208,10 @@ export default function Conhecer() {
                   ].map(([date, description, category, amount]) => (
                     <div className="fv-demo-records-row" key={date}><span>{date}</span><strong>{description}</strong><span>{category}</span><span>{amount}</span></div>
                   ))}
-                  <p className="fv-demo-records-note">Exemplo com dados fictícios. Veja a tela completa na galeria.</p>
+                  <p className="fv-demo-records-note">Exemplo com dados fictícios. Explore a tela completa na galeria.</p>
                 </div>
-              </div>
-            </article>
-            {features.filter(feature => feature.image !== "registros-focus").map(({ icon: Icon, title, headline, text, image, alt }) => <article key={title} className={`fv-feature fv-feature-small fv-feature-${image}`}><div className="fv-small-feature-copy"><span className="fv-icon-box"><Icon size={22} aria-hidden="true" /></span><p className="fv-eyebrow">{title}</p><h3>{headline}</h3><p>{text}</p></div><div className="fv-mini-product"><span className="fv-demo-tag">DEMO</span><img src={`/landing/${image}.webp`} alt={alt} loading="lazy" /></div></article>)}
+              ) : <img src={`/landing/${image}.webp`} alt={alt} loading="lazy" />}
+            </div></article>)}
           </div>
         </section>
         <section id="como-funciona" className="fv-section fv-how" aria-labelledby="como-title"><div className="fv-container">
