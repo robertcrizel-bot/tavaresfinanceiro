@@ -54,8 +54,11 @@ export default function Beta() {
                   Assinaturas em preparação
                 </span>
               )}
+              <Link to="/auth?mode=cadastro" className="inline-flex min-h-12 items-center rounded-xl border border-border px-6 text-sm font-semibold hover:bg-accent">
+                Criar conta para solicitar acesso
+              </Link>
               <Link to="/auth" className="inline-flex min-h-12 items-center rounded-xl border border-border px-6 text-sm font-semibold hover:bg-accent">
-                Acessar minha conta
+                Já tenho conta
               </Link>
             </div>
             {checkoutUrl && (
