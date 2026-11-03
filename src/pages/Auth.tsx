@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { Link, useSearchParams } from "react-router-dom";
 import { useAuth } from "@/contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,7 +9,8 @@ import { Loader2 } from "lucide-react";
 
 export default function Auth() {
   const { signIn, signUp } = useAuth();
-  const [isLogin, setIsLogin] = useState(true);
+  const [searchParams] = useSearchParams();
+  const [isLogin, setIsLogin] = useState(searchParams.get("mode") !== "cadastro");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [displayName, setDisplayName] = useState("");
@@ -38,7 +39,7 @@ export default function Auth() {
       <div className="w-full max-w-sm space-y-6">
         <div className="text-center">
           <h1 className="text-3xl font-bold text-foreground">
-            Finance<span className="text-primary">Control</span>
+            <span className="text-foreground">Fin</span><span className="text-primary">Vision</span>
           </h1>
           <p className="text-muted-foreground mt-2">
             {isLogin ? "Entre na sua conta" : "Crie sua conta"}
@@ -84,6 +85,7 @@ export default function Auth() {
               </Link>
             </div>
           )}
+          {!isLogin && <p className="text-xs leading-5 text-muted-foreground">O cadastro não ativa uma assinatura. Durante o Beta, o acesso depende de liberação.</p>}
           <Button type="submit" className="w-full" disabled={loading}>
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
             {isLogin ? "Entrar" : "Criar Conta"}
