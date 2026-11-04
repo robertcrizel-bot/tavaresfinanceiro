@@ -1,4 +1,5 @@
-import { LayoutDashboard, List, User, Wallet, Tag, CalendarClock, ArrowLeftRight, PieChart, ReceiptText, ScanLine } from "lucide-react";
+import { LayoutDashboard, List, User, Wallet, Tag, CalendarClock, ArrowLeftRight, PieChart, ReceiptText, ScanLine, ShieldCheck } from "lucide-react";
+import { useIsAdmin } from "@/lib/beta-admin";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -28,6 +29,7 @@ export function AppSidebar() {
   const { state, setOpenMobile } = useSidebar();
   const collapsed = state === "collapsed";
   const isMobile = useIsMobile();
+  const { isAdmin } = useIsAdmin();
 
   const handleNavClick = () => {
     if (isMobile) setOpenMobile(false);
@@ -84,6 +86,21 @@ export function AppSidebar() {
 
       <SidebarFooter className="border-t border-sidebar-border bg-sidebar p-3">
         <SidebarMenu>
+          {isAdmin && (
+            <SidebarMenuItem>
+              <SidebarMenuButton asChild>
+                <NavLink
+                  to="/admin"
+                  className="flex h-10 items-center gap-3 rounded-lg px-3 text-sm text-sidebar-foreground transition-colors hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+                  activeClassName="bg-sidebar-accent text-sidebar-primary font-bold"
+                  onClick={handleNavClick}
+                >
+                  <ShieldCheck className="h-5 w-5 shrink-0" />
+                  {(!collapsed || isMobile) && <span>Administração</span>}
+                </NavLink>
+              </SidebarMenuButton>
+            </SidebarMenuItem>
+          )}
           <SidebarMenuItem>
             <SidebarMenuButton asChild>
               <NavLink

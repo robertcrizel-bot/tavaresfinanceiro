@@ -2,3 +2,6 @@ project_id = "onhmpgevkttysbfllhjq"
 
 [functions.parse-receipt-free]
 verify_jwt = true
+
+[functions.beta-admin]
+verify_jwt = false
