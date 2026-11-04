@@ -27,8 +27,9 @@ export default function Auth() {
         await signUp(email, password, displayName || undefined);
         toast({ title: "Conta criada!", description: "Verifique seu email para confirmar." });
       }
-    } catch (err: any) {
-      toast({ title: "Erro", description: err.message, variant: "destructive" });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Não foi possível autenticar.";
+      toast({ title: "Erro", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
