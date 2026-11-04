@@ -119,7 +119,7 @@ try {
   await save('analises');
   await save('analises-detail', { clip: await clipElement('.recharts-wrapper', 430) });
   await page.setViewportSize({ width: 1440, height: 1100 });
-  await save('orcamento-detail', { clip: await clipElement('section:has(> div > h3:text-is("Orçamento × Realizado"))', 300), scale: 'device' });
+  await save('orcamento-detail', { clip: await clipElement('section:has(> div > h3:text-is("Orçamento × Realizado"))', 760), scale: 'device' });
   await open('/records');
   await save('registros');
   await save('registros-detail', { clip: await clipElement('table', 360) });
@@ -130,7 +130,7 @@ try {
   await page.getByRole('tab', { name: 'Cartões', exact: true }).click();
   await save('contas', { clip: { x: 0, y: 0, width: 1440, height: 730 } });
   await save('contas-detail', { clip: await clipElement('main [role="tabpanel"][data-state="active"] .grid > div', 420), scale: 'device' });
-  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.setViewportSize({ width: 1440, height: 1600 });
   await open('/extratos');
   assert.ok(await page.locator('.recharts-pie-sector').count() >= 3, 'Statement donut must contain visible categories');
   await save('extratos');
