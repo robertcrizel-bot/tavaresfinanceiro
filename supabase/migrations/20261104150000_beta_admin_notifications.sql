@@ -33,7 +33,7 @@ GRANT SELECT, INSERT, UPDATE, DELETE ON public.beta_notification_deliveries TO s
 CREATE OR REPLACE FUNCTION public.beta_claim_notification(p_request uuid, p_channel text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = ''
 AS $$
-DECLARE claimed boolean;
+DECLARE claimed_count integer;
 BEGIN
   IF p_channel NOT IN ('email','push') THEN RETURN false; END IF;
   INSERT INTO public.beta_notification_deliveries(request_id, channel, claimed_at, attempts)
@@ -43,8 +43,8 @@ BEGIN
     WHERE public.beta_notification_deliveries.delivered_at IS NULL
       AND (public.beta_notification_deliveries.claimed_at IS NULL
            OR public.beta_notification_deliveries.claimed_at < now() - interval '10 minutes');
-  GET DIAGNOSTICS claimed = ROW_COUNT;
-  RETURN claimed;
+  GET DIAGNOSTICS claimed_count = ROW_COUNT;
+  RETURN claimed_count > 0;
 END;
 $$;
 REVOKE ALL ON FUNCTION public.beta_claim_notification(uuid,text) FROM PUBLIC, anon, authenticated;
