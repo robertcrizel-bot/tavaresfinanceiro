@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/pages/Conhecer.tsx'
       - 'src/pages/Conhecer.css'
+      - 'scripts/qa-finvision-landing.mjs'
       - 'src/pages/Conhecer.test.tsx'
       - 'src/components/ui/button.tsx'
       - 'src/pages/Dashboard.tsx'
