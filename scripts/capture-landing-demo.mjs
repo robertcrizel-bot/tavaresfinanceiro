@@ -114,10 +114,11 @@ try {
   assert.ok(await page.locator('.recharts-line-curve').count() > 0, 'Dashboard must contain a real rendered chart');
   await save('dashboard');
   await save('dashboard-focus', { clip: await clipElement('.premium-dashboard', 900) });
-  await page.setViewportSize({ width: 1440, height: 1100 });
+  await page.setViewportSize({ width: 1440, height: 1490 });
   await open('/analises-despesas');
   await save('analises');
   await save('analises-detail', { clip: await clipElement('.recharts-wrapper', 430) });
+  await page.setViewportSize({ width: 1440, height: 1100 });
   await save('orcamento-detail', { clip: await clipElement('section:has(> div > h3:text-is("Orçamento × Realizado"))', 300), scale: 'device' });
   await open('/records');
   await save('registros');
