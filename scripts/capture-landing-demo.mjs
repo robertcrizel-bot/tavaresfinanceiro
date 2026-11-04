@@ -114,7 +114,7 @@ try {
   assert.ok(await page.locator('.recharts-line-curve').count() > 0, 'Dashboard must contain a real rendered chart');
   await save('dashboard');
   await save('dashboard-focus', { clip: await clipElement('.premium-dashboard', 900) });
-  await page.setViewportSize({ width: 1440, height: 1490 });
+  await page.setViewportSize({ width: 1440, height: 1850 });
   await open('/analises-despesas');
   await save('analises');
   await save('analises-detail', { clip: await clipElement('.recharts-wrapper', 430) });
