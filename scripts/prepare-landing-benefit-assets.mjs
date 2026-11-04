@@ -4,7 +4,7 @@ import { chromium } from '@playwright/test';
 // Crops only existing genuine DEMO screenshots at 2x native pixel resolution. No backend or generated UI.
 const SCALE = 2;
 const crops = [
-  { name: 'analises-overview', source: 'analises', x: 584, y: 324, width: 826, height: 1080 },
+  { name: 'analises-overview', source: 'analises', x: 584, y: 324, width: 826, height: 1450 },
   { name: 'analises-categorias', source: 'analises', x: 584, y: 324, width: 406, height: 535 },
   { name: 'extratos-movimentos', source: 'extratos', x: 562, y: 755, width: 417, height: 300 },
   { name: 'registros-focus', source: 'registros-detail', x: 102, y: 0, width: 456, height: 360 },
