@@ -741,9 +741,10 @@
   .fv-feature-grid > .fv-feature-orcamento-detail > .fv-mini-product > img {
     display: block;
     width: 100%;
-    height: 100%;
+    height: auto;
     max-height: none;
-    object-fit: fill;
+    object-fit: contain;
+    object-position: top center;
   }
   .fv-feature-grid > .fv-feature-contas-detail > .fv-mini-product {
     display: flex;
