@@ -116,9 +116,10 @@ describe("public pages", () => {
     expect(section.querySelector(".fv-feature-dashboard img")).toHaveAttribute("src", "/landing/dashboard-content.webp");
     expect(section.querySelector(".fv-feature-dashboard .fv-small-feature-copy")).toHaveTextContent("Toda a sua vida financeira em uma só visão.");
     expect(section.querySelector(".fv-feature-dashboard .fv-text-link")).not.toBeInTheDocument();
-    expect(within(section).getByRole("region", { name: "Exemplo ilustrativo de registros financeiros com dados fictícios" })).toHaveTextContent("−R$ 149,90");
+
     expect(section.querySelector(".fv-feature-grid .fv-feature-registros-focus")).toBeInTheDocument();
-    expect(section.querySelectorAll(".fv-demo-records-row")).toHaveLength(9);
+    expect(section.querySelector(".fv-feature-registros-focus img")).toHaveAttribute("src", "/landing/registros-focus.webp");
+
     expect(section.querySelector(".fv-feature-registros-focus .fv-small-feature-copy")).toHaveTextContent("Cada gasto, com os detalhes certos.");
   });
 
