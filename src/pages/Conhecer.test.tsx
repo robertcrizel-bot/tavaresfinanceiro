@@ -111,10 +111,11 @@ describe("public pages", () => {
     expect(highlights[0]).toHaveTextContent("o que aumentou");
     expect(highlights[0].querySelector("img")).toHaveAttribute("src", "/landing/analises-overview.webp");
     const supporting = section.querySelectorAll(".fv-feature-grid .fv-eyebrow");
-    expect([...supporting].map(element => element.textContent)).toEqual(["Dashboard financeiro", "Registros financeiros", "Extratos", "Contas e cartões", "Previsões"]);
+    expect([...supporting].map(element => element.textContent)).toEqual(["Dashboard financeiro", "Extratos", "Registros financeiros", "Previsões", "Contas e cartões"]);
     expect(section.querySelector(".fv-feature-grid .fv-feature-dashboard")).toHaveTextContent("Toda a sua vida financeira em uma só visão.");
     expect(section.querySelector(".fv-feature-dashboard img")).toHaveAttribute("src", "/landing/dashboard.webp");
     expect(within(section).getByRole("region", { name: "Exemplo ilustrativo de registros financeiros com dados fictícios" })).toHaveTextContent("−R$ 149,90");
+    expect(section.querySelector(".fv-feature-grid .fv-feature-registros-focus")).toBeInTheDocument();
   });
 
   it("opens the actual analysis view in the gallery from its benefit link", () => {
@@ -131,7 +132,8 @@ describe("public pages", () => {
     const feature = document.getElementById("ia-destaque")!;
     expect(feature).toHaveTextContent("Leitura por IA. Menos digitação, mais praticidade.");
     expect(feature).toHaveTextContent("Tire uma foto ou envie um comprovante");
-    expect(feature).toHaveTextContent("Compartilhe direto do banco ou da galeria");
+    expect(feature).toHaveTextContent("Fez um Pix, pagou um boleto ou fotografou um comprovante?");
+    expect(feature).toHaveTextContent("reconhece automaticamente a conta de origem, se estiver cadastrada");
     expect(feature).toHaveTextContent("Você só confere e salva");
     expect(feature).toHaveTextContent("quando possível");
     expect(feature).toHaveTextContent("Itens incluídos");
