@@ -48,7 +48,7 @@ jobs:
           const manifest = JSON.parse(fs.readFileSync('scripts/landing-demo/manifest.json', 'utf8'));
           const expected = {
             'dashboard.webp': [2880,2640],
-            'analises.webp': [2880,2980],
+            'analises.webp': [2880,3700],
             'registros.webp': [2880,2200],
             'contas.webp': [2880,1460],
             'extratos.webp': [2880,2200],
