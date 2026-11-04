@@ -135,6 +135,7 @@ try {
   assert.ok(await page.locator('.recharts-pie-sector').count() >= 3, 'Statement donut must contain visible categories');
   await save('extratos');
   await save('categorias-detail', { clip: await clipElement('.recharts-wrapper', 410) });
+  await page.setViewportSize({ width: 1440, height: 1100 });
   await open('/forecasts');
   await save('previsoes');
   await page.setViewportSize({ width: 390, height: 844 });
