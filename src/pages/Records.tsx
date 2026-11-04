@@ -479,7 +479,7 @@ export default function Records() {
                   <SortableHead col="paymentMethod">Pagamento</SortableHead>
                   <SortableHead col="source">Conta/Cartão</SortableHead>
                   <TableHead>Observações</TableHead>
-                  <TableHead className="text-right">Ações</TableHead>
+                  <TableHead className="text-center">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
