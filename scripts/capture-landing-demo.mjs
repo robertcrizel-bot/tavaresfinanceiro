@@ -123,14 +123,13 @@ try {
   await open('/records');
   await save('registros');
   await save('registros-detail', { clip: await clipElement('table', 360) });
-  // Use a real, complete Records screen preview with title, filters, and table.
-  // The full main area keeps authentic badges, account names, and controls.
-  await save('registros-focus', { clip: await clipElement('main', 820) });
-  await page.setViewportSize({ width: 1440, height: 730 });
+  // Tight real-table capture, retaining every column including Actions and no empty side gutters.
+  await save('registros-focus', { clip: await clipElement('table', 780) });
+  await page.setViewportSize({ width: 1440, height: 950 });
   await open('/accounts');
   await page.getByRole('tab', { name: 'Cartões', exact: true }).click();
   await save('contas', { clip: { x: 0, y: 0, width: 1440, height: 730 } });
-  await save('contas-detail', { clip: await clipElement('main [role="tabpanel"][data-state="active"] .grid > div', 420), scale: 'device' });
+  await save('contas-detail', { clip: await clipElement('main [role="tabpanel"][data-state="active"] .grid > div', 700), scale: 'device' });
   await page.setViewportSize({ width: 1440, height: 1600 });
   await open('/extratos');
   assert.ok(await page.locator('.recharts-pie-sector').count() >= 3, 'Statement donut must contain visible categories');
