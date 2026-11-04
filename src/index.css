@@ -374,13 +374,23 @@
   border-radius: 1.25rem;
 }
 :root .premium-dashboard .premium-action-outline {
-  background: var(--premium-action-outline);
-  border-color: var(--premium-action-outline-border);
+  background: hsl(216 28% 8%);
+  border-color: hsl(214 18% 28%);
+  color: #fff;
+  font-weight: 600;
 }
 :root .premium-dashboard .premium-action-primary {
-  background: var(--premium-action-solid);
-  color: var(--premium-action-solid-ink);
-  font-weight: 800;
+  background: hsl(169 66% 28%);
+  color: #fff;
+  font-weight: 600;
+}
+:root .premium-dashboard .premium-action-outline:hover {
+  background: hsl(213 22% 19%);
+  color: #fff;
+}
+:root .premium-dashboard .premium-action-primary:hover {
+  background: hsl(169 66% 25%);
+  color: #fff;
 }
 :root .premium-dashboard .premium-stats-grid > article { min-height: 166px; }
 :root .premium-dashboard .premium-balance {
