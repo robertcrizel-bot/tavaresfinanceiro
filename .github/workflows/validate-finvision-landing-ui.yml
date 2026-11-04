@@ -5,6 +5,11 @@ on:
     branches: [main]
     paths:
       - 'src/pages/Conhecer.tsx'
+      - 'src/pages/Admin.tsx'
+      - 'src/lib/beta-admin.ts'
+      - 'src/components/AppSidebar.tsx'
+      - 'src/App.tsx'
+      - 'supabase/functions/beta-admin/**'
       - 'src/pages/Auth.tsx'
       - 'src/pages/Auth.google.test.tsx'
       - 'src/contexts/AuthContext.tsx'
@@ -34,7 +39,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - name: Focused lint
-        run: npx eslint src/pages/Conhecer.tsx src/pages/Conhecer.test.tsx src/pages/Auth.tsx src/pages/Auth.google.test.tsx src/contexts/AuthContext.tsx src/pages/Dashboard.tsx src/pages/Records.tsx src/components/ui/button.tsx
+        run: npx eslint src/pages/Admin.tsx src/lib/beta-admin.ts src/components/AppSidebar.tsx src/App.tsx src/pages/Conhecer.tsx src/pages/Conhecer.test.tsx src/pages/Auth.tsx src/pages/Auth.google.test.tsx src/contexts/AuthContext.tsx src/pages/Dashboard.tsx src/pages/Records.tsx src/components/ui/button.tsx
       - name: Typecheck
         run: npx tsc -p tsconfig.app.json --noEmit
       - name: Landing tests
