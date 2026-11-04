@@ -592,3 +592,35 @@
     font-size: 10px;
   }
 }
+
+/* Keep Dashboard and Extratos aligned as a matched first row.
+   Both media start at the same baseline and fill the same height without clipping data. */
+@media (min-width: 600px) {
+  .fv-feature-grid > :is(.fv-feature-dashboard, .fv-feature-extratos-movimentos) {
+    display: grid;
+    grid-template-rows: 204px minmax(0, 1fr);
+    align-self: stretch;
+    min-height: 0;
+  }
+  .fv-feature-grid > :is(.fv-feature-dashboard, .fv-feature-extratos-movimentos) > .fv-small-feature-copy {
+    min-height: 0;
+    padding: 25px;
+  }
+  .fv-feature-grid > :is(.fv-feature-dashboard, .fv-feature-extratos-movimentos) > .fv-mini-product {
+    min-height: 0;
+    height: 100%;
+    margin: 0 20px 20px;
+    box-sizing: border-box;
+  }
+  .fv-feature-grid > :is(.fv-feature-dashboard, .fv-feature-extratos-movimentos) > .fv-mini-product img {
+    width: 100%;
+    height: 100%;
+    object-fit: fill;
+    display: block;
+  }
+}
+@media (min-width: 600px) and (max-width: 849px) {
+  .fv-feature-grid > :is(.fv-feature-dashboard, .fv-feature-extratos-movimentos) {
+    grid-template-rows: 245px minmax(0, 1fr);
+  }
+}
