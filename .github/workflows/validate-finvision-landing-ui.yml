@@ -5,6 +5,9 @@ on:
     branches: [main]
     paths:
       - 'src/pages/Conhecer.tsx'
+      - 'src/pages/Auth.tsx'
+      - 'src/pages/Auth.google.test.tsx'
+      - 'src/contexts/AuthContext.tsx'
       - 'src/pages/Conhecer.css'
       - 'scripts/qa-finvision-landing.mjs'
       - 'src/pages/Conhecer.test.tsx'
@@ -31,11 +34,11 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - name: Focused lint
-        run: npx eslint src/pages/Conhecer.tsx src/pages/Conhecer.test.tsx src/pages/Dashboard.tsx src/pages/Records.tsx src/components/ui/button.tsx
+        run: npx eslint src/pages/Conhecer.tsx src/pages/Conhecer.test.tsx src/pages/Auth.tsx src/pages/Auth.google.test.tsx src/contexts/AuthContext.tsx src/pages/Dashboard.tsx src/pages/Records.tsx src/components/ui/button.tsx
       - name: Typecheck
         run: npx tsc -p tsconfig.app.json --noEmit
       - name: Landing tests
-        run: npx vitest run src/pages/Conhecer.test.tsx --maxWorkers=2
+        run: npx vitest run src/pages/Conhecer.test.tsx src/pages/Auth.google.test.tsx --maxWorkers=2
       - name: Production build
         run: npm run build
       - name: Install Chromium for visual checks
