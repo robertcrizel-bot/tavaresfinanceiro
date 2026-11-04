@@ -61,6 +61,14 @@ try {
       const combined = geometry.cards.dashboard.width + geometry.cards['extratos-movimentos'].width;
       assert.ok(geometry.cards['registros-focus'].width >= combined, `Records must span both columns at ${width}`);
     }
+    const creditDescription = await page.evaluate(() => {
+      const root = document.querySelector('.fv-feature-contas-detail');
+      const description = root.querySelector('.fv-small-feature-copy > p:not(.fv-eyebrow)').getBoundingClientRect();
+      const preview = root.querySelector('.fv-mini-product').getBoundingClientRect();
+      return { descriptionBottom: description.bottom, previewTop: preview.top };
+    });
+    assert.ok(creditDescription.descriptionBottom <= creditDescription.previewTop - 2,
+      `Credit card description overlaps preview at ${width}: ${JSON.stringify(creditDescription)}`);
     assert.equal(await page.locator('h1').count(), 1);
     const composition = await page.evaluate(() => {
       const box = selector => {
