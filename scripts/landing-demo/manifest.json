@@ -16,19 +16,19 @@
       "name": "dashboard.webp",
       "width": 2880,
       "height": 2640,
-      "bytes": 474478
+      "bytes": 473836
     },
     {
       "name": "dashboard-focus.webp",
       "width": 2240,
       "height": 1800,
-      "bytes": 329044
+      "bytes": 328432
     },
     {
       "name": "analises.webp",
       "width": 2880,
-      "height": 2980,
-      "bytes": 545584
+      "height": 3700,
+      "bytes": 624628
     },
     {
       "name": "analises-detail.webp",
@@ -46,7 +46,7 @@
       "name": "registros.webp",
       "width": 2880,
       "height": 2200,
-      "bytes": 370010
+      "bytes": 370180
     },
     {
       "name": "registros-detail.webp",
@@ -64,19 +64,19 @@
       "name": "contas.webp",
       "width": 2880,
       "height": 1460,
-      "bytes": 231076
+      "bytes": 230740
     },
     {
       "name": "contas-detail.webp",
       "width": 730,
       "height": 720,
-      "bytes": 50676
+      "bytes": 50350
     },
     {
       "name": "extratos.webp",
       "width": 2880,
       "height": 2200,
-      "bytes": 352218
+      "bytes": 352616
     },
     {
       "name": "categorias-detail.webp",
@@ -88,13 +88,13 @@
       "name": "previsoes.webp",
       "width": 2880,
       "height": 2200,
-      "bytes": 249054
+      "bytes": 249340
     },
     {
       "name": "dashboard-mobile.webp",
       "width": 780,
       "height": 1688,
-      "bytes": 161176
+      "bytes": 160340
     },
     {
       "name": "dashboard-mobile-focus.webp",
