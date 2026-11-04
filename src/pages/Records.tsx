@@ -338,7 +338,7 @@ export default function Records() {
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
-          <Button variant="outline" asChild className="h-11 gap-2 flex-1 basis-[9rem] rounded-xl px-4 font-bold sm:flex-none justify-center">
+          <Button variant="outline" asChild className="h-11 gap-2 flex-1 basis-[9rem] rounded-xl px-4 font-semibold sm:flex-none justify-center">
             <Link to="/receipt">
               <ScanLine className="h-4 w-4 shrink-0" />
               <span className="whitespace-nowrap">Ler Comprovante</span>
@@ -346,7 +346,7 @@ export default function Records() {
           </Button>
           <Button
             onClick={() => { setEditing(undefined); setFormOpen(true); }}
-            className="h-11 gap-2 flex-1 basis-[9rem] rounded-xl px-4 font-extrabold sm:flex-none justify-center"
+            className="h-11 gap-2 flex-1 basis-[9rem] rounded-xl px-4 font-semibold sm:flex-none justify-center"
           >
             <Plus className="h-4 w-4 shrink-0" />
             <span className="whitespace-nowrap">Novo Registro</span>
