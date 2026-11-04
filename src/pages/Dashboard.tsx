@@ -285,7 +285,7 @@ export default function Dashboard() {
               <span className="whitespace-nowrap">Ler Comprovante</span>
             </Link>
           </Button>
-          <Button onClick={() => setFormOpen(true)} className="premium-action-primary h-11 gap-2 rounded-xl px-4 font-extrabold">
+          <Button onClick={() => setFormOpen(true)} className="premium-action-primary h-11 gap-2 rounded-xl px-4 font-semibold">
             <Plus className="h-4 w-4 shrink-0" />
             <span className="whitespace-nowrap">Novo Registro</span>
           </Button>
