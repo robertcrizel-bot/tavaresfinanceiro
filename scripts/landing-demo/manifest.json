@@ -28,19 +28,19 @@
       "name": "analises.webp",
       "width": 2880,
       "height": 3700,
-      "bytes": 624572
+      "bytes": 624840
     },
     {
       "name": "analises-detail.webp",
       "width": 736,
       "height": 736,
-      "bytes": 36060
+      "bytes": 36048
     },
     {
       "name": "orcamento-detail.webp",
       "width": 804,
       "height": 1292,
-      "bytes": 86356
+      "bytes": 86334
     },
     {
       "name": "registros.webp",
@@ -76,7 +76,7 @@
       "name": "extratos.webp",
       "width": 2880,
       "height": 3200,
-      "bytes": 479706
+      "bytes": 479708
     },
     {
       "name": "categorias-detail.webp",
