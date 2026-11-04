@@ -279,7 +279,7 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" asChild className="premium-action-outline h-11 gap-2 rounded-xl bg-card px-4 font-bold">
+          <Button variant="outline" asChild className="premium-action-outline h-11 gap-2 rounded-xl bg-card px-4 font-semibold">
             <Link to="/receipt">
               <ScanLine className="h-4 w-4 shrink-0" />
               <span className="whitespace-nowrap">Ler Comprovante</span>
