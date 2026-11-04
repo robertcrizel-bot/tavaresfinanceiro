@@ -608,7 +608,7 @@
   }
   .fv-feature-grid > :is(.fv-feature-dashboard, .fv-feature-extratos-movimentos) > .fv-mini-product {
     min-height: 0;
-    height: 100%;
+    align-self: stretch;
     margin: 0 20px 20px;
     box-sizing: border-box;
   }
