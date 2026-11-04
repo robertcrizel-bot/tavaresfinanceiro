@@ -36,21 +36,30 @@ try {
     assert.equal(geometry.scrollWidth, width, `Horizontal overflow at ${width}`);
     assert.deepEqual(geometry.overflow, [], `Clipped text/control at ${width}`);
     if (width >= 600) {
-      const match = await page.evaluate(() => {
+      const geometry = await page.evaluate(() => {
         const measure = selector => {
           const r = document.querySelector(selector).getBoundingClientRect();
-          return { top: r.top, bottom: r.bottom, height: r.height };
+          return { left: r.left, right: r.right, top: r.top, bottom: r.bottom, width: r.width, height: r.height };
         };
-        return {
-          dashboard: measure('.fv-feature-dashboard .fv-mini-product'),
-          extratos: measure('.fv-feature-extratos-movimentos .fv-mini-product'),
-          dashboardCard: measure('.fv-feature-dashboard'),
-          extratosCard: measure('.fv-feature-extratos-movimentos'),
-        };
+        const features = ['dashboard', 'extratos-movimentos', 'registros-focus', 'orcamento-detail', 'contas-detail'];
+        const cards = Object.fromEntries(features.map(name => [name, measure(`.fv-feature-${name}`)]));
+        const media = Object.fromEntries(features.map(name => [name, measure(`.fv-feature-${name} .fv-mini-product`)]));
+        return { cards, media };
       });
-      assert.ok(Math.abs(match.dashboard.top - match.extratos.top) <= 2, `Preview tops misaligned at ${width}: ${JSON.stringify(match)}`);
-      assert.ok(Math.abs(match.dashboard.bottom - match.extratos.bottom) <= 2, `Preview bottoms misaligned at ${width}: ${JSON.stringify(match)}`);
-      assert.ok(Math.abs(match.dashboardCard.bottom - match.extratosCard.bottom) <= 2, `Card bottoms misaligned at ${width}: ${JSON.stringify(match)}`);
+      const first = ['dashboard', 'extratos-movimentos'], last = ['orcamento-detail', 'contas-detail'];
+      for (const pair of [first, last]) {
+        const [a, b] = pair;
+        assert.ok(Math.abs(geometry.cards[a].top - geometry.cards[b].top) <= 2, `Unequal card top at ${width}: ${JSON.stringify(geometry)}`);
+        assert.ok(Math.abs(geometry.cards[a].bottom - geometry.cards[b].bottom) <= 2, `Unequal card bottom at ${width}: ${JSON.stringify(geometry)}`);
+        assert.ok(Math.abs(geometry.cards[a].width - geometry.cards[b].width) <= 2, `Unequal card widths at ${width}: ${JSON.stringify(geometry)}`);
+        assert.ok(Math.abs(geometry.media[a].top - geometry.media[b].top) <= 2, `Unequal preview start at ${width}: ${JSON.stringify(geometry)}`);
+        assert.ok(Math.abs(geometry.media[a].bottom - geometry.media[b].bottom) <= 2, `Unequal preview end at ${width}: ${JSON.stringify(geometry)}`);
+      }
+      if (width >= 850) {
+        assert.ok(Math.abs(geometry.cards.dashboard.height - geometry.cards['orcamento-detail'].height) <= 2, `All four small cards must share height at ${width}`);
+      }
+      const combined = geometry.cards.dashboard.width + geometry.cards['extratos-movimentos'].width;
+      assert.ok(geometry.cards['registros-focus'].width >= combined, `Records must span both columns at ${width}`);
     }
     assert.equal(await page.locator('h1').count(), 1);
     const composition = await page.evaluate(() => {
