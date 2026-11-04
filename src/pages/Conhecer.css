@@ -522,3 +522,70 @@
   .fv-landing .fv-spotlight-copy > p:not(.fv-eyebrow):not(.fv-small-note) { font-size: 15px; }
   .fv-landing .fv-demo-receipt { width: min(100%, 280px); }
 }
+
+
+/* Final feature-card refinements: shared header first, media underneath. */
+.fv-feature-grid > .fv-feature-dashboard {
+  display: flex;
+  flex-direction: column;
+}
+.fv-feature-dashboard > .fv-small-feature-copy {
+  padding: 25px;
+}
+.fv-feature-dashboard .fv-mini-product {
+  margin-top: auto;
+}
+@media (min-width: 600px) {
+  .fv-feature-grid > .fv-feature-registros-focus {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+  }
+  .fv-feature-grid > .fv-feature-registros-focus .fv-mini-product {
+    width: auto;
+    margin: 0 22px 22px;
+  }
+  .fv-feature-grid > .fv-feature-registros-focus .fv-small-feature-copy {
+    padding: 26px 30px 20px;
+  }
+  .fv-feature-grid > .fv-feature-registros-focus .fv-demo-records {
+    font-size: clamp(12px, 1.18vw, 15px);
+  }
+  .fv-feature-grid > .fv-feature-registros-focus .fv-demo-records-head,
+  .fv-feature-grid > .fv-feature-registros-focus .fv-demo-records-row {
+    grid-template-columns: .65fr 1.65fr 1.15fr 1fr .95fr;
+    padding: 13px 18px;
+    gap: 12px;
+  }
+}
+.fv-feature-grid .fv-feature-dashboard .fv-small-feature-copy > p:not(.fv-eyebrow) {
+  color: var(--fv-muted);
+}
+.fv-feature-grid .fv-feature-dashboard .fv-small-feature-copy h3 {
+  color: hsl(var(--landing-foreground));
+}
+.fv-feature-grid .fv-feature-orcamento-detail .fv-mini-product,
+.fv-feature-grid .fv-feature-extratos-movimentos .fv-mini-product {
+  margin-top: 0;
+}
+.fv-feature-grid .fv-feature-orcamento-detail .fv-mini-product img,
+.fv-feature-grid .fv-feature-extratos-movimentos .fv-mini-product img {
+  object-fit: contain;
+  object-position: top;
+  height: auto;
+}
+@media (max-width: 599px) {
+  .fv-feature-grid > .fv-feature-registros-focus {
+    display: flex;
+    flex-direction: column;
+  }
+  .fv-demo-records-extra { display: none; }
+  .fv-feature-grid .fv-demo-records-head,
+  .fv-feature-grid .fv-demo-records-row {
+    grid-template-columns: .72fr 1.4fr 1.04fr 1fr;
+    gap: 5px;
+    padding: 11px 7px;
+    font-size: 10px;
+  }
+}
