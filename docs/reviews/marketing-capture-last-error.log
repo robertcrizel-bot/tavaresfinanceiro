@@ -105,19 +105,19 @@ Browserslist: browsers data (caniuse-lite) is 17 months old. Please run:
       "name": "registros-detail.webp",
       "width": 2302,
       "height": 720,
-      "bytes": 128930
+      "bytes": 128926
     },
     {
       "name": "registros.webp",
-      "width": 3048,
-      "height": 1836,
-      "bytes": 358122
+      "width": 2924,
+      "height": 1376,
+      "bytes": 263764
     },
     {
       "name": "registros-focus.webp",
-      "width": 2922,
-      "height": 1034,
-      "bytes": 219884
+      "width": 2924,
+      "height": 1200,
+      "bytes": 238582
     },
     {
       "name": "contas.webp",
@@ -135,7 +135,7 @@ Browserslist: browsers data (caniuse-lite) is 17 months old. Please run:
       "name": "extratos.webp",
       "width": 2880,
       "height": 3200,
-      "bytes": 479686
+      "bytes": 479698
     },
     {
       "name": "extratos-movimentos.webp",
@@ -174,13 +174,12 @@ Browserslist: browsers data (caniuse-lite) is 17 months old. Please run:
 analises-overview.webp: 1652 x 1980, cropped from analises.webp
 analises-categorias.webp: 812 x 1070, cropped from analises.webp
 dashboard-content.webp: 2320 x 2440, cropped from dashboard.webp
-contas-detail.webp: 664 x 736, cropped from contas-detail.webp
 file:///home/runner/work/tavaresfinanceiro/tavaresfinanceiro/[eval1]:13
-  if (!asset || (w !== null && asset.width!==w) || asset.height!==h || (name==='registros.webp' && (asset.width < 2800 || asset.width > 3560))) throw Error('Unexpected resolution '+name+': '+JSON.stringify(asset));
-                                                                                                                                                      ^
+  if (!asset || (w !== null && asset.width!==w) || (h !== null && asset.height!==h) || (name==='registros.webp' && (asset.width < 2800 || asset.width > 3560 || asset.height < 1700 || asset.height > 2200))) throw Error('Unexpected resolution '+name+': '+JSON.stringify(asset));
+                                                                                                                                                                                                                    ^
 
-Error: Unexpected resolution registros.webp: {"name":"registros.webp","width":3048,"height":1836,"bytes":358122}
-    at file:///home/runner/work/tavaresfinanceiro/tavaresfinanceiro/[eval1]:13:151
+Error: Unexpected resolution registros.webp: {"name":"registros.webp","width":2924,"height":1376,"bytes":263764}
+    at file:///home/runner/work/tavaresfinanceiro/tavaresfinanceiro/[eval1]:13:213
     at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
     at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
     at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:282:26)
