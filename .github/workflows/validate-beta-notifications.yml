@@ -1,0 +1,28 @@
+name: Validate Beta notification backend
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'supabase/functions/beta-notify/**'
+      - 'supabase/migrations/20261104150000_beta_admin_notifications.sql'
+      - 'public/sw.js'
+      - '.github/workflows/validate-beta-notifications.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Check server function
+        run: deno check supabase/functions/beta-notify/index.ts
+      - name: Check service worker JavaScript
+        run: node --check public/sw.js
