@@ -28,7 +28,7 @@
       "name": "analises.webp",
       "width": 2880,
       "height": 3700,
-      "bytes": 624628
+      "bytes": 624572
     },
     {
       "name": "analises-detail.webp",
@@ -39,14 +39,14 @@
     {
       "name": "orcamento-detail.webp",
       "width": 804,
-      "height": 600,
-      "bytes": 43032
+      "height": 1292,
+      "bytes": 86356
     },
     {
       "name": "registros.webp",
       "width": 2880,
       "height": 2200,
-      "bytes": 370180
+      "bytes": 370086
     },
     {
       "name": "registros-detail.webp",
@@ -64,19 +64,19 @@
       "name": "contas.webp",
       "width": 2880,
       "height": 1460,
-      "bytes": 230740
+      "bytes": 231090
     },
     {
       "name": "contas-detail.webp",
       "width": 730,
-      "height": 720,
-      "bytes": 50350
+      "height": 736,
+      "bytes": 50412
     },
     {
       "name": "extratos.webp",
       "width": 2880,
-      "height": 2200,
-      "bytes": 352616
+      "height": 3200,
+      "bytes": 479706
     },
     {
       "name": "categorias-detail.webp",
@@ -88,7 +88,7 @@
       "name": "previsoes.webp",
       "width": 2880,
       "height": 2200,
-      "bytes": 249340
+      "bytes": 249398
     },
     {
       "name": "dashboard-mobile.webp",
