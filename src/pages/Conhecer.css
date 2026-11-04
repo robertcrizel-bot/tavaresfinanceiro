@@ -716,31 +716,60 @@
 }
 
 
-/* Keep screenshot examples fully visible inside the equal-sized feature cards.
-   Cropping their bottom hides budgets and credit-card actions. */
+/* Resource previews: fill the available panel horizontally.
+   The credit-card preview alone may letterbox to keep its controls and proportions.
+   The budget screenshot is compacted vertically to fit every category. */
 @media (min-width: 600px) {
   .fv-feature-grid > :is(
     .fv-feature-dashboard, .fv-feature-extratos-movimentos,
-    .fv-feature-orcamento-detail, .fv-feature-contas-detail
+    .fv-feature-orcamento-detail
+  ) > .fv-mini-product {
+    display: block;
+    margin-left: 12px;
+    margin-right: 12px;
+  }
+  .fv-feature-grid > :is(
+    .fv-feature-dashboard, .fv-feature-extratos-movimentos
   ) > .fv-mini-product > img {
-    object-fit: contain;
-    object-position: center top;
-    max-width: 100%;
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: cover;
+    object-position: top center;
+  }
+  .fv-feature-grid > .fv-feature-orcamento-detail > .fv-mini-product > img {
+    display: block;
+    width: 100%;
+    height: 100%;
+    max-height: none;
+    object-fit: fill;
+  }
+  .fv-feature-grid > .fv-feature-contas-detail > .fv-mini-product {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+  }
+  .fv-feature-grid > .fv-feature-contas-detail > .fv-mini-product > img {
+    width: 100%;
+    height: 100%;
     max-height: 100%;
+    object-fit: contain;
+    object-position: top center;
   }
 }
 .fv-feature-grid > .fv-feature-registros-focus > .fv-mini-product {
-  margin: 0 0 18px;
+  margin: 0 0 12px;
   border: 0;
   border-radius: 0;
-  background: transparent;
   width: 100%;
+  background: transparent;
   overflow: hidden;
 }
 .fv-feature-grid > .fv-feature-registros-focus > .fv-mini-product > img {
   display: block;
   width: 100%;
-  max-width: 100%;
   height: auto;
+  max-height: none;
   object-fit: contain;
 }
