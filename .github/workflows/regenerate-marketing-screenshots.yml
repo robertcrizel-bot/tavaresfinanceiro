@@ -51,7 +51,7 @@ jobs:
             'analises.webp': [2880,3700],
             'registros.webp': [2880,2200],
             'contas.webp': [2880,1460],
-            'extratos.webp': [2880,2200],
+            'extratos.webp': [2880,3200],
             'previsoes.webp': [2880,2200],
           };
           for (const [name,[w,h]] of Object.entries(expected)) {
