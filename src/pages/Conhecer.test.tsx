@@ -147,7 +147,7 @@ describe("public pages", () => {
     expect(feature).toHaveTextContent("ILUSTRAÇÃO DEMO");
     expect(feature).toHaveTextContent("Nenhuma leitura é executada nesta página");
     expect(feature.querySelectorAll("input, form")).toHaveLength(0);
-    expect(within(feature).getByRole("link", { name: "Veja como a IA agiliza seus lançamentos" })).toHaveAttribute("href", "#ia-fluxo");
+    expect(within(feature).getByRole("link", { name: "Experimentar a leitura por IA" })).toHaveAttribute("href", "/receipt");
     expect(document.getElementById("ia-fluxo")).toBeInTheDocument();
   });
 
