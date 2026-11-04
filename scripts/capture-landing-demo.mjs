@@ -123,8 +123,9 @@ try {
   await open('/records');
   await save('registros');
   await save('registros-detail', { clip: await clipElement('table', 360) });
-  const table = await clipElement('table', 360);
-  await save('registros-focus', { clip: { ...table, width: 456 } });
+  // Use a real, complete Records screen preview with title, filters, and table.
+  // The full main area keeps authentic badges, account names, and controls.
+  await save('registros-focus', { clip: await clipElement('main', 820) });
   await page.setViewportSize({ width: 1440, height: 730 });
   await open('/accounts');
   await page.getByRole('tab', { name: 'Cartões', exact: true }).click();
