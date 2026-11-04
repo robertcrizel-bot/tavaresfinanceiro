@@ -35,6 +35,23 @@ try {
     }));
     assert.equal(geometry.scrollWidth, width, `Horizontal overflow at ${width}`);
     assert.deepEqual(geometry.overflow, [], `Clipped text/control at ${width}`);
+    if (width >= 600) {
+      const match = await page.evaluate(() => {
+        const measure = selector => {
+          const r = document.querySelector(selector).getBoundingClientRect();
+          return { top: r.top, bottom: r.bottom, height: r.height };
+        };
+        return {
+          dashboard: measure('.fv-feature-dashboard .fv-mini-product'),
+          extratos: measure('.fv-feature-extratos-movimentos .fv-mini-product'),
+          dashboardCard: measure('.fv-feature-dashboard'),
+          extratosCard: measure('.fv-feature-extratos-movimentos'),
+        };
+      });
+      assert.ok(Math.abs(match.dashboard.top - match.extratos.top) <= 2, `Preview tops misaligned at ${width}: ${JSON.stringify(match)}`);
+      assert.ok(Math.abs(match.dashboard.bottom - match.extratos.bottom) <= 2, `Preview bottoms misaligned at ${width}: ${JSON.stringify(match)}`);
+      assert.ok(Math.abs(match.dashboardCard.bottom - match.extratosCard.bottom) <= 2, `Card bottoms misaligned at ${width}: ${JSON.stringify(match)}`);
+    }
     assert.equal(await page.locator('h1').count(), 1);
     const composition = await page.evaluate(() => {
       const box = selector => {
