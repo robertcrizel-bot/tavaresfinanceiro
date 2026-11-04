@@ -170,7 +170,7 @@ export default function Conhecer() {
                 <p className="fv-eyebrow">02 / Leitura por IA</p>
                 <h3 id="ia-destaque-title">Leitura por IA. Menos digitação, mais praticidade.</h3>
                 <p>Tire uma foto ou envie um comprovante: a IA prepara o lançamento com os dados identificados e, quando possível, inclui os itens da compra. Você confere e salva.</p>
-                <p className="fv-ai-share-tip"><strong>Mais prático ainda:</strong> Fez um Pix, pagou um boleto ou fotografou um comprovante? Compartilhe diretamente do banco ou da galeria com o FinVision. O app abre a leitura por IA, identifica os dados da transação e reconhece automaticamente a conta de origem, se estiver cadastrada. <strong>Você só confere e salva.</strong></p>
+                <p className="fv-ai-share-tip"><strong>Mais prático ainda:</strong> compartilhe comprovantes de Pix feitos ou recebidos, boletos ou fotos direto com o FinVision. A leitura por IA identifica os dados, reconhece a conta cadastrada e deixa tudo pronto para você conferir e salvar.</p>
                 <ul className="fv-value-points">
                   <li><Check size={17} aria-hidden="true" /> Dados preenchidos para revisar</li>
                   <li><Check size={17} aria-hidden="true" /> Itens incluídos quando identificados</li>
@@ -185,34 +185,54 @@ export default function Conhecer() {
           </div>
           <p className="fv-supporting-heading">E o restante da sua vida financeira, no mesmo lugar.</p>
           <div className="fv-feature-grid">
-            <article className="fv-feature fv-feature-dashboard">
-              <div className="fv-feature-copy">
+            <article className="fv-feature fv-feature-small fv-feature-dashboard">
+              <div className="fv-small-feature-copy">
                 <span className="fv-icon-box"><LayoutDashboard size={22} aria-hidden="true" /></span>
                 <p className="fv-eyebrow">Dashboard financeiro</p>
                 <h3>Toda a sua vida financeira em uma só visão.</h3>
                 <p>Acompanhe saldo, entradas, saídas e movimentações no mesmo painel para entender o mês sem procurar informações em várias telas.</p>
-                <a href="#produto" className="fv-text-link">Explorar o dashboard <ArrowUpRight size={16} aria-hidden="true" /></a>
-                <span className="fv-demo-note">Visualização com dados DEMO</span>
               </div>
-              <div className="fv-feature-image"><img src="/landing/dashboard.webp" alt="Dashboard real do FinVision preenchido com dados DEMO, contas e gráficos" width="1440" height="1320" loading="lazy" /></div>
+              <div className="fv-mini-product">
+                <img src="/landing/dashboard-content.webp" alt="Área principal do dashboard DEMO com saldo, receitas, despesas, contas e gráficos completos" loading="lazy" />
+              </div>
             </article>
-            {features.map(({ icon: Icon, title, headline, text, image, alt }) => <article key={title} className={`fv-feature fv-feature-small fv-feature-${image}`}><div className="fv-small-feature-copy"><span className="fv-icon-box"><Icon size={22} aria-hidden="true" /></span><p className="fv-eyebrow">{title}</p><h3>{headline}</h3><p>{text}</p></div><div className="fv-mini-product">
-              {image === "registros-focus" ? (
-                <div className="fv-demo-records" role="region" aria-label="Exemplo ilustrativo de registros financeiros com dados fictícios">
-                  <div className="fv-demo-records-head"><span>Data</span><span>Descrição</span><span>Categoria</span><span>Valor</span></div>
-                  {[
-                    ["24/10", "Estacionamento", "Transporte", "−R$ 18,00"],
-                    ["23/10", "Delivery", "Alimentação", "−R$ 54,90"],
-                    ["22/10", "Presente", "Outros", "−R$ 149,90"],
-                    ["21/10", "Academia", "Saúde", "−R$ 149,90"],
-                    ["20/10", "Restaurante", "Alimentação", "−R$ 89,90"],
-                  ].map(([date, description, category, amount]) => (
-                    <div className="fv-demo-records-row" key={date}><span>{date}</span><strong>{description}</strong><span>{category}</span><span>{amount}</span></div>
-                  ))}
-                  <p className="fv-demo-records-note">Exemplo com dados fictícios. Explore a tela completa na galeria.</p>
+            {features.map(({ icon: Icon, title, headline, text, image, alt }) => (
+              <article key={title} className={`fv-feature fv-feature-small fv-feature-${image}`}>
+                <div className="fv-small-feature-copy">
+                  <span className="fv-icon-box"><Icon size={22} aria-hidden="true" /></span>
+                  <p className="fv-eyebrow">{title}</p>
+                  <h3>{headline}</h3>
+                  <p>{text}</p>
                 </div>
-              ) : <img src={`/landing/${image}.webp`} alt={alt} loading="lazy" />}
-            </div></article>)}
+                <div className="fv-mini-product">
+                  {image === "registros-focus" ? (
+                    <div className="fv-demo-records" role="region" aria-label="Exemplo ilustrativo de registros financeiros com dados fictícios">
+                      <div className="fv-demo-records-head">
+                        <span>Data</span><span>Descrição</span><span>Categoria</span><span className="fv-demo-records-extra">Pagamento</span><span>Valor</span>
+                      </div>
+                      {[
+                        ["24/10", "Estacionamento", "Transporte", "Dinheiro", "−R$ 18,00"],
+                        ["23/10", "Delivery", "Alimentação", "Cartão", "−R$ 54,90"],
+                        ["22/10", "Presente de aniversário", "Outros", "Cartão", "−R$ 149,90"],
+                        ["21/10", "Academia", "Saúde", "Pix", "−R$ 149,90"],
+                        ["20/10", "Restaurante", "Alimentação", "Cartão", "−R$ 89,90"],
+                        ["19/10", "Streaming", "Lazer", "Cartão", "−R$ 39,90"],
+                        ["18/10", "Transporte por aplicativo", "Transporte", "Pix", "−R$ 32,90"],
+                        ["17/10", "Consulta médica", "Saúde", "Pix", "−R$ 220,00"],
+                        ["16/10", "Supermercado", "Alimentação", "Cartão", "−R$ 248,70"],
+                      ].map(([date, description, category, payment, amount]) => (
+                        <div className="fv-demo-records-row" key={date}>
+                          <span>{date}</span><strong>{description}</strong><span>{category}</span>
+                          <span className="fv-demo-records-extra">{payment}</span><span>{amount}</span>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <img src={`/landing/${image}.webp`} alt={alt} loading="lazy" />
+                  )}
+                </div>
+              </article>
+            ))}
           </div>
         </section>
         <section id="como-funciona" className="fv-section fv-how" aria-labelledby="como-title"><div className="fv-container">
