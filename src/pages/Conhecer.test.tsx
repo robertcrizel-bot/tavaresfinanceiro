@@ -138,7 +138,7 @@ describe("public pages", () => {
     expect(feature).toHaveTextContent("Tire uma foto ou envie um comprovante");
     expect(feature).toHaveTextContent("compartilhe comprovantes de Pix feitos ou recebidos, boletos ou fotos direto com o FinVision");
     expect(feature).toHaveTextContent("reconhece a conta cadastrada e deixa tudo pronto");
-    expect(feature).toHaveTextContent("Você só confere e salva");
+    expect(feature).toHaveTextContent("deixa tudo pronto para você conferir e salvar");
     expect(feature).toHaveTextContent("quando possível");
     expect(feature).toHaveTextContent("Itens incluídos");
     expect(feature).toHaveTextContent("Você revisa e confirma");
