@@ -1,5 +1,7 @@
 import { LayoutDashboard, List, User, Wallet, Tag, CalendarClock, ArrowLeftRight, PieChart, ReceiptText, ScanLine, ShieldCheck } from "lucide-react";
 import { useIsAdmin } from "@/lib/beta-admin";
+import { useBetaRequestAlerts } from "@/lib/beta-notifications";
+import { useAuth } from "@/contexts/AuthContext";
 import { NavLink } from "@/components/NavLink";
 import {
   Sidebar,
@@ -30,6 +32,8 @@ export function AppSidebar() {
   const collapsed = state === "collapsed";
   const isMobile = useIsMobile();
   const { isAdmin } = useIsAdmin();
+  const { user } = useAuth();
+  const pendingRequests = useBetaRequestAlerts(isAdmin, user?.id);
 
   const handleNavClick = () => {
     if (isMobile) setOpenMobile(false);
@@ -97,6 +101,7 @@ export function AppSidebar() {
                 >
                   <ShieldCheck className="h-5 w-5 shrink-0" />
                   {(!collapsed || isMobile) && <span>Administração</span>}
+                  {pendingRequests > 0 && <span aria-label={`${pendingRequests} pedidos pendentes`} className="ml-auto flex min-w-5 items-center justify-center rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">{pendingRequests}</span>}
                 </NavLink>
               </SidebarMenuButton>
             </SidebarMenuItem>
