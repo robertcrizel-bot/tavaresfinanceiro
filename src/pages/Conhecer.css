@@ -455,3 +455,70 @@
   .fv-hero-brand img.fv-brand-mark { width: 40px; height: 40px; }
   .fv-hero-brand-caption { font-size: 12px; }
 }
+
+
+/* Fine-tune: readable commercial typography, scoped to marketing pages only. */
+.fv-landing { font-size: 16px; line-height: 1.65; }
+.fv-landing .fv-lead, .fv-landing .fv-description,
+.fv-landing .fv-pain > p, .fv-landing .fv-pain-solution,
+.fv-landing .fv-small-feature-copy > p:not(.fv-eyebrow),
+.fv-landing .fv-spotlight-copy > p:not(.fv-eyebrow):not(.fv-small-note),
+.fv-landing .fv-steps p, .fv-landing .fv-product-caption p,
+.fv-landing .fv-faq-list p, .fv-landing .fv-plan-layout p {
+  font-size: clamp(14px, 1.25vw, 16px);
+  line-height: 1.7;
+}
+.fv-landing .fv-value-points, .fv-landing .fv-text-link,
+.fv-landing .fv-supporting-heading, .fv-landing .fv-hero-note,
+.fv-landing .fv-small-note, .fv-landing .fv-demo-link {
+  font-size: clamp(13px, 1.08vw, 15px);
+  line-height: 1.65;
+}
+.fv-landing .fv-feature .fv-eyebrow,
+.fv-landing .fv-spotlight-copy .fv-eyebrow { font-size: 11px; letter-spacing: .07em; }
+.fv-landing .fv-button, .fv-landing .fv-spotlight-copy > .fv-button,
+.fv-landing .fv-screen-buttons button { font-size: clamp(13px, 1.05vw, 15px); }
+.fv-landing .fv-small-feature-copy h3 { font-size: clamp(21px, 1.8vw, 26px); line-height: 1.3; }
+.fv-landing .fv-step-number { font-size: 14px; }
+.fv-landing .fv-steps h3 { font-size: 19px; }
+.fv-landing .fv-product-caption h3 { font-size: 19px; }
+.fv-landing .fv-screen-buttons { width: auto; }
+.fv-landing .fv-receipt-demo-heading > span:first-child,
+.fv-landing .fv-demo-pipeline li, .fv-landing .fv-demo-suggestions-heading,
+.fv-landing .fv-demo-filled-fields dt, .fv-landing .fv-demo-filled-items-heading,
+.fv-landing .fv-demo-filled-items li, .fv-landing .fv-receipt-demo figcaption,
+.fv-landing .fv-demo-receipt-items { font-size: clamp(11px, 1vw, 13px); }
+.fv-landing .fv-demo-suggestions dd { font-size: 15px; }
+
+/* Explicit placement: Dashboard / Extratos, full-width Registros, Previsões / Cartões. */
+@media (min-width: 600px) {
+  .fv-feature-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fv-feature-grid > .fv-feature-registros-focus {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: minmax(0, .78fr) minmax(0, 1.22fr);
+    align-items: center;
+    gap: clamp(10px, 2vw, 26px);
+    min-height: 0;
+  }
+  .fv-feature-grid > .fv-feature-registros-focus .fv-mini-product {
+    margin: 20px 22px 20px 0;
+    width: auto;
+    min-height: 0;
+  }
+  .fv-feature-grid > .fv-feature-registros-focus .fv-demo-records {
+    font-size: clamp(12px, 1.14vw, 15px);
+  }
+  .fv-feature-grid > .fv-feature-registros-focus .fv-demo-records-head,
+  .fv-feature-grid > .fv-feature-registros-focus .fv-demo-records-row {
+    gap: 10px;
+    padding: 13px 14px;
+  }
+}
+@media (max-width: 599px) {
+  .fv-feature-grid > .fv-feature-registros-focus { grid-column: auto; }
+  .fv-landing .fv-pain > p,
+  .fv-landing .fv-small-feature-copy > p:not(.fv-eyebrow),
+  .fv-landing .fv-spotlight-copy > p:not(.fv-eyebrow):not(.fv-small-note) { font-size: 15px; }
+  .fv-landing .fv-demo-receipt { width: min(100%, 280px); }
+}
