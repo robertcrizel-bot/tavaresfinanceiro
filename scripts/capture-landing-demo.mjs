@@ -141,8 +141,8 @@ try {
   // The feature card explicitly promises filters: include the search field,
   // all three dropdowns and five complete table rows, including Actions.
   const filtersBox = await page.locator('#search-records').locator('xpath=../..').boundingBox();
-  const fifthRowBox = await recordsTable.locator('tbody tr').nth(4).boundingBox();
-  assert.ok(filtersBox && fifthRowBox, 'Search filters and five records must be visible');
+  const ninthFullRowBox = await recordsTable.locator('tbody tr').nth(8).boundingBox();
+  assert.ok(filtersBox && ninthFullRowBox, 'Search filters and nine complete records must be visible');
   const cropLeft = Math.max(0, Math.min(filtersBox.x, tableBox.x) - 1);
   const cropRight = Math.min(1780, Math.max(filtersBox.x + filtersBox.width, right) + 1);
   const cropTop = filtersBox.y;
@@ -152,7 +152,7 @@ try {
       x: cropLeft,
       y: cropTop,
       width: Math.ceil(cropRight - cropLeft),
-      height: Math.ceil(fifthRowBox.y + fifthRowBox.height - cropTop),
+      height: Math.ceil(ninthFullRowBox.y + ninthFullRowBox.height - cropTop),
     },
   });
   await page.setViewportSize({ width: 1440, height: 950 });
