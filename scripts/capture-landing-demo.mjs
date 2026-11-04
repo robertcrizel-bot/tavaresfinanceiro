@@ -138,20 +138,34 @@ try {
   assert.ok(actionsHeadBox.x + actionsHeadBox.width <= right + 1, 'Actions heading must fit inside the table');
   assert.ok(lastActionsBox.x + lastActionsBox.width <= right + 1, 'Actions buttons must fit inside the table');
   assert.ok(right <= 1780, 'The full Records table must fit inside the capture viewport');
-  const ninthBottom = ninthRowBox.y + ninthRowBox.height;
+  // The feature card explicitly promises filters: include the search field,
+  // all three dropdowns and five complete table rows, including Actions.
+  const filtersBox = await page.locator('#search-records').locator('xpath=../..').boundingBox();
+  const fifthRowBox = await recordsTable.locator('tbody tr').nth(4).boundingBox();
+  assert.ok(filtersBox && fifthRowBox, 'Search filters and five records must be visible');
+  const cropLeft = Math.max(0, Math.min(filtersBox.x, tableBox.x) - 1);
+  const cropRight = Math.min(1780, Math.max(filtersBox.x + filtersBox.width, right) + 1);
+  const cropTop = filtersBox.y;
+  assert.ok(actionsHeadBox.x + actionsHeadBox.width <= cropRight, 'The Actions column must not be cut');
   await save('registros-focus', {
     clip: {
-      x: Math.max(0, tableBox.x - 1),
-      y: tableBox.y,
-      width: Math.min(1780 - Math.max(0, tableBox.x - 1), right - Math.max(0, tableBox.x - 1) + 2),
-      height: Math.ceil(ninthBottom - tableBox.y),
+      x: cropLeft,
+      y: cropTop,
+      width: Math.ceil(cropRight - cropLeft),
+      height: Math.ceil(fifthRowBox.y + fifthRowBox.height - cropTop),
     },
   });
   await page.setViewportSize({ width: 1440, height: 950 });
   await open('/accounts');
   await page.getByRole('tab', { name: 'Cartões', exact: true }).click();
   await save('contas', { clip: { x: 0, y: 0, width: 1440, height: 730 } });
-  await save('contas-detail', { clip: await clipElement('main [role="tabpanel"][data-state="active"] .grid > div', 700), scale: 'device' });
+  // Capture the card's own element boundary, preserving the complete purple outline.
+  const cardPreview = page.locator('main [role="tabpanel"][data-state="active"] .grid > div').first();
+  const cardBox = await cardPreview.boundingBox();
+  assert.ok(cardBox && cardBox.width > 300 && cardBox.height > 300, 'Credit card DEMO must be fully visible');
+  await save('contas-detail', { clip: {
+    x: cardBox.x, y: cardBox.y, width: cardBox.width, height: cardBox.height,
+  } });
   await page.setViewportSize({ width: 1440, height: 1600 });
   await open('/extratos');
   assert.ok(await page.locator('.recharts-pie-sector').count() >= 3, 'Statement donut must contain visible categories');
