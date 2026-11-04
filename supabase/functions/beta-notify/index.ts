@@ -79,7 +79,7 @@ async function sendEmail(requestId: string, created: string, email: string) {
 async function sendPush() {
   if (!vapidPublic || !vapidPrivate || !vapidSubject) throw new Error("push_not_configured");
   webpush.setVapidDetails(vapidSubject, vapidPublic, vapidPrivate);
-  const subscriptions = requireData(await db.from("beta_push_subscriptions").select("endpoint,p256dh,auth_secret"));
+  const subscriptions = requireData(await db.from("beta_push_subscriptions").select("endpoint,p256dh,auth_secret")) ?? [];
   if (subscriptions.length === 0) throw new Error("push_no_subscriptions");
   let delivered = 0;
   for (const s of subscriptions) {
@@ -104,7 +104,7 @@ async function sendPush() {
 async function dispatch() {
   const requests = requireData(await db.from("beta_access_requests")
     .select("id,user_id,created_at,status").eq("status", "pending")
-    .order("created_at", { ascending: true }).limit(100));
+    .order("created_at", { ascending: true }).limit(100)) ?? [];
   let sent = 0, failed = 0;
   for (const request of requests) {
     for (const channel of ["email", "push"] as const) {
