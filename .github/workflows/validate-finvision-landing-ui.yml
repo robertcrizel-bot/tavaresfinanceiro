@@ -35,3 +35,15 @@ jobs:
         run: npx vitest run src/pages/Conhecer.test.tsx --maxWorkers=2
       - name: Production build
         run: npm run build
+      - name: Install Chromium for visual checks
+        run: npx playwright install --with-deps chromium
+      - name: Verify desktop and mobile landing layouts
+        shell: bash
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 5187 --strictPort >/tmp/finvision-preview.log 2>&1 &
+          for attempt in {1..30}; do
+            if curl -fsS http://127.0.0.1:5187/conhecer >/dev/null; then break; fi
+            sleep 1
+          done
+          node scripts/qa-finvision-landing.mjs http://127.0.0.1:5187 /tmp/finvision-visual-review --benefits
+
