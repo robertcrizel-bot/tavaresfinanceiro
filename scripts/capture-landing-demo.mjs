@@ -122,11 +122,12 @@ try {
   await save('orcamento-detail', { clip: await clipElement('section:has(> div > h3:text-is("Orçamento × Realizado"))', 760), scale: 'device' });
   await open('/records');
   await save('registros-detail', { clip: await clipElement('table', 360) });
-  // Capture the gallery with enough horizontal space to show the Actions column
-  // and its buttons. Remove the sidebar only from this marketing illustration.
-  await page.setViewportSize({ width: 1780, height: 1100 });
-  await page.waitForTimeout(150);
-  await save('registros', { clip: await clipElement('main', 1100) });
+  // Gallery: show the real title, search + three filters, and the table
+  // together. A prior table-only crop scrolled the page and accidentally hid
+  // the filters in the gallery image.
+  await page.setViewportSize({ width: 1780, height: 1500 });
+  await open('/records');
+  await page.evaluate(() => window.scrollTo(0, 0));
   await page.waitForTimeout(150);
   const recordsTable = page.locator('table').first();
   const tableBox = await recordsTable.boundingBox();
@@ -142,7 +143,20 @@ try {
   // all three dropdowns and five complete table rows, including Actions.
   const filtersBox = await page.locator('#search-records').locator('xpath=../..').boundingBox();
   const ninthFullRowBox = await recordsTable.locator('tbody tr').nth(8).boundingBox();
-  assert.ok(filtersBox && ninthFullRowBox, 'Search filters and nine complete records must be visible');
+  const recordsTitleBox = await page.getByRole('heading', { name: 'Meus Registros', exact: true }).boundingBox();
+  assert.ok(filtersBox && ninthFullRowBox && recordsTitleBox, 'Gallery needs title, search filters, and nine full rows');
+  assert.ok(recordsTitleBox.y < filtersBox.y && filtersBox.y < tableBox.y, 'Records gallery header, filters, and table must be in order');
+  const galleryTop = Math.max(0, recordsTitleBox.y - 32);
+  const galleryLeft = Math.max(0, Math.min(filtersBox.x, tableBox.x) - 1);
+  const galleryRight = Math.min(1780, Math.max(filtersBox.x + filtersBox.width, right) + 1);
+  const galleryBottom = ninthFullRowBox.y + ninthFullRowBox.height;
+  assert.ok(galleryBottom < 1500 && actionsHeadBox.x + actionsHeadBox.width <= galleryRight, 'Gallery capture must fit filters, nine rows and complete Actions column');
+  await save('registros', { clip: {
+    x: galleryLeft,
+    y: galleryTop,
+    width: Math.ceil(galleryRight - galleryLeft),
+    height: Math.ceil(galleryBottom - galleryTop),
+  } });
   const cropLeft = Math.max(0, Math.min(filtersBox.x, tableBox.x) - 1);
   const cropRight = Math.min(1780, Math.max(filtersBox.x + filtersBox.width, right) + 1);
   const cropTop = filtersBox.y;
