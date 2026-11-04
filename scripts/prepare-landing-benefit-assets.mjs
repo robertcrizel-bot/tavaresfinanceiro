@@ -7,7 +7,6 @@ const crops = [
   { name: 'analises-overview', source: 'analises', x: 584, y: 324, width: 826, height: 990 },
   { name: 'analises-categorias', source: 'analises', x: 584, y: 324, width: 406, height: 535 },
   { name: 'dashboard-content', source: 'dashboard', x: 260, y: 75, width: 1160, height: 1220 },
-  { name: 'registros-focus', source: 'registros-detail', x: 102, y: 0, width: 456, height: 360 },
 ];
 const browser = await chromium.launch({ headless: true });
 try {
