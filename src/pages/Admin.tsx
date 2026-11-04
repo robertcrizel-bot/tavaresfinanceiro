@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
-import { Loader2, ShieldCheck } from "lucide-react";
+import { BellRing, Loader2, ShieldCheck } from "lucide-react";
+import { enableBrowserAdminAlerts } from "@/lib/beta-notifications";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -31,6 +32,14 @@ export default function Admin() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
+  const [alertsPermission, setAlertsPermission] = useState<string>(() => typeof Notification === "undefined" ? "unsupported" : Notification.permission);
+  const enableAlerts = async () => {
+    const permission = await enableBrowserAdminAlerts();
+    setAlertsPermission(permission);
+    toast({ title: permission === "granted" ? "Avisos ativados" : "Avisos não ativados", description: permission === "granted"
+      ? "O navegador avisará sobre novos pedidos enquanto o FinVision estiver aberto."
+      : "Verifique a permissão de notificações nas configurações do navegador." });
+  };
 
   const load = useCallback(async () => {
     setError(null);
@@ -67,6 +76,15 @@ export default function Admin() {
       <div className="flex items-center gap-3">
         <ShieldCheck className="h-7 w-7 text-primary" />
         <h1 className="font-display text-3xl font-bold text-primary">Administração</h1>
+      </div>
+      <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <p className="flex items-center gap-2 text-sm font-semibold"><BellRing className="h-4 w-4 text-primary" /> Avisos de novos pedidos</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">O menu mostra os pedidos pendentes. Os avisos do navegador funcionam com o FinVision aberto; notificações com o aplicativo fechado e e-mail exigem ativação do serviço de envio.</p>
+        </div>
+        <Button variant="outline" className="min-h-11 shrink-0" onClick={() => void enableAlerts()} disabled={alertsPermission === "granted"}>
+          {alertsPermission === "granted" ? "Avisos ativados" : "Ativar avisos"}
+        </Button>
       </div>
       {error && <p className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
       {!data && !error && <Loader2 className="h-6 w-6 animate-spin text-primary" />}
