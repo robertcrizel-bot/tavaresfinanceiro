@@ -7,8 +7,6 @@ const crops = [
   { name: 'analises-overview', source: 'analises', x: 584, y: 324, width: 826, height: 990 },
   { name: 'analises-categorias', source: 'analises', x: 584, y: 324, width: 406, height: 535 },
   { name: 'dashboard-content', source: 'dashboard', x: 260, y: 75, width: 1160, height: 1220 },
-  // Crop only the empty black area outside the real credit-card outline.
-  { name: 'contas-detail', source: 'contas-detail', x: 18, y: 0, width: 332, height: 368 },
 ];
 const browser = await chromium.launch({ headless: true });
 try {
