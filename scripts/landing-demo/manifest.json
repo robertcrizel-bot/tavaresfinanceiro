@@ -43,16 +43,16 @@
       "bytes": 86356
     },
     {
-      "name": "registros.webp",
-      "width": 2880,
-      "height": 2200,
-      "bytes": 370952
-    },
-    {
       "name": "registros-detail.webp",
       "width": 2302,
       "height": 720,
       "bytes": 128930
+    },
+    {
+      "name": "registros.webp",
+      "width": 3048,
+      "height": 1836,
+      "bytes": 358122
     },
     {
       "name": "registros-focus.webp",
@@ -76,7 +76,7 @@
       "name": "extratos.webp",
       "width": 2880,
       "height": 3200,
-      "bytes": 479716
+      "bytes": 479698
     },
     {
       "name": "extratos-movimentos.webp",
