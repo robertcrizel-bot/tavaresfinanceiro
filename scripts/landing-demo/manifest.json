@@ -57,8 +57,8 @@
     {
       "name": "registros-focus.webp",
       "width": 2302,
-      "height": 1560,
-      "bytes": 256180
+      "height": 1298,
+      "bytes": 217294
     },
     {
       "name": "contas.webp",
@@ -76,7 +76,7 @@
       "name": "extratos.webp",
       "width": 2880,
       "height": 3200,
-      "bytes": 479710
+      "bytes": 479702
     },
     {
       "name": "extratos-movimentos.webp",
@@ -94,7 +94,7 @@
       "name": "previsoes.webp",
       "width": 2880,
       "height": 2200,
-      "bytes": 249184
+      "bytes": 249398
     },
     {
       "name": "dashboard-mobile.webp",
