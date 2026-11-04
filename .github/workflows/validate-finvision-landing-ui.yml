@@ -10,6 +10,8 @@ on:
       - 'src/components/ui/button.tsx'
       - 'src/pages/Dashboard.tsx'
       - 'src/pages/Records.tsx'
+      - 'public/landing/**'
+      - 'scripts/landing-demo/manifest.json'
       - '.github/workflows/validate-finvision-landing-ui.yml'
   workflow_dispatch:
 
