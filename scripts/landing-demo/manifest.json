@@ -16,25 +16,25 @@
       "name": "dashboard.webp",
       "width": 2880,
       "height": 2640,
-      "bytes": 473836
+      "bytes": 473918
     },
     {
       "name": "dashboard-focus.webp",
       "width": 2240,
       "height": 1800,
-      "bytes": 328432
+      "bytes": 328500
     },
     {
       "name": "analises.webp",
       "width": 2880,
       "height": 3700,
-      "bytes": 624572
+      "bytes": 627056
     },
     {
       "name": "analises-detail.webp",
       "width": 736,
       "height": 736,
-      "bytes": 36060
+      "bytes": 39660
     },
     {
       "name": "orcamento-detail.webp",
@@ -46,25 +46,25 @@
       "name": "registros.webp",
       "width": 2880,
       "height": 2200,
-      "bytes": 370086
+      "bytes": 370952
     },
     {
       "name": "registros-detail.webp",
       "width": 2302,
       "height": 720,
-      "bytes": 128140
+      "bytes": 128930
     },
     {
       "name": "registros-focus.webp",
-      "width": 2368,
-      "height": 1276,
-      "bytes": 215258
+      "width": 2302,
+      "height": 1560,
+      "bytes": 256180
     },
     {
       "name": "contas.webp",
       "width": 2880,
       "height": 1460,
-      "bytes": 231090
+      "bytes": 228748
     },
     {
       "name": "contas-detail.webp",
@@ -76,7 +76,7 @@
       "name": "extratos.webp",
       "width": 2880,
       "height": 3200,
-      "bytes": 479716
+      "bytes": 479710
     },
     {
       "name": "extratos-movimentos.webp",
@@ -94,7 +94,7 @@
       "name": "previsoes.webp",
       "width": 2880,
       "height": 2200,
-      "bytes": 249398
+      "bytes": 249184
     },
     {
       "name": "dashboard-mobile.webp",
