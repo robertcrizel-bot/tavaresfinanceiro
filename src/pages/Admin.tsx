@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import { Navigate } from "react-router-dom";
 import { BellRing, Loader2, ShieldCheck } from "lucide-react";
-import { enableBrowserAdminAlerts } from "@/lib/beta-notifications";
+import { enableAdminMobilePush } from "@/lib/beta-notifications";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import {
@@ -32,13 +32,23 @@ export default function Admin() {
   const [error, setError] = useState<string | null>(null);
   const [pending, setPending] = useState<Pending | null>(null);
   const [busy, setBusy] = useState(false);
-  const [alertsPermission, setAlertsPermission] = useState<string>(() => typeof Notification === "undefined" ? "unsupported" : Notification.permission);
+  const [alertsPermission, setAlertsPermission] = useState<string>("inactive");
   const enableAlerts = async () => {
-    const permission = await enableBrowserAdminAlerts();
-    setAlertsPermission(permission);
-    toast({ title: permission === "granted" ? "Avisos ativados" : "Avisos não ativados", description: permission === "granted"
-      ? "O navegador avisará sobre novos pedidos enquanto o FinVision estiver aberto."
-      : "Verifique a permissão de notificações nas configurações do navegador." });
+    try {
+      const result = await enableAdminMobilePush();
+      setAlertsPermission(result);
+      toast({
+        title: result === "enabled" ? "Notificações ativadas" : "Notificações ainda não ativadas",
+        description: result === "enabled"
+          ? "Seu celular está inscrito para receber avisos, inclusive com o aplicativo fechado, quando o envio pelo servidor estiver configurado."
+          : result === "server_not_ready"
+            ? "O serviço de envio ainda precisa ser configurado no servidor. O contador de pedidos do menu continua funcionando."
+            : "Verifique se o navegador permite notificações e se o FinVision foi instalado no celular.",
+        variant: result === "enabled" ? "default" : "destructive",
+      });
+    } catch {
+      toast({ title: "Não foi possível ativar", description: "Confira a conexão ou as permissões do celular.", variant: "destructive" });
+    }
   };
 
   const load = useCallback(async () => {
@@ -80,10 +90,10 @@ export default function Admin() {
       <div className="flex flex-col gap-3 rounded-xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
           <p className="flex items-center gap-2 text-sm font-semibold"><BellRing className="h-4 w-4 text-primary" /> Avisos de novos pedidos</p>
-          <p className="mt-1 text-xs leading-5 text-muted-foreground">O menu mostra os pedidos pendentes. Os avisos do navegador funcionam com o FinVision aberto; notificações com o aplicativo fechado e e-mail exigem ativação do serviço de envio.</p>
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">O menu mostra os pedidos pendentes. O menu mostra os pedidos pendentes. Notificações com o app fechado e e-mail dependem do envio pelo servidor, que precisa estar configurado.</p>
         </div>
-        <Button variant="outline" className="min-h-11 shrink-0" onClick={() => void enableAlerts()} disabled={alertsPermission === "granted"}>
-          {alertsPermission === "granted" ? "Avisos ativados" : "Ativar avisos"}
+        <Button variant="outline" className="min-h-11 shrink-0" onClick={() => void enableAlerts()} disabled={alertsPermission === "enabled"}>
+          {alertsPermission === "enabled" ? "Notificações ativadas" : "Ativar avisos no celular"}
         </Button>
       </div>
       {error && <p className="rounded-lg border border-destructive/40 p-3 text-sm text-destructive">{error}</p>}
