@@ -25,7 +25,7 @@ const pains = [
 ];
 const features = [
   { icon: Files, title: "Extratos", headline: "Encontre a movimentação que procura.", text: "Consulte o histórico de contas e cartões, filtre o período e tenha os detalhes à mão quando precisar conferir um valor.", image: "extratos-movimentos", alt: "Recorte real de extratos DEMO com receitas e despesas fictícias" },
-  { icon: ReceiptText, title: "Registros financeiros", headline: "Cada gasto, com os detalhes certos.", text: "Organize entradas e saídas por categoria, acrescente observações e mantenha o comprovante junto do lançamento.", image: "registros-focus", alt: "Recorte real de registros DEMO com descrição, categoria e valor de cada gasto" },
+  { icon: ReceiptText, title: "Registros financeiros", headline: "Cada gasto, com os detalhes certos.", text: "Organize entradas e saídas por categoria, acrescente observações e mantenha o comprovante junto do lançamento.", image: "registros-focus", alt: "Tela real de Meus Registros do FinVision com pesquisa, filtros, categorias, formas de pagamento e lançamentos DEMO" },
   { icon: CalendarDays, title: "Previsões", headline: "Planeje antes de o mês acontecer.", text: "Organize os vencimentos e acompanhe o orçamento para decidir com uma visão do que ainda vem pela frente.", image: "orcamento-detail", alt: "Orçamento e valores realizados DEMO com barras preenchidas por categoria" },
   { icon: Wallet, title: "Contas e cartões", headline: "Acompanhe a fatura sem perder o contexto.", text: "Veja contas, limites e compras parceladas no mesmo lugar para entender o que já está comprometido.", image: "contas-detail", alt: "Cartão DEMO com limite e fatura preenchidos" },
 ];
@@ -205,31 +205,7 @@ export default function Conhecer() {
                   <p>{text}</p>
                 </div>
                 <div className="fv-mini-product">
-                  {image === "registros-focus" ? (
-                    <div className="fv-demo-records" role="region" aria-label="Exemplo ilustrativo de registros financeiros com dados fictícios">
-                      <div className="fv-demo-records-head">
-                        <span>Data</span><span>Descrição</span><span>Categoria</span><span className="fv-demo-records-extra">Pagamento</span><span>Valor</span>
-                      </div>
-                      {[
-                        ["24/10", "Estacionamento", "Transporte", "Dinheiro", "−R$ 18,00"],
-                        ["23/10", "Delivery", "Alimentação", "Cartão", "−R$ 54,90"],
-                        ["22/10", "Presente de aniversário", "Outros", "Cartão", "−R$ 149,90"],
-                        ["21/10", "Academia", "Saúde", "Pix", "−R$ 149,90"],
-                        ["20/10", "Restaurante", "Alimentação", "Cartão", "−R$ 89,90"],
-                        ["19/10", "Streaming", "Lazer", "Cartão", "−R$ 39,90"],
-                        ["18/10", "Transporte por aplicativo", "Transporte", "Pix", "−R$ 32,90"],
-                        ["17/10", "Consulta médica", "Saúde", "Pix", "−R$ 220,00"],
-                        ["16/10", "Supermercado", "Alimentação", "Cartão", "−R$ 248,70"],
-                      ].map(([date, description, category, payment, amount]) => (
-                        <div className="fv-demo-records-row" key={date}>
-                          <span>{date}</span><strong>{description}</strong><span>{category}</span>
-                          <span className="fv-demo-records-extra">{payment}</span><span>{amount}</span>
-                        </div>
-                      ))}
-                    </div>
-                  ) : (
-                    <img src={`/landing/${image}.webp`} alt={alt} loading="lazy" />
-                  )}
+                  <img src={`/landing/${image}.webp`} alt={alt} loading="lazy" />
                 </div>
               </article>
             ))}
