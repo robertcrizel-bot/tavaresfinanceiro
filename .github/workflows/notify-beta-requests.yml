@@ -1,8 +1,9 @@
 name: Send FinVision Beta request notifications
 
 on:
-  schedule:
-    - cron: '*/5 * * * *'
+  # Enable 5-minute schedule only after credentials and delivery test are complete.
+  # schedule:
+  #   - cron: '*/5 * * * *'
   workflow_dispatch:
 
 permissions:
