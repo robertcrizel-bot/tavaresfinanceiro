@@ -4,13 +4,28 @@ import { useAuth } from "@/contexts/AuthContext";
 
 export type AdminAction = "list" | "grant" | "renew" | "block" | "whoami";
 
-export async function callBetaAdmin<T = any>(action: AdminAction, userId?: string): Promise<T> {
-  const { data, error } = await supabase.functions.invoke("beta-admin", { body: { action, userId } });
-  if (error) {
-    let code = "erro";
-    try { code = (await (error as any).context?.json())?.error ?? code; } catch { /* ignore */ }
-    throw new Error(code);
+export class BetaAdminError extends Error {}
+
+export function errorCode(e: unknown): string {
+  return e instanceof Error ? e.message : "erro";
+}
+
+async function readErrorCode(error: unknown): Promise<string> {
+  const ctx = (error as { context?: unknown } | null)?.context;
+  if (ctx instanceof Response) {
+    try {
+      const body: unknown = await ctx.json();
+      if (body && typeof body === "object" && typeof (body as { error?: unknown }).error === "string") {
+        return (body as { error: string }).error;
+      }
+    } catch { /* corpo não-JSON */ }
   }
+  return "erro";
+}
+
+export async function callBetaAdmin<T = unknown>(action: AdminAction, userId?: string): Promise<T> {
+  const { data, error } = await supabase.functions.invoke<T>("beta-admin", { body: { action, userId } });
+  if (error) throw new BetaAdminError(await readErrorCode(error));
   return data as T;
 }
 
@@ -21,10 +36,10 @@ export function useIsAdmin() {
   useEffect(() => {
     if (!user) { setState({ loading: false, isAdmin: false }); return; }
     let alive = true;
-    callBetaAdmin<{ isAdmin: boolean }>("whoami")
-      .then((r) => alive && setState({ loading: false, isAdmin: !!r?.isAdmin }))
+    callBetaAdmin<{ isAdmin?: unknown }>("whoami")
+      .then((r) => alive && setState({ loading: false, isAdmin: r?.isAdmin === true }))
       .catch(() => alive && setState({ loading: false, isAdmin: false }));
     return () => { alive = false; };
-  }, [user?.id]);
+  }, [user]);
   return state;
 }
