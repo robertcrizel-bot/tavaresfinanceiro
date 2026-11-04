@@ -1,0 +1,46 @@
+name: Send FinVision Beta request notifications
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: finvision-beta-notifications
+  cancel-in-progress: false
+
+jobs:
+  notify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - name: Dispatch new requests (server-side auth, no credentials in logs)
+        env:
+          NOTIFY_SECRET: ${{ secrets.BETA_NOTIFY_CRON_SECRET }}
+          NOTIFY_URL: ${{ secrets.BETA_NOTIFY_FUNCTION_URL }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "$NOTIFY_SECRET" || -z "$NOTIFY_URL" ]]; then
+            echo "Not configured: set BETA_NOTIFY_CRON_SECRET and BETA_NOTIFY_FUNCTION_URL in repository secrets."
+            exit 1
+          fi
+          case "$NOTIFY_URL" in
+            https://*.supabase.co/functions/v1/beta-notify) ;;
+            *) echo "Invalid notification endpoint"; exit 1 ;;
+          esac
+          status=$(curl --silent --show-error --output /tmp/beta-notify.json --write-out '%{http_code}' \
+            --max-time 90 --request POST "$NOTIFY_URL" \
+            --header "Authorization: Bearer $NOTIFY_SECRET" \
+            --header "Content-Type: application/json" \
+            --data '{"action":"dispatch"}')
+          if [[ "$status" != 200 ]]; then echo "Notification server returned HTTP $status"; exit 1; fi
+          python3 - <<'PY'
+          import json
+          result=json.load(open('/tmp/beta-notify.json'))
+          print('Notification dispatch:', {key:result.get(key) for key in ('processed','sent','failed')})
+          if result.get('failed'): raise SystemExit('At least one delivery failed')
+          PY
