@@ -1,2 +1,3 @@
 - [x] Dinheiro -> auto vincular conta caixa (form + previsões), testes, sem alterar dados
 - [ ] Tema claro: alternância no cabeçalho, preferência local, contraste e testes mobile/desktop; somente preview.
+- [x] Google login via Lovable Cloud
