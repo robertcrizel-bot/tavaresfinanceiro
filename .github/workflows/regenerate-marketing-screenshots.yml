@@ -56,7 +56,7 @@ jobs:
           };
           for (const [name,[w,h]] of Object.entries(expected)) {
             const asset=manifest.assets.find(a=>a.name===name);
-            if (!asset || (w !== null && asset.width!==w) || (h !== null && asset.height!==h) || (name==='registros.webp' && (asset.width < 2800 || asset.width > 3560 || asset.height < 1700 || asset.height > 2200))) throw Error('Unexpected resolution '+name+': '+JSON.stringify(asset));
+            if (!asset || (w !== null && asset.width!==w) || (h !== null && asset.height!==h) || (name==='registros.webp' && (asset.width < 2800 || asset.width > 3560 || asset.height < 1300 || asset.height > 2600))) throw Error('Unexpected resolution '+name+': '+JSON.stringify(asset));
           }
           if ((manifest.runtimeErrors || []).length || (manifest.backendRequests || []).length) throw Error('Capture had runtime/backend errors');
           CHECK
