@@ -123,18 +123,27 @@ try {
   await open('/records');
   await save('registros');
   await save('registros-detail', { clip: await clipElement('table', 360) });
-  // Capture the real table from its left edge through the Actions column.
-  // Stop at the bottom of the ninth complete row instead of cutting a later row.
+  // The normal 1440px capture compresses the final Actions column. Use a wider
+  // DEMO viewport ONLY for this marketing crop, then capture precisely the table.
+  await page.setViewportSize({ width: 1780, height: 1100 });
+  await page.waitForTimeout(150);
   const recordsTable = page.locator('table').first();
   const tableBox = await recordsTable.boundingBox();
   const ninthRowBox = await recordsTable.locator('tbody tr').nth(8).boundingBox();
-  assert.ok(tableBox && ninthRowBox, 'Records DEMO must render at least nine full table rows');
+  const actionsHeadBox = await recordsTable.locator('thead th').last().boundingBox();
+  const lastActionsBox = await recordsTable.locator('tbody tr').nth(8).locator('td').last().boundingBox();
+  assert.ok(tableBox && ninthRowBox && actionsHeadBox && lastActionsBox, 'Records DEMO must render nine rows and the Actions column');
+  const right = tableBox.x + tableBox.width;
+  assert.ok(actionsHeadBox.x + actionsHeadBox.width <= right + 1, 'Actions heading must fit inside the table');
+  assert.ok(lastActionsBox.x + lastActionsBox.width <= right + 1, 'Actions buttons must fit inside the table');
+  assert.ok(right <= 1780, 'The full Records table must fit inside the capture viewport');
+  const ninthBottom = ninthRowBox.y + ninthRowBox.height;
   await save('registros-focus', {
     clip: {
-      x: tableBox.x,
+      x: Math.max(0, tableBox.x - 1),
       y: tableBox.y,
-      width: tableBox.width,
-      height: Math.ceil(ninthRowBox.y + ninthRowBox.height - tableBox.y),
+      width: Math.min(1780 - Math.max(0, tableBox.x - 1), right - Math.max(0, tableBox.x - 1) + 2),
+      height: Math.ceil(ninthBottom - tableBox.y),
     },
   });
   await page.setViewportSize({ width: 1440, height: 950 });
