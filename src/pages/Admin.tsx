@@ -8,7 +8,7 @@ import {
   AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
-import { callBetaAdmin, useIsAdmin } from "@/lib/beta-admin";
+import { callBetaAdmin, errorCode, useIsAdmin } from "@/lib/beta-admin";
 
 type Person = { user_id: string; email: string | null; name: string | null; isSelf: boolean };
 type Req = Person & { status: string; created_at: string };
@@ -19,6 +19,8 @@ const fmt = (d: string) => new Date(d).toLocaleDateString("pt-BR");
 const label = { grant: "Liberar 30 dias", renew: "Renovar 30 dias", block: "Bloquear acesso" } as const;
 const errors: Record<string, string> = {
   forbidden: "Você não tem permissão.", unauthorized: "Sessão expirada. Entre novamente.",
+  already_has_access: "Este usuário já tem acesso válido.", already_blocked: "Este acesso já está bloqueado.",
+  operation_in_progress: "Outra operação está em andamento para este usuário.",
   self_change_not_allowed: "Você não pode alterar o próprio acesso.",
 };
 
@@ -32,8 +34,8 @@ export default function Admin() {
 
   const load = useCallback(async () => {
     setError(null);
-    try { setData(await callBetaAdmin("list")); }
-    catch (e: any) { setError(errors[e.message] ?? "Não foi possível carregar os dados."); }
+    try { setData(await callBetaAdmin<{ requests: Req[]; entitlements: Ent[] }>("list")); }
+    catch (e: unknown) { setError(errors[errorCode(e)] ?? "Não foi possível carregar os dados."); }
   }, []);
   useEffect(() => { if (isAdmin) load(); }, [isAdmin, load]);
 
@@ -41,14 +43,14 @@ export default function Admin() {
   if (!isAdmin) return <Navigate to="/" replace />;
 
   const run = async () => {
-    if (!pending) return;
+    if (!pending || busy) return;
     setBusy(true);
     try {
       await callBetaAdmin(pending.action, pending.person.user_id);
       toast({ title: "Feito", description: `${label[pending.action]}: ${pending.person.email ?? "usuário"}` });
       await load();
-    } catch (e: any) {
-      toast({ title: "Erro", description: errors[e.message] ?? "A ação falhou.", variant: "destructive" });
+    } catch (e: unknown) {
+      toast({ title: "Erro", description: errors[errorCode(e)] ?? "A ação falhou.", variant: "destructive" });
     } finally { setBusy(false); setPending(null); }
   };
 
