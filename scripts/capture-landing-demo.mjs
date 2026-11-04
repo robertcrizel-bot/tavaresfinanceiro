@@ -123,8 +123,20 @@ try {
   await open('/records');
   await save('registros');
   await save('registros-detail', { clip: await clipElement('table', 360) });
-  // Tight real-table capture, retaining every column including Actions and no empty side gutters.
-  await save('registros-focus', { clip: await clipElement('table', 780) });
+  // Capture the real table from its left edge through the Actions column.
+  // Stop at the bottom of the ninth complete row instead of cutting a later row.
+  const recordsTable = page.locator('table').first();
+  const tableBox = await recordsTable.boundingBox();
+  const ninthRowBox = await recordsTable.locator('tbody tr').nth(8).boundingBox();
+  assert.ok(tableBox && ninthRowBox, 'Records DEMO must render at least nine full table rows');
+  await save('registros-focus', {
+    clip: {
+      x: tableBox.x,
+      y: tableBox.y,
+      width: tableBox.width,
+      height: Math.ceil(ninthRowBox.y + ninthRowBox.height - tableBox.y),
+    },
+  });
   await page.setViewportSize({ width: 1440, height: 950 });
   await open('/accounts');
   await page.getByRole('tab', { name: 'Cartões', exact: true }).click();
