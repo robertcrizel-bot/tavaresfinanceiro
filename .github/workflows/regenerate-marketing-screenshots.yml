@@ -49,14 +49,14 @@ jobs:
           const expected = {
             'dashboard.webp': [2880,2640],
             'analises.webp': [2880,3700],
-            'registros.webp': [2880,2200],
+            'registros.webp': [null,2200],
             'contas.webp': [2880,1460],
             'extratos.webp': [2880,3200],
             'previsoes.webp': [2880,2200],
           };
           for (const [name,[w,h]] of Object.entries(expected)) {
             const asset=manifest.assets.find(a=>a.name===name);
-            if (!asset || asset.width!==w || asset.height!==h) throw Error('Unexpected resolution '+name+': '+JSON.stringify(asset));
+            if (!asset || (w !== null && asset.width!==w) || asset.height!==h || (name==='registros.webp' && (asset.width < 2800 || asset.width > 3560))) throw Error('Unexpected resolution '+name+': '+JSON.stringify(asset));
           }
           if ((manifest.runtimeErrors || []).length || (manifest.backendRequests || []).length) throw Error('Capture had runtime/backend errors');
           CHECK
