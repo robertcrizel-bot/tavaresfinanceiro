@@ -25,8 +25,8 @@ jobs:
         run: |
           set -euo pipefail
           if [[ -z "$NOTIFY_SECRET" || -z "$NOTIFY_URL" ]]; then
-            echo "Not configured: set BETA_NOTIFY_CRON_SECRET and BETA_NOTIFY_FUNCTION_URL in repository secrets."
-            exit 1
+            echo "::warning::Beta notifications inactive. Set BETA_NOTIFY_CRON_SECRET and BETA_NOTIFY_FUNCTION_URL in repository secrets."
+            exit 0
           fi
           case "$NOTIFY_URL" in
             https://*.supabase.co/functions/v1/beta-notify) ;;
