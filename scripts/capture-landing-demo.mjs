@@ -134,6 +134,8 @@ try {
   await open('/extratos');
   assert.ok(await page.locator('.recharts-pie-sector').count() >= 3, 'Statement donut must contain visible categories');
   await save('extratos');
+  // Capture only the full 'Maiores movimentações' card, never the following panel.
+  await save('extratos-movimentos', { clip: await clipElement('section:has(> div > h3:text-is("Maiores movimentações"))', 800) });
   await save('categorias-detail', { clip: await clipElement('.recharts-wrapper', 410) });
   await page.setViewportSize({ width: 1440, height: 1100 });
   await open('/forecasts');
