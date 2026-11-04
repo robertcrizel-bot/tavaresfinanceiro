@@ -107,10 +107,9 @@ try {
     assert.equal(features.filledItems, 3);
     assert.match(features.automaticFields, /Valor preenchido/);
     assert.match(features.automaticFields, /Data preenchida/);
-    await page.getByRole('link', { name: 'Veja como a IA agiliza seus lançamentos', exact: true }).click();
-    assert.equal(new URL(page.url()).hash, '#ia-fluxo');
-    const iaTop = await page.locator('#ia-fluxo').evaluate(el => el.getBoundingClientRect().top);
-    assert.ok(iaTop >= await page.locator('.fv-header').evaluate(el => el.getBoundingClientRect().bottom));
+    const liveReaderLink = page.getByRole('link', { name: 'Experimentar a leitura por IA', exact: true });
+    assert.equal(await liveReaderLink.getAttribute('href'), '/receipt', 'AI CTA must lead to the actual reader');
+    assert.equal(await page.locator('#ia-fluxo').count(), 1, 'Illustrative AI demo remains visible');
     await page.getByRole('link', { name: 'Explorar as análises', exact: true }).click();
     assert.equal(await page.getByRole('button', { name: 'Análises', exact: true }).getAttribute('aria-pressed'), 'true');
     for (const anchor of await page.locator('a[href^="#"]').evaluateAll(links => links.map(link => link.hash))) {
