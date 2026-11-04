@@ -25,9 +25,11 @@ describe("public pages", () => {
     expect(screen.getByRole("link", { name: "Criar conta e solicitar acesso Beta" })).toHaveAttribute("href", "/auth?mode=cadastro");
     const plan = document.getElementById("plano")!;
     expect(plan).toHaveTextContent("R$ 14,90/mês");
-    expect(plan).toHaveTextContent("Assinatura em preparação");
-    expect(plan).toHaveTextContent("O acesso Beta depende de liberação");
+    expect(plan).toHaveTextContent("Acesso Beta");
+    expect(plan).toHaveTextContent("Acesso Beta sujeito a liberação");
     expect(plan).toHaveTextContent("Nenhum pagamento é solicitado nesta página");
+    expect(plan).toHaveTextContent("O FinVision já está funcionando!");
+    expect(screen.getByText(/O FinVision terá uma assinatura de R\$ 14,90 por mês/)).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /pagar|comprar|assinar/i })).not.toBeInTheDocument();
     expect(screen.getAllByRole("link").every(link => !/asaas|checkout|payment/.test(link.getAttribute("href") || ""))).toBe(true);
   });
