@@ -24,10 +24,10 @@ const pains = [
   { icon: ReceiptText, title: "Informações espalhadas", text: "Um pouco na planilha, outro tanto nos comprovantes.", solution: "Centralize registros, contas e comprovantes no FinVision." },
 ];
 const features = [
-  { icon: ReceiptText, title: "Registros financeiros", headline: "Cada gasto, com os detalhes certos.", text: "Organize entradas e saídas por categoria, acrescente observações e mantenha o comprovante junto do lançamento.", image: "registros-focus", alt: "Recorte real de registros DEMO com descrição, categoria e valor de cada gasto" },
   { icon: Files, title: "Extratos", headline: "Encontre a movimentação que procura.", text: "Consulte o histórico de contas e cartões, filtre o período e tenha os detalhes à mão quando precisar conferir um valor.", image: "extratos-movimentos", alt: "Recorte real de extratos DEMO com receitas e despesas fictícias" },
-  { icon: Wallet, title: "Contas e cartões", headline: "Acompanhe a fatura sem perder o contexto.", text: "Veja contas, limites e compras parceladas no mesmo lugar para entender o que já está comprometido.", image: "contas-detail", alt: "Cartão DEMO com limite e fatura preenchidos" },
+  { icon: ReceiptText, title: "Registros financeiros", headline: "Cada gasto, com os detalhes certos.", text: "Organize entradas e saídas por categoria, acrescente observações e mantenha o comprovante junto do lançamento.", image: "registros-focus", alt: "Recorte real de registros DEMO com descrição, categoria e valor de cada gasto" },
   { icon: CalendarDays, title: "Previsões", headline: "Planeje antes de o mês acontecer.", text: "Organize os vencimentos e acompanhe o orçamento para decidir com uma visão do que ainda vem pela frente.", image: "orcamento-detail", alt: "Orçamento e valores realizados DEMO com barras preenchidas por categoria" },
+  { icon: Wallet, title: "Contas e cartões", headline: "Acompanhe a fatura sem perder o contexto.", text: "Veja contas, limites e compras parceladas no mesmo lugar para entender o que já está comprometido.", image: "contas-detail", alt: "Cartão DEMO com limite e fatura preenchidos" },
 ];
 const steps = [
   { title: "Crie sua conta", text: "Faça o cadastro e solicite acesso ao Beta. A entrada depende de liberação." },
@@ -170,7 +170,7 @@ export default function Conhecer() {
                 <p className="fv-eyebrow">02 / Leitura por IA</p>
                 <h3 id="ia-destaque-title">Leitura por IA. Menos digitação, mais praticidade.</h3>
                 <p>Tire uma foto ou envie um comprovante: a IA prepara o lançamento com os dados identificados e, quando possível, inclui os itens da compra. Você confere e salva.</p>
-                <p className="fv-ai-share-tip"><strong>Mais prático ainda:</strong> fez um Pix ou fotografou o comprovante fora do app? Compartilhe direto do banco ou da galeria com o FinVision. O arquivo abre na tela de leitura, que pode reconhecer a conta cadastrada.</p>
+                <p className="fv-ai-share-tip"><strong>Mais prático ainda:</strong> Fez um Pix, pagou um boleto ou fotografou um comprovante? Compartilhe diretamente do banco ou da galeria com o FinVision. O app abre a leitura por IA, identifica os dados da transação e reconhece automaticamente a conta de origem, se estiver cadastrada. <strong>Você só confere e salva.</strong></p>
                 <ul className="fv-value-points">
                   <li><Check size={17} aria-hidden="true" /> Dados preenchidos para revisar</li>
                   <li><Check size={17} aria-hidden="true" /> Itens incluídos quando identificados</li>
