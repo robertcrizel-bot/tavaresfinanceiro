@@ -780,3 +780,21 @@
   max-height: none;
   object-fit: contain;
 }
+
+/* Contas e Cartões only: keep the description inside its existing header track.
+   The paired cards retain their shared dimensions and screenshot start/end lines. */
+@media (min-width: 850px) {
+  .fv-feature-grid > .fv-feature-contas-detail > .fv-small-feature-copy {
+    padding: 16px 24px 8px;
+  }
+  .fv-feature-grid > .fv-feature-contas-detail .fv-icon-box {
+    margin-bottom: 7px;
+  }
+  .fv-feature-grid > .fv-feature-contas-detail .fv-small-feature-copy h3 {
+    line-height: 1.18;
+  }
+  .fv-feature-grid > .fv-feature-contas-detail .fv-small-feature-copy > p:not(.fv-eyebrow) {
+    margin-top: 5px;
+    line-height: 1.45;
+  }
+}
