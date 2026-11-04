@@ -683,8 +683,8 @@
     .fv-feature-dashboard, .fv-feature-extratos-movimentos,
     .fv-feature-orcamento-detail, .fv-feature-contas-detail
   ) {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-rows: 305px minmax(0, 1fr);
     min-width: 0;
     min-height: 0;
     height: 100%;
@@ -692,13 +692,13 @@
   .fv-feature-grid > :is(
     .fv-feature-dashboard, .fv-feature-extratos-movimentos,
     .fv-feature-orcamento-detail, .fv-feature-contas-detail
-  ) > .fv-small-feature-copy { min-height: 200px; }
+  ) > .fv-small-feature-copy { min-height: 0; }
   .fv-feature-grid > :is(
     .fv-feature-dashboard, .fv-feature-extratos-movimentos,
     .fv-feature-orcamento-detail, .fv-feature-contas-detail
   ) > .fv-mini-product {
-    flex: 1;
     min-height: 0;
+    height: auto;
     margin: 0 12px 12px;
   }
   .fv-feature-grid > :is(
