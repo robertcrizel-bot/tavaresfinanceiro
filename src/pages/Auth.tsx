@@ -8,7 +8,7 @@ import { toast } from "@/hooks/use-toast";
 import { Loader2 } from "lucide-react";
 
 export default function Auth() {
-  const { signIn, signUp } = useAuth();
+  const { signIn, signUp, signInWithGoogle } = useAuth();
   const [searchParams] = useSearchParams();
   const [isLogin, setIsLogin] = useState(searchParams.get("mode") !== "cadastro");
   const [email, setEmail] = useState("");
@@ -30,6 +30,18 @@ export default function Auth() {
     } catch (err: any) {
       toast({ title: "Erro", description: err.message, variant: "destructive" });
     } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    setLoading(true);
+    try {
+      await signInWithGoogle();
+      // Supabase redirects to Google; the existing auth listener restores the session.
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Não foi possível conectar ao Google.";
+      toast({ title: "Erro no acesso com Google", description: message, variant: "destructive" });
       setLoading(false);
     }
   };
@@ -91,6 +103,21 @@ export default function Auth() {
             {isLogin ? "Entrar" : "Criar Conta"}
           </Button>
         </form>
+
+        <div className="space-y-3" aria-label="Outras opções de acesso">
+          <div className="flex items-center gap-3 text-xs text-muted-foreground" aria-hidden="true">
+            <span className="h-px flex-1 bg-border" />
+            <span>ou</span>
+            <span className="h-px flex-1 bg-border" />
+          </div>
+          <Button type="button" variant="outline" className="h-11 w-full gap-3 rounded-xl font-medium" disabled={loading} onClick={() => void handleGoogleSignIn()}>
+            <span className="text-lg font-bold text-[#4285F4]" aria-hidden="true">G</span>
+            Continuar com Google
+          </Button>
+          <p className="text-center text-xs leading-5 text-muted-foreground">
+            O acesso Beta continua sujeito à aprovação, inclusive com Google.
+          </p>
+        </div>
 
         <p className="text-center text-sm text-muted-foreground">
           {isLogin ? "Não tem conta?" : "Já tem conta?"}{" "}
