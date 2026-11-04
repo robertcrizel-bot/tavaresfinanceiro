@@ -121,11 +121,12 @@ try {
   await page.setViewportSize({ width: 1440, height: 1100 });
   await save('orcamento-detail', { clip: await clipElement('section:has(> div > h3:text-is("Orçamento × Realizado"))', 760), scale: 'device' });
   await open('/records');
-  await save('registros');
   await save('registros-detail', { clip: await clipElement('table', 360) });
-  // The normal 1440px capture compresses the final Actions column. Use a wider
-  // DEMO viewport ONLY for this marketing crop, then capture precisely the table.
+  // Capture the gallery with enough horizontal space to show the Actions column
+  // and its buttons. Remove the sidebar only from this marketing illustration.
   await page.setViewportSize({ width: 1780, height: 1100 });
+  await page.waitForTimeout(150);
+  await save('registros', { clip: await clipElement('main', 1100) });
   await page.waitForTimeout(150);
   const recordsTable = page.locator('table').first();
   const tableBox = await recordsTable.boundingBox();
