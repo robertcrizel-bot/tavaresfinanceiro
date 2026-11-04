@@ -71,7 +71,8 @@ export const previousTransactions = transactions.map((transaction, index) => ({
   ...transaction, id: `demo-previous-${index + 1}`,
   date: transaction.date.replace('2026-10', '2026-09'),
   createdAt: transaction.createdAt.replace('2026-10', '2026-09'),
-  amount: transaction.type === 'income' ? transaction.amount : Math.round(transaction.amount * (index % 2 ? 1.12 : .92) * 100) / 100,
+  // DEMO only: previous month deliberately differs in size and composition for a meaningful comparison.
+  amount: transaction.type === 'income' ? transaction.amount : Math.round(transaction.amount * ([1.38, .64, 1.52, .72, 1.27, .83, 1.41, .58][index % 8]) * 100) / 100,
   creditCardId: undefined, creditCardInvoiceId: undefined,
   financialKind: 'regular', paymentMethod: 'Pix', accountId: 'demo-main', isPaid: true,
 }));
