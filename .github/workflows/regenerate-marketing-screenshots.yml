@@ -83,8 +83,22 @@ jobs:
           fi
           if ! git diff --cached --quiet; then
             git commit -m "$message"
-            git pull --rebase origin main
-            git push origin HEAD:main
+            generated_commit=$(git rev-parse HEAD)
+            # Binary WebP assets cannot be rebased across concurrent capture runs.
+            # Reapply exactly the generated files on top of the latest main instead.
+            for attempt in 1 2 3; do
+              git fetch origin main
+              git reset --hard origin/main
+              if [ "${{ steps.capture.outputs.capture_code }}" = "0" ]; then
+                git restore --source="$generated_commit" --staged --worktree public/landing/ scripts/landing-demo/manifest.json
+              else
+                git restore --source="$generated_commit" --staged --worktree docs/reviews/marketing-capture-last-error.log
+              fi
+              if git diff --cached --quiet; then break; fi
+              git commit -m "$message"
+              if git push origin HEAD:main; then break; fi
+              if [ "$attempt" -eq 3 ]; then exit 1; fi
+            done
           fi
       - name: Fail on capture issues
         if: steps.capture.outputs.capture_code != '0'
