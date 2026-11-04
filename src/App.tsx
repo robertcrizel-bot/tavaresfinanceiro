@@ -19,6 +19,7 @@ import Transfers from "@/pages/Transfers";
 import ReceiptImport from "@/pages/ReceiptImport";
 import Statements from "@/pages/Statements";
 import Profile from "@/pages/Profile";
+import Admin from "@/pages/Admin";
 import Auth from "@/pages/Auth";
 import PasswordRecovery from "@/pages/PasswordRecovery";
 import Beta from "@/pages/Beta";
@@ -63,6 +64,7 @@ function ProtectedRoutes() {
                   <Route path="/receipt" element={<ReceiptImport />} />
                   <Route path="/extratos" element={<Statements />} />
                   <Route path="/profile" element={<Profile />} />
+                  <Route path="/admin" element={<Admin />} />
                 </Route>
                 <Route path="*" element={<NotFound />} />
               </Routes>
