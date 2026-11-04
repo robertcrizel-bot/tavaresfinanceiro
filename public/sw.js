@@ -213,3 +213,33 @@ self.addEventListener("fetch", (event) => {
     })(),
   );
 });
+
+/* Beta administration notifications: no financial or user data in push payloads. */
+self.addEventListener("push", (event) => {
+  event.waitUntil((async () => {
+    let message = {};
+    try { message = event.data?.json() ?? {}; } catch { /* use generic copy */ }
+    const title = typeof message.title === "string" ? message.title : "FinVision — pedido Beta";
+    await self.registration.showNotification(title, {
+      body: typeof message.body === "string" ? message.body : "Há uma solicitação de acesso aguardando análise.",
+      icon: "/finvision-192-v3.png",
+      badge: "/finvision-192-v3.png",
+      tag: "finvision-beta-request",
+      data: { url: "/admin" },
+    });
+  })());
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  event.waitUntil((async () => {
+    const windows = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+    const existing = windows.find((windowClient) => new URL(windowClient.url).origin === self.location.origin);
+    if (existing) {
+      await existing.focus();
+      existing.navigate("/admin");
+    } else {
+      await self.clients.openWindow("/admin");
+    }
+  })());
+});
