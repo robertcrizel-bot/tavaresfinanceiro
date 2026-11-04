@@ -67,15 +67,23 @@ export const transactions = rows.map(([day, title, category, amount, origin, ins
   description: notes[title] ?? '',
 }));
 // A comparison month makes the actual analytics evolution and deltas meaningful.
-export const previousTransactions = transactions.map((transaction, index) => ({
+// Vary both date and amount in the *fictional* previous month. Changing amounts
+// alone reproduces almost the same curve, hiding the point of the comparison.
+const previousDayOffsets = [0, 11, 5, 8, 12, 3, 9, 5, 14, 7, 2, 10, 5, 6, 0, 4, 7, 2, 9, 1, 3, 0, 6, 0];
+const previousAmountFactors = [1, 1.16, .77, 1.35, .83, 1.42, .72, 1.15, 1.38, .68, 1.56, .84, 1.19, .79, 1, 1.31, .69, 1.58, .82, 1.26, .74, 1.37, .92, .63];
+export const previousTransactions = transactions.map((transaction, index) => {
+  const oldDay = Number(transaction.date.slice(-2));
+  const day = transaction.type === 'income' ? oldDay : ((oldDay - 1 + previousDayOffsets[index]) % 24) + 1;
+  const shiftedDate = `2026-09-${String(day).padStart(2, '0')}`;
+  return {
   ...transaction, id: `demo-previous-${index + 1}`,
-  date: transaction.date.replace('2026-10', '2026-09'),
-  createdAt: transaction.createdAt.replace('2026-10', '2026-09'),
-  // DEMO only: previous month deliberately differs in size and composition for a meaningful comparison.
-  amount: transaction.type === 'income' ? transaction.amount : Math.round(transaction.amount * ([1.38, .64, 1.52, .72, 1.27, .83, 1.41, .58][index % 8]) * 100) / 100,
+  date: shiftedDate,
+  createdAt: `${shiftedDate}T12:00:00Z`,
+  amount: transaction.type === 'income' ? transaction.amount : Math.round(transaction.amount * previousAmountFactors[index] * 100) / 100,
   creditCardId: undefined, creditCardInvoiceId: undefined,
   financialKind: 'regular', paymentMethod: 'Pix', accountId: 'demo-main', isPaid: true,
-}));
+  };
+});
 const budgets = { Moradia: 2300, Alimentação: 1100, Transporte: 450, Saúde: 550, Lazer: 400, Educação: 650, Outros: 400 };
 export const categories = Object.entries(budgets).map(([name, monthlyBudget], index) => ({ id: `demo-cat-${index}`, name, monthlyBudget, type: 'expense' }));
 categories.push({ id: 'demo-salary', name: 'Salário', monthlyBudget: null, type: 'income' }, { id: 'demo-freelance', name: 'Freelance', monthlyBudget: null, type: 'income' });
