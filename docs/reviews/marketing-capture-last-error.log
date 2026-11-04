@@ -1,0 +1,189 @@
+Error: [31m  Failed to scan for dependencies from entries:
+  /home/runner/work/tavaresfinanceiro/tavaresfinanceiro/index.html
+/home/runner/work/tavaresfinanceiro/tavaresfinanceiro/landing-demo.local/index.html
+
+  [39m[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "landing-demo.local/AuthContext.mjs" for import "AuthProvider"[0m
+
+    src/App.tsx:5:9:
+[37m      5 │ import { [32mAuthProvider[37m, useAuth } from "@/contexts/AuthContext";
+        ╵          [32m~~~~~~~~~~~~[0m
+
+
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "landing-demo.local/FinanceContext.mjs" for import "FinanceProvider"[0m
+
+    src/App.tsx:6:9:
+[37m      6 │ import { [32mFinanceProvider[37m } from "@/contexts/FinanceContext";
+        ╵          [32m~~~~~~~~~~~~~~~[0m
+
+
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "landing-demo.local/CategoryContext.mjs" for import "CategoryProvider"[0m
+
+    src/App.tsx:7:9:
+[37m      7 │ import { [32mCategoryProvider[37m } from "@/contexts/CategoryContext";
+        ╵          [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "landing-demo.local/AccountContext.mjs" for import "AccountProvider"[0m
+
+    src/App.tsx:8:9:
+[37m      8 │ import { [32mAccountProvider[37m } from "@/contexts/AccountContext";
+        ╵          [32m~~~~~~~~~~~~~~~[0m
+
+
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "landing-demo.local/ForecastContext.mjs" for import "ForecastProvider"[0m
+
+    src/App.tsx:9:9:
+[37m      9 │ import { [32mForecastProvider[37m } from "@/contexts/ForecastContext";
+        ╵          [32m~~~~~~~~~~~~~~~~[0m
+
+
+[31m✘ [41;31m[[41;97mERROR[41;31m][0m [1mNo matching export in "landing-demo.local/TransferContext.mjs" for import "TransferProvider"[0m
+
+    src/App.tsx:10:9:
+[37m      10 │ import { [32mTransferProvider[37m } from "@/contexts/TransferContext";
+         ╵          [32m~~~~~~~~~~~~~~~~[0m
+
+
+    at failureErrorWithLog (/home/runner/work/tavaresfinanceiro/tavaresfinanceiro/node_modules/esbuild/lib/main.js:1472:15)
+    at /home/runner/work/tavaresfinanceiro/tavaresfinanceiro/node_modules/esbuild/lib/main.js:945:25
+    at runOnEndCallbacks (/home/runner/work/tavaresfinanceiro/tavaresfinanceiro/node_modules/esbuild/lib/main.js:1315:45)
+    at buildResponseToResult (/home/runner/work/tavaresfinanceiro/tavaresfinanceiro/node_modules/esbuild/lib/main.js:943:7)
+    at /home/runner/work/tavaresfinanceiro/tavaresfinanceiro/node_modules/esbuild/lib/main.js:955:9
+    at new Promise (<anonymous>)
+    at requestCallbacks.on-end (/home/runner/work/tavaresfinanceiro/tavaresfinanceiro/node_modules/esbuild/lib/main.js:954:54)
+    at handleRequest (/home/runner/work/tavaresfinanceiro/tavaresfinanceiro/node_modules/esbuild/lib/main.js:647:17)
+    at handleIncomingPacket (/home/runner/work/tavaresfinanceiro/tavaresfinanceiro/node_modules/esbuild/lib/main.js:672:7)
+    at Socket.readFromStdout (/home/runner/work/tavaresfinanceiro/tavaresfinanceiro/node_modules/esbuild/lib/main.js:600:7)
+Browserslist: browsers data (caniuse-lite) is 17 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+{
+  "sourceCommit": "650256f",
+  "referenceDate": "2026-10-24T15:00:00.000Z",
+  "summary": {
+    "label": "DEMO — dados fictícios",
+    "period": "Outubro de 2026",
+    "transactions": 24,
+    "income": 8540,
+    "expense": 4516.95,
+    "balance": 4023.05
+  },
+  "captureScale": 2,
+  "webpQuality": 0.98,
+  "assets": [
+    {
+      "name": "dashboard.webp",
+      "width": 2880,
+      "height": 2640,
+      "bytes": 473918
+    },
+    {
+      "name": "dashboard-focus.webp",
+      "width": 2240,
+      "height": 1800,
+      "bytes": 328500
+    },
+    {
+      "name": "analises.webp",
+      "width": 2880,
+      "height": 3700,
+      "bytes": 627056
+    },
+    {
+      "name": "analises-detail.webp",
+      "width": 736,
+      "height": 736,
+      "bytes": 39660
+    },
+    {
+      "name": "orcamento-detail.webp",
+      "width": 804,
+      "height": 1292,
+      "bytes": 86356
+    },
+    {
+      "name": "registros-detail.webp",
+      "width": 2302,
+      "height": 720,
+      "bytes": 128930
+    },
+    {
+      "name": "registros.webp",
+      "width": 3048,
+      "height": 1836,
+      "bytes": 358122
+    },
+    {
+      "name": "registros-focus.webp",
+      "width": 2922,
+      "height": 1034,
+      "bytes": 219884
+    },
+    {
+      "name": "contas.webp",
+      "width": 2880,
+      "height": 1460,
+      "bytes": 228748
+    },
+    {
+      "name": "contas-detail.webp",
+      "width": 730,
+      "height": 736,
+      "bytes": 50412
+    },
+    {
+      "name": "extratos.webp",
+      "width": 2880,
+      "height": 3200,
+      "bytes": 479702
+    },
+    {
+      "name": "extratos-movimentos.webp",
+      "width": 828,
+      "height": 1078,
+      "bytes": 97588
+    },
+    {
+      "name": "categorias-detail.webp",
+      "width": 760,
+      "height": 380,
+      "bytes": 13234
+    },
+    {
+      "name": "previsoes.webp",
+      "width": 2880,
+      "height": 2200,
+      "bytes": 249398
+    },
+    {
+      "name": "dashboard-mobile.webp",
+      "width": 780,
+      "height": 1688,
+      "bytes": 160340
+    },
+    {
+      "name": "dashboard-mobile-focus.webp",
+      "width": 732,
+      "height": 900,
+      "bytes": 86878
+    }
+  ],
+  "runtimeErrors": [],
+  "backendRequests": []
+}
+analises-overview.webp: 1652 x 1980, cropped from analises.webp
+analises-categorias.webp: 812 x 1070, cropped from analises.webp
+dashboard-content.webp: 2320 x 2440, cropped from dashboard.webp
+file:///home/runner/work/tavaresfinanceiro/tavaresfinanceiro/[eval1]:13
+  if (!asset || asset.width!==w || asset.height!==h) throw Error('Unexpected resolution '+name+': '+JSON.stringify(asset));
+                                                           ^
+
+Error: Unexpected resolution registros.webp: {"name":"registros.webp","width":3048,"height":1836,"bytes":358122}
+    at file:///home/runner/work/tavaresfinanceiro/tavaresfinanceiro/[eval1]:13:60
+    at ModuleJob.run (node:internal/modules/esm/module_job:343:25)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async onImport.tracePromise.__proto__ (node:internal/modules/esm/loader:282:26)
+    at async ModuleLoader.executeModuleJob (node:internal/modules/esm/loader:278:20)
+    at async asyncRunEntryPointWithESMLoader (node:internal/modules/run_main:117:5)
+
+Node.js v22.23.4
