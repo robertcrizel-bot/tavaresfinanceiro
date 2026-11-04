@@ -599,7 +599,7 @@
   .fv-feature-grid {
     display: grid;
     grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-rows: minmax(0, 640px) auto minmax(0, 640px);
+    grid-template-rows: minmax(0, 720px) auto minmax(0, 720px);
     align-items: stretch;
     gap: 16px;
   }
@@ -713,4 +713,34 @@
   .fv-feature-grid > .fv-feature-registros-focus {
     grid-column: 1 / -1;
   }
+}
+
+
+/* Keep screenshot examples fully visible inside the equal-sized feature cards.
+   Cropping their bottom hides budgets and credit-card actions. */
+@media (min-width: 600px) {
+  .fv-feature-grid > :is(
+    .fv-feature-dashboard, .fv-feature-extratos-movimentos,
+    .fv-feature-orcamento-detail, .fv-feature-contas-detail
+  ) > .fv-mini-product > img {
+    object-fit: contain;
+    object-position: center top;
+    max-width: 100%;
+    max-height: 100%;
+  }
+}
+.fv-feature-grid > .fv-feature-registros-focus > .fv-mini-product {
+  margin: 0 0 18px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  width: 100%;
+  overflow: hidden;
+}
+.fv-feature-grid > .fv-feature-registros-focus > .fv-mini-product > img {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  height: auto;
+  object-fit: contain;
 }
