@@ -23,6 +23,6 @@ jobs:
         with:
           deno-version: v2.x
       - name: Check server function
-        run: deno check supabase/functions/beta-notify/index.ts
+        run: deno check --node-modules-dir=auto supabase/functions/beta-notify/index.ts
       - name: Check service worker JavaScript
         run: node --check public/sw.js
