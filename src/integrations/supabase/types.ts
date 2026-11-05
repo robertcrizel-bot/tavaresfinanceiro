@@ -137,6 +137,68 @@ export type Database = {
         }
         Relationships: []
       }
+      beta_notification_deliveries: {
+        Row: {
+          attempts: number
+          channel: string
+          claimed_at: string | null
+          delivered_at: string | null
+          last_error: string | null
+          request_id: string
+        }
+        Insert: {
+          attempts?: number
+          channel: string
+          claimed_at?: string | null
+          delivered_at?: string | null
+          last_error?: string | null
+          request_id: string
+        }
+        Update: {
+          attempts?: number
+          channel?: string
+          claimed_at?: string | null
+          delivered_at?: string | null
+          last_error?: string | null
+          request_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "beta_notification_deliveries_request_id_fkey"
+            columns: ["request_id"]
+            isOneToOne: false
+            referencedRelation: "beta_access_requests"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      beta_push_subscriptions: {
+        Row: {
+          auth_secret: string
+          created_at: string
+          endpoint: string
+          p256dh: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auth_secret: string
+          created_at?: string
+          endpoint: string
+          p256dh: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auth_secret?: string
+          created_at?: string
+          endpoint?: string
+          p256dh?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       bill_payments: {
         Row: {
           created_at: string
@@ -349,6 +411,24 @@ export type Database = {
           name?: string
           updated_at?: string
           user_id?: string
+        }
+        Relationships: []
+      }
+      finvision_beta_email_queue: {
+        Row: {
+          http_id: number
+          queued_at: string
+          request_id: string
+        }
+        Insert: {
+          http_id: number
+          queued_at?: string
+          request_id: string
+        }
+        Update: {
+          http_id?: number
+          queued_at?: string
+          request_id?: string
         }
         Relationships: []
       }
@@ -624,6 +704,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      beta_claim_notification: {
+        Args: { p_channel: string; p_request: string }
+        Returns: boolean
+      }
       beta_has_access: { Args: never; Returns: boolean }
       close_credit_card_invoice:
         | { Args: { p_invoice_id: string }; Returns: string }
@@ -685,6 +769,11 @@ export type Database = {
       ensure_credit_card_invoice: {
         Args: { p_credit_card_id: string; p_reference_date?: string }
         Returns: string
+      }
+      finvision_notify_beta: { Args: never; Returns: number }
+      finvision_send_beta_email: {
+        Args: { p_api_key: string; p_request_id: string }
+        Returns: number
       }
       mark_forecast_payment: {
         Args: {
