@@ -80,7 +80,7 @@ export async function enableBrowserAdminAlerts(): Promise<NotificationPermission
   return Notification.requestPermission();
 }
 
-function vapidBytes(key: string): Uint8Array {
+function vapidBytes(key: string): Uint8Array<ArrayBuffer> {
   const base64 = key.replace(/-/g, "+").replace(/_/g, "/").padEnd(Math.ceil(key.length / 4) * 4, "=");
   return new Uint8Array([...atob(base64)].map((char) => char.charCodeAt(0)));
 }
