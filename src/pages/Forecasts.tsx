@@ -320,7 +320,7 @@ export default function Forecasts() {
 
     return (
               <Card key={bill.id} className="data-surface min-w-0 border-border bg-card transition-colors hover:bg-accent/30" style={colorAccent(categoryColor(bill.category))}>
-                 <CardContent className="grid grid-cols-1 gap-3 px-4 py-3.5 sm:px-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-4">
+                 <CardContent className="grid grid-cols-1 gap-3 px-3.5 py-3.5 sm:px-4 xl:grid-cols-[minmax(0,1fr)_minmax(210px,auto)] xl:items-center xl:gap-4">
                   <div className="flex min-w-0 flex-1 items-start gap-3">
                     <div className="rounded-lg bg-muted p-2 shrink-0 mt-0.5">
                       {status.kind === "paid" ? <Check className="h-4 w-4 text-primary" /> :
@@ -371,7 +371,7 @@ export default function Forecasts() {
                     </div>
                   </div>
 
-                  <div className="flex min-w-0 flex-col justify-between gap-3 border-t border-border/40 pt-3 lg:border-t-0 lg:pt-0 xl:min-w-[225px]">
+                  <div className="flex min-w-0 flex-col justify-between gap-3 border-t border-border/40 pt-3 xl:border-t-0 xl:pt-0 xl:min-w-[225px]">
                     {payment ? (
                       <div className="grid min-w-0 grid-cols-2 gap-2" aria-label="Previsto e efetivado">
                         <div className="min-w-0 rounded-lg bg-muted/50 px-2.5 py-2">
