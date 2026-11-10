@@ -401,7 +401,9 @@ export default function Forecasts() {
               isPaid: Boolean(payment),
               type: bill.type,
             });
-            const effectiveDate = payment ? formatForecastEffectiveDate(payment.paidAt) : null;
+            const effectiveDate = payment
+              ? formatForecastEffectiveDate(transactions.find((transaction) => transaction.id === payment.transactionId)?.date)
+              : null;
             const account = accounts.find((a) => a.id === bill.accountId);
 
             return (
