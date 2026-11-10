@@ -43,6 +43,7 @@ export default function Forecasts() {
   const { categories, getCategoriesByType } = useCategories();
   const { transactions } = useFinance();
   const [currentMonth, setCurrentMonth] = useState(new Date());
+  const [mobileGroup, setMobileGroup] = useState<"pending" | "settled">("pending");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editingBill, setEditingBill] = useState<RecurringBill | null>(null);
   const [editScope, setEditScope] = useState<RecurringBillEditScope | "">("");
@@ -79,6 +80,8 @@ export default function Forecasts() {
   }, [bills, referenceMonth]);
 
   const getPayment = (billId: string) => getPaymentForCompetence(payments, billId, referenceMonth);
+  const pendingBills = activeBills.filter((bill) => !getPayment(bill.id));
+  const settledBills = activeBills.filter((bill) => Boolean(getPayment(bill.id)));
   const getEffectiveAmount = (bill: RecurringBill, payment: BillPayment) =>
     transactions.find((transaction) => transaction.id === payment.transactionId)?.amount ?? bill.amount;
 
@@ -299,6 +302,134 @@ export default function Forecasts() {
     editingBill && editScope && editScope !== "this" && formDuration && Number(formDuration) < minimumDuration,
   );
 
+  const renderForecastCard = (bill: RecurringBill) => {
+
+    const payment = getPayment(bill.id);
+    const effectiveAmount = payment ? getEffectiveAmount(bill, payment) : bill.amount;
+    const effectiveAmountDiffers = Boolean(payment && effectiveAmount !== bill.amount);
+    const status = getForecastTemporalStatus({
+              referenceMonth,
+              dueDay: bill.dueDay,
+              isPaid: Boolean(payment),
+              type: bill.type,
+            });
+    const effectiveDate = payment
+              ? formatForecastEffectiveDate(transactions.find((transaction) => transaction.id === payment.transactionId)?.date)
+              : null;
+    const account = accounts.find((a) => a.id === bill.accountId);
+
+    return (
+              <Card key={bill.id} className="data-surface min-w-0 border-border bg-card transition-colors hover:bg-accent/30" style={colorAccent(categoryColor(bill.category))}>
+                 <CardContent className="grid grid-cols-1 gap-3 px-4 py-3.5 sm:px-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-4">
+                  <div className="flex min-w-0 flex-1 items-start gap-3">
+                    <div className="rounded-lg bg-muted p-2 shrink-0 mt-0.5">
+                      {status.kind === "paid" ? <Check className="h-4 w-4 text-primary" /> :
+                       status.kind === "overdue" ? <AlertTriangle className="h-4 w-4 text-destructive" /> :
+                       <Clock className={`h-4 w-4 ${status.kind === "upcoming" ? "text-muted-foreground" : "text-warning"}`} />}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="break-words font-semibold text-[17px] leading-snug text-foreground sm:text-lg">
+                        {bill.name}
+                      </div>
+                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
+                        <Badge variant="outline" className="neutral-tag min-h-8 shrink-0 px-3 py-1 text-[14px] font-bold leading-none">
+                          Dia {Number(status.dueDate.slice(-2))}
+                        </Badge>
+                        <Badge
+                          variant="outline"
+                          className={`min-h-8 shrink-0 px-3 py-1 text-[14px] font-bold leading-none ${
+                            bill.type === "income"
+                              ? "neutral-tag text-income"
+                              : "neutral-tag text-expense"
+                          }`}
+                        >
+                          {bill.type === "income" ? "Entrada" : "Saída"}
+                        </Badge>
+                        {status.label && (
+                          <Badge
+                            variant={status.kind === "overdue" ? "destructive" : status.kind === "paid" ? "default" : "outline"}
+                            className={`neutral-tag min-h-8 shrink-0 border px-3 py-1 text-[14px] font-bold leading-none ${
+                              status.kind === "due-today" || status.kind === "due-soon"
+                                ? "text-warning"
+                                : status.kind === "paid" ? "border-income/40 bg-income/10 text-income"
+                                : status.kind === "overdue" ? "border-expense/40 bg-expense/10 text-expense" : "text-muted-foreground"
+                            }`}
+                          >
+                            {status.label}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
+                        <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(categoryColor(bill.category))}>{bill.category}</span>
+                        {account && (
+                          <>
+                            <span>•</span>
+                            <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(entityColor(account.id, account.color))}>{account.name}</span>
+                          </>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex min-w-0 flex-col justify-between gap-3 border-t border-border/40 pt-3 lg:border-t-0 lg:pt-0 xl:min-w-[225px]">
+                    {payment ? (
+                      <div className="grid min-w-0 grid-cols-2 gap-2" aria-label="Previsto e efetivado">
+                        <div className="min-w-0 rounded-lg bg-muted/50 px-2.5 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Previsto</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{format(new Date(status.dueDate + "T12:00:00"), "dd/MM/yyyy")}</p>
+                          {effectiveAmountDiffers && <p className="mt-1 break-words text-sm text-muted-foreground">Previsto: {bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>}
+                          {!effectiveAmountDiffers && <p className="mt-1 break-words text-sm font-semibold text-foreground">{bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>}
+                        </div>
+                        <div className="min-w-0 rounded-lg border border-income/30 bg-income/5 px-2.5 py-2">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-income">Efetivado</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {effectiveDate ? `${bill.type === "income" ? "Recebido em " : "Pago em "}${effectiveDate}` : "Data indisponível"}
+                          </p>
+                          {effectiveAmountDiffers ? (
+                            <p className="mt-1 break-words text-sm font-bold text-foreground">Efetivo: {effectiveAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+                          ) : (
+                            <p className="mt-1 break-words text-sm font-bold text-foreground">{effectiveAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex min-w-0 items-center justify-between gap-2">
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Previsto</p>
+                          <p className="mt-0.5 text-xs text-muted-foreground">{format(new Date(status.dueDate + "T12:00:00"), "dd/MM/yyyy")}</p>
+                          <p className="mt-1 break-words text-base font-bold text-foreground">{bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex items-center justify-end gap-0.5">
+                      {status.kind === "paid" && payment ? (
+                        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
+                          onClick={() => unmarkAsPaid(payment.id)} title={bill.type === "income" ? "Desmarcar recebimento" : "Desmarcar pagamento"}>
+                          <Undo2 className="h-4 w-4" />
+                        </Button>
+                      ) : (
+                        <Button variant="ghost" size="icon" className="h-9 w-9 text-primary"
+                          onClick={() => openPay(bill)} title={bill.type === "income" ? "Marcar como recebido" : "Marcar como pago"}>
+                          <Check className="h-4 w-4" />
+                        </Button>
+                      )}
+
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
+                        onClick={() => openEdit(bill)} title="Editar previsão">
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive"
+                        onClick={() => openDelete(bill)} title="Excluir previsão">
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -380,133 +511,62 @@ export default function Forecasts() {
         </Button>
       </div>
 
-      {/* Bills list */}
+      {/* Settlement columns. Both groups remain in the DOM on desktop;
+          mobile tabs only control visibility, never the underlying records. */}
       {activeBills.length === 0 ? (
-        <Card className="mx-auto w-full max-w-[1080px] border-border bg-card">
+        <Card className="mx-auto w-full border-border bg-card">
           <CardContent className="p-6 text-center text-muted-foreground">
-            <CalendarClock className="h-12 w-12 mx-auto mb-3 opacity-40" />
+            <CalendarClock className="mx-auto mb-3 h-12 w-12 opacity-40" />
             <p className="font-medium">Nenhuma previsão para este mês</p>
-            <p className="text-sm mt-1">Clique em "Nova Previsão" para começar</p>
+            <p className="mt-1 text-sm">Clique em "Nova Previsão" para começar</p>
           </CardContent>
         </Card>
       ) : (
-        <div aria-label="Lista de previsões" className="mx-auto grid w-full max-w-[1080px] grid-cols-1 gap-2">
-          {activeBills.map((bill) => {
-            const payment = getPayment(bill.id);
-            const effectiveAmount = payment ? getEffectiveAmount(bill, payment) : bill.amount;
-            const effectiveAmountDiffers = Boolean(payment && effectiveAmount !== bill.amount);
-            const status = getForecastTemporalStatus({
-              referenceMonth,
-              dueDay: bill.dueDay,
-              isPaid: Boolean(payment),
-              type: bill.type,
-            });
-            const effectiveDate = payment
-              ? formatForecastEffectiveDate(transactions.find((transaction) => transaction.id === payment.transactionId)?.date)
-              : null;
-            const account = accounts.find((a) => a.id === bill.accountId);
-
-            return (
-              <Card key={bill.id} className="data-surface min-w-0 border-border bg-card transition-colors hover:bg-accent/30" style={colorAccent(categoryColor(bill.category))}>
-                 <CardContent className="grid grid-cols-1 gap-3 px-4 py-3.5 sm:px-4 md:grid-cols-[minmax(0,1fr)_auto] md:items-center md:gap-4">
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <div className="rounded-lg bg-muted p-2 shrink-0 mt-0.5">
-                      {status.kind === "paid" ? <Check className="h-4 w-4 text-primary" /> :
-                       status.kind === "overdue" ? <AlertTriangle className="h-4 w-4 text-destructive" /> :
-                       <Clock className={`h-4 w-4 ${status.kind === "upcoming" ? "text-muted-foreground" : "text-warning"}`} />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="break-words font-semibold text-[17px] leading-snug text-foreground sm:text-lg">
-                        {bill.name}
-                      </div>
-                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="neutral-tag min-h-8 shrink-0 px-3 py-1 text-[14px] font-bold leading-none">
-                          Dia {Number(status.dueDate.slice(-2))}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={`min-h-8 shrink-0 px-3 py-1 text-[14px] font-bold leading-none ${
-                            bill.type === "income"
-                              ? "neutral-tag text-income"
-                              : "neutral-tag text-expense"
-                          }`}
-                        >
-                          {bill.type === "income" ? "Entrada" : "Saída"}
-                        </Badge>
-                        {status.label && (
-                          <Badge
-                            variant={status.kind === "overdue" ? "destructive" : status.kind === "paid" ? "default" : "outline"}
-                            className={`neutral-tag min-h-8 shrink-0 border px-3 py-1 text-[14px] font-bold leading-none ${
-                              status.kind === "due-today" || status.kind === "due-soon"
-                                ? "text-warning"
-                                : status.kind === "paid" ? "border-income/40 bg-income/10 text-income"
-                                : status.kind === "overdue" ? "border-expense/40 bg-expense/10 text-expense" : "text-muted-foreground"
-                            }`}
-                          >
-                            {status.label}
-                          </Badge>
-                        )}
-                      </div>
-                      {effectiveDate && (
-                        <p className="mt-2 text-[13px] font-medium text-income">
-                          {bill.type === "income" ? "Recebido em " : "Pago em "}{effectiveDate}
-                        </p>
-                      )}
-                      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
-                        <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(categoryColor(bill.category))}>{bill.category}</span>
-                        {account && (
-                          <>
-                            <span>•</span>
-                            <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(entityColor(account.id, account.color))}>{account.name}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center justify-between gap-3 border-t border-border/40 pt-3 text-base md:justify-end md:border-t-0 md:pt-0">
-                    {effectiveAmountDiffers ? (
-                      <div className="text-left text-sm leading-relaxed md:text-right">
-                        <div className="text-muted-foreground">
-                          Previsto: {bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                        </div>
-                        <div className="font-semibold text-foreground">
-                          Efetivo: {effectiveAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                        </div>
-                      </div>
-                    ) : (
-                      <span className="text-base font-semibold text-foreground">
-                        {effectiveAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
-                      </span>
-                    )}
-
-                    <div className="flex items-center gap-0.5">
-                      {status.kind === "paid" && payment ? (
-                        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
-                          onClick={() => unmarkAsPaid(payment.id)} title={bill.type === "income" ? "Desmarcar recebimento" : "Desmarcar pagamento"}>
-                          <Undo2 className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button variant="ghost" size="icon" className="h-9 w-9 text-primary"
-                          onClick={() => openPay(bill)} title={bill.type === "income" ? "Marcar como recebido" : "Marcar como pago"}>
-                          <Check className="h-4 w-4" />
-                        </Button>
-                      )}
-
-                      <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
-                        onClick={() => openEdit(bill)} title="Editar previsão">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive"
-                        onClick={() => openDelete(bill)} title="Excluir previsão">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
-          })}
+        <div aria-label="Lista de previsões" className="mx-auto w-full max-w-[1500px]">
+          <div className="mb-3 grid grid-cols-2 gap-2 lg:hidden" role="tablist" aria-label="Situação das previsões">
+            <Button type="button" role="tab" aria-selected={mobileGroup === "pending"}
+              variant={mobileGroup === "pending" ? "default" : "outline"}
+              className="min-w-0" onClick={() => setMobileGroup("pending")}>
+              Pendentes ({pendingBills.length})
+            </Button>
+            <Button type="button" role="tab" aria-selected={mobileGroup === "settled"}
+              variant={mobileGroup === "settled" ? "default" : "outline"}
+              className="min-w-0" onClick={() => setMobileGroup("settled")}>
+              Efetivados ({settledBills.length})
+            </Button>
+          </div>
+          <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-2">
+            <section aria-label="Previsões pendentes"
+              className={`min-w-0 space-y-2 ${mobileGroup === "pending" ? "" : "hidden lg:block"}`}>
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-border/70 bg-card px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Clock className="h-4 w-4 text-warning" />
+                  <h2 className="text-base font-bold text-foreground">Pendentes</h2>
+                </div>
+                <span className="text-xs font-medium text-muted-foreground">{pendingBills.length} {pendingBills.length === 1 ? "previsão" : "previsões"}</span>
+              </div>
+              {pendingBills.length ? pendingBills.map(renderForecastCard) : (
+                <Card className="border-dashed"><CardContent className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  Nenhuma previsão pendente neste mês.
+                </CardContent></Card>
+              )}
+            </section>
+            <section aria-label="Previsões efetivadas"
+              className={`min-w-0 space-y-2 ${mobileGroup === "settled" ? "" : "hidden lg:block"}`}>
+              <div className="flex items-center justify-between gap-2 rounded-xl border border-income/20 bg-card px-4 py-3">
+                <div className="flex items-center gap-2">
+                  <Check className="h-4 w-4 text-income" />
+                  <h2 className="text-base font-bold text-foreground">Efetivados</h2>
+                </div>
+                <span className="text-xs font-medium text-muted-foreground">{settledBills.length} {settledBills.length === 1 ? "previsão" : "previsões"}</span>
+              </div>
+              {settledBills.length ? settledBills.map(renderForecastCard) : (
+                <Card className="border-dashed"><CardContent className="px-4 py-8 text-center text-sm text-muted-foreground">
+                  Nenhuma previsão efetivada neste mês.
+                </CardContent></Card>
+              )}
+            </section>
+          </div>
         </div>
       )}
 
