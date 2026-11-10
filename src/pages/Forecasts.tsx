@@ -24,6 +24,7 @@ import { Loader2 } from "lucide-react";
 import { PAYMENT_METHODS, PaymentMethod } from "@/lib/types";
 import { Textarea } from "@/components/ui/textarea";
 import { getForecastTemporalStatus, getPaymentForCompetence } from "@/lib/forecast-status";
+import { formatForecastEffectiveDate } from "@/lib/forecast-effective-date";
 import { calculateMonthlyCategoryBudgetProjection, simulateForecastBudgetProjection } from "@/lib/financial-calculations";
 import {
   getMinimumDurationMonths,
@@ -400,6 +401,7 @@ export default function Forecasts() {
               isPaid: Boolean(payment),
               type: bill.type,
             });
+            const effectiveDate = payment ? formatForecastEffectiveDate(payment.paidAt) : null;
             const account = accounts.find((a) => a.id === bill.accountId);
 
             return (
@@ -443,6 +445,11 @@ export default function Forecasts() {
                           </Badge>
                         )}
                       </div>
+                      {effectiveDate && (
+                        <p className="mt-2 text-[13px] font-medium text-income">
+                          {bill.type === "income" ? "Recebido em " : "Pago em "}{effectiveDate}
+                        </p>
+                      )}
                       <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
                         <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(categoryColor(bill.category))}>{bill.category}</span>
                         {account && (
