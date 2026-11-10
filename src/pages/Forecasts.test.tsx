@@ -183,19 +183,61 @@ describe("Forecasts budget indicator", () => {
     vi.useRealTimers();
   });
 
-  it("displays full-width forecast rows instead of two compressed columns", () => {
+  it("splits forecasts into pending and settled desktop columns without duplicating cards", () => {
     mockData.bills = [
       makeBill({ id: "bill-a", name: "Internet" }),
       makeBill({ id: "bill-b", name: "Financiamento" }),
     ];
     render(<Forecasts />);
     const list = screen.getByLabelText("Lista de previsões");
-    expect(list.className).toContain("grid-cols-1");
-    expect(list.className).not.toContain("xl:grid-cols-2");
-    expect(list).toHaveClass("mx-auto", "w-full", "max-w-[1080px]");
+    expect(list).toHaveClass("mx-auto", "w-full", "max-w-[1500px]");
+    expect(list.querySelector(".lg\\:grid-cols-2")).not.toBeNull();
+    expect(screen.getByLabelText("Previsões pendentes")).toBeInTheDocument();
+    expect(screen.getByLabelText("Previsões efetivadas")).toBeInTheDocument();
     expect(screen.getByText("Internet")).toBeInTheDocument();
     expect(screen.getByText("Financiamento")).toBeInTheDocument();
     expect(screen.getAllByTitle("Editar previsão")).toHaveLength(2);
+  });
+
+  it("moves a settled forecast into the completed section while preserving amounts and actual date", () => {
+    mockData.bills = [
+      makeBill({ id: "bill-pending", name: "Conta de energia", dueDay: 7, amount: 180 }),
+      makeBill({ id: "bill-paid", name: "Salário", dueDay: 7, type: "income", amount: 3872 }),
+    ];
+    mockData.payments = [{
+      id: "pay-paid", recurringBillId: "bill-paid", referenceMonth: "2026-09",
+      paidAt: "2026-09-15T12:00:00Z", transactionId: "tx-salary",
+    }];
+    mockData.transactions.push({
+      id: "tx-salary", title: "Salário", amount: 3872, type: "income",
+      category: "Salário", date: "2026-09-06",
+    } as Transaction);
+
+    render(<Forecasts />);
+    const pending = screen.getByLabelText("Previsões pendentes");
+    const settled = screen.getByLabelText("Previsões efetivadas");
+    expect(pending).toHaveTextContent("Conta de energia");
+    expect(pending).not.toHaveTextContent("Salário");
+    expect(settled).toHaveTextContent("Salário");
+    expect(settled).not.toHaveTextContent("Conta de energia");
+    expect(settled).toHaveTextContent("Recebido em 06/09/2026");
+    expect(settled).toHaveTextContent("3.872,00");
+    expect(screen.getByRole("tab", { name: "Pendentes (1)" })).toHaveAttribute("aria-selected", "true");
+    fireEvent.click(screen.getByRole("tab", { name: "Efetivados (1)" }));
+    expect(screen.getByRole("tab", { name: "Efetivados (1)" })).toHaveAttribute("aria-selected", "true");
+    expect(screen.getByLabelText("Previsões pendentes").className).toContain("hidden lg:block");
+    expect(screen.getByLabelText("Previsões efetivadas").className).not.toContain("hidden lg:block");
+  });
+
+  it("shows a clear empty state when all forecasts are settled", () => {
+    mockData.bills = [makeBill({ name: "Aluguel recebido", type: "income" })];
+    mockData.payments = [{
+      id: "pay-single", recurringBillId: "bill-1", referenceMonth: "2026-09",
+      paidAt: "2026-09-12", transactionId: null,
+    }];
+    render(<Forecasts />);
+    expect(screen.getByLabelText("Previsões pendentes")).toHaveTextContent("Nenhuma previsão pendente neste mês");
+    expect(screen.getByLabelText("Previsões efetivadas")).toHaveTextContent("Aluguel recebido");
   });
 
   const openForm = () => {
