@@ -229,6 +229,38 @@ describe("Forecasts budget indicator", () => {
     expect(screen.getByLabelText("Previsões efetivadas").className).not.toContain("hidden lg:block");
   });
 
+  it("keeps identical card anatomy, financial slots and action footer in both columns", () => {
+    mockData.bills = [
+      makeBill({ id: "bill-pending", name: "Conta pendente", amount: 150 }),
+      makeBill({ id: "bill-settled", name: "Conta efetivada", amount: 200 }),
+    ];
+    mockData.payments = [{
+      id: "payment-settled", recurringBillId: "bill-settled",
+      referenceMonth: "2026-09", paidAt: "2026-09-15",
+      transactionId: "tx-settled",
+    }];
+    mockData.transactions.push({
+      id: "tx-settled", title: "Conta efetivada", amount: 180,
+      type: "expense", category: "Alimentação", date: "2026-09-06",
+    } as Transaction);
+
+    render(<Forecasts />);
+    for (const groupName of ["Previsões pendentes", "Previsões efetivadas"]) {
+      const group = screen.getByLabelText(groupName);
+      const values = group.querySelector('[aria-label="Previsto e efetivado"]');
+      const actions = group.querySelector('[aria-label="Ações da previsão"]');
+      expect(values).not.toBeNull();
+      expect(values).toHaveClass("grid-cols-2");
+      expect(values?.textContent).toContain("Previsto");
+      expect(values?.textContent).toContain("Efetivado");
+      expect(actions?.querySelectorAll("button")).toHaveLength(3);
+    }
+    expect(screen.getByLabelText("Previsões pendentes")).toHaveTextContent("Aguardando");
+    expect(screen.getByLabelText("Previsões efetivadas")).toHaveTextContent("Pago em 06/09/2026");
+    expect(screen.getByLabelText("Previsões efetivadas")).toHaveTextContent("Previsto: R$ 200,00");
+    expect(screen.getByLabelText("Previsões efetivadas")).toHaveTextContent("Efetivo: R$ 180,00");
+  });
+
   it("shows a clear empty state when all forecasts are settled", () => {
     mockData.bills = [makeBill({ name: "Aluguel recebido", type: "income" })];
     mockData.payments = [{

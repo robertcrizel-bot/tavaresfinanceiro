@@ -319,115 +319,92 @@ export default function Forecasts() {
     const account = accounts.find((a) => a.id === bill.accountId);
 
     return (
-              <Card key={bill.id} className="data-surface min-w-0 border-border bg-card transition-colors hover:bg-accent/30" style={colorAccent(categoryColor(bill.category))}>
-                 <CardContent className="grid grid-cols-1 gap-3 px-3.5 py-3.5 sm:px-4 xl:grid-cols-[minmax(0,1fr)_minmax(210px,auto)] xl:items-center xl:gap-4">
-                  <div className="flex min-w-0 flex-1 items-start gap-3">
-                    <div className="rounded-lg bg-muted p-2 shrink-0 mt-0.5">
-                      {status.kind === "paid" ? <Check className="h-4 w-4 text-primary" /> :
-                       status.kind === "overdue" ? <AlertTriangle className="h-4 w-4 text-destructive" /> :
-                       <Clock className={`h-4 w-4 ${status.kind === "upcoming" ? "text-muted-foreground" : "text-warning"}`} />}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="break-words font-semibold text-[17px] leading-snug text-foreground sm:text-lg">
-                        {bill.name}
-                      </div>
-                      <div className="mt-2.5 flex flex-wrap items-center gap-2">
-                        <Badge variant="outline" className="neutral-tag min-h-8 shrink-0 px-3 py-1 text-[14px] font-bold leading-none">
-                          Dia {Number(status.dueDate.slice(-2))}
-                        </Badge>
-                        <Badge
-                          variant="outline"
-                          className={`min-h-8 shrink-0 px-3 py-1 text-[14px] font-bold leading-none ${
-                            bill.type === "income"
-                              ? "neutral-tag text-income"
-                              : "neutral-tag text-expense"
-                          }`}
-                        >
-                          {bill.type === "income" ? "Entrada" : "Saída"}
-                        </Badge>
-                        {status.label && (
-                          <Badge
-                            variant={status.kind === "overdue" ? "destructive" : status.kind === "paid" ? "default" : "outline"}
-                            className={`neutral-tag min-h-8 shrink-0 border px-3 py-1 text-[14px] font-bold leading-none ${
-                              status.kind === "due-today" || status.kind === "due-soon"
-                                ? "text-warning"
-                                : status.kind === "paid" ? "border-income/40 bg-income/10 text-income"
-                                : status.kind === "overdue" ? "border-expense/40 bg-expense/10 text-expense" : "text-muted-foreground"
-                            }`}
-                          >
-                            {status.label}
-                          </Badge>
-                        )}
-                      </div>
-                      <div className="mt-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-[13px] text-muted-foreground">
-                        <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(categoryColor(bill.category))}>{bill.category}</span>
-                        {account && (
-                          <>
-                            <span>•</span>
-                            <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(entityColor(account.id, account.color))}>{account.name}</span>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  </div>
+      <Card key={bill.id} className="data-surface min-w-0 rounded-lg border-border bg-card transition-colors hover:bg-accent/30" style={colorAccent(categoryColor(bill.category))}>
+        <CardContent className="flex h-full min-w-0 flex-col gap-3 p-3.5 sm:p-4">
+          {/* Shared card anatomy: header, metadata, financial slots, actions. */}
+          <div className="flex min-w-0 items-start gap-2.5">
+            <div className="mt-0.5 shrink-0 rounded-lg bg-muted p-2" aria-hidden="true">
+              {status.kind === "paid" ? <Check className="h-4 w-4 text-income" /> :
+                status.kind === "overdue" ? <AlertTriangle className="h-4 w-4 text-destructive" /> :
+                <Clock className={`h-4 w-4 ${status.kind === "upcoming" ? "text-muted-foreground" : "text-warning"}`} />}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h3 className="min-h-6 break-words text-[16px] font-semibold leading-snug text-foreground sm:text-[17px]">{bill.name}</h3>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                <Badge variant="outline" className="neutral-tag shrink-0 px-2 py-1 text-xs font-bold">
+                  Dia {Number(status.dueDate.slice(-2))}
+                </Badge>
+                <Badge variant="outline" className={`neutral-tag shrink-0 px-2 py-1 text-xs font-bold ${bill.type === "income" ? "text-income" : "text-expense"}`}>
+                  {bill.type === "income" ? "Entrada" : "Saída"}
+                </Badge>
+                {status.label && (
+                  <Badge variant="outline" className={`neutral-tag shrink-0 px-2 py-1 text-xs font-bold ${
+                    status.kind === "paid" ? "border-income/40 bg-income/10 text-income" :
+                    status.kind === "overdue" ? "border-expense/40 bg-expense/10 text-expense" :
+                    status.kind === "due-soon" || status.kind === "due-today" ? "text-warning" : "text-muted-foreground"
+                  }`}>
+                    {status.label}
+                  </Badge>
+                )}
+              </div>
+              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+                <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(categoryColor(bill.category))}>{bill.category}</span>
+                {account && (
+                  <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(entityColor(account.id, account.color))}>{account.name}</span>
+                )}
+              </div>
+            </div>
+          </div>
 
-                  <div className="flex min-w-0 flex-col justify-between gap-3 border-t border-border/40 pt-3 xl:border-t-0 xl:pt-0 xl:min-w-[225px]">
-                    {payment ? (
-                      <div className="grid min-w-0 grid-cols-2 gap-2" aria-label="Previsto e efetivado">
-                        <div className="min-w-0 rounded-lg bg-muted/50 px-2.5 py-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Previsto</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">{format(new Date(status.dueDate + "T12:00:00"), "dd/MM/yyyy")}</p>
-                          {effectiveAmountDiffers && <p className="mt-1 break-words text-sm text-muted-foreground">Previsto: {bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>}
-                          {!effectiveAmountDiffers && <p className="mt-1 break-words text-sm font-semibold text-foreground">{bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>}
-                        </div>
-                        <div className="min-w-0 rounded-lg border border-income/30 bg-income/5 px-2.5 py-2">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-income">Efetivado</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            {effectiveDate ? `${bill.type === "income" ? "Recebido em " : "Pago em "}${effectiveDate}` : "Data indisponível"}
-                          </p>
-                          {effectiveAmountDiffers ? (
-                            <p className="mt-1 break-words text-sm font-bold text-foreground">Efetivo: {effectiveAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
-                          ) : (
-                            <p className="mt-1 break-words text-sm font-bold text-foreground">{effectiveAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
-                          )}
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex min-w-0 items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">Previsto</p>
-                          <p className="mt-0.5 text-xs text-muted-foreground">{format(new Date(status.dueDate + "T12:00:00"), "dd/MM/yyyy")}</p>
-                          <p className="mt-1 break-words text-base font-bold text-foreground">{bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}</p>
-                        </div>
-                      </div>
-                    )}
+          <div className="grid min-w-0 grid-cols-2 gap-2" aria-label="Previsto e efetivado">
+            <div className="flex min-w-0 flex-col rounded-lg border border-border/70 bg-muted/40 p-2.5">
+              <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Previsto</p>
+              <p className="mt-1 text-xs text-muted-foreground">{format(new Date(status.dueDate + "T12:00:00"), "dd/MM/yyyy")}</p>
+              <p className={`mt-1 break-words text-sm ${effectiveAmountDiffers ? "text-muted-foreground" : "font-bold text-foreground"}`}>
+                {effectiveAmountDiffers ? "Previsto: " : ""}{bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
+              </p>
+            </div>
+            <div className={`flex min-w-0 flex-col rounded-lg border p-2.5 ${payment ? "border-income/30 bg-income/5" : "border-border/50 bg-muted/20"}`}>
+              <p className={`text-[11px] font-bold uppercase tracking-wide ${payment ? "text-income" : "text-muted-foreground"}`}>Efetivado</p>
+              <p className="mt-1 min-w-0 break-words text-xs text-muted-foreground">
+                {payment
+                  ? effectiveDate
+                    ? `${bill.type === "income" ? "Recebido em " : "Pago em "}${effectiveDate}`
+                    : "Data indisponível"
+                  : "Aguardando"}
+              </p>
+              <p className={`mt-1 break-words text-sm ${payment ? "font-bold text-foreground" : "text-muted-foreground"}`}>
+                {payment
+                  ? `${effectiveAmountDiffers ? "Efetivo: " : ""}${effectiveAmount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}`
+                  : "—"}
+              </p>
+            </div>
+          </div>
 
-                    <div className="flex items-center justify-end gap-0.5">
-                      {status.kind === "paid" && payment ? (
-                        <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
-                          onClick={() => unmarkAsPaid(payment.id)} title={bill.type === "income" ? "Desmarcar recebimento" : "Desmarcar pagamento"}>
-                          <Undo2 className="h-4 w-4" />
-                        </Button>
-                      ) : (
-                        <Button variant="ghost" size="icon" className="h-9 w-9 text-primary"
-                          onClick={() => openPay(bill)} title={bill.type === "income" ? "Marcar como recebido" : "Marcar como pago"}>
-                          <Check className="h-4 w-4" />
-                        </Button>
-                      )}
-
-                      <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
-                        onClick={() => openEdit(bill)} title="Editar previsão">
-                        <Pencil className="h-4 w-4" />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive"
-                        onClick={() => openDelete(bill)} title="Excluir previsão">
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-                </CardContent>
-              </Card>
-            );
+          <div className="mt-auto flex items-center justify-end gap-1 border-t border-border/40 pt-2" aria-label="Ações da previsão">
+            {status.kind === "paid" && payment ? (
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
+                onClick={() => unmarkAsPaid(payment.id)} title={bill.type === "income" ? "Desmarcar recebimento" : "Desmarcar pagamento"}>
+                <Undo2 className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button variant="ghost" size="icon" className="h-9 w-9 text-primary"
+                onClick={() => openPay(bill)} title={bill.type === "income" ? "Marcar como recebido" : "Marcar como pago"}>
+                <Check className="h-4 w-4" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
+              onClick={() => openEdit(bill)} title="Editar previsão">
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive"
+              onClick={() => openDelete(bill)} title="Excluir previsão">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+    );
   };
 
   if (loading) {
