@@ -1,0 +1,31 @@
+name: Forecast effective date - focused validation
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [fix/forecast-effective-date-mobile-20261110]
+permissions:
+  contents: read
+jobs:
+  forecasts:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    env:
+      VITE_SUPABASE_URL: http://127.0.0.1:54321
+      VITE_SUPABASE_PUBLISHABLE_KEY: ci-local-placeholder
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - name: Forecast date and interface regressions
+        run: npx vitest run src/lib/forecast-effective-date.test.ts src/lib/forecast-status.test.ts src/pages/Forecasts.test.tsx --maxWorkers=2
+      - name: TypeScript and production compilation
+        run: |
+          npx tsc -p tsconfig.app.json --noEmit
+          npx tsc -p tsconfig.node.json --noEmit
+          npm run build
