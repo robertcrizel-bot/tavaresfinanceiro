@@ -343,6 +343,41 @@ describe("Forecasts budget indicator", () => {
     }
   });
 
+  it.each([
+    { type: "income" as const, label: "Recebido em " },
+    { type: "expense" as const, label: "Pago em " },
+  ])("uses the date selected in the $type settlement dialog instead of confirmation time", ({ type, label }) => {
+    mockData.bills = [makeBill({ name: "Previsão quitada", dueDay: 7, type })];
+    mockData.payments = [{
+      id: "payment-date",
+      recurringBillId: "bill-1",
+      referenceMonth: "2026-09",
+      paidAt: "2026-09-15T18:30:00Z",
+      transactionId: "tx-selected",
+    }];
+    mockData.transactions.push({
+      id: "tx-selected", title: "Previsão quitada", amount: 362,
+      type, category: "Alimentação", date: "2026-09-06",
+    } as Transaction);
+
+    render(<Forecasts />);
+    expect(screen.getByText("Dia 7")).toBeInTheDocument();
+    expect(screen.getByText(`${label}06/09/2026`)).toBeInTheDocument();
+    expect(screen.queryByText(`${label}15/09/2026`)).not.toBeInTheDocument();
+  });
+
+  it("never displays the confirmation timestamp as effective date when the transaction is unavailable", () => {
+    mockData.bills = [makeBill({ name: "Pagamento antigo" })];
+    mockData.payments = [{
+      id: "payment-without-transaction", recurringBillId: "bill-1",
+      referenceMonth: "2026-09", paidAt: "2026-09-15T18:30:00Z", transactionId: null,
+    }];
+
+    render(<Forecasts />);
+    expect(screen.getByText("Dia 10")).toBeInTheDocument();
+    expect(screen.queryByText(/Pago em/)).not.toBeInTheDocument();
+  });
+
   it("does not repeat forecast and effective labels when the amounts match", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date(2026, 8, 15, 12));

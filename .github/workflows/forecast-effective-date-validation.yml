@@ -3,7 +3,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [fix/forecast-effective-date-mobile-20261110]
+    branches: [fix/forecast-selected-effective-date-20261110]
 permissions:
   contents: read
 jobs:
