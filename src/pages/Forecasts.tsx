@@ -319,7 +319,7 @@ export default function Forecasts() {
     const account = accounts.find((a) => a.id === bill.accountId);
 
     return (
-      <Card key={bill.id} className="data-surface min-w-0 rounded-xl border-border bg-card transition-colors hover:bg-accent/30" style={colorAccent(categoryColor(bill.category))}>
+      <Card key={bill.id} className="data-surface min-w-0 rounded-lg border-border bg-card transition-colors hover:bg-accent/30" style={colorAccent(categoryColor(bill.category))}>
         <CardContent className="flex h-full min-w-0 flex-col gap-3 p-3.5 sm:p-4">
           {/* Shared card anatomy: header, metadata, financial slots, actions. */}
           <div className="flex min-w-0 items-start gap-2.5">
