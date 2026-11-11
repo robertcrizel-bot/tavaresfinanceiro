@@ -1,3 +1,4 @@
+import { FinVisionBrandIcon } from "@/components/FinVisionBrandIcon";
 import { LayoutDashboard, List, User, Wallet, Tag, CalendarClock, ArrowLeftRight, PieChart, ReceiptText, ScanLine, ShieldCheck } from "lucide-react";
 import { useIsAdmin } from "@/lib/beta-admin";
 import { useBetaRequestAlerts } from "@/lib/beta-notifications";
@@ -45,7 +46,7 @@ export function AppSidebar() {
         <div className="mb-6 px-2">
           {!collapsed && (
             <div className="flex items-center gap-3">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-sidebar-primary font-display text-base font-bold text-sidebar-primary-foreground">F</span>
+              <FinVisionBrandIcon />
               <div>
                 <h1 className="font-display text-lg font-bold leading-none text-sidebar-accent-foreground"><span className="text-white">Fin</span><span className="text-sidebar-primary">Vision</span></h1>
                 <p className="mt-1.5 text-[9px] font-bold uppercase tracking-[0.2em] text-sidebar-foreground/55">Financial workspace</p>
@@ -53,7 +54,7 @@ export function AppSidebar() {
             </div>
           )}
           {collapsed && !isMobile && (
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-sidebar-primary font-display text-sm font-bold text-sidebar-primary-foreground">F</span>
+            <FinVisionBrandIcon size="sm" />
           )}
         </div>
 
