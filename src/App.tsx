@@ -23,12 +23,20 @@ import Admin from "@/pages/Admin";
 import Auth from "@/pages/Auth";
 import PasswordRecovery from "@/pages/PasswordRecovery";
 import Beta from "@/pages/Beta";
+import ProductionSubscription from "@/pages/ProductionSubscription";
+import { isProductionPilotRouteEnabled } from "@/lib/asaas-production-pilot";
 import { BetaAccessGate } from "@/components/BetaAccessGate";
 import NotFound from "@/pages/NotFound";
 import Install from "@/pages/Install";
 import Conhecer from "@/pages/Conhecer";
 import Demonstracao from "@/pages/Demonstracao";
 import { Loader2 } from "lucide-react";
+
+const billingPilotEnabled = isProductionPilotRouteEnabled(
+  import.meta.env.VITE_ASAAS_PRODUCTION_PILOT_ENABLED,
+  typeof window === "undefined" ? "" : window.location.hostname,
+  import.meta.env.VITE_SUPABASE_URL,
+);
 
 const queryClient = new QueryClient();
 
@@ -94,6 +102,7 @@ const App = () => (
             <Route path="/auth" element={<AuthRoute />} />
             <Route path="/recuperar-senha" element={<PasswordRecovery />} />
             <Route path="/beta" element={<Beta />} />
+            {billingPilotEnabled && <Route path="/assinatura" element={<ProductionSubscription />} />}
             <Route path="/install" element={<Install />} />
             <Route path="/conhecer" element={<Conhecer />} />
             <Route path="/demonstracao" element={<Demonstracao />} />
