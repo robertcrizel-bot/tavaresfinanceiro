@@ -229,7 +229,7 @@ describe("Forecasts budget indicator", () => {
     expect(screen.getByLabelText("Previsões efetivadas").className).not.toContain("hidden lg:block");
   });
 
-  it("keeps identical card anatomy, financial slots and action footer in both columns", () => {
+  it("keeps identical card anatomy, financial slots and actions in the header in both columns", () => {
     mockData.bills = [
       makeBill({ id: "bill-pending", name: "Conta pendente", amount: 150 }),
       makeBill({ id: "bill-settled", name: "Conta efetivada", amount: 200 }),
@@ -254,6 +254,8 @@ describe("Forecasts budget indicator", () => {
       expect(values?.textContent).toContain("Previsto");
       expect(values?.textContent).toContain("Efetivado");
       expect(actions?.querySelectorAll("button")).toHaveLength(3);
+      expect(actions?.closest(".flex.min-w-0.items-start.justify-between")).not.toBeNull();
+      expect(actions?.querySelectorAll("button.h-8.w-8")).toHaveLength(3);
     }
     expect(screen.getByLabelText("Previsões pendentes")).toHaveTextContent("Aguardando");
     expect(screen.getByLabelText("Previsões efetivadas")).toHaveTextContent("Pago em 06/09/2026");
