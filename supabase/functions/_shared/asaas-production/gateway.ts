@@ -36,6 +36,7 @@ export function productionConfig(
     new Set([key, webhookToken, workerToken]).size !== 3 ||
     (origin.protocol !== "https:" &&
       !["localhost", "127.0.0.1"].includes(origin.hostname)) ||
+    origin.origin !== "https://finvision2026.lovable.app" ||
     origin.username || origin.password || origin.pathname !== "/" ||
     origin.search || origin.hash
   ) fail("PRODUCTION_NOT_CONFIGURED", 503);
@@ -98,7 +99,7 @@ export class AsaasProduction implements Gateway {
     return identifier(customer.id);
   }
   private callbacks() {
-    const url = `${this.config.origin}/assinatura-production`;
+    const url = `${this.config.origin}/assinatura`;
     return {
       successUrl: `${url}?return=success`,
       cancelUrl: `${url}?return=cancelled`,
