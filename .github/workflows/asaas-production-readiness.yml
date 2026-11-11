@@ -6,6 +6,9 @@ on:
       - "supabase/functions/asaas-production-*/**"
       - "docs/asaas-production/**"
       - "src/lib/asaas-production-guard.test.ts"
+      - "src/lib/asaas-production-pilot*"
+      - "src/pages/ProductionSubscription.tsx"
+      - "src/App.tsx"
       - ".github/workflows/asaas-production-readiness.yml"
   workflow_dispatch:
 permissions:
@@ -27,7 +30,7 @@ jobs:
           cache: npm
       - run: npm ci --ignore-scripts
       - name: Server-side environment isolation tests
-        run: npx vitest run src/lib/asaas-production-guard.test.ts --maxWorkers=2
+        run: npx vitest run src/lib/asaas-production-guard.test.ts src/lib/asaas-production-pilot.test.ts --maxWorkers=2
       - name: Ensure production SQL remains a reviewed draft
         shell: bash
         run: |
