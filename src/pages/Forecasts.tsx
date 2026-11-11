@@ -320,17 +320,40 @@ export default function Forecasts() {
 
     return (
       <Card key={bill.id} className="data-surface min-w-0 rounded-lg border-border bg-card transition-colors hover:bg-accent/30" style={colorAccent(categoryColor(bill.category))}>
-        <CardContent className="flex h-full min-w-0 flex-col gap-3 p-3.5 sm:p-4">
+        <CardContent className="flex min-w-0 flex-col gap-2.5 p-3 sm:p-3.5">
           {/* Shared card anatomy: header, metadata, financial slots, actions. */}
           <div className="flex min-w-0 items-start gap-2.5">
-            <div className="mt-0.5 shrink-0 rounded-lg bg-muted p-2" aria-hidden="true">
+            <div className="mt-0.5 shrink-0 rounded-lg bg-muted p-1.5" aria-hidden="true">
               {status.kind === "paid" ? <Check className="h-4 w-4 text-income" /> :
                 status.kind === "overdue" ? <AlertTriangle className="h-4 w-4 text-destructive" /> :
                 <Clock className={`h-4 w-4 ${status.kind === "upcoming" ? "text-muted-foreground" : "text-warning"}`} />}
             </div>
             <div className="min-w-0 flex-1">
-              <h3 className="min-h-6 break-words text-[16px] font-semibold leading-snug text-foreground sm:text-[17px]">{bill.name}</h3>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5">
+              <div className="flex min-w-0 items-start justify-between gap-1">
+                <h3 className="min-w-0 flex-1 break-words text-[16px] font-semibold leading-snug text-foreground sm:text-[17px]">{bill.name}</h3>
+          <div className="flex shrink-0 items-center justify-end gap-0 sm:gap-0.5" aria-label="Ações da previsão">
+            {status.kind === "paid" && payment ? (
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+                onClick={() => unmarkAsPaid(payment.id)} title={bill.type === "income" ? "Desmarcar recebimento" : "Desmarcar pagamento"}>
+                <Undo2 className="h-4 w-4" />
+              </Button>
+            ) : (
+              <Button variant="ghost" size="icon" className="h-8 w-8 text-primary"
+                onClick={() => openPay(bill)} title={bill.type === "income" ? "Marcar como recebido" : "Marcar como pago"}>
+                <Check className="h-4 w-4" />
+              </Button>
+            )}
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
+              onClick={() => openEdit(bill)} title="Editar previsão">
+              <Pencil className="h-4 w-4" />
+            </Button>
+            <Button variant="ghost" size="icon" className="h-8 w-8 text-destructive"
+              onClick={() => openDelete(bill)} title="Excluir previsão">
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </div>
+              </div>
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
                 <Badge variant="outline" className="neutral-tag shrink-0 px-2 py-1 text-xs font-bold">
                   Dia {Number(status.dueDate.slice(-2))}
                 </Badge>
@@ -347,7 +370,7 @@ export default function Forecasts() {
                   </Badge>
                 )}
               </div>
-              <div className="mt-2 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                 <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(categoryColor(bill.category))}>{bill.category}</span>
                 {account && (
                   <span className="data-chip rounded-md border px-2 py-0.5" style={colorAccent(entityColor(account.id, account.color))}>{account.name}</span>
@@ -357,14 +380,14 @@ export default function Forecasts() {
           </div>
 
           <div className="grid min-w-0 grid-cols-2 gap-2" aria-label="Previsto e efetivado">
-            <div className="flex min-w-0 flex-col rounded-lg border border-border/70 bg-muted/40 p-2.5">
+            <div className="flex min-w-0 flex-col rounded-lg border border-border/70 bg-muted/40 p-2">
               <p className="text-[11px] font-bold uppercase tracking-wide text-muted-foreground">Previsto</p>
               <p className="mt-1 text-xs text-muted-foreground">{format(new Date(status.dueDate + "T12:00:00"), "dd/MM/yyyy")}</p>
               <p className={`mt-1 break-words text-sm ${effectiveAmountDiffers ? "text-muted-foreground" : "font-bold text-foreground"}`}>
                 {effectiveAmountDiffers ? "Previsto: " : ""}{bill.amount.toLocaleString("pt-BR", { style: "currency", currency: "BRL" })}
               </p>
             </div>
-            <div className={`flex min-w-0 flex-col rounded-lg border p-2.5 ${payment ? "border-income/30 bg-income/5" : "border-border/50 bg-muted/20"}`}>
+            <div className={`flex min-w-0 flex-col rounded-lg border p-2 ${payment ? "border-income/30 bg-income/5" : "border-border/50 bg-muted/20"}`}>
               <p className={`text-[11px] font-bold uppercase tracking-wide ${payment ? "text-income" : "text-muted-foreground"}`}>Efetivado</p>
               <p className="mt-1 min-w-0 break-words text-xs text-muted-foreground">
                 {payment
@@ -381,27 +404,7 @@ export default function Forecasts() {
             </div>
           </div>
 
-          <div className="mt-auto flex items-center justify-end gap-1 border-t border-border/40 pt-2" aria-label="Ações da previsão">
-            {status.kind === "paid" && payment ? (
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
-                onClick={() => unmarkAsPaid(payment.id)} title={bill.type === "income" ? "Desmarcar recebimento" : "Desmarcar pagamento"}>
-                <Undo2 className="h-4 w-4" />
-              </Button>
-            ) : (
-              <Button variant="ghost" size="icon" className="h-9 w-9 text-primary"
-                onClick={() => openPay(bill)} title={bill.type === "income" ? "Marcar como recebido" : "Marcar como pago"}>
-                <Check className="h-4 w-4" />
-              </Button>
-            )}
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-muted-foreground"
-              onClick={() => openEdit(bill)} title="Editar previsão">
-              <Pencil className="h-4 w-4" />
-            </Button>
-            <Button variant="ghost" size="icon" className="h-9 w-9 text-destructive"
-              onClick={() => openDelete(bill)} title="Excluir previsão">
-              <Trash2 className="h-4 w-4" />
-            </Button>
-          </div>
+
         </CardContent>
       </Card>
     );
