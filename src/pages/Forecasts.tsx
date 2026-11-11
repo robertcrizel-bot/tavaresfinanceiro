@@ -330,7 +330,7 @@ export default function Forecasts() {
             </div>
             <div className="min-w-0 flex-1">
               <div className="flex min-w-0 items-start justify-between gap-1">
-                <h3 className="min-w-0 flex-1 break-words text-[16px] font-semibold leading-snug text-foreground sm:text-[17px]">{bill.name}</h3>
+                <h3 className="min-w-0 flex-1 border-l-2 border-primary/65 pl-2 break-words text-[18px] font-bold leading-tight tracking-tight text-foreground sm:text-[19px]">{bill.name}</h3>
           <div className="flex shrink-0 items-center justify-end gap-0 sm:gap-0.5" aria-label="Ações da previsão">
             {status.kind === "paid" && payment ? (
               <Button variant="ghost" size="icon" className="h-8 w-8 text-muted-foreground"
