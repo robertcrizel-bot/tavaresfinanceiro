@@ -1,3 +1,4 @@
+import { FinVisionBrandIcon } from "@/components/FinVisionBrandIcon";
 import { useEffect } from "react";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "@/components/AppSidebar";
@@ -51,7 +52,7 @@ export default function AppLayout() {
           </header>
           <header className="sticky top-0 z-40 flex h-14 shrink-0 items-center justify-between border-b border-border/60 bg-background/90 px-4 backdrop-blur-xl md:hidden">
             <div className="flex items-center gap-2.5">
-              <span className="flex h-8 w-8 items-center justify-center rounded-[10px] bg-sidebar text-sm font-extrabold text-sidebar-primary">F</span>
+              <FinVisionBrandIcon size="sm" />
               <div>
                 <p className="font-display text-sm font-bold leading-none text-foreground"><span className="text-foreground dark:text-white">Fin</span><span className="text-primary">Vision</span></p>
                 <p className="mt-1 text-[9px] font-bold uppercase tracking-[0.16em] text-muted-foreground">{pageNames[pathname] ?? "Finanças"}</p>
