@@ -40,6 +40,8 @@ describe("Asaas production remains fail-closed", () => {
     expect(() => safeHostedUrl("https://asaas.com.evil.example/i/unsafe")).toThrow();
   });
   it("creates a boleto-with-Pix recurring subscription only against production", async () => {
+    // Vitest uses jsdom AbortSignal; Deno has AbortSignal.timeout natively.
+    vi.stubGlobal("AbortSignal", { timeout: () => new AbortController().signal });
     const fetcher = vi.fn(async (_url: string, init?: RequestInit) => {
       expect(init?.method).toBe("POST");
       const body = JSON.parse(String(init?.body));
@@ -61,5 +63,6 @@ describe("Asaas production remains fail-closed", () => {
     expect(sub).toBe("sub_test");
     expect(String(fetcher.mock.calls[0]?.[0])).toBe("https://api.asaas.com/v3/subscriptions");
     expect(String(fetcher.mock.calls[0]?.[0])).not.toContain("sandbox");
+    vi.unstubAllGlobals();
   });
 });
