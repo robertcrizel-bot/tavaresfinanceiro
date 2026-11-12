@@ -14,6 +14,41 @@ on:
 permissions:
   contents: read
 jobs:
+  disposable-sql-smoke:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: 5432
+      PGDATABASE: postgres
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - name: Validate candidate SQL on an empty disposable database
+        shell: bash
+        run: |
+          set -euo pipefail
+          psql -v ON_ERROR_STOP=1 -f docs/asaas-production/tests/bootstrap.sql
+          psql -v ON_ERROR_STOP=1 -f docs/asaas-production/review-only/01_SCHEMA_REVIEW_ONLY.sql
+          psql -v ON_ERROR_STOP=1 -f docs/asaas-production/review-only/02_BILLING_TYPE_REVIEW_ONLY.sql
+          psql -v ON_ERROR_STOP=1 -f docs/asaas-production/review-only/03_PAID_ACCESS_GUARD_REVIEW_ONLY.sql
+          psql -v ON_ERROR_STOP=1 -f docs/asaas-production/tests/access-smoke.sql
   verify:
     runs-on: ubuntu-24.04
     timeout-minutes: 20
