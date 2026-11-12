@@ -39,6 +39,9 @@ jobs:
           fi
           test -f docs/asaas-production/review-only/01_SCHEMA_REVIEW_ONLY.sql
           test -f docs/asaas-production/review-only/02_BILLING_TYPE_REVIEW_ONLY.sql
+          test -f docs/asaas-production/review-only/03_PAID_ACCESS_GUARD_REVIEW_ONLY.sql
+          grep -q "FROM public.asaas_prod_payments p" docs/asaas-production/review-only/03_PAID_ACCESS_GUARD_REVIEW_ONLY.sql
+          grep -q "FROM public.beta_entitlements e" docs/asaas-production/review-only/03_PAID_ACCESS_GUARD_REVIEW_ONLY.sql
       - name: TypeScript and current frontend build
         run: |
           npx tsc -p tsconfig.app.json --noEmit
