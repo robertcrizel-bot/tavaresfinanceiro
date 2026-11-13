@@ -1013,6 +1013,7 @@ export type Database = {
         Args: { p_credit_card_id: string; p_reference_date?: string }
         Returns: string
       }
+      finvision_asaas_production_worker_tick: { Args: never; Returns: number }
       finvision_notify_beta: { Args: never; Returns: number }
       finvision_send_beta_email: {
         Args: { p_api_key: string; p_request_id: string }
