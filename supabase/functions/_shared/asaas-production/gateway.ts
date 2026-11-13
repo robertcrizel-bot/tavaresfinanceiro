@@ -138,7 +138,8 @@ export class AsaasProduction implements Gateway {
       nextDueDate: new Date().toISOString().slice(0, 10),
       externalReference: contract.id,
       description: plan.name,
-      callback: { ...this.callbacks(), autoRedirect: true },
+      // Subscriptions support payment-page redirection, not checkout cancel/expiry URLs.
+      callback: { successUrl: this.callbacks().successUrl, autoRedirect: true },
     });
     if (
       sub.customer !== customer || cents(sub.value) !== plan.price_cents ||
