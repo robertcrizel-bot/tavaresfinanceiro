@@ -1,31 +1,23 @@
-# Auditoria Beta do FinVision (somente leitura)
+# Diagnóstico: primeiro checkout Boleto (somente leitura)
 
-## O que vi no banco real
-- **Chave do Beta (`beta_access_switch`)**: existe e está **ATIVA** (`enabled = true`) desde 23/10/2026. Então só entra quem tem acesso válido.
-- **Acessos (`beta_entitlements`)**: existe. Tem 2 acessos `trial`, os 2 válidos hoje. Não verifiquei de quem são.
-- **Pedidos (`beta_access_requests`)**: existe. Tem 1 pedido `pending`, de 02/11/2026.
-- **Função `beta_has_access`**: existe. Sem login, nega. Com a chave ligada, exige acesso `active`/`trial` dentro da validade. Um gatilho impede ligar a chave quando não há nenhum acesso válido.
-- **Proteção dos dados**: todas as 13 tabelas do app têm proteção por usuário ligada. As tabelas financeiras e de anexos têm ainda a regra extra `beta_paid_access`, que obriga o acesso Beta.
-- O usuário logado não consegue ler nem alterar a chave e os acessos. Nos pedidos, só pode criar e ler o próprio, sempre com status `pending`.
-- **Comprovantes**: ficam numa pasta privada. Cada pessoa só lê, envia e apaga o que está na própria pasta, e só com acesso Beta.
+## Observado
+Contrato mais recente: `state=reconciliation_required`, `method=BOLETO`, `has_customer=true`, `has_subscription=false`, `has_checkout_url=false`, `cancelled=false`, `provider_billing_type` nulo, criado em 13/11/2026 18:05:36 UTC.
+Os registros da função de checkout mostram só início e encerramento, sem o erro.
 
-## O que não existe
-- Não há tela de administração para ver pedidos ou conceder acesso. No código, só o bloqueio do Beta (`BetaAccessGate`) usa essas tabelas.
-- Não há cargo de administrador.
+## Onde falhou
+Em `ProductionBilling.start`, o cliente foi criado ou encontrado e salvo. O passo seguinte, `gateway.subscribe` (POST /subscriptions), falhou antes de salvar a assinatura. O `catch` marcou o contrato como incerto, e a tela mostrou "Não foi possível confirmar a operação". `payments` nunca foi chamado.
 
-## Caminho mais curto para o 1º testador, sem pagamento
-1. O testador cria a conta (email ou Google) e pede acesso na tela do Beta.
-2. O proprietário me autoriza **explicitamente**, nesta conversa, a conceder `trial` a esse pedido, dizendo o email e a validade (ex.: 30 dias).
-3. Eu insiro o acesso direto no banco. Não precisa mudar código.
-4. O testador recarrega o app e entra.
+## Causa provável (não confirmada)
+1. Mais provável: o Asaas rejeitou a criação (400). O código envia `callback` com `cancelUrl` e `expiredUrl`, campos do Checkout, não da Assinatura, que só aceita `successUrl` e `autoRedirect`. Nesse caso nenhuma assinatura existe.
+2. Possível: tempo esgotado (10 s) ou falha de rede. A assinatura pode existir no Asaas sem que o app saiba.
+3. Possível: o Asaas criou a assinatura, mas a conferência local `SUBSCRIPTION_MISMATCH` recusou a resposta. A assinatura existiria no Asaas.
 
-Repetir para 2 a 5 pessoas. Ter uma tela de admin é opcional e fica para depois.
+Nos casos 2 e 3 pode haver uma assinatura órfã. Por isso, não repita o checkout.
 
-## Depende do proprietário
-- Autorizar cada concessão e dizer quem e por quanto tempo. Hoje, eu não altero acessos sem esse pedido.
-- Confirmar se o pedido pendente é de alguém que você quer liberar.
+## Reconciliação segura (próxima etapa, só com autorização)
+1. No painel do Asaas, em Assinaturas, filtre pelo cliente do proprietário ou pela referência externa igual ao ID do contrato. Não é preciso chamar a API.
+2. **Se não houver assinatura:** a causa foi a 1. Corrigir o `callback` de `subscribe`, com teste. Depois, por migração autorizada, marcar o contrato como cancelado ou falho para liberar uma nova tentativa única.
+3. **Se houver assinatura:** gravar `subscription_id` no contrato por migração e voltar o estado para `pending`. O status passa a buscar o boleto pendente, sem criar outra assinatura. Outra opção é excluir a assinatura no Asaas e seguir como no passo 2.
+4. Em seguida, registrar nos logs da função o código de erro do Asaas, sem dados pessoais, para que a causa fique visível da próxima vez.
 
-## Não verifiquei
-- A quem pertencem os 2 acessos e o pedido. Não li os usuários nem divulgo IDs.
-- Se a tela do Beta mostra o botão de pedir acesso no publicado.
-- Os 2 backups antigos guardados (privados). Vale apagar depois.
+Nada foi alterado neste diagnóstico.
