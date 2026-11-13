@@ -2,8 +2,8 @@ import { describe, expect, it } from "vitest";
 import { isProductionPilotRouteEnabled, verifiedAsaasProductionPaymentUrl } from "./asaas-production-pilot";
 const prod = "https://onhmpgevkttysbfllhjq.supabase.co";
 describe("production billing pilot", () => {
-  it("hides subscription route unless explicitly enabled on real origin with real database", () => {
-    expect(isProductionPilotRouteEnabled(undefined, "finvision2026.lovable.app", prod)).toBe(false);
+  it("exposes the pilot route only on verified production origin and allows an explicit kill switch", () => {
+    expect(isProductionPilotRouteEnabled(undefined, "finvision2026.lovable.app", prod)).toBe(true);
     expect(isProductionPilotRouteEnabled("false", "finvision2026.lovable.app", prod)).toBe(false);
     expect(isProductionPilotRouteEnabled("true", "localhost", prod)).toBe(false);
     expect(isProductionPilotRouteEnabled("true", "finvision2026.lovable.app", "https://qnqljdsxtdakrbsqecly.supabase.co")).toBe(false);

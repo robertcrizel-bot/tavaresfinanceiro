@@ -20,7 +20,7 @@
 4. Verificar eventos de assinatura, checkout e pagamento configurados no Asaas com URL de webhook real e `asaas-access-token` forte (32 a 255 caracteres); usar assinatura de webhook em vez de confiança em redirect/callback.
 5. Configurar job agendado do worker com autorização separada; conferir resposta HTTP, fila de eventos, atrasos, cobranças futuras e estornos.
 6. Registrar o administrador como único usuário piloto na allowlist e manter `asaas_prod_settings.enabled=false` inicialmente; nunca permitir assinaturas de terceiros nesse ponto.
-7. A rota `/assinatura` já foi preparada fora do gate financeiro, mas permanece oculta até `VITE_ASAAS_PRODUCTION_PILOT_ENABLED=true` no site oficial com backend correto; a página pública `/beta` continua sem checkout.
+7. A rota `/assinatura` está disponível somente no domínio público oficial `finvision2026.lovable.app` com backend real; `VITE_ASAAS_PRODUCTION_PILOT_ENABLED=false` serve como kill switch visual. A liberação de checkout é CONTROLADA no servidor por `asaas_prod_testers` (um usuário piloto), validada após autenticação; página `/beta` não exibe checkout geral.
 8. Teste controlado com autorização específica: valor R$ 14,90, cobrança real, webhook RECEIVED/CONFIRMED, direito `expires_at`, bloqueio em vencimento, cancelamento, estorno, duplicados e criação incerta.
 9. Publicar o fluxo somente depois de obter evidência do ensaio fim a fim, aprovação de termos e política de privacidade, e aceitação do proprietário.
 10. Na liberação dos primeiros clientes, remover bloqueio **somente** para um grupo piloto; não abrir publicamente por padrão.
