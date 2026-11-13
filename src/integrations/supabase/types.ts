@@ -65,6 +65,196 @@ export type Database = {
         }
         Relationships: []
       }
+      asaas_prod_contracts: {
+        Row: {
+          billing_anchor_day: number
+          cancelled: boolean
+          checkout_id: string | null
+          checkout_url: string | null
+          created_at: string
+          creation_token: string
+          customer_id: string | null
+          expires_at: string | null
+          id: string
+          method: string
+          plan_id: string
+          provider_billing_type: string | null
+          state: string
+          subscription_id: string | null
+          user_id: string
+        }
+        Insert: {
+          billing_anchor_day?: number
+          cancelled?: boolean
+          checkout_id?: string | null
+          checkout_url?: string | null
+          created_at?: string
+          creation_token?: string
+          customer_id?: string | null
+          expires_at?: string | null
+          id?: string
+          method: string
+          plan_id?: string
+          provider_billing_type?: string | null
+          state?: string
+          subscription_id?: string | null
+          user_id: string
+        }
+        Update: {
+          billing_anchor_day?: number
+          cancelled?: boolean
+          checkout_id?: string | null
+          checkout_url?: string | null
+          created_at?: string
+          creation_token?: string
+          customer_id?: string | null
+          expires_at?: string | null
+          id?: string
+          method?: string
+          plan_id?: string
+          provider_billing_type?: string | null
+          state?: string
+          subscription_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asaas_prod_contracts_plan_id_fkey"
+            columns: ["plan_id"]
+            isOneToOne: false
+            referencedRelation: "asaas_prod_plans"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asaas_prod_events: {
+        Row: {
+          attempts: number
+          created_at: string
+          error_code: string | null
+          event_id: string
+          event_type: string
+          resource_id: string
+          resource_kind: string
+          state: string
+        }
+        Insert: {
+          attempts?: number
+          created_at?: string
+          error_code?: string | null
+          event_id: string
+          event_type: string
+          resource_id: string
+          resource_kind: string
+          state?: string
+        }
+        Update: {
+          attempts?: number
+          created_at?: string
+          error_code?: string | null
+          event_id?: string
+          event_type?: string
+          resource_id?: string
+          resource_kind?: string
+          state?: string
+        }
+        Relationships: []
+      }
+      asaas_prod_payments: {
+        Row: {
+          anchor_day: number
+          contract_id: string
+          payment_id: string
+          period_end: string
+          period_start: string
+          status: string
+          value_cents: number
+        }
+        Insert: {
+          anchor_day: number
+          contract_id: string
+          payment_id: string
+          period_end: string
+          period_start: string
+          status: string
+          value_cents: number
+        }
+        Update: {
+          anchor_day?: number
+          contract_id?: string
+          payment_id?: string
+          period_end?: string
+          period_start?: string
+          status?: string
+          value_cents?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "asaas_prod_payments_contract_id_fkey"
+            columns: ["contract_id"]
+            isOneToOne: false
+            referencedRelation: "asaas_prod_contracts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      asaas_prod_plans: {
+        Row: {
+          currency: string
+          cycle: string
+          id: string
+          name: string
+          price_cents: number
+        }
+        Insert: {
+          currency: string
+          cycle: string
+          id: string
+          name: string
+          price_cents: number
+        }
+        Update: {
+          currency?: string
+          cycle?: string
+          id?: string
+          name?: string
+          price_cents?: number
+        }
+        Relationships: []
+      }
+      asaas_prod_settings: {
+        Row: {
+          enabled: boolean
+          singleton: boolean
+          worker_token: string | null
+          worker_until: string | null
+        }
+        Insert: {
+          enabled?: boolean
+          singleton?: boolean
+          worker_token?: string | null
+          worker_until?: string | null
+        }
+        Update: {
+          enabled?: boolean
+          singleton?: boolean
+          worker_token?: string | null
+          worker_until?: string | null
+        }
+        Relationships: []
+      }
+      asaas_prod_testers: {
+        Row: {
+          user_id: string
+        }
+        Insert: {
+          user_id: string
+        }
+        Update: {
+          user_id?: string
+        }
+        Relationships: []
+      }
       beta_access_requests: {
         Row: {
           created_at: string
@@ -704,6 +894,59 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      asaas_prod_apply: {
+        Args: {
+          p_contract: string
+          p_event: string
+          p_ignored?: boolean
+          p_snapshot: Json
+          p_token: string
+        }
+        Returns: undefined
+      }
+      asaas_prod_assert_user: { Args: { p_user: string }; Returns: undefined }
+      asaas_prod_cancel: { Args: { p_user: string }; Returns: undefined }
+      asaas_prod_claim: {
+        Args: { p_method: string; p_user: string }
+        Returns: Json
+      }
+      asaas_prod_creation_uncertain: {
+        Args: { p_id: string; p_token: string }
+        Returns: undefined
+      }
+      asaas_prod_enqueue: {
+        Args: {
+          p_id: string
+          p_kind: string
+          p_resource: string
+          p_type: string
+        }
+        Returns: boolean
+      }
+      asaas_prod_period_end: {
+        Args: { p_anchor: number; p_start: string }
+        Returns: string
+      }
+      asaas_prod_progress: {
+        Args: {
+          p_checkout?: string
+          p_customer: string
+          p_id: string
+          p_subscription?: string
+          p_token: string
+          p_url?: string
+        }
+        Returns: undefined
+      }
+      asaas_prod_project_access: {
+        Args: { p_contract: string }
+        Returns: undefined
+      }
+      asaas_prod_refresh: { Args: { p_token: string }; Returns: undefined }
+      asaas_prod_worker_lease: {
+        Args: { p_release?: boolean; p_token: string }
+        Returns: boolean
+      }
       beta_claim_notification: {
         Args: { p_channel: string; p_request: string }
         Returns: boolean
