@@ -1,6 +1,10 @@
 /** Frontend pilot entrypoint stays absent unless explicitly enabled on the verified live site. */
 export function isProductionPilotRouteEnabled(flag: string | undefined, hostname: string, supabaseUrl: string | undefined) {
-  if (flag !== "true" || hostname !== "finvision2026.lovable.app") return false;
+  // The UI is only discoverable on the official production origin, backed by
+  // the exact live database. Real checkout is restricted to the server-side
+  // asaas_prod_testers allowlist (currently one pilot user), not this flag.
+  // Keep a deployment-time explicit kill switch for emergencies.
+  if (flag === "false" || hostname !== "finvision2026.lovable.app") return false;
   try {
     const url = new URL(supabaseUrl || "");
     return url.origin === "https://onhmpgevkttysbfllhjq.supabase.co";
